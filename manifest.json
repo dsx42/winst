@@ -1,1 +1,268 @@
+{
+  "_manifestVersion": "2026.9.11",
+  "apps": [
+    {
+      "id": "vlmcsd",
+      "name": "vlmcsd",
+      "description": "KMS 模拟服务",
+      "homepage": "https://github.com/Wind4/vlmcsd",
+      "type": "download",
+      "source": {
+        "kind": "github",
+        "repo": "Wind4/vlmcsd",
+        "files": [
+          { "asset": "binaries\\.tar\\.gz$" }
+        ]
+      }
+    },
+    {
+      "id": "Rufus",
+      "name": "Rufus",
+      "description": "USB 启动盘制作工具",
+      "homepage": "https://rufus.ie/",
+      "type": "exe",
+      "source": {
+        "kind": "github",
+        "repo": "pbatard/rufus",
+        "files": [
+          { "asset": "rufus-[0-9]+\\.[0-9]+\\.exe$" }
+        ]
+      },
+      "postInstallCopy": [
+        { "from": "rufus-{version}.exe", "to": "rufus.exe", "move": true }
+      ],
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--help",
+        "versionRegex": "rufus-(?<v>[0-9]+\\.[0-9]+)"
+      }
+    },
+    {
+      "id": "Ventoy",
+      "name": "Ventoy",
+      "description": "多合一可启动 U 盘制作工具",
+      "homepage": "https://www.ventoy.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "ventoy/Ventoy",
+        "files": [
+          { "asset": "ventoy-[0-9.]+-windows\\.zip$" }
+        ]
+      },
+      "stripTopDir": true,
+      "postInstallCopy": [
+        { "from": "altexe\\Ventoy2Disk_X64.exe", "to": "Ventoy2Disk_X64.exe" }
+      ],
+      "mainExe": "Ventoy2Disk_X64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "markerFile",
+        "pathGlob": "{installDir}\\ventoy\\version",
+        "versionRegex": "(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      }
+    },
+    {
+      "id": "Win11",
+      "name": "Windows 11 商业版",
+      "description": "Windows 11 安装镜像（BitTorrent，仅下载）",
+      "type": "download",
+      "source": {
+        "kind": "magnet",
+        "versionRegex": "version_(?<v>[0-9a-z]+)_",
+        "files": [
+          {
+            "url": "magnet:?xt=urn:btih:3c0f010837eebdd7b56af3249d913de82a3ea905&dn=zh-cn_windows_11_business_editions_version_26h1_updated_aug_2026_x64_dvd_c2bc5d06.iso&xl=8403775488",
+            "hash": "204F9D176360C9C6F337C5956BDB713CFD35A0EF93A697C30F395828547408F1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ODT",
+      "name": "Office Deployment Tool",
+      "description": "Office 部署工具",
+      "homepage": "https://www.microsoft.com/en-us/download/details.aspx?id=49117",
+      "type": "download",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.microsoft.com/en-us/download/details.aspx?id=49117",
+        "link": { "class": "dlcdetail__download-btn", "text": "Download" },
+        "urlRegex": "<a[^>]*href=\"(?<url>https://download\\.microsoft\\.com/[^\"]+?)\"",
+        "asset": "\\.exe$",
+        "versionFrom": "page",
+        "versionRegex": "\"version\":\"(?<v>[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)\""
+      }
+    },
+    {
+      "id": "jdk8",
+      "name": "Eclipse Temurin JDK 8",
+      "description": "Java 开发工具包（JDK）8",
+      "homepage": "https://adoptium.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "adoptium/temurin8-binaries",
+        "files": [
+          { "asset": "OpenJDK8U-jdk_x64_windows_hotspot_[0-9ub]+\\.zip$" }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\java.exe",
+      "addToPath": [ "%JAVA_HOME%\\bin" ],
+      "env": {
+        "JAVA_HOME": "{installDir}",
+        "CLASSPATH": ".;%JAVA_HOME%\\lib;"
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\bin\\java.exe"
+      }
+    },
+    {
+      "id": "jdk21",
+      "name": "Eclipse Temurin JDK 21",
+      "description": "Java 开发工具包（JDK）21",
+      "homepage": "https://adoptium.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "adoptium/temurin21-binaries",
+        "files": [
+          { "asset": "OpenJDK21U-jdk_x64_windows_hotspot_[0-9._]+\\.zip$" }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\java.exe",
+      "addToPath": [ "%JAVA_HOME%\\bin" ],
+      "env": {
+        "JAVA_HOME": "{installDir}",
+        "CLASSPATH": ".;%JAVA_HOME%\\lib;"
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\bin\\java.exe"
+      }
+    },
+    {
+      "id": "jdk25",
+      "name": "Eclipse Temurin JDK 25",
+      "description": "Java 开发工具包（JDK）25",
+      "homepage": "https://adoptium.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "adoptium/temurin25-binaries",
+        "files": [
+          { "asset": "OpenJDK25U-jdk_x64_windows_hotspot_[0-9._]+\\.zip$" }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\java.exe",
+      "addToPath": [ "%JAVA_HOME%\\bin" ],
+      "env": {
+        "JAVA_HOME": "{installDir}",
+        "CLASSPATH": ".;%JAVA_HOME%\\lib;"
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\bin\\java.exe"
+      }
+    },
+    {
+      "id": "debian",
+      "name": "Debian Testing amd64 DVD-1",
+      "description": "Debian 安装镜像（每周构建，仅下载）",
+      "homepage": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
+      "type": "download",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
+        "versionRegex": "(?<v>20[0-9]{2}-[0-9]{2}-[0-9]{2})",
+        "files": [
+          {
+            "url": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso",
+            "hashFile": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/SHA256SUMS",
+            "hashRegex": "(?m)^(?<h>[0-9a-fA-F]{64})\\s+\\*?debian-testing-amd64-DVD-1\\.iso\\r?$"
+          }
+        ]
+      }
+    },
+    {
+      "id": "python3",
+      "name": "Python 3",
+      "description": "Python 解释器（官方完整版 zip，安装后引导 pip）",
+      "homepage": "https://www.python.org/",
+      "type": "portable",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://www.python.org/ftp/python/",
+        "versionRegex": ">(?<v>3\\.[0-9]+\\.[0-9]+)/",
+        "include": "^3\\.",
+        "files": [
+          { "url": "https://www.python.org/ftp/python/{version}/python-{version}-amd64.zip" }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "python.exe",
+      "addToPath": [ "%PYTHON_HOME%", "%PYTHON_HOME%\\Scripts" ],
+      "env": { "PYTHON_HOME": "{installDir}" },
+      "postInstall": [
+        { "exe": "python.exe", "args": "-m pip install --upgrade --force-reinstall pip", "timeoutSec": 600 }
+      ],
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\python.exe"
+      }
+    },
+    {
+      "id": "node24",
+      "name": "Node.js 24",
+      "description": "Node.js 运行时（含 npm）",
+      "homepage": "https://nodejs.org/",
+      "type": "portable",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://nodejs.org/dist/latest-v24.x/",
+        "versionRegex": "node-v(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)-win-x64\\.zip",
+        "files": [
+          { "url": "https://nodejs.org/dist/latest-v24.x/node-v{version}-win-x64.zip" }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "node.exe",
+      "addToPath": [ "%NODE_HOME%" ],
+      "env": { "NODE_HOME": "{installDir}" },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-v",
+        "versionRegex": "(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      }
+    },
+    {
+      "id": "Graphviz",
+      "name": "Graphviz",
+      "description": "图形可视化工具（dot / gvedit）",
+      "homepage": "https://graphviz.org/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.graphviz.org/download/",
+        "link": { "text": "(64-bit) ZIP archive" },
+        "urlRegex": "href=\"(?<url>https://gitlab\\.com/api/v4/projects/4207231/packages/generic/graphviz-releases/[^\"]+?-win64\\.zip)\"",
+        "asset": "-win64\\.zip$",
+        "versionRegex": "graphviz-releases/(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)/"
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\dot.exe",
+      "addToPath": [ "{installDir}\\bin" ],
+      "env": { "GRAPHVIZ_DOT": "{installDir}\\bin\\dot.exe" },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\bin\\dot.exe"
+      }
+    }
+  ]
+}
 
