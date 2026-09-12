@@ -1,6 +1,109 @@
 {
-  "_manifestVersion": "2026.9.11",
+  "_manifestVersion": "2026.9.12",
   "apps": [
+    {
+      "id": "winst",
+      "name": "winst",
+      "description": "Windows 软件安装与管理",
+      "homepage": "https://github.com/dsx42/winst",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "dsx42/winst",
+        "files": [
+          "winst.ps1"
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "winst.ps1",
+      "addToPath": true,
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-v",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "7z-extra",
+      "name": "7-Zip Extra",
+      "description": "解压引擎（winst 解压软件包时使用；命令行版，无需安装、不写系统项）",
+      "homepage": "https://www.7-zip.org/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "ip7z/7zip",
+        "files": [
+          { "file": "7z*-extra.7z" }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "x64\\7za.exe",
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--help",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "FluxDown-CLI",
+      "name": "FluxDown CLI",
+      "description": "下载引擎（winst 下载软件包时使用；命令行版，无需安装、不写系统项）",
+      "homepage": "https://fluxdown.zerx.dev/docs/zh/api/cli/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "zerx-lab/FluxDown",
+        "releaseTag": "cli-v",
+        "files": [
+          "FluxDown-CLI-{version}-windows-x64.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "fluxdown.exe",
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "7zip",
+      "name": "7-Zip",
+      "description": "7-Zip 完整安装版",
+      "homepage": "https://www.7-zip.org/",
+      "type": "installer",
+      "source": {
+        "kind": "github",
+        "repo": "ip7z/7zip",
+        "files": [
+          { "file": "7z*-x64.exe" }
+        ]
+      },
+      "installArgs": "/S",
+      "uninstallArgs": "/S",
+      "detect": {
+        "method": "registry",
+        "name": "*7-Zip*"
+      }
+    },
+    {
+      "id": "FluxDown",
+      "name": "FluxDown",
+      "description": "FluxDown 图形界面版",
+      "homepage": "https://github.com/zerx-lab/FluxDown",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "zerx-lab/FluxDown",
+        "releaseTag": "v",
+        "files": [
+          "FluxDown-{version}-windows-x64-portable.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "flux_down.exe",
+      "shortcuts": { "desktop": true, "startMenu": true }
+    },
     {
       "id": "vlmcsd",
       "name": "vlmcsd",
@@ -11,7 +114,7 @@
         "kind": "github",
         "repo": "Wind4/vlmcsd",
         "files": [
-          { "asset": "binaries\\.tar\\.gz$" }
+          "binaries.tar.gz"
         ]
       }
     },
@@ -25,7 +128,7 @@
         "kind": "github",
         "repo": "pbatard/rufus",
         "files": [
-          { "asset": "rufus-[0-9]+\\.[0-9]+\\.exe$" }
+          "rufus-{version}.exe"
         ]
       },
       "postInstallCopy": [
@@ -35,7 +138,7 @@
       "detect": {
         "method": "cliVersion",
         "versionArgs": "--help",
-        "versionRegex": "rufus-(?<v>[0-9]+\\.[0-9]+)"
+        "versionKind": "semver"
       }
     },
     {
@@ -48,7 +151,7 @@
         "kind": "github",
         "repo": "ventoy/Ventoy",
         "files": [
-          { "asset": "ventoy-[0-9.]+-windows\\.zip$" }
+          "ventoy-{version}-windows.zip"
         ]
       },
       "stripTopDir": true,
@@ -60,7 +163,7 @@
       "detect": {
         "method": "markerFile",
         "pathGlob": "{installDir}\\ventoy\\version",
-        "versionRegex": "(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)"
+        "versionKind": "semver"
       }
     },
     {
@@ -70,7 +173,7 @@
       "type": "download",
       "source": {
         "kind": "magnet",
-        "versionRegex": "version_(?<v>[0-9a-z]+)_",
+        "versionBetween": [ "version_", "_" ],
         "files": [
           {
             "url": "magnet:?xt=urn:btih:3c0f010837eebdd7b56af3249d913de82a3ea905&dn=zh-cn_windows_11_business_editions_version_26h1_updated_aug_2026_x64_dvd_c2bc5d06.iso&xl=8403775488",
@@ -89,10 +192,10 @@
         "kind": "page",
         "pageUrl": "https://www.microsoft.com/en-us/download/details.aspx?id=49117",
         "link": { "class": "dlcdetail__download-btn", "text": "Download" },
-        "urlRegex": "<a[^>]*href=\"(?<url>https://download\\.microsoft\\.com/[^\"]+?)\"",
-        "asset": "\\.exe$",
-        "versionFrom": "page",
-        "versionRegex": "\"version\":\"(?<v>[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)\""
+        "files": [
+          { "file": "*.exe" }
+        ],
+        "versionKey": "version"
       }
     },
     {
@@ -105,7 +208,7 @@
         "kind": "github",
         "repo": "adoptium/temurin8-binaries",
         "files": [
-          { "asset": "OpenJDK8U-jdk_x64_windows_hotspot_[0-9ub]+\\.zip$" }
+          { "file": "OpenJDK8U-jdk_x64_windows_hotspot_*.zip" }
         ]
       },
       "stripTopDir": true,
@@ -116,8 +219,9 @@
         "CLASSPATH": ".;%JAVA_HOME%\\lib;"
       },
       "detect": {
-        "method": "fileVersion",
-        "pathGlob": "{installDir}\\bin\\java.exe"
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "(build ", ")" ]
       }
     },
     {
@@ -130,7 +234,7 @@
         "kind": "github",
         "repo": "adoptium/temurin21-binaries",
         "files": [
-          { "asset": "OpenJDK21U-jdk_x64_windows_hotspot_[0-9._]+\\.zip$" }
+          { "file": "OpenJDK21U-jdk_x64_windows_hotspot_*.zip" }
         ]
       },
       "stripTopDir": true,
@@ -141,8 +245,9 @@
         "CLASSPATH": ".;%JAVA_HOME%\\lib;"
       },
       "detect": {
-        "method": "fileVersion",
-        "pathGlob": "{installDir}\\bin\\java.exe"
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "Temurin-", " " ]
       }
     },
     {
@@ -155,7 +260,7 @@
         "kind": "github",
         "repo": "adoptium/temurin25-binaries",
         "files": [
-          { "asset": "OpenJDK25U-jdk_x64_windows_hotspot_[0-9._]+\\.zip$" }
+          { "file": "OpenJDK25U-jdk_x64_windows_hotspot_*.zip" }
         ]
       },
       "stripTopDir": true,
@@ -166,8 +271,9 @@
         "CLASSPATH": ".;%JAVA_HOME%\\lib;"
       },
       "detect": {
-        "method": "fileVersion",
-        "pathGlob": "{installDir}\\bin\\java.exe"
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "Temurin-", " " ]
       }
     },
     {
@@ -179,12 +285,12 @@
       "source": {
         "kind": "listing",
         "indexUrl": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
-        "versionRegex": "(?<v>20[0-9]{2}-[0-9]{2}-[0-9]{2})",
+        "versionKind": "date",
         "files": [
           {
             "url": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso",
             "hashFile": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/SHA256SUMS",
-            "hashRegex": "(?m)^(?<h>[0-9a-fA-F]{64})\\s+\\*?debian-testing-amd64-DVD-1\\.iso\\r?$"
+            "hashFrom": "sha256sums"
           }
         ]
       }
@@ -198,10 +304,10 @@
       "source": {
         "kind": "listing",
         "indexUrl": "https://www.python.org/ftp/python/",
-        "versionRegex": ">(?<v>3\\.[0-9]+\\.[0-9]+)/",
-        "include": "^3\\.",
+        "versionKind": "semver",
+        "versionFilter": "3.*",
         "files": [
-          { "url": "https://www.python.org/ftp/python/{version}/python-{version}-amd64.zip" }
+          "https://www.python.org/ftp/python/{version}/python-{version}-amd64.zip"
         ]
       },
       "stripTopDir": false,
@@ -225,9 +331,10 @@
       "source": {
         "kind": "listing",
         "indexUrl": "https://nodejs.org/dist/latest-v24.x/",
-        "versionRegex": "node-v(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)-win-x64\\.zip",
+        "versionKind": "semver",
+        "versionFilter": "24.*",
         "files": [
-          { "url": "https://nodejs.org/dist/latest-v24.x/node-v{version}-win-x64.zip" }
+          "https://nodejs.org/dist/latest-v24.x/node-v{version}-win-x64.zip"
         ]
       },
       "stripTopDir": true,
@@ -237,7 +344,7 @@
       "detect": {
         "method": "cliVersion",
         "versionArgs": "-v",
-        "versionRegex": "(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)"
+        "versionKind": "semver"
       }
     },
     {
@@ -249,10 +356,14 @@
       "source": {
         "kind": "page",
         "pageUrl": "https://www.graphviz.org/download/",
-        "link": { "text": "(64-bit) ZIP archive" },
-        "urlRegex": "href=\"(?<url>https://gitlab\\.com/api/v4/projects/4207231/packages/generic/graphviz-releases/[^\"]+?-win64\\.zip)\"",
-        "asset": "-win64\\.zip$",
-        "versionRegex": "graphviz-releases/(?<v>[0-9]+\\.[0-9]+\\.[0-9]+)/"
+        "link": {
+          "text": "(64-bit) ZIP archive",
+          "href": "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/*"
+        },
+        "files": [
+          { "file": "*-win64.zip" }
+        ],
+        "versionKind": "semver"
       },
       "stripTopDir": true,
       "mainExe": "bin\\dot.exe",
@@ -265,4 +376,3 @@
     }
   ]
 }
-
