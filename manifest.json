@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "7z-extra",
+      "id": "7-Zip-Extra",
       "name": "7-Zip Extra",
       "description": "解压引擎（winst 解压软件包时使用；命令行版，无需安装、不写系统项）",
       "homepage": "https://www.7-zip.org/",
@@ -55,19 +55,18 @@
         "repo": "zerx-lab/FluxDown",
         "releaseTag": "cli-v",
         "files": [
-          "FluxDown-CLI-{version}-windows-x64.zip"
+          {
+            "url": "FluxDown-CLI-{version}-windows-x64.zip",
+            "hashFile": "https://github.com/zerx-lab/FluxDown/releases/download/cli-v{version}/SHA256SUMS.txt",
+            "hashFrom": "sha256sums"
+          }
         ]
       },
       "stripTopDir": true,
-      "mainExe": "fluxdown.exe",
-      "detect": {
-        "method": "cliVersion",
-        "versionArgs": "--version",
-        "versionKind": "semver"
-      }
+      "mainExe": "fluxdown.exe"
     },
     {
-      "id": "7zip",
+      "id": "7-Zip",
       "name": "7-Zip",
       "description": "7-Zip 完整安装版",
       "homepage": "https://www.7-zip.org/",
@@ -97,7 +96,11 @@
         "repo": "zerx-lab/FluxDown",
         "releaseTag": "v",
         "files": [
-          "FluxDown-{version}-windows-x64-portable.zip"
+          {
+            "url": "FluxDown-{version}-windows-x64-portable.zip",
+            "hashFile": "https://github.com/zerx-lab/FluxDown/releases/download/v{version}/SHA256SUMS.txt",
+            "hashFrom": "sha256sums"
+          }
         ]
       },
       "stripTopDir": true,
