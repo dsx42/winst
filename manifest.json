@@ -1,5 +1,5 @@
 {
-  "_manifestVersion": "2026.9.12",
+  "_manifestVersion": "2026.9.16",
   "apps": [
     {
       "id": "winst",
@@ -104,6 +104,7 @@
         ]
       },
       "stripTopDir": true,
+      "keep": [ "portable_data" ],
       "mainExe": "flux_down.exe",
       "shortcuts": { "desktop": true, "startMenu": true }
     },
@@ -137,7 +138,7 @@
       "postInstallCopy": [
         { "from": "rufus-{version}.exe", "to": "rufus.exe", "move": true }
       ],
-      "shortcuts": { "desktop": true, "startMenu": true },
+      "shortcuts": { "desktop": false, "startMenu": true },
       "detect": {
         "method": "cliVersion",
         "versionArgs": "--help",
@@ -145,7 +146,7 @@
       }
     },
     {
-      "id": "Ventoy",
+      "id": "ventoy",
       "name": "Ventoy",
       "description": "多合一可启动 U 盘制作工具",
       "homepage": "https://www.ventoy.net/",
@@ -162,7 +163,7 @@
         { "from": "altexe\\Ventoy2Disk_X64.exe", "to": "Ventoy2Disk_X64.exe" }
       ],
       "mainExe": "Ventoy2Disk_X64.exe",
-      "shortcuts": { "desktop": true, "startMenu": true },
+      "shortcuts": { "desktop": false, "startMenu": true },
       "detect": {
         "method": "markerFile",
         "pathGlob": "{installDir}\\ventoy\\version",
@@ -176,7 +177,7 @@
       "type": "download",
       "source": {
         "kind": "magnet",
-        "versionBetween": [ "version_", "_" ],
+        "versionBetween": [ "version_", "_x64" ],
         "files": [
           {
             "url": "magnet:?xt=urn:btih:3c0f010837eebdd7b56af3249d913de82a3ea905&dn=zh-cn_windows_11_business_editions_version_26h1_updated_aug_2026_x64_dvd_c2bc5d06.iso&xl=8403775488",
@@ -214,6 +215,7 @@
           { "file": "OpenJDK8U-jdk_x64_windows_hotspot_*.zip" }
         ]
       },
+      "versionRewrite": { "from": "jdk8u{u}-b{b}", "to": "1.8.0_{u}-b{b}" },
       "stripTopDir": true,
       "mainExe": "bin\\java.exe",
       "addToPath": [ "%JAVA_HOME%\\bin" ],
@@ -240,6 +242,7 @@
           { "file": "OpenJDK21U-jdk_x64_windows_hotspot_*.zip" }
         ]
       },
+      "versionRewrite": { "stripPrefix": "jdk-" },
       "stripTopDir": true,
       "mainExe": "bin\\java.exe",
       "addToPath": [ "%JAVA_HOME%\\bin" ],
@@ -266,6 +269,7 @@
           { "file": "OpenJDK25U-jdk_x64_windows_hotspot_*.zip" }
         ]
       },
+      "versionRewrite": { "stripPrefix": "jdk-" },
       "stripTopDir": true,
       "mainExe": "bin\\java.exe",
       "addToPath": [ "%JAVA_HOME%\\bin" ],
@@ -277,25 +281,6 @@
         "method": "cliVersion",
         "versionArgs": "-version",
         "versionBetween": [ "Temurin-", " " ]
-      }
-    },
-    {
-      "id": "debian",
-      "name": "Debian Testing amd64 DVD-1",
-      "description": "Debian 安装镜像（每周构建，仅下载）",
-      "homepage": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
-      "type": "download",
-      "source": {
-        "kind": "listing",
-        "indexUrl": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
-        "versionKind": "date",
-        "files": [
-          {
-            "url": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso",
-            "hashFile": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/SHA256SUMS",
-            "hashFrom": "sha256sums"
-          }
-        ]
       }
     },
     {
@@ -321,8 +306,9 @@
         { "exe": "python.exe", "args": "-m pip install --upgrade --force-reinstall pip", "timeoutSec": 600 }
       ],
       "detect": {
-        "method": "fileVersion",
-        "pathGlob": "{installDir}\\python.exe"
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "Python ", " " ]
       }
     },
     {
@@ -373,8 +359,159 @@
       "addToPath": [ "{installDir}\\bin" ],
       "env": { "GRAPHVIZ_DOT": "{installDir}\\bin\\dot.exe" },
       "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "PlantUML",
+      "name": "PlantUML",
+      "description": "UML 图绘制工具（jar 包，需 JDK；用 java -jar plantuml.jar 调用）",
+      "homepage": "https://plantuml.com/",
+      "type": "exe",
+      "source": {
+        "kind": "github",
+        "repo": "plantuml/plantuml",
+        "files": [
+          "plantuml-{version}.jar"
+        ]
+      },
+      "postInstallCopy": [
+        { "from": "plantuml-{version}.jar", "to": "plantuml.jar", "move": true }
+      ],
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionBetween": [ "PlantUML version ", " " ]
+      }
+    },
+    {
+      "id": "idea",
+      "name": "IntelliJ IDEA Ultimate",
+      "description": "Java IDE（官方 Windows x64 ZIP 绿色版；附 Alabaster 主题）",
+      "homepage": "https://www.jetbrains.com/idea/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://data.services.jetbrains.com/products/releases?code=IIU&latest=true&type=release",
+        "itemsKey": "IIU",
+        "versionKey": "version",
+        "files": [
+          {
+            "file": "*.win.zip",
+            "urlKey": "downloads.windowsZip.link",
+            "hashFileKey": "downloads.windowsZip.checksumLink"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/tonsky/intellij-alabaster/master/Alabaster.icls",
+            "dest": "colors\\Alabaster.icls"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/tonsky/intellij-alabaster/master/Alabaster%20Dark.icls",
+            "dest": "colors\\Alabaster Dark.icls"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "bin\\idea64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "jsonFile",
+        "pathGlob": "{installDir}\\product-info.json",
+        "jsonKey": "version"
+      }
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "description": "代码编辑器（官方 Windows x64 绿色版 zip）",
+      "homepage": "https://code.visualstudio.com/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://code.visualstudio.com/sha/",
+        "itemsKey": "products",
+        "versionKey": "productVersion",
+        "files": [
+          {
+            "file": "VSCode-win32-x64-*.zip",
+            "urlKey": "url",
+            "hashKey": "sha256hash"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "Code.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
         "method": "fileVersion",
-        "pathGlob": "{installDir}\\bin\\dot.exe"
+        "pathGlob": "{installDir}\\Code.exe"
+      }
+    },
+    {
+      "id": "Notepad3",
+      "name": "Notepad3",
+      "description": "轻量文本编辑器（便携版）",
+      "homepage": "https://www.rizonesoft.com/downloads/notepad3/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "rizonesoft/Notepad3",
+        "files": [
+          { "file": "Notepad3_*_x64_Portable.zip" }
+        ]
+      },
+      "versionRewrite": { "stripPrefix": "RELEASE_" },
+      "stripTopDir": false,
+      "mainExe": "Notepad3.exe",
+      "shortcuts": { "desktop": false, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\Notepad3.exe"
+      }
+    },
+    {
+      "id": "MemoryAnalyzer",
+      "name": "Eclipse Memory Analyzer",
+      "description": "Java 堆转储（heap dump）分析工具（RCP 绿色版，需 JDK 21+）",
+      "homepage": "https://eclipse.dev/mat/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://eclipse.dev/mat/download/",
+        "link": { "text": "Windows (x86_64)" },
+        "files": [
+          { "file": "*.zip", "name": "MemoryAnalyzer-{version}.zip" }
+        ],
+        "versionFrom": "page",
+        "versionBetween": [ "Version:</strong> ", " " ]
+      },
+      "stripTopDir": true,
+      "mainExe": "MemoryAnalyzer.exe",
+      "shortcuts": { "desktop": false, "startMenu": true },
+      "detect": { "method": "none" }
+    },
+    {
+      "id": "opencode",
+      "name": "opencode",
+      "description": "终端里的 AI 编程助手（命令行）",
+      "homepage": "https://github.com/anomalyco/opencode",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "anomalyco/opencode",
+        "files": [
+          "opencode-windows-x64.zip"
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "opencode.exe",
+      "addToPath": true,
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
       }
     }
   ]
