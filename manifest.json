@@ -1,48 +1,55 @@
 {
-  "_manifestVersion": "2026.9.18",
+  "_manifestVersion": "2026.10.24",
   "apps": [
     {
       "id": "winst",
       "name": "winst",
       "description": "Windows 软件安装与管理",
-      "dependencies": [ "7-Zip-Extra", "FluxDown-CLI" ],
+      "dependencies": [ "7-Zip-CLI", "FluxDown-CLI" ],
       "homepage": "https://github.com/dsx42/winst",
       "type": "portable",
       "source": {
         "kind": "github",
         "repo": "dsx42/winst",
         "files": [
-          "winst.ps1"
+          {
+            "url": "winst.zip",
+            "hashFile": "https://github.com/dsx42/winst/releases/download/v{version}/winst.zip.sha512",
+            "hashFrom": "sha512sums"
+          }
         ]
       },
-      "stripTopDir": false,
-      "mainExe": "winst.ps1",
-      "addToPath": true,
+      "mainExe": "winst.cmd",
+      "portableMode": "clean",
+      "keep": [ "lists/", "*.list" ],
+      "shortcuts": { "desktop": true, "startMenu": true },
       "detect": {
         "method": "cliVersion",
+        "exe": "winst.cmd",
         "versionArgs": "-v",
         "versionKind": "semver"
       }
     },
     {
-      "id": "7-Zip-Extra",
-      "name": "7-Zip Extra",
-      "description": "解压引擎（winst 解压软件包时使用；命令行版，无需安装、不写系统项）",
-      "group": "7-Zip",
+      "id": "7-Zip-CLI",
+      "name": "7-Zip CLI",
+      "description": "解压引擎（从7-Zip 完整安装版提取，不含图形界面，无需安装、不写系统项）",
+      "group": "解压缩",
       "homepage": "https://www.7-zip.org/",
       "type": "portable",
       "source": {
         "kind": "github",
         "repo": "ip7z/7zip",
         "files": [
-          { "file": "7z*-extra.7z" }
+          { "file": "7z*-x64.exe" }
         ]
       },
       "stripTopDir": false,
-      "mainExe": "x64\\7za.exe",
+      "extractFiles": [ "7z.exe", "7z.dll" ],
+      "mainExe": "7z.exe",
       "detect": {
         "method": "cliVersion",
-        "versionArgs": "--help",
+        "versionArgs": "-h",
         "versionKind": "semver"
       }
     },
@@ -50,23 +57,1671 @@
       "id": "FluxDown-CLI",
       "name": "FluxDown CLI",
       "description": "下载引擎（winst 下载软件包时使用；命令行版，无需安装、不写系统项）",
-      "group": "FluxDown",
+      "group": "下载",
       "homepage": "https://fluxdown.zerx.dev/docs/zh/api/cli/",
       "type": "portable",
       "source": {
         "kind": "github",
         "repo": "zerx-lab/FluxDown",
-        "releaseTag": "cli-v",
         "files": [
           {
             "url": "FluxDown-CLI-{version}-windows-x64.zip",
-            "hashFile": "https://github.com/zerx-lab/FluxDown/releases/download/cli-v{version}/SHA256SUMS.txt",
+            "hashFile": "https://github.com/zerx-lab/FluxDown/releases/download/v{version}/SHA256SUMS.txt",
             "hashFrom": "sha256sums"
           }
         ]
       },
       "stripTopDir": true,
-      "mainExe": "fluxdown.exe"
+      "mainExe": "fluxdown.exe",
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "7-Zip",
+      "name": "7-Zip",
+      "description": "7-Zip 完整安装版",
+      "group": "解压缩",
+      "homepage": "https://www.7-zip.org/",
+      "type": "installer",
+      "source": {
+        "kind": "github",
+        "repo": "ip7z/7zip",
+        "files": [
+          { "file": "7z*-x64.exe" }
+        ]
+      },
+      "installArgs": "/S",
+      "uninstallArgs": "/S",
+      "processes": ["7zFM.exe", "7zG.exe"],
+      "detect": {
+        "method": "registry",
+        "name": "*7-Zip*"
+      }
+    },
+    {
+      "id": "FluxDown",
+      "name": "FluxDown",
+      "description": "FluxDown 图形界面版",
+      "group": "下载",
+      "homepage": "https://github.com/zerx-lab/FluxDown",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "zerx-lab/FluxDown",
+        "files": [
+          {
+            "url": "FluxDown-{version}-windows-x64-portable.zip",
+            "hashFile": "https://github.com/zerx-lab/FluxDown/releases/download/v{version}/SHA256SUMS.txt",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "keep": [ "portable_data" ],
+      "mainExe": "fluxdown-desktop.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "cliVersion",
+        "exe": "fluxdown_nmh.exe",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "vlmcsd",
+      "name": "vlmcsd",
+      "description": "KMS 模拟服务",
+      "group": "激活工具",
+      "homepage": "https://github.com/Wind4/vlmcsd",
+      "type": "download",
+      "source": {
+        "kind": "github",
+        "repo": "Wind4/vlmcsd",
+        "files": [
+          "binaries.tar.gz"
+        ]
+      }
+    },
+    {
+      "id": "Rufus",
+      "name": "Rufus",
+      "description": "USB 启动盘制作工具",
+      "group": "启动盘制作",
+      "homepage": "https://rufus.ie/",
+      "type": "file",
+      "source": {
+        "kind": "github",
+        "repo": "pbatard/rufus",
+        "files": [
+          "rufus-{version}.exe"
+        ]
+      },
+      "postInstallCopy": [
+        { "from": "rufus-{version}.exe", "to": "rufus.exe", "move": true }
+      ],
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\rufus.exe",
+        "versionKind": "semver",
+        "versionRewrite": { "from": "{a}.{b}.{c}", "to": "{a}.{b}" }
+      }
+    },
+    {
+      "id": "ventoy",
+      "name": "Ventoy",
+      "description": "多合一可启动 U 盘制作工具",
+      "group": "启动盘制作",
+      "homepage": "https://www.ventoy.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "ventoy/Ventoy",
+        "files": [
+          {
+            "url": "ventoy-{version}-windows.zip",
+            "hashFile": "https://github.com/ventoy/Ventoy/releases/download/v{version}/sha256.txt",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "postInstallCopy": [
+        { "from": "altexe\\Ventoy2Disk_X64.exe", "to": "Ventoy2Disk_X64.exe" }
+      ],
+      "mainExe": "Ventoy2Disk_X64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "markerFile",
+        "pathGlob": "{installDir}\\ventoy\\version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "Win11",
+      "name": "Windows 11 商业版",
+      "description": "Windows 11 安装镜像（来源 NTriver，Business 简体中文 x64 镜像）",
+      "group": "系统镜像",
+      "homepage": "https://ntriver.org/download-windows-11",
+      "type": "download",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://ntriver.org/download-windows-11",
+        "link": { "href": "https://ntriver.org/drive?zh-cn_windows_11_business*_x64_*.iso" },
+        "thenClick": [ { "class": "download-button" } ],
+        "versionBetween": [ "version_", "_x64" ],
+        "files": [
+          {
+            "file": "*.iso",
+            "hashFrom": "page"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ODT",
+      "name": "Office Deployment Tool",
+      "description": "Office 部署工具",
+      "homepage": "https://www.microsoft.com/en-us/download/details.aspx?id=49117",
+      "type": "download",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.microsoft.com/en-us/download/details.aspx?id=49117",
+        "link": { "class": "dlcdetail__download-btn", "text": "Download" },
+        "files": [
+          { "file": "*.exe" }
+        ],
+        "versionKey": "version"
+      }
+    },
+    {
+      "id": "jdk8",
+      "name": "Eclipse Temurin JDK 8",
+      "description": "Java 开发工具包（JDK）8",
+      "group": "JDK",
+      "homepage": "https://adoptium.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "adoptium/temurin8-binaries",
+        "files": [
+          { "file": "OpenJDK8U-jdk_x64_windows_hotspot_*.zip" }
+        ],
+        "versionRewrite": { "from": "jdk8u{u}-b{b}", "to": "1.8.0_{u}-b{b}" }
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\java.exe",
+      "addToPath": [ "%JAVA_HOME%\\bin" ],
+      "env": {
+        "JAVA_HOME": "{installDir}",
+        "CLASSPATH": ".;%JAVA_HOME%\\lib;"
+      },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "(build ", ")" ]
+      }
+    },
+    {
+      "id": "jdk21",
+      "name": "Eclipse Temurin JDK 21",
+      "description": "Java 开发工具包（JDK）21",
+      "group": "JDK",
+      "homepage": "https://adoptium.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "adoptium/temurin21-binaries",
+        "files": [
+          { "file": "OpenJDK21U-jdk_x64_windows_hotspot_*.zip" }
+        ],
+        "versionRewrite": { "stripPrefix": "jdk-" }
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\java.exe",
+      "addToPath": [ "%JAVA_HOME%\\bin" ],
+      "env": {
+        "JAVA_HOME": "{installDir}",
+        "CLASSPATH": ".;%JAVA_HOME%\\lib;"
+      },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "Temurin-", " " ]
+      }
+    },
+    {
+      "id": "jdk25",
+      "name": "Eclipse Temurin JDK 25",
+      "description": "Java 开发工具包（JDK）25",
+      "group": "JDK",
+      "homepage": "https://adoptium.net/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "adoptium/temurin25-binaries",
+        "files": [
+          { "file": "OpenJDK25U-jdk_x64_windows_hotspot_*.zip" }
+        ],
+        "versionRewrite": { "stripPrefix": "jdk-" }
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\java.exe",
+      "addToPath": [ "%JAVA_HOME%\\bin" ],
+      "env": {
+        "JAVA_HOME": "{installDir}",
+        "CLASSPATH": ".;%JAVA_HOME%\\lib;"
+      },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "Temurin-", " " ]
+      }
+    },
+    {
+      "id": "python3",
+      "name": "Python 3",
+      "description": "Python 解释器（官方完整版 zip，安装后引导 pip）",
+      "homepage": "https://www.python.org/",
+      "type": "portable",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://www.python.org/ftp/python/",
+        "versionKind": "semver",
+        "versionFilter": "3.*",
+        "files": [
+          "https://www.python.org/ftp/python/{version}/python-{version}-amd64.zip"
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "python.exe",
+      "addToPath": [ "%PYTHON_HOME%", "%PYTHON_HOME%\\Scripts" ],
+      "env": { "PYTHON_HOME": "{installDir}" },
+      "postInstall": [
+        { "exe": "python.exe", "args": "-m pip install --upgrade --force-reinstall pip", "timeoutSec": 600 }
+      ],
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-version",
+        "versionBetween": [ "Python ", " " ]
+      }
+    },
+    {
+      "id": "node24",
+      "name": "Node.js 24",
+      "description": "Node.js 运行时（含 npm）",
+      "homepage": "https://nodejs.org/",
+      "type": "portable",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://nodejs.org/dist/latest-v24.x/",
+        "versionKind": "semver",
+        "versionFilter": "24.*",
+        "files": [
+          {
+            "url": "https://nodejs.org/dist/latest-v24.x/node-v{version}-win-x64.zip",
+            "hashFile": "https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "node.exe",
+      "addToPath": [ "%NODE_HOME%" ],
+      "env": { "NODE_HOME": "{installDir}" },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "-v",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "Graphviz",
+      "name": "Graphviz",
+      "description": "图形可视化工具（dot / gvedit）",
+      "homepage": "https://graphviz.org/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.graphviz.org/download/",
+        "link": {
+          "text": "(64-bit) ZIP archive",
+          "href": "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/*"
+        },
+        "files": [
+          {
+            "file": "*-win64.zip",
+            "hashFile": "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/{version}/windows_10_cmake_Release_Graphviz-{version}-win64.zip.sha256",
+            "hashFrom": "sha256sums"
+          }
+        ],
+        "versionKind": "semver"
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\dot.exe",
+      "addToPath": [ "{installDir}\\bin" ],
+      "env": { "GRAPHVIZ_DOT": "{installDir}\\bin\\dot.exe" },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "PlantUML",
+      "name": "PlantUML",
+      "description": "UML 图绘制工具（jar 包，需 JDK；用 java -jar plantuml.jar 调用）",
+      "dependencies": [ "jdk25" ],
+      "homepage": "https://plantuml.com/",
+      "type": "file",
+      "source": {
+        "kind": "github",
+        "repo": "plantuml/plantuml",
+        "files": [
+          "plantuml-{version}.jar"
+        ]
+      },
+      "postInstallCopy": [
+        { "from": "plantuml-{version}.jar", "to": "plantuml.jar", "move": true }
+      ],
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionBetween": [ "PlantUML version ", " " ]
+      }
+    },
+    {
+      "id": "idea",
+      "name": "IntelliJ IDEA",
+      "description": "Java IDE（官方 Windows x64 ZIP 绿色版；附 Alabaster 主题）",
+      "dependencies": [ "jdk25" ],
+      "group": "IDE",
+      "homepage": "https://www.jetbrains.com/idea/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://data.services.jetbrains.com/products/releases?code=IIU&latest=true&type=release",
+        "itemsKey": "IIU",
+        "versionKey": "version",
+        "files": [
+          {
+            "file": "*.win.zip",
+            "urlKey": "downloads.windowsZip.link",
+            "hashFileKey": "downloads.windowsZip.checksumLink"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/tonsky/intellij-alabaster/master/Alabaster.icls",
+            "dest": "colors\\Alabaster.icls"
+          },
+          {
+            "url": "https://raw.githubusercontent.com/tonsky/intellij-alabaster/master/Alabaster%20Dark.icls",
+            "dest": "colors\\Alabaster Dark.icls"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "bin\\idea64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "jsonFile",
+        "pathGlob": "{installDir}\\product-info.json",
+        "jsonKey": "version"
+      }
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "description": "代码编辑器",
+      "group": "IDE",
+      "homepage": "https://code.visualstudio.com/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://code.visualstudio.com/sha/",
+        "itemsKey": "products",
+        "versionKey": "productVersion",
+        "files": [
+          {
+            "file": "VSCode-win32-x64-*.zip",
+            "urlKey": "url",
+            "hashKey": "sha256hash"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "Code.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\Code.exe"
+      }
+    },
+    {
+      "id": "Notepad3",
+      "name": "Notepad3",
+      "description": "轻量文本编辑器",
+      "group": "IDE",
+      "homepage": "https://www.rizonesoft.com/downloads/notepad3/",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "rizonesoft/Notepad3",
+        "files": [
+          { "file": "Notepad3_*_x64_Portable.zip" }
+        ],
+        "versionRewrite": { "stripPrefix": "RELEASE_" }
+      },
+      "stripTopDir": false,
+      "mainExe": "Notepad3.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\Notepad3.exe"
+      }
+    },
+    {
+      "id": "MemoryAnalyzer",
+      "name": "Eclipse Memory Analyzer",
+      "description": "Java 堆转储（heap dump）分析工具",
+      "dependencies": [ "jdk25" ],
+      "group": "IDE",
+      "homepage": "https://eclipse.dev/mat/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://eclipse.dev/mat/download/",
+        "link": { "text": "Windows (x86_64)" },
+        "thenLink": { "link": { "text": "Direct link to file" } },
+        "files": [
+          {
+            "file": "*.zip",
+            "name": "MemoryAnalyzer-{version}.zip",
+            "hashFile": "https://www.eclipse.org/downloads/sums.php?file={urlQuery:file}&type=sha512",
+            "hashFrom": "sha512"
+          }
+        ],
+        "versionFrom": "page",
+        "versionBetween": [ "Version:</strong> ", " " ],
+        "versionRewrite": { "from": "{a}.{b}.{c}.{d}", "to": "{a}.{b}.{c}" }
+      },
+      "stripTopDir": true,
+      "mainExe": "MemoryAnalyzer.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "markerFile",
+        "pathGlob": "{installDir}\\.eclipseproduct",
+        "versionBetween": [ "version=", "\n" ]
+      }
+    },
+    {
+      "id": "opencode-cli",
+      "name": "OpenCode CLI",
+      "description": "终端里的 AI 编程助手（命令行）",
+      "group": "AI Agent",
+      "homepage": "https://opencode.ai/v2/docs",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://opencode.ai/update/api/latest/cli/",
+        "itemsKey": "artifacts",
+        "versionKey": "version",
+        "files": [
+          {
+            "urlKey": "metadata.files.'opencode-windows-x64.zip'.url",
+            "hashKey": "metadata.files.'opencode-windows-x64.zip'.sha256",
+            "match": { "distribution": "opencode" }
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "opencode.exe",
+      "addToPath": true,
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "opencode-desktop",
+      "name": "OpenCode Desktop",
+      "description": "opencode 桌面客户端（AI 编程助手）",
+      "group": "AI Agent",
+      "homepage": "https://opencode.ai/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://opencode.ai/update/api/latest/desktop/",
+        "itemsKey": "artifacts",
+        "versionKey": "version",
+        "files": [
+          {
+            "urlKey": "metadata.files.'opencode-desktop-win-x64.exe'.url",
+            "hashKey": "metadata.files.'opencode-desktop-win-x64.exe'.sha256",
+            "match": { "distribution": "opencode" }
+          }
+        ]
+      },
+      "stripTopDir": "$PLUGINSDIR\\app-64.7z",
+      "mainExe": "OpenCode.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\OpenCode.exe"
+      }
+    },
+    {
+      "id": "JetBrainsMapleMono",
+      "name": "JetBrains Maple Mono",
+      "description": "JetBrains Mono 与 Maple Mono 融合字体",
+      "homepage": "https://github.com/SpaceTimee/Fusion-JetBrainsMapleMono",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "SpaceTimee/Fusion-JetBrainsMapleMono",
+        "files": [
+          "JetBrainsMapleMono-NF-XX-XX-XX.zip"
+        ]
+      },
+      "stripTopDir": false
+    },
+    {
+      "id": "DotnetDesktopRuntime",
+      "name": "Microsoft .NET Desktop Runtime",
+      "description": "Windows 桌面应用运行时（.NET Desktop Runtime）",
+      "group": "运行环境",
+      "homepage": "https://dotnet.microsoft.com/zh-cn/download/dotnet",
+      "type": "installer",
+      "source": {
+        "kind": "direct",
+        "pageUrl": "https://dotnet.microsoft.com/zh-cn/download/dotnet",
+        "versionFrom": "page",
+        "versionBetween": [ "在活动支持期间" ],
+        "versionKind": "semver",
+        "files": [
+          {
+            "url": "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/{version}/windowsdesktop-runtime-{version}-win-x64.exe",
+            "hashFile": "https://dotnet.microsoft.com/zh-cn/download/dotnet/thank-you/runtime-desktop-{version}-windows-x64-installer",
+            "hashFrom": "sha512"
+          }
+        ]
+      },
+      "installArgs": "/install /quiet /norestart",
+      "uninstallArgs": "/quiet /norestart",
+      "detect": {
+        "method": "jsonFile",
+        "pathGlob": "C:\\Program Files\\dotnet\\shared\\Microsoft.WindowsDesktop.App\\1*\\Microsoft.WindowsDesktop.App.runtimeconfig.json",
+        "jsonKey": "runtimeOptions.framework.version",
+        "name": "*Windows Desktop Runtime *"
+      }
+    },
+    {
+      "id": "WindowsAppRuntime",
+      "name": "Windows App Runtime",
+      "description": "Windows 应用 SDK 运行时",
+      "group": "运行环境",
+      "homepage": "https://learn.microsoft.com/zh-cn/windows/apps/windows-app-sdk/downloads",
+      "type": "installer",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads",
+        "link": { "href": "https://aka.ms/windowsappsdk/*/windowsappruntimeinstall-x64.exe" },
+        "files": [
+          { "file": "windowsappruntimeinstall-x64.exe" }
+        ],
+        "versionFrom": "page",
+        "versionBetween": [ "<td><strong>", "</strong>" ]
+      },
+      "installArgs": "--quiet",
+      "uninstall": {
+        "name": [
+          "Microsoft.WindowsAppRuntime*",
+          "MicrosoftCorporationII.WinAppRuntime*",
+          "Microsoft.WinAppRuntime.DDLM*"
+        ]
+      },
+      "detect": {
+        "method": "appx",
+        "name": "Microsoft.WindowsAppRuntime*"
+      }
+    },
+    {
+      "id": "MSVC",
+      "name": "Microsoft Visual C++ Redistributable (x64)",
+      "description": "Visual C++ v14 可再发行组件（x64）",
+      "group": "运行环境",
+      "homepage": "https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist",
+      "type": "installer",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist",
+        "versionFrom": "package",
+        "link": { "href": "https://aka.ms/vc14/vc_redist.x64.exe" },
+        "files": [
+          { "file": "vc_redist.x64.exe" }
+        ]
+      },
+      "installArgs": "/install /quiet /norestart",
+      "uninstallArgs": "/quiet /norestart",
+      "detect": {
+        "method": "registry",
+        "name": "*Visual C++*Redistributable (x64)*"
+      }
+    },
+    {
+      "id": "FileZilla",
+      "name": "FileZilla",
+      "description": "FTP / SFTP 客户端",
+      "homepage": "https://filezilla-project.org/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "fetchWith": "browser",
+        "pageUrl": "https://filezilla-project.org/download.php?show_all=1",
+        "link": { "href": "https://*.cdn.filezilla-project.org/client/FileZilla_*_win64.zip*" },
+        "files": [
+          { "file": "FileZilla_*_win64.zip" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": true,
+      "mainExe": "filezilla.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\filezilla.exe"
+      }
+    },
+    {
+      "id": "WindowsTerminal",
+      "name": "Windows Terminal",
+      "description": "Windows 终端",
+      "homepage": "https://github.com/microsoft/terminal",
+      "type": "installer",
+      "source": {
+        "kind": "github",
+        "repo": "microsoft/terminal",
+        "files": [
+          "Microsoft.WindowsTerminal_{version}_8wekyb3d8bbwe.msixbundle"
+        ]
+      },
+      "processes": ["WindowsTerminal.exe"],
+      "detect": {
+        "method": "appx",
+        "name": "Microsoft.WindowsTerminal"
+      }
+    },
+    {
+      "id": "PortableGit",
+      "name": "PortableGit",
+      "description": "Git for Windows 便携版",
+      "homepage": "https://github.com/git-for-windows/git",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "git-for-windows/git",
+        "files": [
+          { "file": "PortableGit-*-64-bit.7z.exe" }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "bin\\git.exe",
+      "addToPath": [ "{installDir}\\bin" ],
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionBetween": [ "git version " ]
+      }
+    },
+    {
+      "id": "Gradle",
+      "name": "Gradle",
+      "description": "JVM 构建工具",
+      "dependencies": [ "jdk25" ],
+      "homepage": "https://gradle.org/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://services.gradle.org/versions/current",
+        "versionKey": "version",
+        "files": [
+          { "urlKey": "downloadUrl", "hashKey": "checksum" }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\gradle.bat",
+      "addToPath": [ "%GRADLE_HOME%\\bin" ],
+      "env": { "GRADLE_HOME": "{installDir}" },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "Maven",
+      "name": "Maven",
+      "description": "Java 项目的构建与依赖管理工具",
+      "dependencies": [ "jdk25" ],
+      "homepage": "https://maven.apache.org/",
+      "type": "portable",
+      "source": {
+        "kind": "listing",
+        "indexUrl": [
+          "https://dlcdn.apache.org/maven/maven-3/",
+          "https://dlcdn.apache.org/maven/maven-4/"
+        ],
+        "versionKind": "semver",
+        "files": [
+          {
+            "url": "https://dlcdn.apache.org/maven/maven-3/{version}/binaries/apache-maven-{version}-bin.zip",
+            "hashFile": "https://dlcdn.apache.org/maven/maven-3/{version}/binaries/apache-maven-{version}-bin.zip.sha512",
+            "hashFrom": "sha512"
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "bin\\mvn.cmd",
+      "addToPath": [ "%MAVEN_HOME%\\bin" ],
+      "env": { "MAVEN_HOME": "{installDir}" },
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "DBX",
+      "name": "DBX",
+      "description": "数据库管理工具",
+      "homepage": "https://github.com/t8y2/dbx",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "t8y2/dbx",
+        "files": [
+          "DBX_{version}_x64-portable.zip"
+        ]
+      },
+      "stripTopDir": false,
+      "keep": [ "data" ],
+      "mainExe": "DBX.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\DBX.exe"
+      }
+    },
+    {
+      "id": "vnote",
+      "name": "VNote",
+      "description": "Markdown 笔记软件",
+      "homepage": "https://github.com/vnotex/vnote",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "vnotex/vnote",
+        "files": [
+          "VNote-{version}-win64.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "vnote.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "jsonFile",
+        "pathGlob": "{installDir}\\manifest.json",
+        "jsonKey": "version"
+      }
+    },
+    {
+      "id": "SwitchHosts",
+      "name": "SwitchHosts",
+      "description": "hosts 文件切换与管理工具",
+      "homepage": "https://github.com/oldj/SwitchHosts",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "oldj/SwitchHosts",
+        "files": [
+          "SwitchHosts-{version}-windows-x64-setup.exe"
+        ]
+      },
+      "stripTopDir": "switchhosts.exe",
+      "mainExe": "switchhosts.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\switchhosts.exe"
+      }
+    },
+    {
+      "id": "FlClash",
+      "name": "FlClash",
+      "description": "Clash 客户端",
+      "group": "代理",
+      "homepage": "https://github.com/chen08209/FlClash",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "chen08209/FlClash",
+        "files": [
+          {
+            "url": "FlClash-{version}-windows-amd64.zip",
+            "hashFile": "https://github.com/chen08209/FlClash/releases/download/v{version}/SHA256SUMS",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "FlClash.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\FlClash.exe",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "TrafficMonitor",
+      "name": "TrafficMonitor",
+      "description": "任务栏网络 / CPU / 内存监控工具",
+      "group": "系统工具",
+      "homepage": "https://github.com/zhongyang219/TrafficMonitor",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "zhongyang219/TrafficMonitor",
+        "files": [
+          "TrafficMonitor_V{version}_x64_Lite.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "TrafficMonitor.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\TrafficMonitor.exe",
+        "versionRewrite": { "from": "1.{a}.{b}", "to": "1.{a}{b}" }
+      }
+    },
+    {
+      "id": "uTools",
+      "name": "uTools",
+      "description": "效率工具集合",
+      "group": "效率工具",
+      "homepage": "https://www.u-tools.cn/download/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.u-tools.cn/download/",
+        "link": { "href": "*uTools-*.exe" },
+        "files": [
+          { "file": "uTools-*.exe" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": "$PLUGINSDIR\\app-64.7z",
+      "mainExe": "uTools.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\uTools.exe"
+      }
+    },
+    {
+      "id": "geek",
+      "name": "Geek Uninstaller",
+      "description": "卸载工具",
+      "group": "优化工具",
+      "homepage": "https://geekuninstaller.com/download",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://geekuninstaller.com/download",
+        "link": { "href": "*/geek.zip" },
+        "versionFrom": "page",
+        "versionBetween": [ "<b>", "</b>" ]
+      },
+      "stripTopDir": false,
+      "mainExe": "geek.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\geek.exe"
+      }
+    },
+    {
+      "id": "HiBitUninstaller",
+      "name": "HiBit Uninstaller",
+      "description": "卸载工具",
+      "group": "优化工具",
+      "homepage": "https://www.hibitsoft.ir/Uninstaller.html",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.hibitsoft.ir/Uninstaller.html",
+        "link": { "text": "Portable version", "href": "*HiBitUninstaller-Portable-*.zip*" },
+        "files": [
+          { "file": "HiBitUninstaller-Portable-*.zip" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": false,
+      "keep": [ "HiBitUninstaller" ],
+      "mainExe": "HiBitUninstaller-Portable.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\HiBitUninstaller-Portable.exe"
+      }
+    },
+    {
+      "id": "FluentCleaner",
+      "name": "FluentCleaner",
+      "description": "系统清理工具",
+      "group": "优化工具",
+      "homepage": "https://github.com/builtbybel/FluentCleaner",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "builtbybel/FluentCleaner",
+        "versionFrom": "releaseBody",
+        "versionBetween": [ ".NET Framework 4.8", "Download" ],
+        "versionKind": "semver",
+        "files": [
+          "FluentCleaner-Classic-net48.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "FluentCleaner.Classic.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\FluentCleaner.Classic.exe"
+      }
+    },
+    {
+      "id": "CrystalDiskInfo",
+      "name": "CrystalDiskInfo",
+      "description": "硬盘健康状态检测工具",
+      "group": "系统工具",
+      "homepage": "https://crystalmark.info/en/software/crystaldiskinfo/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://sourceforge.net/projects/crystaldiskinfo/best_release.json",
+        "itemsKey": "release",
+        "versionKind": "semver",
+        "files": [
+          {
+            "urlKey": "url",
+            "hashKey": "sha256sum"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "DiskInfo64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\DiskInfo64.exe"
+      }
+    },
+    {
+      "id": "WinMerge",
+      "name": "WinMerge",
+      "description": "文件与目录比较工具",
+      "homepage": "https://github.com/WinMerge/winmerge",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "WinMerge/winmerge",
+        "files": [
+          "winmerge-{version}-x64-exe.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "WinMergeU.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\WinMergeU.exe"
+      }
+    },
+    {
+      "id": "PixPin",
+      "name": "PixPin",
+      "description": "截图与贴图工具",
+      "group": "截图工具",
+      "homepage": "https://pixpin.cn/download/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://pixpin.cn/download/",
+        "link": { "href": "https://*.pixpin.cn/PixPin_win_*.zip" },
+        "files": [
+          { "file": "PixPin_win_*.zip" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": true,
+      "mainExe": "PixPin.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\PixPin.exe"
+      }
+    },
+    {
+      "id": "Snipaste",
+      "name": "Snipaste",
+      "description": "截图与贴图工具",
+      "group": "截图工具",
+      "homepage": "https://zh.snipaste.com/download.html",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://zh.snipaste.com/download.html",
+        "link": { "href": "https://download.snipaste.com/archives/Snipaste-*-x64.zip" },
+        "files": [
+          { "file": "Snipaste-*-x64.zip" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": false,
+      "mainExe": "Snipaste.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\Snipaste.exe"
+      }
+    },
+    {
+      "id": "SumatraPDF",
+      "name": "SumatraPDF",
+      "description": "PDF / 电子书阅读器（x64 便携版）",
+      "homepage": "https://www.sumatrapdfreader.org/download-free-pdf-viewer",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.sumatrapdfreader.org/download-free-pdf-viewer",
+        "link": { "href": "*SumatraPDF-*-64.zip" },
+        "files": [
+          { "file": "SumatraPDF-*-64.zip" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": false,
+      "postInstallCopy": [
+        { "from": "SumatraPDF-{version}-64.exe", "to": "SumatraPDF.exe", "move": true }
+      ],
+      "keep": [ "sumatrapdfcache", "SumatraPDF-settings.txt" ],
+      "mainExe": "SumatraPDF.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\SumatraPDF.exe"
+      }
+    },
+    {
+      "id": "Chrome",
+      "name": "Google Chrome",
+      "description": "网页浏览器",
+      "group": "浏览器",
+      "homepage": "https://www.google.com/intl/zh-CN/chrome/?standalone=1",
+      "type": "installer",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.google.com/intl/zh-CN/chrome/?standalone=1",
+        "versionFrom": "package",
+        "packageVersion": {
+          "inner": "updater.7z",
+          "path": "*_chrome_installer.exe",
+          "versionKind": "semver"
+        },
+        "fetchWith": "browser",
+        "click": [
+          { "id": "js-download-now" },
+          { "text": "接受并安装" }
+        ],
+        "files": [
+          { "file": "*.exe", "compare": "size" }
+        ]
+      },
+      "installArgs": "/silent /install",
+      "uninstallArgs": "/quiet /norestart",
+      "processes": ["chrome.exe"],
+      "detect": { "method": "registry", "name": "*Google Chrome*" }
+    },
+    {
+      "id": "Firefox",
+      "name": "Mozilla Firefox",
+      "description": "网页浏览器）",
+      "group": "浏览器",
+      "homepage": "https://ftp.mozilla.org/pub/firefox/releases/",
+      "type": "installer",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://ftp.mozilla.org/pub/firefox/releases/",
+        "versionKind": "semver",
+        "files": [
+          "https://ftp.mozilla.org/pub/firefox/releases/{version}/win64/zh-CN/Firefox%20Setup%20{version}.exe"
+        ]
+      },
+      "installArgs": "/S",
+      "uninstallArgs": "/S",
+      "processes": ["firefox.exe"],
+      "detect": { "method": "registry", "name": "*Mozilla Firefox*" }
+    },
+    {
+      "id": "WebView2",
+      "name": "Microsoft Edge WebView2 Runtime",
+      "description": "WebView2 运行时",
+      "group": "浏览器",
+      "homepage": "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+      "type": "installer",
+      "source": {
+        "kind": "direct",
+        "pageUrl": "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+        "versionFrom": "page",
+        "versionBetween": [ "Select Version</label>", "</button>" ],
+        "versionKind": "semver",
+        "files": [
+          {
+            "url": "https://go.microsoft.com/fwlink/?linkid=2124701",
+            "name": "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+          }
+        ]
+      },
+      "installArgs": "/silent /install",
+      "uninstallArgs": "--force-uninstall",
+      "detect": {
+        "method": "registry",
+        "name": "*WebView2*"
+      }
+    },
+    {
+      "id": "weixin",
+      "name": "微信",
+      "description": "微信",
+      "homepage": "https://pc.weixin.qq.com/",
+      "type": "installer",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://pc.weixin.qq.com/",
+        "link": { "href": "https://dldir1v6.qq.com/weixin/Universal/Windows/WeChatWin_*.exe" },
+        "files": [
+          { "file": "WeChatWin_*.exe" }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver",
+        "versionRewrite": { "from": "{a}.{b}.{c}.{d}", "to": "{a}.{b}.{c}" }
+      },
+      "installArgs": "/S",
+      "uninstallArgs": "/S",
+      "processes": ["Weixin.exe", "WeChat.exe"],
+      "detect": {
+        "method": "registry",
+        "name": "*微信*",
+        "versionRewrite": { "from": "{a}.{b}.{c}.{d}", "to": "{a}.{b}.{c}" }
+      }
+    },
+    {
+      "id": "MPC-HC",
+      "name": "MPC-HC",
+      "description": "视频播放器",
+      "group": "视频播放",
+      "homepage": "https://github.com/clsid2/mpc-hc",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "clsid2/mpc-hc",
+        "files": [
+          "MPC-HC.{version}.x64.zip"
+        ]
+      },
+      "stripTopDir": false,
+      "keep": [ "mpc-hc64.ini", "mpc-hc64.history.ini" ],
+      "mainExe": "mpc-hc64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\mpc-hc64.exe",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "MPC-BE",
+      "name": "MPC-BE",
+      "description": "视频播放器",
+      "group": "视频播放",
+      "dependencies": [ "MPC-VR" ],
+      "homepage": "https://github.com/qwerttvv/Player",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "qwerttvv/Player",
+        "versionFrom": "file",
+        "versionBetween": [ "MPC-BE.", "_git" ],
+        "files": [
+          { "file": "MPC-BE.*.x64.7z" }
+        ]
+      },
+      "stripTopDir": true,
+      "keep": [ "mpc-be64.ini", "mpc-be64.history.ini" ],
+      "mainExe": "mpc-be64.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\mpc-be64.exe"
+      }
+    },
+    {
+      "id": "MPC-VR",
+      "name": "MPC Video Renderer",
+      "description": "MPC 视频渲染器",
+      "group": "视频播放",
+      "homepage": "https://github.com/qwerttvv/Player",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "qwerttvv/Player",
+        "versionFrom": "file",
+        "versionBetween": [ "MpcVideoRenderer-", "_git" ],
+        "files": [
+          { "file": "MpcVideoRenderer-*.zip" }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "MpcVideoRenderer64.ax",
+      "postInstall": [
+        { "exe": "%SystemRoot%\\System32\\regsvr32.exe", "args": "\"{installDir}\\MpcVideoRenderer64.ax\" /s", "requireAdmin": true }
+      ],
+      "uninstall": {
+        "commands": [
+          { "exe": "%SystemRoot%\\System32\\regsvr32.exe", "args": "\"{installDir}\\MpcVideoRenderer64.ax\" /u /s", "requireAdmin": true, "timeoutSec": 120 }
+        ]
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\MpcVideoRenderer64.ax"
+      }
+    },
+    {
+      "id": "mpv",
+      "name": "mpv",
+      "description": "媒体播放器（x86_64-v3 构建）",
+      "homepage": "https://github.com/shinchiro/mpv-winbuild-cmake",
+      "group": "视频播放",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "shinchiro/mpv-winbuild-cmake",
+        "versionFrom": "file",
+        "versionBetween": [ "-v3-", "-git" ],
+        "files": [
+          { "file": "mpv-x86_64-v3-{version}-git-*.7z" }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "mpv.exe",
+      "shortcuts": { "desktop": true, "startMenu": true }
+    },
+    {
+      "id": "nvidiaProfileInspector",
+      "name": "NVIDIA Profile Inspector",
+      "description": "NVIDIA 驱动配置文件编辑器",
+      "homepage": "https://github.com/Orbmu2k/nvidiaProfileInspector",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "Orbmu2k/nvidiaProfileInspector",
+        "files": [
+          "nvidiaProfileInspector.zip"
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "nvidiaProfileInspector.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\nvidiaProfileInspector.exe"
+      }
+    },
+    {
+      "id": "KeePass",
+      "name": "KeePass",
+      "description": "密码管理器（附繁体中文语言包）",
+      "group": "密码管理",
+      "homepage": "https://keepass.info/",
+      "type": "portable",
+      "source": {
+        "kind": "json",
+        "apiUrl": "https://sourceforge.net/projects/keepass/best_release.json",
+        "itemsKey": "platform_releases.mac",
+        "versionKind": "semver",
+        "files": [
+          { "urlKey": "url", "hashKey": "sha256sum" },
+          {
+            "url": "https://sourceforge.net/projects/keepass/files/Translations%20{versionMajor}.x/{version}/KeePass-{version}-Chinese_Traditional.zip/download",
+            "versionListUrl": "https://sourceforge.net/projects/keepass/files/Translations%20{versionMajor}.x/",
+            "extract": true,
+            "stripTopDir": false,
+            "dest": "Languages"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "KeePass.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\KeePass.exe"
+      }
+    },
+    {
+      "id": "Krokiet",
+      "name": "Krokiet",
+      "description": "重复文件查找与清理工具",
+      "homepage": "https://github.com/qarmin/czkawka",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "qarmin/czkawka",
+        "files": [
+          "windows_krokiet_on_windows_all_backends.zip"
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "krokiet.exe",
+      "shortcuts": { "desktop": true, "startMenu": true }
+    },
+    {
+      "id": "Keepass2Android",
+      "name": "Keepass2Android",
+      "description": "安卓版 KeePass 密码管理器（arm64-v8a 安装包）",
+      "group": "密码管理",
+      "homepage": "https://github.com/PhilippC/keepass2android",
+      "type": "download",
+      "source": {
+        "kind": "github",
+        "repo": "PhilippC/keepass2android",
+        "files": [
+          "keepass2android.keepass2android-Signed-arm64.apk"
+        ]
+      }
+    },
+    {
+      "id": "FlClashAndroid",
+      "name": "FlClash Android",
+      "description": "Clash 客户端安卓版（arm64-v8a 安装包）",
+      "group": "代理",
+      "homepage": "https://github.com/chen08209/FlClash",
+      "type": "download",
+      "source": {
+        "kind": "github",
+        "repo": "chen08209/FlClash",
+        "files": [
+          {
+            "url": "FlClash-{version}-android-arm64-v8a.apk",
+            "hashFile": "https://github.com/chen08209/FlClash/releases/download/v{version}/SHA256SUMS",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tinyMediaManager",
+      "name": "tinyMediaManager",
+      "description": "电影 / 剧集媒体库刮削与管理工具",
+      "homepage": "https://www.tinymediamanager.org/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.tinymediamanager.org/download/",
+        "link": { "text": "Portable (.zip)" },
+        "files": [
+          {
+            "file": "tinyMediaManager-*-windows-amd64.zip",
+            "hashFile": "https://release.tinymediamanager.org/v{versionMajor}/dist/tinyMediaManager-{version}-windows-amd64.zip.sha256",
+            "hashFrom": "sha256"
+          }
+        ],
+        "versionFrom": "url",
+        "versionKind": "semver"
+      },
+      "stripTopDir": true,
+      "mainExe": "tinyMediaManager.exe",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "markerFile",
+        "pathGlob": "{installDir}\\version",
+        "versionBetween": [ "version=", "\n" ]
+      }
+    },
+    {
+      "id": "debian",
+      "name": "Debian Testing amd64",
+      "description": "Debian 测试版安装镜像（testing 每周构建，amd64）",
+      "group": "系统镜像",
+      "homepage": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
+      "type": "download",
+      "source": {
+        "kind": "listing",
+        "indexUrl": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/",
+        "versionKind": "date",
+        "files": [
+          {
+            "url": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso",
+            "hashFile": "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/SHA512SUMS",
+            "hashFrom": "sha512sums"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fnOS",
+      "name": "飞牛 fnOS",
+      "description": "飞牛私有云 NAS 系统安装镜像（x86_64）",
+      "group": "系统镜像",
+      "homepage": "https://fnnas.com/download",
+      "type": "download",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://fnnas.com/download",
+        "fetchWith": "browser",
+        "click": [
+          { "text": "飞牛 fnOS" },
+          { "text": "X86" },
+          { "text": "直接下载" }
+        ],
+        "versionKind": "semver",
+        "files": [
+          { "file": "fnos_*.iso", "hashFrom": "page" }
+        ]
+      }
+    },
+    {
+      "id": "fnApp",
+      "name": "飞牛 App",
+      "description": "飞牛 App 安卓版安装包",
+      "group": "飞牛",
+      "homepage": "https://fnnas.com/download",
+      "type": "download",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://fnnas.com/download",
+        "fetchWith": "browser",
+        "click": [
+          { "text": "飞牛 App" },
+          { "text": "Android" }
+        ],
+        "versionKind": "semver",
+        "files": [
+          { "file": "fnos_*.apk" }
+        ]
+      }
+    },
+    {
+      "id": "fnTV",
+      "name": "飞牛 TV",
+      "description": "飞牛 TV 影视应用（Android TV 安装包）",
+      "group": "飞牛",
+      "homepage": "https://fnnas.com/download",
+      "type": "download",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://fnnas.com/download",
+        "fetchWith": "browser",
+        "click": [
+          { "text": "飞牛 TV" },
+          { "text": "Android TV" }
+        ],
+        "versionKind": "semver",
+        "files": [
+          { "file": "FNTV_*.apk" }
+        ]
+      }
+    },
+    {
+      "id": "fnSync",
+      "name": "飞牛同步",
+      "description": "飞牛同步 Windows 客户端（在电脑与 fnOS 之间保持文件同步）",
+      "group": "飞牛",
+      "homepage": "https://fnnas.com/download",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://fnnas.com/download",
+        "fetchWith": "browser",
+        "click": [
+          { "text": "飞牛同步" },
+          { "text": "Windows" }
+        ],
+        "versionKind": "semver",
+        "files": [
+          { "file": "fn-sync_*.exe" }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "fn-sync-client.exe",
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\fn-sync-client.exe",
+        "versionRewrite": { "from": "{a}.{b}.{c}.{d}", "to": "{a}.{b}.{c}" }
+      }
+    },
+    {
+      "id": "pwsh",
+      "name": "PowerShell 7",
+      "description": "PowerShell 7",
+      "homepage": "https://github.com/PowerShell/PowerShell/releases",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "PowerShell/PowerShell",
+        "files": [
+          {
+            "url": "PowerShell-{version}-win-x64.zip",
+            "hashFile": "https://github.com/PowerShell/PowerShell/releases/download/v{version}/hashes.sha256",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "pwsh.exe",
+      "addToPath": true,
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\pwsh.exe",
+        "versionKind": "semver",
+        "versionRewrite": { "from": "{a}.{b}.{c}.{d}", "to": "{a}.{b}.{c}" }
+      }
+    },
+    {
+      "id": "OpenSSH",
+      "name": "OpenSSH",
+      "description": "OpenSSH 客户端（Windows x64 便携版，含 ssh / scp / sftp）",
+      "homepage": "https://github.com/PowerShell/Win32-OpenSSH/releases",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "PowerShell/Win32-OpenSSH",
+        "versionRewrite": { "from": "{a}p{b}", "to": "{a}" },
+        "files": [
+          "OpenSSH-Win64.zip"
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "ssh.exe",
+      "addToPath": true,
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\ssh.exe"
+      }
+    },
+    {
+      "id": "KmsTool",
+      "name": "KmsTool",
+      "description": "KMS 激活工具（脚本版）",
+      "group": "激活工具",
+      "homepage": "https://github.com/dsx42/KmsTool/releases",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "dsx42/KmsTool",
+        "files": [
+          {
+            "url": "KmsTool_v{version}.zip",
+            "hashFile": "https://github.com/dsx42/KmsTool/releases/download/v{version}/KmsTool_v{version}.sha256",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "KmsTool.cmd",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "jsonFile",
+        "pathGlob": "{installDir}\\product.json",
+        "jsonKey": "version"
+      }
+    },
+    {
+      "id": "UnattendTool",
+      "name": "UnattendTool",
+      "description": "Windows 无人值守安装应答工具（脚本版）",
+      "homepage": "https://github.com/dsx42/UnattendTool/releases",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "dsx42/UnattendTool",
+        "files": [
+          {
+            "url": "UnattendTool_v{version}.zip",
+            "hashFile": "https://github.com/dsx42/UnattendTool/releases/download/v{version}/UnattendTool_v{version}.sha256",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "UnattendTool.cmd",
+      "shortcuts": { "desktop": true, "startMenu": true },
+      "detect": {
+        "method": "jsonFile",
+        "pathGlob": "{installDir}\\product.json",
+        "jsonKey": "version"
+      }
     }
   ]
 }
