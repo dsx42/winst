@@ -1,0 +1,102 @@
+﻿#Requires -Version 5.1
+
+function Invoke-PathSettingItem {
+    <#
+    .SYNOPSIS
+        路径类设置项（软件安装位置 / 安装包位置）：校验 → 建目录 → 写入 config.json → 刷新横幅。
+    .DESCRIPTION
+        值按用户输入原样保存（含 %VAR% 形式），读取时展开；相对路径以数据根目录为基准。
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Context,
+        [Parameter(Mandatory = $true)]
+        [string]$Key,
+        [Parameter(Mandatory = $true)]
+        [string]$DisplayName,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentDisplay,
+        [string]$Hint = ''
+    )
+
+    Write-Section $DisplayName
+    Write-Host ('  当前值: {0}  {1}' -f $CurrentDisplay, (Get-ConfigTag -Context $Context -Key $Key)) -ForegroundColor Gray
+    if ($Hint) {
+        Write-Host ('  说明:   {0}' -f $Hint) -ForegroundColor DarkGray
+    }
+    Write-Host '  路径支持 %VAR% 环境变量（读取时展开）；相对路径以数据目录为基准。' -ForegroundColor DarkGray
+    Write-Host ''
+
+    $raw = Read-Host '  请输入新路径（直接回车取消）'
+    if ($null -eq $raw -or -not ([string]$raw).Trim()) {
+        Write-Host '  已取消。' -ForegroundColor DarkGray
+        return
+    }
+
+    $value = ([string]$raw).Trim().Trim('"')
+    $resolved = Expand-WinstPath -Path $value -Base $Context.DataRoot
+
+    $errorMessage = ''
+    if (-not $value) {
+        $errorMessage = '路径不能为空'
+    } elseif ($resolved -match '%[^%]+%') {
+        $errorMessage = '路径中的环境变量未被系统识别，请检查拼写'
+    } elseif ($value -match '[*?]') {
+        $errorMessage = '路径不能包含通配符 * 或 ?'
+    } elseif ($value.IndexOfAny([IO.Path]::GetInvalidPathChars()) -ge 0) {
+        $errorMessage = '路径包含非法字符'
+    } elseif ($resolved -match '^[A-Za-z]:[\\/]?$') {
+        $errorMessage = '不能直接使用盘符根目录，请指定一个具体目录'
+    } elseif (Test-Path -LiteralPath $resolved -PathType Leaf) {
+        $errorMessage = '目标已存在且是一个文件，请指定一个目录'
+    }
+
+    if ($errorMessage) {
+        Write-Host ''
+        Write-Host ('  路径无效：{0}' -f $errorMessage) -ForegroundColor Yellow
+        return
+    }
+
+    # 目录不存在则创建（含多级父目录），顺带暴露无写权限等问题
+    if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
+        try {
+            $null = New-Item -ItemType Directory -Path $resolved -Force -ErrorAction Stop
+            Write-Host ('  已创建目录: {0}' -f $resolved) -ForegroundColor DarkGray
+        } catch {
+            Write-Host ''
+            Write-Host ('  无法创建目录: {0}' -f $resolved) -ForegroundColor Red
+            Write-Host ('  原因: {0}' -f $_.Exception.Message) -ForegroundColor DarkGray
+            Write-Host '  已取消。' -ForegroundColor DarkGray
+            return
+        }
+    }
+
+    $configPath = Join-Path $Context.DataRoot 'config.json'
+    $Context.Config[$Key] = $value
+    try {
+        Save-WinstConfig -DataRoot $Context.DataRoot -Config $Context.Config
+    } catch {
+        Write-Host ''
+        Write-Host ('  写入配置失败: {0}' -f $configPath) -ForegroundColor Red
+        Write-Host ('  原因: {0}' -f $_.Exception.Message) -ForegroundColor DarkGray
+        Write-Host '  已取消。' -ForegroundColor DarkGray
+        return
+    }
+
+    Update-WinstContext -Context $Context
+
+    $cliOverride = ''
+    # 选项对象可能是 hashtable 或 PSCustomObject：用键存在性读取，避免 StrictMode 下访问不存在的成员抛异常
+    $options = Get-WinstState -Name WinstOptions
+    if ($Key -eq 'installRoot' -and (Get-EntryString -Entry $options -Key 'InstallRoot')) { $cliOverride = '--install-root' }
+    if ($Key -eq 'pkgDir' -and (Get-EntryString -Entry $options -Key 'PkgDir')) { $cliOverride = '--pkg-dir' }
+
+    Write-Host ''
+    Write-Host ('  已保存到: {0}' -f $configPath) -ForegroundColor Green
+    Write-Host ('  配置项:   {0} = {1}' -f $Key, $value) -ForegroundColor Gray
+    Write-Host ('  实际生效位置: {0}' -f (Expand-WinstPath -Path $value -Base $Context.DataRoot)) -ForegroundColor Gray
+    if ($cliOverride) {
+        Write-Host ('  注意: 本次运行使用了命令行参数 {0}，其优先级高于配置；重新运行 winst 后以配置为准。' -f $cliOverride) -ForegroundColor Yellow
+    }
+    Write-Host '  提示: 已打开的终端需重开（或重新运行 winst）后 PATH / 环境变量才完全生效。' -ForegroundColor DarkGray
+}
