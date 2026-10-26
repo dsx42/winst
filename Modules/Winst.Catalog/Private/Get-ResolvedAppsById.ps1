@@ -16,19 +16,19 @@ function Get-ResolvedAppsById {
         [string]$Id
     )
 
-    $matches = @()
-    if (-not $Id) { return $matches }
+    $found = @()
+    if (-not $Id) { return @() }
     foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = [string]$source['name']
         if (-not $name) { continue }
         $app = Get-ManifestResolvedApp -PkgDir $Context.PkgDir -Name $name -Id $Id
         if ($app) {
-            $matches += [ordered]@{
+            $found += [ordered]@{
                 Source = $name
                 Name   = (Get-EntryString -Entry $app -Key 'name')
                 App    = $app
             }
         }
     }
-    return @($matches)
+    return $found
 }

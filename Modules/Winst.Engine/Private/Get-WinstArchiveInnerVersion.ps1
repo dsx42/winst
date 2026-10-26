@@ -25,7 +25,7 @@ function Get-WinstArchiveInnerVersion {
         return $result
     }
 
-    $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ('winst-pkgver-' + [guid]::NewGuid().ToString('N'))
+    $workDir = Join-WinstPath ([System.IO.Path]::GetTempPath()) ('winst-pkgver-' + [guid]::NewGuid().ToString('N'))
     try {
         $null = New-Item -ItemType Directory -Path $workDir -Force -ErrorAction Stop
         $listArchive = $PackagePath
@@ -46,14 +46,14 @@ function Get-WinstArchiveInnerVersion {
                 $result.Error = ('安装包里没找到内层压缩包（inner: {0}）；可能是安装包结构变更，需要更新软件源的 packageVersion 配置' -f $innerGlob)
                 return $result
             }
-            $extractDir = Join-Path $workDir 'inner'
+            $extractDir = Join-WinstPath $workDir 'inner'
             $null = New-Item -ItemType Directory -Path $extractDir -Force
             $null = & $SevenZip x $PackagePath $innerEntry "-o$extractDir" -y 2>&1
             if ($LASTEXITCODE -notin @(0, 1)) {
                 $result.Error = ('取不出内层压缩包 {0}（7z 退出码 {1}）' -f $innerEntry, $LASTEXITCODE)
                 return $result
             }
-            $innerFile = Join-Path $extractDir ([string]$innerEntry)
+            $innerFile = Join-WinstPath $extractDir ([string]$innerEntry)
             if (-not (Test-Path -LiteralPath $innerFile -PathType Leaf)) {
                 $result.Error = ('内层压缩包取出后不在预期位置: {0}' -f $innerFile)
                 return $result

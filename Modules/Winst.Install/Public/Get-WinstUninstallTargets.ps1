@@ -26,7 +26,7 @@ function Get-WinstUninstallTargets {
     $isSelf = ($Id -ieq 'winst')
 
     $installDir = Get-EntryString -Entry $Entry -Key 'installDir'
-    if ($isSelf -and $Context.InstallRoot) { $installDir = Join-Path $Context.InstallRoot 'winst' }
+    if ($isSelf -and $Context.InstallRoot) { $installDir = Join-WinstPath $Context.InstallRoot 'winst' }
 
     $external = ($managed -ne 'winst' -and -not $isSelf)
 
@@ -67,6 +67,8 @@ function Get-WinstUninstallTargets {
         Type          = $type
         # 卸载确认页要展示的当前版本号：取安装记录里的值，识别不出时为 unknown / 空（由展示层说明，不猜）
         Version       = (Get-EntryString -Entry $Entry -Key 'version')
+        # 本机并存的其它版本：按名称规则卸载会连带卸掉它们，确认页要提前说清
+        OldVersions   = @(Get-EntryArray -Entry $Entry -Key 'oldVersions')
         Managed       = $managed
         External      = $external
         IsSelf        = $isSelf

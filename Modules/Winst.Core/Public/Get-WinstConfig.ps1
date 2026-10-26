@@ -11,7 +11,7 @@ function Get-WinstConfig {
 
     $defaults = Get-WinstConfigDefaults -DataRoot $DataRoot
 
-    $configPath = Join-Path $DataRoot 'config.json'
+    $configPath = Join-WinstPath $DataRoot 'config.json'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         try {
             $raw = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8

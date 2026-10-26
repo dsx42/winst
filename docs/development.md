@@ -1,4 +1,4 @@
-# 开发与发布
+﻿# 开发与发布
 
 ## 仓库结构
 
@@ -45,13 +45,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 --help
 
 脚本目录下的 `manifest.json` 会自动作为本地软件源；带 `apps\` 目录即自动命中离线缓存。
 
+`winst.cmd` 用系统自带的 `conhost.exe` 拉起 PowerShell，保证双击后一定是原生控制台窗口——系统把「控制台应用程序」的默认终端设成 Windows Terminal 时也不会开在 Windows Terminal 里（那里的 `%VAR%` 不展开与重绘残留是已知问题）。`conhost.exe` 缺失时退回直接调 `powershell.exe`。
+
+`winst.ps1` 启动即申请管理员权限，因为安装软件要写系统级环境变量、静默运行安装程序、读写 HKLM 卸载记录。排障时不想弹 UAC 就设 `WINST_NO_ELEVATE=1`（只读查询不需要管理员）；`-v` / `--version` / `-h` / `--help` 自动不提权，这些会被别的 winst 进程频繁调用做版本检测。
+
 ## 开发调试
 
 - **改完模块要重新导入**：PowerShell 会缓存已导入的模块，设置环境变量 `WINST_DEV=1` 让入口带 `-Force` 导入
 - **单模块试验**：直接 `Import-Module .\Modules\Winst.Store\Winst.Store.psd1 -Force`；跨模块调用在运行时才解析，不必按顺序先导入别的模块
 - **详细日志**：`--verbose` 打印 HTTP、来源解析、文件匹配、版本检测细节；入口未捕获的异常也会带脚本堆栈
 - **不写盘试跑**：`--dry-run` 只展示计划，不下载、不安装、不写台账；软件源也可能联网查询。winst 自身安装是特例，预览会明确拒绝执行
-- **隔离实验**：把数据、安装与缓存目录都指到临时目录，避免污染真实数据
+- **隔离实验**：把数据、安装与缓存目录都指到临时目录，避免污染真实数据。**没有隔离就别说「测一下」**：安装 / 更新会真的写台账、改用户级环境变量与快捷方式
 
 临时目录示例：
 
@@ -59,6 +63,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 --help
 $env:WINST_HOME = Join-Path $env:TEMP 'winst-dev'
 $env:WINST_PKG_DIR = Join-Path $env:TEMP 'winst-dev\apps'
 $env:WINST_INSTALL_ROOT = Join-Path $env:TEMP 'winst-dev\root'
+$env:WINST_NO_ELEVATE = '1'          # 临时目录实验不需要管理员权限
 .\winst.cmd config list
 ```
 

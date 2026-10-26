@@ -29,7 +29,7 @@ function Get-WinstProductVersion {
     [OutputType([string])]
     param()
 
-    return '2026.10.24'
+    return '2026.10.26'
 }
 
 function Get-WinstOfficialRepoUrl {
@@ -76,26 +76,6 @@ function Get-WinstOfficialManifestName {
     param()
 
     return 'dsx42/winst-manifest'
-}
-
-function Get-WinstRetiredManifestSourceList {
-    <#
-    .SYNOPSIS
-        内置源的历史源名。
-
-    .DESCRIPTION
-        这些名字曾经是内置源，现在不再是。源列表里出现的同名字条目都是旧内置源留下的残留：
-        Ensure-OfficialManifest 在自愈时把它们移除，只保留当前内置源；
-        Add-RemoteManifest 也拒绝再用这些名字添加来源。
-        历史源名是保留名，用户无法自行添加，因此按名字清理不会误删用户自己的来源。
-    .OUTPUTS
-        [string[]]
-    #>
-    [CmdletBinding()]
-    [OutputType([string[]])]
-    param()
-
-    return @('dsx42/winst')
 }
 
 function Get-WinstLocalManifestName {

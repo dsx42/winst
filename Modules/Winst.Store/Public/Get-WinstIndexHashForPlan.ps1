@@ -19,5 +19,5 @@ function Get-WinstIndexHashForPlan {
     }
 
     if (-not $FilePath -or -not (Test-Path -LiteralPath $FilePath -PathType Leaf)) { return '' }
-    try { return ([string](Get-FileHash -LiteralPath $FilePath -Algorithm SHA256).Hash).ToLowerInvariant() } catch { return '' }
+    try { return ([string](Get-WinstFileHash -Path $FilePath -Algorithm SHA256)).ToLowerInvariant() } catch { return '' }
 }

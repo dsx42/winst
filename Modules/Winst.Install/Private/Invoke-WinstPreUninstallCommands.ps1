@@ -24,7 +24,7 @@ function Invoke-WinstPreUninstallCommands {
     }
 
     $commandDir = [string]$Targets['InstallDir']
-    if (-not $commandDir) { $commandDir = Join-Path $Context.InstallRoot $Id }
+    if (-not $commandDir) { $commandDir = Join-WinstPath $Context.InstallRoot $Id }
     if (-not $Quiet) {
         foreach ($command in $uninstallCommands) {
             $exeText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'exe') -InstallDir $commandDir -InstallRoot $Context.InstallRoot))

@@ -1,4 +1,4 @@
-# 架构
+﻿ 架构
 
 ## 设计目标
 
@@ -56,7 +56,7 @@
 
 | 模块 | 职责 |
 |---|---|
-| `Winst.Core` | 上下文与配置、路径解析与安全校验、原子文件 IO、JSON 缓存、状态容器、条目字段读取、参数转义、匹配规则、纯格式化 |
+| `Winst.Core` | 上下文与配置、路径解析与安全校验、原子文件 IO、文件摘要、JSON 缓存、状态容器、条目字段读取、参数转义、匹配规则、纯格式化 |
 | `Winst.Logging` | 统一的区块标题输出 |
 | `Winst.Version` | 版本比较与规范化、`versionKind` / `versionBetween` / `versionRewrite`、版本占位符 |
 | `Winst.Net` | HTTP GET/HEAD、代理尝试、进程内响应缓存、HTML 锚点、外部校验文件抓取 |
@@ -93,7 +93,9 @@ PowerShell 的各模块有独立 `$script:` 作用域。`Winst.Core` 用 `Add-Ty
 - `Initialize-WinstState` 必须在业务代码前执行，集中声明 CLI 选项、HTTP/JSON/目录聚合缓存、系统快照、引擎路径缓存和菜单标志；重复执行只补空项，不清空已有缓存。
 - 状态只保存进程内数据，跨进程数据必须落盘（见 [data-files.md](data-files.md)）。
 - `Set-WinstState` 返回存入值，调用方必须用 `$null =` 接住，避免污染函数输出流。
-- `Write-FileAtomic` 写文件后失效对应 JSON 缓存；写源列表或 sidecar 后失效目录聚合缓存。台账和缓存索引有各自的读缓存与写入约定，详见数据文件文档。
+- `Write-FileAtomic` 写文件即失效对应 JSON 缓存；写源列表与 sidecar 即失效目录聚合缓存。台账和缓存索引各有独立的读写约定，见各自函数的文档。
+- **缓存失效按「谁真的依赖它」划定，不整片清空**：写台账会让注册表卸载项 / Appx 包 / 环境变量 / 引擎路径失效（它们都以系统安装状态为依据），但不碰进程快照（只反映当前有哪些进程，另有 3 秒 TTL 自管）与本地清单文件列表（只反映脚本目录与 `pkgDir` 下的文件）。写一次台账就重新枚举全部进程（实测约 1.1 秒）会把写入路径变成整条流程里最贵的一步；需要整份重读时用 `Reset-WinstSystemCache -All`。
+- **读缓存命中也要便宜**：`Read-WinstCacheIndex` 命中时用一次目录枚举核对「id 目录是否还在」，而不是逐 id 一次 `Test-Path`（几百个 id 时后者是数百次独立 stat，实测 300 条约 112 ms，一次枚举约 8 ms）。
 
 安装流程可能嵌套安装或更新引擎、winst 自身。台账通过 `Save-WinstInstalledAppEntry` 重读最新文件后只覆盖目标条目，缓存索引写回前也重读，避免旧快照抹掉嵌套流程写入的记录。
 

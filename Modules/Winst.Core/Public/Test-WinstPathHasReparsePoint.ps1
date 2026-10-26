@@ -29,7 +29,7 @@ function Test-WinstPathHasReparsePoint {
     $current = $fullRoot
     foreach ($segment in ($relative -split '[\\/]')) {
         if (-not $segment) { continue }
-        $current = Join-Path $current $segment
+        $current = Join-WinstPath $current $segment
         if (-not (Test-Path -LiteralPath $current)) { break }
         if (Test-WinstReparsePoint -Path $current) { return $true }
     }

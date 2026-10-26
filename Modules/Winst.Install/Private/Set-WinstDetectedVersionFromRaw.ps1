@@ -11,7 +11,10 @@ function Set-WinstDetectedVersionFromRaw {
                               （registry / fileVersion / jsonFile / appx / cli 用）
           always            ：无条件兜底（markerFile 用：标记文件内容常常就是版本号本身）
           none              ：完全不兜底（调用方自己处理）
-        无论是否命中都会写 Result.Found（调用方已确认「找到了目标」时先置真）。
+
+        用来记录「多个版本实例」的检测方（fileVersion / markerFile / jsonFile / registry）**不直接用
+        返回值里的 Ok / Version 作为最终结论**，而是把命中值交给 Add-WinstVersionItem 逐个累积，
+        最后由 Complete-WinstDetectedVersion 挑最新版本；单值检测方（appx / cli）直接用返回值。
     .OUTPUTS
         无（原地写 $Result 的 Ok / Version / Detail）
     #>

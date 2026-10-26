@@ -4,6 +4,10 @@ function Select-WinstRowSource {
     <#
     .SYNOPSIS
         为一个 id 选择使用哪个软件源：命中多个来源时让用户选择（单一来源直接使用）。
+    .DESCRIPTION
+        没有可用来源时返回的 Error 会**逐个列出每个来源的失败原因**：只给一句
+        「软件源里没有可用的版本信息」，用户既不知道是哪个源出的问题，也不知道该修哪里
+        （仓库改名 / 没有 release / 网络不通 / 字段写错的提示各不相同）。
     .OUTPUTS
         @{ Ok; Entry; Error; Cancelled }
     #>
@@ -18,11 +22,16 @@ function Select-WinstRowSource {
     }
 
     if ($usable.Count -eq 0) {
-        $reason = ''
+        $details = @()
         foreach ($entry in @($Row['Sources'])) {
-            if ($entry['Error']) { $reason = ('{0}（{1}）' -f $entry['Error'], [string]$entry['Source']); break }
+            $name = [string]$entry['Source']
+            if (-not $name) { $name = '（未记录来源）' }
+            $reason = [string]$entry['Error']
+            if (-not $reason) { $reason = '没有可用的版本信息' }
+            $details += ('{0}: {1}' -f $name, $reason)
         }
-        if (-not $reason) { $reason = '软件源里没有可用的版本信息' }
+        $reason = '软件源里没有可用的版本信息'
+        if ($details.Count -gt 0) { $reason = ('软件源里没有可用的版本信息（{0}）' -f ($details -join '；')) }
         return @{ Ok = $false; Entry = $null; Error = $reason; Cancelled = $false }
     }
 

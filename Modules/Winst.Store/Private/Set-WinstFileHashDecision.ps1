@@ -47,7 +47,7 @@ function Set-WinstFileHashDecision {
     }
 
     $actual = ''
-    try { $actual = (Get-FileHash -LiteralPath $Target -Algorithm $wantedAlgorithm).Hash } catch { $actual = '' }
+    try { $actual = (Get-WinstFileHash -Path $Target -Algorithm $wantedAlgorithm) } catch { $actual = '' }
     if (-not $actual) {
         # 同样显式表态：读不出校验值 = 无法确认缓存可信，必须重新下载
         $Plan['NeedDownload'] = $true

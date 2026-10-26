@@ -51,10 +51,13 @@ function Test-WinstFileIntegrity {
 
     $actual = ''
     try {
-        $actual = (Get-FileHash -LiteralPath $FilePath -Algorithm $algorithm).Hash
+        $actual = (Get-WinstFileHash -Path $FilePath -Algorithm $algorithm)
     } catch {
+        $actual = ''
+    }
+    if (-not $actual) {
         $result.Ok = $false
-        $result.Error = ('计算文件校验值失败：{0}' -f $_.Exception.Message)
+        $result.Error = ('计算文件校验值失败：{0}' -f $FilePath)
         return $result
     }
     $result.ActualHash = [string]$actual
@@ -68,7 +71,7 @@ function Test-WinstFileIntegrity {
     # 缓存索引统一存 sha256：期望算法是 sha256 时直接复用它，否则再算一次（仅非 sha256 校验的包会多算一次）
     $indexHash = [string]$actual
     if ($algorithm -ne 'SHA256') {
-        try { $indexHash = (Get-FileHash -LiteralPath $FilePath -Algorithm SHA256).Hash } catch { $indexHash = '' }
+        try { $indexHash = (Get-WinstFileHash -Path $FilePath -Algorithm SHA256) } catch { $indexHash = '' }
     }
     $result.IndexHash = ([string]$indexHash).ToLowerInvariant()
     return $result

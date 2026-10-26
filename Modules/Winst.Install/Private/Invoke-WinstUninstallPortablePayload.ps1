@@ -12,7 +12,7 @@ function Invoke-WinstUninstallPortablePayload {
 
     $dir = [string]$Targets['InstallDir']
     if (-not $dir) {
-        $candidate = Join-Path $Context.InstallRoot $Id
+        $candidate = Join-WinstPath $Context.InstallRoot $Id
         if (Test-Path -LiteralPath $candidate -PathType Container) { $dir = $candidate }
     }
 

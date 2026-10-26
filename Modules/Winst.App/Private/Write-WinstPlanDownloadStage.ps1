@@ -24,7 +24,7 @@ function Write-WinstPlanDownloadStage {
         $dest = Get-EntryString -Entry $file -Key 'dest'
         if ($dest -and -not $View.IsDownloadType) {
             $destFull = $dest
-            if ($View.InstallDir -and -not [IO.Path]::IsPathRooted($dest)) { $destFull = Join-Path $View.InstallDir $dest }
+            if ($View.InstallDir -and -not [IO.Path]::IsPathRooted($dest)) { $destFull = Join-WinstPath $View.InstallDir $dest }
             if (Get-EntryBool -Entry $file -Key 'extract') {
                 $downloadLines += ('安装后解压到: {0}' -f $destFull)
             } else {

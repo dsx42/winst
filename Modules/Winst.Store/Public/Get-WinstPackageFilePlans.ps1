@@ -31,7 +31,7 @@ function Get-WinstPackageFilePlans {
     )
 
     $plans = @()
-    $dir = Join-Path $Context.PkgDir $Id
+    $dir = Join-WinstPath $Context.PkgDir $Id
     $entry = $null
     if ($Index -and $Index.Contains($Id)) { $entry = $Index[$Id] }
 

@@ -10,5 +10,5 @@ function Get-ManifestCachePath {
     #>
     param([string]$PkgDir, [string]$Name)
     if ($Name -ieq (Get-WinstLocalManifestName)) { return '' }
-    return (Join-Path (Get-ManifestCacheDir -PkgDir $PkgDir) ((Get-ManifestFileKey -Name $Name) + '.json'))
+    return (Join-WinstPath (Get-ManifestCacheDir -PkgDir $PkgDir) ((Get-ManifestFileKey -Name $Name) + '.json'))
 }

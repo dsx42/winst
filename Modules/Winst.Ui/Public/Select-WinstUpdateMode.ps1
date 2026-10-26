@@ -16,7 +16,7 @@ function Select-WinstUpdateMode {
     Write-Host ''
     Write-Host '  本次用哪种更新方式？' -ForegroundColor Gray
     Write-Host '    1) 只更新文件    ' -NoNewline -ForegroundColor White
-    Write-Host '只替换文件，环境变量 / 快捷方式保持原样（不新增、不覆盖）  ← 默认' -ForegroundColor DarkGray
+    Write-Host '只替换文件；环境变量 / PATH 保持原样，快捷方式只修正不新建  ← 默认' -ForegroundColor DarkGray
     Write-Host '    2) 完整更新      ' -NoNewline -ForegroundColor White
     Write-Host '按软件源里的定义覆盖已存在的环境变量 / 快捷方式' -ForegroundColor DarkGray
     Write-Host ''

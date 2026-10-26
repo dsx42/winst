@@ -37,7 +37,7 @@ function Copy-WinstBundlePackages {
             Write-Host ('  跳过（id 不合法，无法作为目录名）: {0}' -f $id) -ForegroundColor Yellow
             continue
         }
-        $targetIdDir = Join-Path $KitAppsDir $id
+        $targetIdDir = Join-WinstPath $KitAppsDir $id
 
         # 版本相同且文件齐全 → 跳过；U 盘里是别的版本 → 先清掉这个软件的旧目录再整份复制
         $existingVersion = ''
@@ -45,7 +45,7 @@ function Copy-WinstBundlePackages {
         $sameVersion = [bool]($existingVersion -and $sourceVersion -and ($existingVersion -eq $sourceVersion))
         $allPresent = $true
         foreach ($fileName in $sourceFiles) {
-            if (-not (Test-Path -LiteralPath (Join-Path $targetIdDir $fileName) -PathType Leaf)) { $allPresent = $false; break }
+            if (-not (Test-Path -LiteralPath (Join-WinstPath $targetIdDir $fileName) -PathType Leaf)) { $allPresent = $false; break }
         }
 
         if ($sameVersion -and $allPresent) {
@@ -79,7 +79,7 @@ function Copy-WinstBundlePackages {
                 $null = New-Item -ItemType Directory -Path $targetIdDir -Force -ErrorAction Stop
             }
             foreach ($fileName in $sourceFiles) {
-                Copy-Item -LiteralPath (Join-Path $sourceDir $fileName) -Destination (Join-Path $targetIdDir $fileName) -Force -ErrorAction Stop
+                Copy-Item -LiteralPath (Join-WinstPath $sourceDir $fileName) -Destination (Join-WinstPath $targetIdDir $fileName) -Force -ErrorAction Stop
             }
             $copied++
             if ($replacing) {

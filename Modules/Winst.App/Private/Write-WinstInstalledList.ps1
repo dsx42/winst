@@ -47,6 +47,10 @@ function Write-WinstInstalledList {
         } else {
             Write-Host ''
         }
+        # 本机并存的旧版本：只展示最新版本会让人以为旧版本已经没了
+        if ([bool]$item['HasOldVersions']) {
+            Write-Host ('    还并存旧版本 {0}（可在「已装软件」详情里清理）' -f [string]$item['OldVersionsText']) -ForegroundColor DarkYellow
+        }
         $dirText = '（未记录）'
         if ([string]$item['InstallDir']) { $dirText = [string]$item['InstallDir'] }
         Write-Host ('     安装位置: {0}' -f $dirText) -NoNewline -ForegroundColor Gray

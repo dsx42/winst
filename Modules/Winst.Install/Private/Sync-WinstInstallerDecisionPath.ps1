@@ -19,7 +19,7 @@ function Sync-WinstInstallerDecisionPath {
     if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
     $ledgerDir = Get-EntryString -Entry $Ledger -Key 'installDir'
     $newDir = $Result.InstallDir
-    $clearPlaceholder = [bool](-not $newDir -and $ledgerDir -ieq (Join-Path $Context.InstallRoot $Id) -and
+    $clearPlaceholder = [bool](-not $newDir -and $ledgerDir -ieq (Join-WinstPath $Context.InstallRoot $Id) -and
         -not (Get-WinstInstallerExpectedDir -Plan $Plan -InstallArgs '' -InstallDir $ledgerDir))
     if ($newDir -and $ledgerDir -ine $newDir) {
         $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot `

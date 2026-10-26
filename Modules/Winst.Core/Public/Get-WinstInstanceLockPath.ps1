@@ -13,5 +13,5 @@ function Get-WinstInstanceLockPath {
     [OutputType([string])]
     param()
 
-    return (Join-Path (Get-DataRoot) 'winst.lock')
+    return (Join-WinstPath (Get-DataRoot) 'winst.lock')
 }

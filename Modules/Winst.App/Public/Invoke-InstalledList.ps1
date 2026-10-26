@@ -76,6 +76,7 @@ function Invoke-InstalledList {
             # 更新相关的两个选项**只在真的有更新时出现**（HasUpdate = 软件源里有比本机更高的版本）：
             # 没有更新就没有可执行的动作，摆着只会让人试一次才发现没内容。
             $canUpdate = [bool]$item['HasUpdate']
+            $hasOldVersions = [bool]$item['HasOldVersions']
             Write-Host ''
             if ($canUpdate) {
                 # u) 更新：注明当前更新方式（设置 → 更新方式）与默认使用的来源（安装时选的那个软件源）
@@ -85,6 +86,9 @@ function Invoke-InstalledList {
                 Write-Host ('     来源: {0}' -f $updateSourceText) -ForegroundColor DarkGray
                 Write-Host '  c) 更新（可单独选更新方式与软件源）' -ForegroundColor White
             }
+            if ($hasOldVersions) {
+                Write-Host ('  o) 清理旧版本（{0}）' -f [string]$item['OldVersionsText']) -ForegroundColor White
+            }
             Write-Host '  d) 卸载    r) 重新检测版本    b) 返回    q) 退出' -ForegroundColor DarkGray
             $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
 
@@ -93,9 +97,15 @@ function Invoke-InstalledList {
                 Write-Host '  没有可更新的内容（软件源里没有比本机更高的版本）。要重装 / 降级请到「安装软件」里搜索它，按提示确认强制重装。' -ForegroundColor DarkYellow
                 continue
             }
-            if ($text -ne 'u' -and $text -ne 'c' -and $text -ne 'd' -and $text -ne 'r') { continue }   # 回车 / 其它 = 返回列表
-
-            if ($text -eq 'u') {
+            if ($text -eq 'o') {
+                if (-not $hasOldVersions) {
+                    Write-Host '  本机没有检测到并存的其他版本。' -ForegroundColor DarkYellow
+                    continue
+                }
+                $null = Invoke-WinstOldVersionCleanup -Context $Context -Item $item
+            } elseif ($text -ne 'u' -and $text -ne 'c' -and $text -ne 'd' -and $text -ne 'r') {
+                continue   # 回车 / 其它 = 返回列表
+            } elseif ($text -eq 'u') {
                 # 默认更新：方式按「设置 → 更新方式」，来源优先安装时选的来源（不询问；要临时换源 / 换方式用 c）
                 $null = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -AutoPickSource
             } elseif ($text -eq 'c') {
@@ -105,7 +115,7 @@ function Invoke-InstalledList {
                 }
             } elseif ($text -eq 'd') {
                 Write-WinstUninstallResult -Result (Invoke-WinstUninstallApp -Context $Context -Id $id)
-            } else {
+            } elseif ($text -eq 'r') {
                 $sync = Sync-WinstInstalledRecord -Context $Context -Id $id
                 if ($sync.Ok) {
                     Write-Host ''

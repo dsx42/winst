@@ -3,7 +3,9 @@
 function Save-WinstFileWithHttp {
     <#
     .SYNOPSIS
-        用 Invoke-WebRequest 下载文件。
+        用 Invoke-WebRequest 下载文件（软件包 / 引擎包 / winst 自身更新包）。
+    .DESCRIPTION
+        属于「下载类」请求：`proxyMode = download-direct` 时先直连、失败再走代理。
     .OUTPUTS
         @{ Ok; Error }
     #>
@@ -20,7 +22,7 @@ function Save-WinstFileWithHttp {
         $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction SilentlyContinue
     }
 
-    $attempts = @(Get-WinstProxyAttempts -Context $Context)
+    $attempts = @(Get-WinstProxyAttempts -Context $Context -Download)
     $lastError = ''
     foreach ($currentProxy in $attempts) {
         $tempPath = '{0}.part-{1}' -f $OutFile, ([Guid]::NewGuid().ToString('N').Substring(0, 6))

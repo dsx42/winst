@@ -50,7 +50,7 @@ function Copy-WinstCompanionFiles {
         }
         $name = Get-EntryString -Entry $file -Key 'name'
         if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $file -Key 'url') }
-        $source = Join-Path $PkgDir $name
+        $source = Join-WinstPath $PkgDir $name
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
             # 清单要落位这个文件、而缓存里没有它（下载阶段没成功）时**报错**而不是静默跳过：
             # 否则会打印「已更新 N 个附加文件」，实际却什么都没落

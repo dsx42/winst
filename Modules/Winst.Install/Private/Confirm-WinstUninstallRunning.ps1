@@ -22,7 +22,7 @@ function Confirm-WinstUninstallRunning {
         $checkPlan = @{ id = $Id; name = $ledgerName }
     }
     $checkDirs = @()
-    foreach ($d in @((Get-EntryString -Entry $Ledger -Key 'installDir'), (Join-Path $Context.InstallRoot $Id))) {
+    foreach ($d in @((Get-EntryString -Entry $Ledger -Key 'installDir'), (Join-WinstPath $Context.InstallRoot $Id))) {
         $dirText = ([string]$d).Trim()
         if ($dirText) { $checkDirs += $dirText }
     }

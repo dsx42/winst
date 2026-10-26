@@ -8,5 +8,5 @@ function Get-DataRoot {
     if ($env:WINST_HOME -and $env:WINST_HOME.Trim()) {
         return [Environment]::ExpandEnvironmentVariables($env:WINST_HOME.Trim())
     }
-    return (Join-Path $env:USERPROFILE '.winst')
+    return (Join-WinstPath $env:USERPROFILE '.winst')
 }

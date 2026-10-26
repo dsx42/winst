@@ -47,6 +47,10 @@ function Show-WinstInstalledRows {
                 Write-Host '  [安装目录不存在]' -NoNewline -ForegroundColor Yellow
             }
             Write-Host ''
+            # 本机并存的旧版本：列表里就要能看见，用户才知道可以进去清理（详情页提供卸载选项）
+            if ([bool]$item['HasOldVersions']) {
+                Write-Host ('     还并存旧版本 {0}  [进详情可清理]' -f [string]$item['OldVersionsText']) -ForegroundColor DarkYellow
+            }
             if ([string]$item['InstallDir']) {
                 Write-Host ('     安装位置: {0}' -f [string]$item['InstallDir']) -ForegroundColor Gray
             } else {

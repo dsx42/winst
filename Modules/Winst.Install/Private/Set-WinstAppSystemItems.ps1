@@ -5,11 +5,20 @@ function Set-WinstAppSystemItems {
     .SYNOPSIS
         落地 env / PATH / 快捷方式。
     .DESCRIPTION
-        `-KeepExisting`：**已存在的项保持不动、只补缺失的**——同名环境变量（同作用域）已存在就跳过
-        （不覆盖其它软件 / 用户设置），快捷方式文件已存在就跳过；PATH 项本来就是「已存在则跳过」。
-        它现在只用于**首次安装**（更新方式为「只更新文件」时，已登记软件（更新 / 重装）整段跳过本函数；不带该开关时按软件源里的定义落地（值不同则覆盖、快捷方式重建）。
+        `-KeepExisting`：**已存在的环境变量保持不动、只补缺失的**——同名环境变量（同作用域）已存在就跳过
+        （不覆盖其它软件 / 用户设置）。
+        它现在只用于**首次安装**（更新方式为「只更新文件」时，已登记软件（更新 / 重装）整段跳过本函数；不带该开关时按软件源里的定义落地（值不同则覆盖）。
+
+        快捷方式口径（两种模式一致）：
+        - 不存在 → 按清单定义创建；
+        - 已存在且目标 / 起始位置正确 → 保留，不重写文件；
+        - 已存在但指向不对 → **覆盖修正**。安装位置换过、旧版本残留、被手工改过都会留下指向
+          不存在程序的快捷方式，留着就是「双击打不开」，因此必须修。
+
+        「仅更新文件」模式不做本函数（环境变量一律不动），只走 Repair-WinstAppShortcuts
+        修正已经存在但指向不对的快捷方式。
     .OUTPUTS
-        @{ AppliedEnv; AppliedPath; AppliedShortcuts; Notes }
+        @{ AppliedEnv; AppliedPath; AppliedShortcuts; RepairedShortcuts; Notes; Scope }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -21,6 +30,7 @@ function Set-WinstAppSystemItems {
     $appliedEnv = @()
     $appliedPath = @()
     $appliedShortcuts = @()
+    $repairedShortcuts = @()
     $notes = @()
 
     $scope = Get-WinstInstallScope -InstallDir $InstallDir
@@ -72,46 +82,11 @@ function Set-WinstAppSystemItems {
     }
 
     # 快捷方式（始终用户级；路径规则见 Get-WinstShortcutPaths）
-    $shortcutPaths = @(Get-WinstShortcutPaths -Plan $Plan)
-    if ($shortcutPaths.Count -gt 0) {
-        $main = Get-WinstMainProgram -Plan $Plan -InstallDir $InstallDir
-        if (-not $main) {
-            $notes += '软件源里要求创建快捷方式，但没有指定主程序，已跳过'
-        } else {
-            $linkTarget = $main
-            if (-not [IO.Path]::IsPathRooted($linkTarget)) { $linkTarget = Join-Path $InstallDir $linkTarget }
-            # 主程序是 .ps1 脚本：快捷方式不能直接指向脚本（双击 .lnk 只会把脚本当文档打开、不会执行），
-            # 先在脚本旁边生成同名 .cmd 启动器（winst.ps1 → winst.cmd），快捷方式指向它
-            if ($linkTarget -match '(?i)\.ps1$') {
-                try {
-                    $linkTarget = New-WinstScriptLauncher -ScriptPath $linkTarget
-                } catch {
-                    $notes += ('创建脚本启动器失败（{0}）：{1}' -f $linkTarget, $_.Exception.Message)
-                    $linkTarget = ''
-                }
-            }
-            if (-not $linkTarget) {
-                # 启动器没建成就别建快捷方式：指向 .ps1 的 .lnk 双击 / 点开始菜单都打不开
-                $notes += ('主程序是脚本且未能生成同名 .cmd 启动器，已跳过快捷方式: {0}' -f $main)
-            } else {
-                $displayName = Get-EntryString -Entry $Plan -Key 'name'
-                if (-not $displayName) { $displayName = Get-EntryString -Entry $Plan -Key 'id' }
-                foreach ($link in $shortcutPaths) {
-                    if ($KeepExisting -and (Test-Path -LiteralPath $link -PathType Leaf)) {
-                        # 已存在就保留（不重建、也不登记为 winst 创建项）
-                        $notes += ('快捷方式已存在，已保留: {0}' -f $link)
-                        continue
-                    }
-                    try {
-                        New-WinstShortcutFile -LinkPath $link -TargetPath $linkTarget -WorkingDirectory (Split-Path -Parent $linkTarget) -Description $displayName
-                        $appliedShortcuts += $link
-                    } catch {
-                        $notes += ('创建快捷方式失败（{0}）：{1}' -f $link, $_.Exception.Message)
-                    }
-                }
-            }
-        }
-    }
+    $shortcuts = Set-WinstAppShortcuts -Plan $Plan -InstallDir $InstallDir
+    $appliedShortcuts = @($shortcuts.Applied)
+    $repairedShortcuts = @($shortcuts.Repaired)
+    foreach ($note in @($shortcuts.Notes)) { $notes += $note }
 
-    return @{ AppliedEnv = $appliedEnv; AppliedPath = $appliedPath; AppliedShortcuts = $appliedShortcuts; Notes = $notes; Scope = $scope }
+    return @{ AppliedEnv = $appliedEnv; AppliedPath = $appliedPath; AppliedShortcuts = $appliedShortcuts
+              RepairedShortcuts = $repairedShortcuts; Notes = $notes; Scope = $scope }
 }

@@ -17,6 +17,11 @@ function Show-WinstUninstallPlan {
     if (-not $versionText) { $versionText = '未知（安装记录里没有版本号）' }
     elseif ($versionText -ieq 'unknown') { $versionText = '未知（没能识别出版本号）' }
     Write-Host ('    当前版本: {0}' -f $versionText) -ForegroundColor Gray
+    $oldText = Format-WinstOldVersionText -OldVersions @($Targets['OldVersions'])
+    if ($oldText) {
+        # 按名称规则卸载会命中同名的全部记录：新旧两版一起被卸掉，这里必须提前说清
+        Write-Host ('    并存的旧版本: {0}（卸载会一并移除；只想清旧的请用「已装软件」详情的 o)）' -f $oldText) -ForegroundColor DarkYellow
+    }
     Write-Host ('    卸载动作来源: {0}' -f (@($Targets['Sources']) -join ' + ')) -ForegroundColor DarkGray
     foreach ($note in @($Targets['Notes'])) {
         Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow

@@ -10,7 +10,7 @@ function Write-WinstPlanCommandStage {
     $commandLines = @()
     foreach ($command in @(Get-EntryArray -Entry $Plan -Key 'postInstall')) {
         $exeText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'exe') -InstallDir $View.InstallDir -InstallRoot $View.InstallRoot))
-        if ($View.InstallDir -and $exeText -and -not [IO.Path]::IsPathRooted($exeText)) { $exeText = Join-Path $View.InstallDir $exeText }
+        if ($View.InstallDir -and $exeText -and -not [IO.Path]::IsPathRooted($exeText)) { $exeText = Join-WinstPath $View.InstallDir $exeText }
         $argText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'args') -InstallDir $View.InstallDir -InstallRoot $View.InstallRoot))
         $line = $exeText
         if ($argText) { $line += ' ' + $argText }

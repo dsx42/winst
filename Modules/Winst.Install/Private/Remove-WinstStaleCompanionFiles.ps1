@@ -36,7 +36,7 @@ function Remove-WinstStaleCompanionFiles {
         if (-not $text) { continue }
         $normalized = $text.ToLowerInvariant().Replace('/', '\').TrimEnd('\')
         if ($current -contains $normalized) { continue }
-        $path = Join-Path $InstallDir $text
+        $path = Join-WinstPath $InstallDir $text
         if (-not (Test-Path -LiteralPath $path)) { continue }
         $full = ''
         try { $full = [IO.Path]::GetFullPath($path) } catch { $full = '' }

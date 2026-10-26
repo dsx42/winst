@@ -25,7 +25,18 @@ function Set-ConfigValue {
         return $false
     }
 
-    $configPath = Join-Path $Context.DataRoot 'config.json'
+    # 枚举型配置项（目前只有代理模式）：写错会让下游悄悄退回默认值，必须当场拒绝
+    if ($Key -eq 'proxyMode') {
+        $normalized = Test-WinstProxyModeValue -Value ([string]$converted.Value)
+        if (-not $normalized) {
+            Write-Host ''
+            Write-Host ('  输入无效：代理模式只能是 auto / always / off / download-direct，未做修改。') -ForegroundColor Yellow
+            return $false
+        }
+        $converted.Value = $normalized
+    }
+
+    $configPath = Join-WinstPath $Context.DataRoot 'config.json'
     $Context.Config[$Key] = $converted.Value
     try {
         Save-WinstConfig -DataRoot $Context.DataRoot -Config $Context.Config

@@ -14,7 +14,7 @@ function Save-WinstConfig {
         [hashtable]$Config
     )
 
-    $configPath = Join-Path $DataRoot 'config.json'
+    $configPath = Join-WinstPath $DataRoot 'config.json'
 
     $ordered = [ordered]@{
         installRoot      = $Config['installRoot']

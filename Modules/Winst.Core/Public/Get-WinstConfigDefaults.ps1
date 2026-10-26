@@ -12,7 +12,7 @@ function Get-WinstConfigDefaults {
 
     return @{
         installRoot      = '%USERPROFILE%\winst'
-        pkgDir           = (Join-Path $DataRoot 'apps')
+        pkgDir           = (Join-WinstPath $DataRoot 'apps')
         pruneOldPackages = $true
         manifestTTLHours = 24
         proxy            = ''

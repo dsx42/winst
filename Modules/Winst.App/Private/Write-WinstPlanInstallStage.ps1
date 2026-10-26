@@ -66,7 +66,7 @@ function Write-WinstPlanInstallStage {
     }
     if ($mainProgram) {
         $mainFull = $mainProgram
-        if ($installDir -and -not [IO.Path]::IsPathRooted($mainFull)) { $mainFull = Join-Path $installDir $mainFull }
+        if ($installDir -and -not [IO.Path]::IsPathRooted($mainFull)) { $mainFull = Join-WinstPath $installDir $mainFull }
         $installLines += ('主程序: {0}' -f $mainFull)
     }
     Write-ResolvedStage -Marker '②' -Label '安装' -Lines $installLines

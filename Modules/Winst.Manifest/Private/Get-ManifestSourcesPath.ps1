@@ -6,5 +6,5 @@ function Get-ManifestSourcesPath {
         返回软件源列表文件路径：<pkgDir>\manifests\sources.json。
     #>
     param([Parameter(Mandatory = $true)][string]$PkgDir)
-    return (Join-Path (Get-ManifestRootDir -PkgDir $PkgDir) (Get-WinstManifestSourcesFileName))
+    return (Join-WinstPath (Get-ManifestRootDir -PkgDir $PkgDir) (Get-WinstManifestSourcesFileName))
 }

@@ -6,8 +6,11 @@ function Resolve-WinstGithubSourceForTag {
         按发布 tag 解析 github 源（②版本号来源 ③逐文件落地 ④文件名取版本）。
     .DESCRIPTION
         Resolve-GithubSource 的「单个 tag」步骤：定版本 → 逐文件落地 → 需要时从文件名取版本。
+
+        `MissingFile = $true` 表示「这个发布里还没有要的文件」（上游常常先建 release、再分批上传资产），
+        调用方可以退回更早的发布再试；其它失败换发布也没用。
     .OUTPUTS
-        @{ Ok; Error; Files; ResultVersion }
+        @{ Ok; Error; Files; ResultVersion; MissingFile }
     #>
     param(
         [hashtable]$Context,
@@ -20,7 +23,7 @@ function Resolve-WinstGithubSourceForTag {
         [string]$ReleaseTagPrefix = ''
     )
 
-    $out = @{ Ok = $false; Error = ''; Files = @(); ResultVersion = '' }
+    $out = @{ Ok = $false; Error = ''; Files = @(); ResultVersion = ''; MissingFile = $false }
 
     # 声明 releaseTag 前缀时先去前缀，再按 8.5 规范化（去 v 前缀），使 {version} 可直接用于 URL 模板
     $version = Get-WinstGithubTagVersion -Tag $Tag -ReleaseTagPrefix $ReleaseTagPrefix
@@ -51,6 +54,7 @@ function Resolve-WinstGithubSourceForTag {
         -ChosenTag $Tag -Version $version -Result $Result
     if ($filesResult.Error) {
         $out.Error = [string]$filesResult.Error
+        $out.MissingFile = [bool]$filesResult.MissingFile
         return $out
     }
     $files = @($filesResult.Files)

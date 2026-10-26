@@ -11,7 +11,7 @@ function Install-WinstInstallerPayload {
 
     $work = $PrimaryPath
     if ($work.StartsWith('\\')) {
-        $local = Join-Path ([IO.Path]::GetTempPath()) (Split-Path -Leaf $work)
+        $local = Join-WinstPath ([IO.Path]::GetTempPath()) (Split-Path -Leaf $work)
         try { Copy-Item -LiteralPath $work -Destination $local -Force -ErrorAction Stop; $work = $local } catch { }
     }
 
@@ -20,7 +20,7 @@ function Install-WinstInstallerPayload {
     $installerExeRel = (Get-EntryString -Entry $Install -Key 'installerExe').Trim()
     if ($installerExeRel) {
         $null = Confirm-WinstExtractEngine -Context $Context -Quiet:$Quiet
-        $unpackDir = Join-Path ([IO.Path]::GetTempPath()) ('winst-inst-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+        $unpackDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-inst-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
         $stripValue = Get-EntryValue -Entry $Install -Key 'stripTopDir' -Default $true
         if ($null -eq $stripValue) { $stripValue = $true }
 

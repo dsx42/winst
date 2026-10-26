@@ -30,11 +30,30 @@ function Invoke-WinstInstallTarget {
         [switch]$SkipDependencies
     )
 
-    $result = @{ Ok = $false; Skipped = $false; Cancelled = $false; Network = $false; Message = ''; Error = ''; Version = ''; Source = '' }
+    $result = @{
+        Ok = $false; Skipped = $false; Cancelled = $false; Network = $false
+        Message = ''; Error = ''; Version = ''; Source = ''
+        # 失败原因是否已由本函数就地打印过：调用方据此决定要不要再报一次汇总
+        FailureShown = $false
+    }
 
     $chosen = Select-WinstRowSource -Row $Row -AutoPick:$AutoPickSource
     if ($chosen.Cancelled) { $result.Cancelled = $true; return $result }
-    if (-not $chosen.Ok) { $result.Error = $chosen.Error; return $result }
+    if (-not $chosen.Ok) {
+        $result.Error = [string]$chosen.Error
+        if (-not $result.Error) { $result.Error = '软件源里没有可用的版本信息' }
+        # 提前返回也必须把原因说出来：调用方（菜单汇总 / CLI）只报失败条数，
+        # 不打印就等于「直接显示失败 1」而没有任何线索。
+        # -Quiet 时由调用方（依赖处理 / 更新流程）统一转述，这里不重复打印。
+        if (-not $Quiet) {
+            Write-Host ''
+            Write-Host ('  失败: {0} 没有可安装的版本 —— {1}' -f [string]$Row['Name'], $result.Error) -ForegroundColor Red
+            Write-Host '  可到「高级功能 → 管理软件源」里刷新软件源后重试；若提示某个来源出错，先修好那个软件源。' -ForegroundColor DarkGray
+        }
+        # -Quiet 时什么都没打印，标记为「未告知」，让调用方（依赖处理 / 更新流程）转述这条原因
+        $result.FailureShown = (-not $Quiet)
+        return $result
+    }
 
     $entry = $chosen.Entry
     $sourceName = [string]$entry['Source']
@@ -135,7 +154,10 @@ function Invoke-WinstInstallTarget {
             if (-not $depReason) { $depReason = [string]$depResult.Message }
             if (-not $depReason) { $depReason = '未知原因' }
             $result.Error = ('依赖「{0}」处理失败（{1}），已中止本次安装。' -f [string]$step['Name'], $depReason)
-            Write-Host ('  失败: {0}' -f $result.Error) -ForegroundColor Red
+            if (-not $Quiet) {
+                Write-Host ('  失败: {0}' -f $result.Error) -ForegroundColor Red
+                $result.FailureShown = $true
+            }
             return $result
         }
     }
@@ -154,6 +176,9 @@ function Invoke-WinstInstallTarget {
     $result.Version = $install.Version
     if ($install.Cancelled) { $result.Cancelled = $true }
 
-    Write-WinstInstallTargetResult -Install $install -SkipReasonShown ([bool]$exec.SkipReasonShown)
+    Write-WinstInstallTargetResult -Install $install -SkipReasonShown ([bool]$exec.SkipReasonShown) -Quiet:$Quiet
+    # 失败分支一定有输出（无原因时也给兜底文案），因此失败即视为已告知，调用方不必再重复一遍；
+    # -Quiet 时上面什么都不打印，留给调用方转述
+    if (-not $result.Ok -and -not $result.Skipped -and -not $result.Cancelled) { $result.FailureShown = (-not $Quiet) }
     return $result
 }

@@ -20,18 +20,18 @@ function Get-WinstManifestAppPlan {
     $result = @{ Ok = $false; Source = ''; Plan = $null; Error = ''; Matches = @() }
     if (-not $Id) { $result.Error = '缺少软件 id'; return $result }
 
-    $matches = @(Get-ResolvedAppsById -Context $Context -Id $Id)
-    $result.Matches = @($matches)
+    $found = @(Get-ResolvedAppsById -Context $Context -Id $Id)
+    $result.Matches = @($found)
 
-    if (-not $LiveResolve -and $matches.Count -gt 0) {
+    if (-not $LiveResolve -and $found.Count -gt 0) {
         $chosen = $null
         if ($PreferSource) {
-            foreach ($m in $matches) {
+            foreach ($m in $found) {
                 if (([string]$m['Source'] -ieq $PreferSource) -and (Get-EntryBool -Entry $m['App'] -Key 'ok')) { $chosen = $m; break }
             }
         }
         if (-not $chosen) {
-            foreach ($m in $matches) {
+            foreach ($m in $found) {
                 if (Get-EntryBool -Entry $m['App'] -Key 'ok') { $chosen = $m; break }
             }
         }
@@ -42,7 +42,7 @@ function Get-WinstManifestAppPlan {
             return $result
         }
 
-        $first = $matches[0]
+        $first = $found[0]
         $result.Source = [string]$first['Source']
         $result.Plan = $first['App']
         $result.Error = ('这个软件在软件源里的解析结果不可用：{0}' -f (Get-EntryString -Entry $first['App'] -Key 'error'))

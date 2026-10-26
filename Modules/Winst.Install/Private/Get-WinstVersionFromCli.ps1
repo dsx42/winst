@@ -20,7 +20,7 @@ function Get-WinstVersionFromCli {
     if (-not $main) { $main = Get-WinstMainProgram -Plan $Plan -InstallDir $InstallDir }
     if (-not $main) { return }
     $mainPath = $main
-    if ($InstallDir -and -not [IO.Path]::IsPathRooted($mainPath)) { $mainPath = Join-Path $InstallDir $mainPath }
+    if ($InstallDir -and -not [IO.Path]::IsPathRooted($mainPath)) { $mainPath = Join-WinstPath $InstallDir $mainPath }
     if (-not (Test-Path -LiteralPath $mainPath -PathType Leaf)) { return }
 
     $Result.Found = $true

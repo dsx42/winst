@@ -64,7 +64,7 @@ function Get-WinstRegistryScanRecords {
         if (-not $version) { $version = 'unknown' }
         $managed = 'external'
         if (Test-WinstUnderInstallRoot -Path $location -InstallRoot $Context.InstallRoot) { $managed = 'winst' }
-        $Found[$id] = New-WinstScanRecord -Id $id -Version $version -Type $type `
+        $Found[$id] = New-WinstScanRecord -Id $id -Version $version -OldVersions @($detectResult.OldVersions) -Type $type `
             -InstallDir $location -Managed $managed -Source ([string]$Source[$id])
         if ($VerboseOutput) {
             Write-Host ('    [注册表] {0} → 版本 {1}（{2}，{3}）' -f $id, $version, [string]$hit['DisplayName'], $managed) -ForegroundColor DarkGray

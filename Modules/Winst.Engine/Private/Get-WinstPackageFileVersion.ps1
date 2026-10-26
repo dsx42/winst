@@ -13,7 +13,7 @@ function Get-WinstPackageFileVersion {
     $name = ''
     if ($null -ne $FileName) { $name = ([string]$FileName).Trim() }
     if (-not $PkgDir -or -not $name) { return '' }
-    $path = Join-Path $PkgDir $name
+    $path = Join-WinstPath $PkgDir $name
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return '' }
 
     $raw = ''

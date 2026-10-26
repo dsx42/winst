@@ -46,6 +46,14 @@ function Sync-WinstInstalledRecord {
     $detect = Get-WinstDetectedVersion -Context $Context -Plan $plan -InstallDir $newDir -SourceName $planResult.Source
     $newVersion = ''
     if ($detect.Ok -and $detect.Version) { $newVersion = [string]$detect.Version }
+    $newOldVersions = @()
+    foreach ($one in @($detect.OldVersions)) {
+        $newOldVersions += [ordered]@{
+            version   = [string]$one['Version']
+            detail    = [string]$one['Detail']
+            recordKey = [string]$one['RecordKey']
+        }
+    }
 
     if (-not $newVersion) {
         if (-not $dirChanged) {
@@ -68,13 +76,15 @@ function Sync-WinstInstalledRecord {
         return $result
     }
 
-    if ($newVersion -eq $oldVersion -and -not $dirChanged) {
+    # 本机并存的旧版本也要跟着更正：升级 / 手动清理后再次检测，读到的才是当前真实剩余
+    $oldChanged = -not (Test-WinstOldVersionsEqual -A @(Get-EntryArray -Entry $ledger -Key 'oldVersions') -B $newOldVersions)
+    if ($newVersion -eq $oldVersion -and -not $dirChanged -and -not $oldChanged) {
         $result.Ok = $true
         $result.Message = ('检测结果与安装记录一致：版本 {0}。' -f $newVersion)
         return $result
     }
 
-    $fields = @{ version = $newVersion }
+    $fields = @{ version = $newVersion; oldVersions = @($newOldVersions) }
     if ($dirChanged) { $fields['installDir'] = $newDir }
     try {
         $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot -Id $Id `
@@ -86,9 +96,18 @@ function Sync-WinstInstalledRecord {
 
     $result.Ok = $true
     $result.Changed = $true
-    $oldText = $oldVersion
-    if (-not $oldText) { $oldText = '未知' }
-    $result.Message = ('安装记录已更新：版本 {0} → {1}' -f $oldText, $newVersion)
+    if ($newVersion -eq $oldVersion) {
+        $oldText = Format-WinstOldVersionText -OldVersions $newOldVersions
+        if ($oldText) {
+            $result.Message = ('安装记录已更新：版本 {0} 不变，本机并存的旧版本为 {1}' -f $newVersion, $oldText)
+        } else {
+            $result.Message = ('安装记录已更新：版本 {0} 不变，旧版本登记已清空（本机只剩这一个版本）' -f $newVersion)
+        }
+    } else {
+        $oldText = $oldVersion
+        if (-not $oldText) { $oldText = '未知' }
+        $result.Message = ('安装记录已更新：版本 {0} → {1}' -f $oldText, $newVersion)
+    }
     if ($dirChanged) { $result.Message += ('；安装位置更正为 {0}' -f $newDir) }
     return $result
 }

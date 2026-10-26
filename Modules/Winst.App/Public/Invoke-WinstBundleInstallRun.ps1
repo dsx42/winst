@@ -84,6 +84,8 @@ function Invoke-WinstBundleInstallRun {
         if (-not $one.Ok) {
             $stats['FailCount']++
             if ($one.Error) { Write-Host ('  失败: {0}' -f [string]$one.Error) -ForegroundColor Red }
+            elseif ([string]$one.Message) { Write-Host ('  失败: {0}' -f [string]$one.Message) -ForegroundColor Red }
+            else { Write-Host '  失败: 安装流程没有给出原因（可用 --verbose 重试以取得更多信息）。' -ForegroundColor Red }
             continue
         }
         if ($one.Skipped) { $stats['SkipCount']++; continue }

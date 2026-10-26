@@ -165,6 +165,9 @@ function Invoke-WinstInstallCommand {
     $failCount = 0
     $networkFailed = $false
     $parameterFailed = $false
+    # 失败 / 跳过的原因：汇总只报条数，逐条原因在这里收好，结尾统一列出
+    $failureNotes = @()
+    $skipNotes = @()
 
     # id → 清单行 的索引一次建好：避免每个 id 都做一次全量子串扫描，
     # 也避免 N 个 id 各留一份全量缓存常驻。
@@ -214,9 +217,20 @@ function Invoke-WinstInstallCommand {
         if (-not $one.Ok) {
             if ($one.Network) { $networkFailed = $true }
             $failCount++
+            # 原因已由 Invoke-WinstInstallTarget 就地打印时不再重复，避免同一屏出现两遍
+            if (-not [bool]$one.FailureShown) {
+                $reason = [string]$one.Error
+                if (-not $reason) { $reason = [string]$one.Message }
+                if (-not $reason) { $reason = '未知原因' }
+                $failureNotes += ('{0}: {1}' -f $id, $reason)
+            }
             continue
         }
-        if ($one.Skipped) { $skipCount++; continue }
+        if ($one.Skipped) {
+            $skipCount++
+            if ([string]$one.Message) { $skipNotes += ('{0}: {1}' -f $id, [string]$one.Message) }
+            continue
+        }
         $okCount++
         if ((Get-WinstRowType -Row $targetRow) -eq 'download') { $downloadOkCount++ }
     }
@@ -226,6 +240,12 @@ function Invoke-WinstInstallCommand {
     if ($downloadOkCount -gt 0) { $summaryParts += ('其中已下载软件包 {0}' -f $downloadOkCount) }
     $summaryParts += @(('跳过 {0}' -f $skipCount), ('失败 {0}' -f $failCount))
     Write-Host ('  汇总: {0}' -f ($summaryParts -join ' / ')) -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Gray' })
+    foreach ($note in @($failureNotes)) {
+        Write-Host ('    失败原因: {0}' -f $note) -ForegroundColor Red
+    }
+    foreach ($note in @($skipNotes)) {
+        Write-Host ('    跳过原因: {0}' -f $note) -ForegroundColor DarkYellow
+    }
 
     if ($failCount -gt 0) {
         if ($networkFailed) { return 2 }

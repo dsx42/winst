@@ -19,7 +19,7 @@ function Resolve-WinstDownloadedFile {
     )
 
     $result = @{ Path = ''; Note = ''; Error = '' }
-    $target = Join-Path $Dir $Name
+    $target = Join-WinstPath $Dir $Name
     if (Test-Path -LiteralPath $target -PathType Leaf) {
         $result.Path = $target
         return $result

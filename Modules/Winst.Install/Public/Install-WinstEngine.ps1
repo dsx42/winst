@@ -52,7 +52,7 @@ function Install-WinstEngine {
     }
     $plan = $resolved.Plan
     $planId = Get-EntryString -Entry $plan -Key 'id'
-    $installDir = Join-Path $Context.InstallRoot $planId
+    $installDir = Join-WinstPath $Context.InstallRoot $planId
 
     # ① 下载（引擎引导例外：IWR）+ 缓存索引 + 旧包清理
     $download = Invoke-WinstEngineDownload -Context $Context -Id $Id -Plan $plan -PlanId $planId -Quiet:$Quiet
@@ -69,7 +69,7 @@ function Install-WinstEngine {
         return $result
     }
     if ($mainExe) {
-        $exePath = Join-Path $installDir $mainExe
+        $exePath = Join-WinstPath $installDir $mainExe
         if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
             $result.Error = ('安装完成后没有找到 {0}（{1}），请检查软件源里的主程序设置' -f $mainExe, $exePath)
             return $result

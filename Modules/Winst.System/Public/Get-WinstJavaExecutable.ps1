@@ -14,10 +14,10 @@ function Get-WinstJavaExecutable {
     $candidates = @()
     $javaHome = ''
     try { $javaHome = [string]$env:JAVA_HOME } catch { $javaHome = '' }
-    if ($javaHome) { $candidates += (Join-Path $javaHome 'bin\java.exe') }
+    if ($javaHome) { $candidates += (Join-WinstPath $javaHome 'bin\java.exe') }
     if ($Context) {
         $root = [string]$Context.InstallRoot
-        if ($root) { $candidates += (Join-Path $root 'jdk*\bin\java.exe') }
+        if ($root) { $candidates += (Join-WinstPath $root 'jdk*\bin\java.exe') }
     }
 
     foreach ($candidate in $candidates) {

@@ -6,6 +6,9 @@ function Invoke-PathSettingItem {
         路径类设置项（软件安装位置 / 安装包位置）：校验 → 建目录 → 写入 config.json → 刷新横幅。
     .DESCRIPTION
         值按用户输入原样保存（含 %VAR% 形式），读取时展开；相对路径以数据根目录为基准。
+
+        切换**软件安装位置**（installRoot）时会把旧位置下已有的软件目录列出来提示用户：
+        新位置只对此后的安装生效，已装软件留在原处继续可用，用户需要知道旧位置里还有哪些软件。
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -71,7 +74,26 @@ function Invoke-PathSettingItem {
         }
     }
 
-    $configPath = Join-Path $Context.DataRoot 'config.json'
+    # 切换软件安装位置：只提示旧位置下已有哪些软件，不搬、不改
+    if ($Key -eq 'installRoot') {
+        $oldInstallRoot = [string]$Context.InstallRoot
+        if ($oldInstallRoot -and $oldInstallRoot.TrimEnd('\', '/') -ine $resolved.TrimEnd('\', '/')) {
+            $existing = @(Get-WinstInstalledDirList -InstallRoot $oldInstallRoot)
+            if ($existing.Count -gt 0) {
+                Write-Host ''
+                Write-Host ('  旧位置下现有 {0} 个软件目录：' -f $existing.Count) -ForegroundColor Gray
+                Write-Host ('    {0}' -f $oldInstallRoot) -ForegroundColor DarkGray
+                foreach ($one in $existing) {
+                    Write-Host ('    - {0}' -f [string]$one) -ForegroundColor Gray
+                }
+                Write-Host ''
+                Write-Host '  换位置只对此后的安装生效：上面这些软件留在原处继续可用。' -ForegroundColor DarkGray
+                Write-Host '  （安装记录跟着安装位置存放，新位置暂时是空的；进入「已装软件」会自动扫描登记。）' -ForegroundColor DarkGray
+            }
+        }
+    }
+
+    $configPath = Join-WinstPath $Context.DataRoot 'config.json'
     $Context.Config[$Key] = $value
     try {
         Save-WinstConfig -DataRoot $Context.DataRoot -Config $Context.Config

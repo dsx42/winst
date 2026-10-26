@@ -38,7 +38,7 @@ function Get-WinstFilePlan {
         $plan['Reason'] = '下载信息不完整（文件名不合法或地址为空）'
         return $plan
     }
-    $target = Join-Path $Dir $name
+    $target = Join-WinstPath $Dir $name
     $plan['Target'] = $target
 
     $refresh = Get-WinstFileRefreshMode -FileDecl $File

@@ -14,7 +14,7 @@ function Get-WinstListCommandTarget {
 
     $defaultName = (Get-WinstListFileName)
     if (-not $Text) {
-        return @{ Ok = $true; Error = ''; Path = (Join-Path (Get-WinstListsDir -Context $Context) $defaultName); Name = $defaultName }
+        return @{ Ok = $true; Error = ''; Path = (Join-WinstPath (Get-WinstListsDir -Context $Context) $defaultName); Name = $defaultName }
     }
     $resolved = Resolve-WinstListPath -Context $Context -Text $Text
     if (-not $resolved.Ok) { return @{ Ok = $false; Error = $resolved.Error; Path = ''; Name = '' } }

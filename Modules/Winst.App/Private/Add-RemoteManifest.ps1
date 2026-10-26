@@ -35,12 +35,6 @@ function Add-RemoteManifest {
         $result.Message = ('软件源 {0} 为内置源，无需添加' -f $sourceName)
         return $result
     }
-    foreach ($retiredName in @(Get-WinstRetiredManifestSourceList)) {
-        if ($sourceName -ieq [string]$retiredName) {
-            $result.Message = ('{0} 是内置源的历史名称（内置源现为 {1}），不能作为自定义源添加' -f $sourceName, (Get-WinstOfficialManifestName))
-            return $result
-        }
-    }
     if ($sourceName -ieq (Get-WinstLocalManifestName)) {
         $result.Message = ('{0} 是本地清单的固定名称（自动识别脚本同目录的清单文件），不能添加；把自己的清单文件放到脚本同目录即可' -f (Get-WinstLocalManifestName))
         return $result

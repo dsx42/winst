@@ -4,12 +4,17 @@ function Update-WinstLedgerFromScan {
     <#
     .SYNOPSIS
         ⑤ 合并台账：补缺失 / 版本变化时更新 / 其余保持原值（计数器通过 Counters 哈希表回传）。
+    .DESCRIPTION
+        `oldVersions`（同一软件并存的低版本）每次都按本次扫描结果整条替换：
+        版本号一致时也要写，否则升级后新出现的旧版本不会被记下来、界面也就不会提醒清理。
+        它只在「本机真有多个版本」时有内容，平时是空数组，写回不产生可见变化。
     #>
     param([hashtable]$Context, $State, $Found, $Plan, [string]$Now, [hashtable]$Counters, [switch]$Quiet)
 
     foreach ($id in @($Found.Keys)) {
         $info = $Found[$id]
         $existing = Get-WinstInstalledApp -State $State -Id $id
+        $oldVersions = @(Merge-WinstScanOldVersions -Info $info -CurrentVersion ([string]$info['Version']))
         if ($existing) {
             $existingVersion = Get-EntryString -Entry $existing -Key 'version'
             if (-not $existingVersion) { $existingVersion = 'unknown' }
@@ -38,7 +43,11 @@ function Update-WinstLedgerFromScan {
                 continue
             }
 
-            if ($existingVersion -eq $detected) {
+            $versionChanged = ($existingVersion -ne $detected)
+            $savedOld = @(Get-EntryArray -Entry $existing -Key 'oldVersions')
+            $oldChanged = -not (Test-WinstOldVersionsEqual -A $savedOld -B $oldVersions)
+
+            if (-not $versionChanged -and -not $oldChanged) {
                 $Counters.Kept++
                 if (-not $Quiet) {
                     Write-Host ('    [=] 已登记 {0}  版本 {1}（与记录一致，未改动）  目录 {2}' -f $id, $existingVersion, $recordDir) -ForegroundColor DarkGray
@@ -46,15 +55,22 @@ function Update-WinstLedgerFromScan {
                 continue
             }
 
-            # 内容发生了变化：更新记录里的版本
-            $existing['version'] = $detected
+            $existing['oldVersions'] = @($oldVersions)
+            if ($versionChanged) { $existing['version'] = $detected }
             $Counters.Changed = $true
-            if ($existingVersion -eq 'unknown') {
-                $Counters.Filled++
-                Write-Host ('    [~] 补全版本 {0} → {1}  目录 {2}' -f $id, $detected, $recordDir) -ForegroundColor Gray
-            } else {
-                $Counters.Updated++
-                Write-Host ('    [~] 更正版本 {0}：{1} → {2}  目录 {3}' -f $id, $existingVersion, $detected, $recordDir) -ForegroundColor Gray
+            if (-not $Quiet) {
+                if (-not $versionChanged) {
+                    Write-Host ('    [~] 更新 {0} 的旧版本登记：{1}  目录 {2}' -f $id, (Format-WinstOldVersionText -OldVersions $oldVersions), $recordDir) -ForegroundColor Gray
+                } elseif ($existingVersion -eq 'unknown') {
+                    $Counters.Filled++
+                    Write-Host ('    [~] 补全版本 {0} → {1}  目录 {2}' -f $id, $detected, $recordDir) -ForegroundColor Gray
+                } else {
+                    $Counters.Updated++
+                    Write-Host ('    [~] 更正版本 {0}：{1} → {2}  目录 {3}' -f $id, $existingVersion, $detected, $recordDir) -ForegroundColor Gray
+                }
+                if ($versionChanged -and $oldVersions.Count -gt 0) {
+                    Write-Host ('        本机还并存旧版本 {0}（可在「已装软件」详情里清理）' -f (Format-WinstOldVersionText -OldVersions $oldVersions)) -ForegroundColor DarkGray
+                }
             }
             continue
         }

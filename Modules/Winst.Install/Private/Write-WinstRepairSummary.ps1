@@ -16,6 +16,12 @@ function Write-WinstRepairSummary {
     $missing = @($MissingDirs)
 
     $ledgerAfter = @($State['Installed'].Keys).Count
+    # 并存的旧版本条目数：修复后仍有多版本共存的记录，值得单独提一句
+    $multiVersion = 0
+    foreach ($key in @($State['Installed'].Keys)) {
+        $entry = $State['Installed'][$key]
+        if (@(Get-EntryArray -Entry $entry -Key 'oldVersions').Count -gt 0) { $multiVersion++ }
+    }
     Write-Host ''
     if ($Quiet) {
         # 内嵌调用（进入「已装软件」列表时）：只给一行结论，改动细节已在上面逐条打印
@@ -32,6 +38,9 @@ function Write-WinstRepairSummary {
         }
         if ($missing.Count -gt 0) {
             Write-Host ('  提示: {0} 条记录的安装目录已不存在（未删除记录，可到「已装软件」里查看或卸载）' -f $missing.Count) -ForegroundColor DarkYellow
+        }
+        if ($multiVersion -gt 0) {
+            Write-Host ('  提示: {0} 个软件在本机并存多个版本（可在「已装软件」详情里清理旧版本）' -f $multiVersion) -ForegroundColor DarkYellow
         }
         return 0
     }
@@ -53,6 +62,9 @@ function Write-WinstRepairSummary {
         foreach ($item in $missing) {
             Write-Host ('        {0}  {1}' -f $item['Id'], $item['InstallDir']) -ForegroundColor DarkGray
         }
+    }
+    if ($multiVersion -gt 0) {
+        Write-Host ('    并存多版本的条目: {0} 个（「已装软件」列表里会标出旧版本，详情页可选 o) 清理）' -f $multiVersion) -ForegroundColor DarkYellow
     }
     Write-Host ''
     if ($DryRun) {

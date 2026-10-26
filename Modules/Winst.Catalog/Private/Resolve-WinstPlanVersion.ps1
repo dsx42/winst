@@ -39,7 +39,7 @@ function Resolve-WinstPlanVersion {
             $deriveNote = ''
             $deriveError = ''
             if ($PkgDir -and $mainName) {
-                $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir (Join-Path $PkgDir $id) -Plan $Plan -FileName $mainName
+                $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir (Join-WinstPath $PkgDir $id) -Plan $Plan -FileName $mainName
                 if ($derivedResult.Ok) {
                     $derived = [string]$derivedResult.Version
                     if ([string]$derivedResult.Source -eq 'packagePath') {

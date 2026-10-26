@@ -39,16 +39,16 @@ function New-WinstPlanViewState {
 
     # 安装目录一律以 id 命名
     $installDir = ''
-    if ($InstallRoot -and $id) { $installDir = Join-Path $InstallRoot $id }
+    if ($InstallRoot -and $id) { $installDir = Join-WinstPath $InstallRoot $id }
 
     $pkgTarget = ''
-    if ($PkgDir -and $id) { $pkgTarget = Join-Path $PkgDir $id }
+    if ($PkgDir -and $id) { $pkgTarget = Join-WinstPath $PkgDir $id }
 
     $shortcutName = ConvertTo-ShortcutName -Name $displayName
     $desktopLink = ''
-    if ($DesktopDir -and $shortcutName) { $desktopLink = Join-Path $DesktopDir $shortcutName }
+    if ($DesktopDir -and $shortcutName) { $desktopLink = Join-WinstPath $DesktopDir $shortcutName }
     $startMenuLink = ''
-    if ($StartMenuDir -and $shortcutName) { $startMenuLink = Join-Path $StartMenuDir $shortcutName }
+    if ($StartMenuDir -and $shortcutName) { $startMenuLink = Join-WinstPath $StartMenuDir $shortcutName }
 
     $position = ''
     if ($Total -gt 0) { $position = ('[{0}/{1}] ' -f $Index, $Total) }

@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` → `Modules\Winst.*` 各模块 → 业务逻辑；`manifest.json` 是软件目录，`build.cmd`（逻辑在 `build.ps1`）打包发布。
 
@@ -140,7 +140,7 @@ Get-ChildItem Modules -Recurse -Filter *.ps1 |
 ## 发布相关
 
 - `manifest.json` **不打进 `winst.zip`**，它通过 `raw.githubusercontent.com/dsx42/winst-manifest/main/manifest.json` 作为内置软件源分发（独立仓库，只放清单文件，**没有 release**）。改它就是给所有用户发布新目录，`_manifestVersion` 要一起改。
-- 内置源名是 `dsx42/winst-manifest`；`dsx42/winst` 是该源的历史名称，现在只承载 winst 本体源码与 release。历史源名由 `Get-WinstRetiredManifestSourceList` 维护，`Ensure-OfficialManifest` 会清掉源列表里的残留条目与它的缓存，`Add-RemoteManifest` 拒绝再用它添加来源。
+- 内置源名是 `dsx42/winst-manifest`，`Ensure-OfficialManifest` 负责让它缺失时补到首位、地址被改时恢复、不在首位时挪回首位。`dsx42/winst` 只承载 winst 本体源码与 release，不是软件源；源码里它只作为产品仓库地址出现（`Get-WinstOfficialRepoUrl`）。
 - `winst.zip` 内容固定为 `winst.ps1` + `winst.cmd` + `LICENSE` + `Modules\Winst\`（单一模块；不含 `README.md`、`docs\`、`build.*`、`install.ps1`、`manifest.json`）；`build.ps1` 会校验必需条目与"不能有单一顶层目录"。
 - 构建先清空 `dist\`，再产出可运行的 `dist\winst\`，最后压缩成 `dist\winst.zip`；测产物直接跑 `dist\winst\winst.cmd`，不必解压。
 - `dist\winst\` 比 `winst.zip` 多一个 `manifest.json`：构建末尾把仓库根目录的清单复制进去，产物目录因此可以直接当「脚本同目录」测本地软件源条目。复制发生在打包之后，**它不进 zip**，release 资产保持干净。

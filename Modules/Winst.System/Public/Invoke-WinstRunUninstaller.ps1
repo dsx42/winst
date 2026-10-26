@@ -60,64 +60,26 @@ function Invoke-WinstRunUninstaller {
         if ($keyPath -and -not (Test-Path -LiteralPath $keyPath)) { continue }
         $commandLine = [string]$hit['CommandLine']
 
-        $split = Split-WinstCommandLine -Text $commandLine
-        if (-not $split.Ok -or -not $split.Exe) {
-            $result.Error = ('无法解析卸载命令: {0}' -f $commandLine)
-            return $result
-        }
-
         # 卸载器文件可能已被清理（如 burn 引导包的 Package Cache 缓存被磁盘清理删掉，注册表记录成了孤儿）：
         # 跳过这条记录、继续尝试下一条（如内层 MSI 的 MsiExec /X，其缓存在 C:\Windows\Installer 不受影响）；
         # 全部不可用才报错。有卸载成功时，失效的孤儿注册键一并清掉（不清理会一直留在「设置 → 应用」里）
-        $exeText = ([string]$split.Exe).Trim('"')
-        if (-not (Test-WinstArgumentSafe -Value $exeText)) {
-            $result.Error = ('卸载命令里的程序路径含引号或控制字符，已拒绝执行: {0}' -f $commandLine)
+        $command = Resolve-WinstUninstallerCommand -CommandLine $commandLine -ExtraArgs $extraArgs
+        if (-not $command.Ok) {
+            if ([bool]$command.Missing) {
+                if ($keyPath) { $orphanKeys.Add([ordered]@{ KeyPath = $keyPath; DisplayName = [string]$hit['Entry']['DisplayName'] }) }
+                if (-not $Quiet) { Write-Host ('    卸载器文件不存在，跳过: {0}' -f [string]$command.Exe) -ForegroundColor DarkYellow }
+                continue
+            }
+            $result.Error = [string]$command.Error
             return $result
         }
-        # 裸名（msiexec 之类）必须在系统目录里定位成绝对路径再执行：直接交给 CreateProcess 会按
-        # 「当前目录 → PATH」搜索，当前目录里的同名 exe 可以劫持整个卸载流程
-        if ($exeText -notmatch '^[A-Za-z]:[\\/]' -and -not $exeText.StartsWith('\\')) {
-            $resolvedExe = ''
-            $exeFileName = $exeText
-            if (-not [IO.Path]::GetExtension($exeFileName)) { $exeFileName += '.exe' }
-            $systemDirs = New-Object 'System.Collections.Generic.List[string]'
-            if ($env:SystemRoot) {
-                $systemDirs.Add((Join-Path $env:SystemRoot 'System32'))
-                $systemDirs.Add($env:SystemRoot)
-                $systemDirs.Add((Join-Path $env:SystemRoot 'SysWOW64'))
-            }
-            foreach ($systemDir in $systemDirs.ToArray()) {
-                if (-not $systemDir) { continue }
-                $candidate = Join-Path $systemDir $exeFileName
-                if (Test-Path -LiteralPath $candidate -PathType Leaf) { $resolvedExe = $candidate; break }
-            }
-            if (-not $resolvedExe) {
-                $result.Error = ('卸载命令里的程序不在系统目录里，已拒绝执行（避免当前目录劫持）: {0}' -f $exeText)
-                return $result
-            }
-            $exeText = $resolvedExe
-        }
-        if ($exeText -match '[\\/]' -and -not (Test-Path -LiteralPath $exeText)) {
-            if ($keyPath) { $orphanKeys.Add([ordered]@{ KeyPath = $keyPath; DisplayName = [string]$hit['Entry']['DisplayName'] }) }
-            if (-not $Quiet) { Write-Host ('    卸载器文件不存在，跳过: {0}' -f $exeText) -ForegroundColor DarkYellow }
-            continue
-        }
-
-        $argumentList = [string]$split.Args
-        if ($extraArgs) {
-            if ($argumentList) { $argumentList = $argumentList + ' ' + $extraArgs } else { $argumentList = $extraArgs }
-        }
-        # 注册表 / 清单里的命令行不会带换行等控制字符：出现即视为异常记录，不执行
-        if ($argumentList -match '[\x00-\x1F]') {
-            $result.Error = ('卸载参数含有控制字符，已拒绝执行: {0}' -f $commandLine)
-            return $result
-        }
-        $result.Command = ('{0} {1}' -f (Format-WinstCommandArgument -Value $exeText), $argumentList).Trim()
+        $exeText = [string]$command.Exe
+        $result.Command = [string]$command.Command
 
         if (-not $Quiet) { Write-Host ('    正在运行卸载程序: {0}' -f $result.Command) -ForegroundColor Gray }
         try {
             $params = @{ FilePath = $exeText; Wait = $true; PassThru = $true }
-            if ($argumentList) { $params['ArgumentList'] = $argumentList }
+            if ([string]$command.Args) { $params['ArgumentList'] = [string]$command.Args }
             $process = Start-Process @params
             $result.ExitCode = [int]$process.ExitCode
         } catch {

@@ -8,7 +8,7 @@ function New-WinstPlanCopyBlock {
     param($Entry, [string]$Version)
 
     $copyList = @()
-    $validationRoot = Join-Path ([IO.Path]::GetTempPath()) 'winst-manifest-path-check'
+    $validationRoot = Join-WinstPath ([IO.Path]::GetTempPath()) 'winst-manifest-path-check'
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'postInstallCopy')) {
         $fromText = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $item -Key 'from') -Version $Version
         $toText = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $item -Key 'to') -Version $Version

@@ -6,5 +6,5 @@ function Get-WinstCacheIndexPath {
         缓存索引文件路径：<pkgDir>\winst.json。
     #>
     param([Parameter(Mandatory = $true)][string]$PkgDir)
-    return (Join-Path $PkgDir 'winst.json')
+    return (Join-WinstPath $PkgDir 'winst.json')
 }

@@ -148,7 +148,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `versionFrom` 写错取值会直接报错并列出可用值，不会静默回落。
 
-**GitHub 走网页通道**：GitHub API 的匿名配额按出口 IP 计（同一 NAT 多机共享 60 次/小时）且常被企业网络拦截，因此 winst 只读 `releases/latest` 跳转、`releases.atom`、`releases/expanded_assets/<tag>`、`releases/download/<tag>/<文件>`，不消耗配额、不需要令牌。
+**GitHub 走网页通道**：GitHub API 的匿名配额按出口 IP 计（同一 NAT 多机共享 60 次/小时）且常被企业网络拦截，因此 winst 只读 `releases/latest` 跳转、`releases` 列表页、`releases/expanded_assets/<tag>`、`releases/download/<tag>/<文件>`，不消耗配额、不需要令牌。发布列表（tag / 标题 / 正文 / 预发布标记）统一取自 `releases` 列表页，见下文 github 源。
 
 ### direct 源
 
@@ -182,6 +182,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
   "versionKind": "semver",            // file 必填其一；releaseTitle / releaseBody 可再配它
   "versionBetween": [ "v", " " ],     // file 必填其一；releaseTitle / releaseBody 必填
   "skipExistsCheck": false,           // 可选：关掉地址 HEAD 可用性校验
+  "latestOnly": false,                // 可选：true = 最新发布里没有所需文件时直接报错，不回退旧发布
   "files": [
     { "file": "7z*-x64.exe" }         // 文件名通配：需读该发布的文件列表
   ]
@@ -193,6 +194,22 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 - `url` 可写完整地址，也可只写文件名（如 `"rufus-{version}.exe"`）→ 自动补全 `releases/download/<tag>/<文件名>`；逐个探测地址可用性
 - `file` 通配或 `re:` 正则 → 读该发布的资产列表再匹配；无命中即报错，多命中取第一个并提示
 
+**最新发布里没有所需文件时退回更早的发布。** GitHub 上常见「release 已建好、资产还在分批上传」：这时 `releases/latest` 指向的发布里还没有安装包，但上一次发布的文件是可用的。判定为「这个发布里没有要的文件」后，逐个试更早的发布，用第一个确实含有该文件的发布（最多查最近 5 个），并在结果的 `notes` 里写明「最新发布 x 里还没有这个文件，已改用更早的发布 y」。
+
+候选与排序规则（都用网页通道，不消耗 API 配额）：
+
+- **候选来自 `releases` 列表页**（前 2 页）。这是发布信息的唯一来源：tag、标题、正文、`Pre-release` 标记都在这一页上；不用 `releases.atom`——它只含最近约 10 条，而且与真实发布列表可能完全脱节（adoptium 的 temurin21/temurin25 feed 里是 2023 年的 nightly beta，近期正式版一条都没有）
+- **按版本号从高到低排，不按页面顺序**。列表页是 GitHub 的展示顺序（temurin21 页面上 `21.0.9+10` 排在 `21.0.13+9` 前面），按页面顺序回退会取到错误的「次新版本」
+- `+build` 不参与排序：JEP 223 里 `25+36` 是「feature 25 / build 36」，等价于 `25.0.0`；否则 `25+36` 会排在 `25.0.5` 之后
+- 只保留版本**严格低于**最新发布的候选；解析不出版本号的 nightly（`jdk25u-2026-02-02-15-22-beta`）排在最后
+
+触发条件只有两种，都属于「这个发布里没有该文件」而非配置错误：
+
+- `file` 通配在该发布的资产列表里一个都没命中，或该发布还没上传任何资产
+- `files[].url` **只写了文件名**（地址由 winst 拼成）且探测到 404
+
+清单自己写了完整地址模板时（如 `https://…/download/v{version}/x.exe`）404 仍按配置错误直接报错，不退回旧版本——那通常意味着模板写错，静默安装旧版只会掩盖问题。`latestOnly: true` 可关闭整个回退逻辑。
+
 `versionFrom` 的取值与约束：
 
 | 取值 | 版本来自 | 约束 |
@@ -203,7 +220,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `releaseTitle` | 发布标题 | 必须写 `versionBetween` |
 | `releaseBody` | 发布正文 | 必须写 `versionBetween` |
 
-`releaseTag` 是 **tag 前缀**，用于把候选限定在该前缀的发布里（含预发布；按 Atom feed 顺序取第一个匹配），适合一个仓库用不同前缀发布多条产品线的情况。前缀在生成版本号时会被去掉（`cli-v1.2.3` + 前缀 `cli-v` → 版本 `1.2.3`），因此 `{version}` 可直接用在 URL 模板里。不写则用 GitHub 自己认定的 `releases/latest`。
+`releaseTag` 是 **tag 前缀**，用于把候选限定在该前缀的发布里（含预发布；在这些发布里按版本号取最高），适合一个仓库用不同前缀发布多条产品线的情况。前缀在生成版本号时会被去掉（`cli-v1.2.3` + 前缀 `cli-v` → 版本 `1.2.3`），因此 `{version}` 可直接用在 URL 模板里。不写则用 GitHub 自己认定的 `releases/latest`。
 
 ### listing 源
 
@@ -469,7 +486,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 |---|---|---|---|
 | `method` | 见条目字段表 | `none` / `registry` / `fileVersion` / `markerFile` / `jsonFile` / `appx` / `cliVersion` | 全部 |
 | `name` | `registry` 未写时按 `*<name>*` 推导；`appx` 无默认 | 匹配规则：`registry` 比 `DisplayName`，`appx` 比包名；通配或 `re:` 正则；`appx` 检测只接受单条字符串规则 | `registry` / `appx` |
-| `pathGlob` | 空 | 文件定位通配（支持 `{installDir}` / `{installRoot}`）；命中多个时按路径排序取第一个 | `fileVersion` / `markerFile` / `jsonFile` |
+| `pathGlob` | 空 | 文件定位通配（支持 `{installDir}` / `{installRoot}`）；命中多个时逐个读取、取版本最高的那个作为本机版本（其余记为旧版本） | `fileVersion` / `markerFile` / `jsonFile` |
 | `jsonKey` | 空 | JSON 里的版本字段名（支持点分嵌套） | `jsonFile` |
 | `exe` | `mainExe` | 要运行的程序（相对安装目录或绝对路径） | `cliVersion` |
 | `versionArgs` | 空或未写时 = `-v` | 取版本时传给程序的参数（如 `--version`） | `cliVersion` |
@@ -483,6 +500,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 - `detect.name` 与 `detect.versionKind` 会在清单解析期编译校验，写错即条目解析失败
 - 未声明 `versionKind` / `versionBetween` 时，原始文本整体像单行版本号就原样采用；否则按 `semver` → `date` → `digits` 找第一个像版本号的内容。`markerFile` 即使声明了识别规则但未命中，也执行这个兜底；其它方式不兜底。
 - `cliVersion` 在一个独立隐藏进程里运行，`stdin` 立即关闭；先读 `stdout`，未识别再读 `stderr`，直接写控制台而不走重定向的输出拿不到。运行超时固定 10 秒，会连同子进程一起结束。
+- 同一软件在本机装过多份时，`registry` / `fileVersion` / `markerFile` / `jsonFile` 读出全部命中版本，以最高版本作为本机版本，其余记为旧版本；`registry` 同时命中外层引导包与内层 MSI 时只采用外层引导包的 `DisplayVersion`；`appx` 只取版本最高的包。详见 `docs\install-flows.md` 的「版本检测」。
 
 ## 卸载定义（`uninstall`）
 

@@ -16,7 +16,7 @@ function Resolve-WinstBundleTarget {
 
     # —— ③ 目标目录 ——
     if (-not $TargetDir) {
-        $defaultTarget = Join-Path $Context.DataRoot 'winst-kit'
+        $defaultTarget = Join-WinstPath $Context.DataRoot 'winst-kit'
         Write-Host ''
         Write-Host '  安装包将复制到这个目录（可以填 U 盘上的目录，如 E:\winst-kit）。' -ForegroundColor DarkGray
         Write-Host ('  直接回车 = {0}' -f $defaultTarget) -ForegroundColor DarkGray
@@ -25,7 +25,7 @@ function Resolve-WinstBundleTarget {
         $TargetDir = $text
     }
     if (-not [IO.Path]::IsPathRooted($TargetDir)) {
-        try { $TargetDir = (Join-Path (Get-Location).Path $TargetDir) } catch { }
+        try { $TargetDir = (Join-WinstPath (Get-Location).Path $TargetDir) } catch { }
     }
     return $TargetDir
 }

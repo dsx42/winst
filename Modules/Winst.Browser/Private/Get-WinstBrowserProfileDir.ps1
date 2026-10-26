@@ -17,7 +17,7 @@ function Get-WinstBrowserProfileDir {
             Clear-WinstInstallDir -Dir $oldProfile.FullName
         }
     } catch { }
-    $dir = Join-Path ([IO.Path]::GetTempPath()) ('winst-browser-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $dir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-browser-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
     $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction SilentlyContinue
     $null = Set-WinstState -Name WinstBrowserProfileDir -Value ($dir)
     return $dir

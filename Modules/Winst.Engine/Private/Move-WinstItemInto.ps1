@@ -19,7 +19,7 @@ function Move-WinstItemInto {
         throw ('压缩包里含有重解析点（junction / 符号链接），已拒绝搬运：{0}' -f $Source.FullName)
     }
 
-    $target = Join-Path $DestDir $Source.Name
+    $target = Join-WinstPath $DestDir $Source.Name
     if ((Test-Path -LiteralPath $target) -and (Test-WinstReparsePoint -Path $target)) {
         throw ('目标位置是重解析点，已拒绝覆盖：{0}' -f $target)
     }

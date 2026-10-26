@@ -31,7 +31,7 @@ function Update-WinstInstallDirAfterInstall {
     # installer 的台账里可能只有 installRoot\id 占位路径（winst 并没有往那里装过）：
     # 沿用这种假路径只会让「已安装到 …」继续报错位置，按读不到处理；
     # .msi 例外——winst 给 msiexec 传的 TARGETDIR 就是 installRoot\id，那里是真实安装位置
-    if ($keptDir -ieq (Join-Path $Context.InstallRoot $Id) -and -not (Get-WinstInstallerExpectedDir -Plan $Plan -InstallArgs $InstallArgs -InstallDir $keptDir)) {
+    if ($keptDir -ieq (Join-WinstPath $Context.InstallRoot $Id) -and -not (Get-WinstInstallerExpectedDir -Plan $Plan -InstallArgs $InstallArgs -InstallDir $keptDir)) {
         $keptDir = ''
     }
     if ($keptDir) {

@@ -31,7 +31,7 @@ function Get-WinstPackageDerivedVersion {
                 if ($hit.Count -gt 0) { $packagePath = [string]$hit[0].FullName }
             }
             if (-not $packagePath -and $FileName) {
-                $candidate = Join-Path $PkgDir $FileName
+                $candidate = Join-WinstPath $PkgDir $FileName
                 if (Test-Path -LiteralPath $candidate -PathType Leaf) { $packagePath = $candidate }
             }
         }

@@ -33,11 +33,11 @@ function Get-ConfigTag {
         if ($optionPkgDir) { return '[参数]' }
         if ($env:WINST_PKG_DIR -and $env:WINST_PKG_DIR.Trim()) { return '[环境变量]' }
         if ((Get-WinstState -Name WinstScriptDir)) {
-            $scriptApps = Join-Path (Get-WinstState -Name WinstScriptDir) 'apps'
+            $scriptApps = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'apps'
             if (Test-Path -LiteralPath $scriptApps -PathType Container) { return '[U盘]' }
         }
         $current = Get-ConfigValue -Config $Context.Config -Key 'pkgDir'
-        if (Test-ConfigValueIsDefault -Value $current -Default (Join-Path $Context.DataRoot 'apps')) { return '[默认]' }
+        if (Test-ConfigValueIsDefault -Value $current -Default (Join-WinstPath $Context.DataRoot 'apps')) { return '[默认]' }
         return '[自定义]'
     }
 

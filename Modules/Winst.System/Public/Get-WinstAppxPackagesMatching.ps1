@@ -55,7 +55,7 @@ function Get-WinstAppxPackagesMatching {
 
     # 系统自带位置（%WINDIR%\SystemApps）里的包不是用户安装的运行时，先排除（如 Microsoft.WindowsAppRuntime.CBS*）
     $systemApps = ''
-    if ($env:WINDIR) { $systemApps = (Join-Path $env:WINDIR 'SystemApps').TrimEnd('\') }
+    if ($env:WINDIR) { $systemApps = (Join-WinstPath $env:WINDIR 'SystemApps').TrimEnd('\') }
     $notInbox = New-Object 'System.Collections.Generic.List[object]'
     foreach ($package in $matched) {
         $location = ''

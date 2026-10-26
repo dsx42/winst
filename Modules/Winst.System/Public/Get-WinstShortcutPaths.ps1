@@ -23,10 +23,10 @@ function Get-WinstShortcutPaths {
     if ($desktopOn) {
         $desktopDir = ''
         try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
-        if ($desktopDir) { $paths += (Join-Path $desktopDir $fileName) }
+        if ($desktopDir) { $paths += (Join-WinstPath $desktopDir $fileName) }
     }
     if ($startMenuOn -and $env:APPDATA) {
-        $paths += (Join-Path $env:APPDATA ('Microsoft\Windows\Start Menu\Programs\' + $fileName))
+        $paths += (Join-WinstPath $env:APPDATA ('Microsoft\Windows\Start Menu\Programs\' + $fileName))
     }
     return @($paths)
 }

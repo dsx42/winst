@@ -18,6 +18,6 @@ function Write-WinstBundleSummary {
         Write-Host ('  软件包: 已复制 / 覆盖 {0} 个 / 跳过 {1} 个（目标已有相同版本）/ 未包含 {2} 个（缺包）' -f `
             $Copied, $Skipped, $MissingCount) -ForegroundColor Gray
         Write-Host ('  软件源清单数据: {0} 个文件；清单文件: {1} 个' -f $ManifestCopied, $ListFileCount) -ForegroundColor Gray
-        Write-Host ('  启动器: {0}' -f (Join-Path $TargetDir 'winst.cmd')) -ForegroundColor Gray
+        Write-Host ('  启动器: {0}' -f (Join-WinstPath $TargetDir 'winst.cmd')) -ForegroundColor Gray
     }
 }

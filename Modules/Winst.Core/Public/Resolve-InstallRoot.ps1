@@ -18,7 +18,7 @@ function Resolve-InstallRoot {
         return (Expand-WinstPath -Path $env:WINST_INSTALL_ROOT -Base $DataRoot)
     }
 
-    $configPath = Join-Path $DataRoot 'config.json'
+    $configPath = Join-WinstPath $DataRoot 'config.json'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         # 只取一次配置值（原写法在条件与返回处各取一次）
         $configured = Get-ConfigValue -Config $Config -Key 'installRoot'

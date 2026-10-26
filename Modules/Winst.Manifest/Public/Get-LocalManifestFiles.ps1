@@ -24,10 +24,10 @@ function Get-LocalManifestFiles {
     $files = New-Object 'System.Collections.Generic.List[string]'
 
     if ((Get-WinstState -Name WinstScriptDir)) {
-        $main = Join-Path (Get-WinstState -Name WinstScriptDir) 'manifest.json'
+        $main = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'manifest.json'
         if (Test-Path -LiteralPath $main -PathType Leaf) { $files.Add($main) }
 
-        $scriptManifestDir = Join-Path (Get-WinstState -Name WinstScriptDir) 'manifests'
+        $scriptManifestDir = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'manifests'
         if (Test-Path -LiteralPath $scriptManifestDir -PathType Container) {
             foreach ($item in @(Get-ChildItem -LiteralPath $scriptManifestDir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
                 $files.Add([string]$item.FullName)

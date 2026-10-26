@@ -31,7 +31,7 @@ function Show-ManifestResolution {
     $desktopDir = ''
     try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
     $startMenuDir = ''
-    if ($env:APPDATA) { $startMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
+    if ($env:APPDATA) { $startMenuDir = Join-WinstPath $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
 
     $succeeded = 0
     $failed = 0

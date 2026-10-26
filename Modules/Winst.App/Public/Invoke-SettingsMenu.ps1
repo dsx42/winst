@@ -12,7 +12,7 @@ function Invoke-SettingsMenu {
             param($ctx)
             Invoke-PathSettingItem -Context $ctx -Key 'installRoot' -DisplayName '软件安装位置' `
                 -CurrentDisplay $ctx.InstallRoot `
-                -Hint '仅对此后的安装生效，已装软件不迁移；安装记录跟着这个位置存放，换位置后记录是空的，进入「已装软件」时会自动重新扫描登记；已打开的终端需重开后才完全生效。'
+                -Hint '仅对此后的安装生效：已装软件留在旧位置继续可用（改完会列出旧位置里已有的软件目录）。安装记录跟着这个位置存放，新位置暂时是空的，进入「已装软件」时会自动扫描登记。已打开的终端需重开后才完全生效。'
         }
         '2' = {
             param($ctx)
@@ -32,11 +32,12 @@ function Invoke-SettingsMenu {
             Invoke-SettingChoiceItem -Context $ctx -Key 'proxyMode' -DisplayName '代理模式' `
                 -CurrentDisplay (Format-ProxyModeDisplay -Value (Get-ConfigValue -Config $ctx.Config -Key 'proxyMode')) `
                 -Options @(
-                    [ordered]@{ Value = 'auto';   Text = '自动';       Note = '先直连，连不上时再用代理重试' },
-                    [ordered]@{ Value = 'always'; Text = '始终走代理'; Note = '每次都直接走代理，不做直连尝试' },
-                    [ordered]@{ Value = 'off';    Text = '不使用代理'; Note = '只直连；填了代理地址也不使用' }
+                    [ordered]@{ Value = 'auto';            Text = '自动';           Note = '先直连，连不上时再用代理重试' },
+                    [ordered]@{ Value = 'download-direct'; Text = '下载直连优先'; Note = '下载先直连、失败再用代理；其它请求直接走代理' },
+                    [ordered]@{ Value = 'always';          Text = '始终走代理';     Note = '每次都直接走代理，不做直连尝试' },
+                    [ordered]@{ Value = 'off';             Text = '不使用代理';     Note = '只直连；填了代理地址也不使用' }
                 ) `
-                -Hint ('仅影响 winst 自己发起的下载 / 刷新；当前代理地址: {0}（没填地址时三种模式都不启用代理）。' -f $proxyAddress)
+                -Hint ('仅影响 winst 自己发起的下载 / 刷新；当前代理地址: {0}（没填地址时四种模式都不启用代理）。' -f $proxyAddress)
         }
         '5' = {
             param($ctx)
@@ -60,7 +61,7 @@ function Invoke-SettingsMenu {
             Invoke-SettingChoiceItem -Context $ctx -Key 'updateFilesOnly' -DisplayName '更新方式' `
                 -CurrentDisplay (Format-UpdateFilesOnlyDisplay -Value (Get-ConfigValue -Config $ctx.Config -Key 'updateFilesOnly')) `
                 -Options @(
-                    [ordered]@{ Value = $true;  Text = '只更新文件'; Note = '更新时环境变量 / 快捷方式保持原样（不新增、不覆盖；首次安装仍补齐缺失的）' },
+                    [ordered]@{ Value = $true;  Text = '只更新文件'; Note = '更新时环境变量 / PATH 保持原样，快捷方式只修正不新建；首次安装仍补齐缺失的' },
                     [ordered]@{ Value = $false; Text = '完整更新';   Note = '按软件源里的定义覆盖已存在的环境变量 / 快捷方式' }
                 ) `
                 -Hint '多个同族软件共存时（如 jdk8 / jdk21 / jdk25 都声明 JAVA_HOME）建议用「只更新文件」。'

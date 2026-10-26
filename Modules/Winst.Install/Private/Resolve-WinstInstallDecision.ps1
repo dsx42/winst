@@ -79,7 +79,7 @@ function Resolve-WinstInstallDecision {
             }
             if (-not $Ledger) {
                 Register-WinstExternalInstallRecord -Context $Context -Plan $Plan -Type $Type -InstallDir $InstallDir `
-                    -Id $Id -Version $detected -SourceName $SourceName -Result $Result
+                    -Id $Id -Version $detected -SourceName $SourceName -Result $Result -OldVersions @($detect.OldVersions)
             }
             $same = Resolve-WinstSameVersionAction -Install $Install -InstallDir $InstallDir -DisplayName $DisplayName `
                 -Detected $detected -CompanionDownloadCount $CompanionDownloadCount -HasCompanionUpdate:$CompanionsOnly `

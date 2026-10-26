@@ -5,7 +5,7 @@ function Split-WinstSafeChildSegments {
     .SYNOPSIS
         把「包内相对路径 / 相对模式」逐段校验并拼到根目录下；路径与通配两种用法的公共实现。
     .DESCRIPTION
-        清单里的 stripTopDir / extractFiles / postInstallCopy / installerExe 等字段会被 Join-Path 到
+        清单里的 stripTopDir / extractFiles / postInstallCopy / installerExe 等字段会被 Join-WinstPath 到
         临时解压目录或安装目录：`..\..\Windows\System32` 能直接跳出根目录、把任意位置的内容搬进安装目录
         （或反过来写到系统目录）。这里是**唯一一处**做这个校验的地方：
 
@@ -65,9 +65,9 @@ function Split-WinstSafeChildSegments {
     if ($segments.Count -eq 0) { $result.Error = ('{0}为空' -f $Label); return $result }
 
     $sep = [string][IO.Path]::DirectorySeparatorChar
-    $full = Join-Path $Root ([string]::Join($sep, $segments.ToArray()))
+    $full = Join-WinstPath $Root ([string]::Join($sep, $segments.ToArray()))
     $probeFull = $full
-    if ($AllowWildcard) { $probeFull = Join-Path $Root ([string]::Join($sep, $probeSegments.ToArray())) }
+    if ($AllowWildcard) { $probeFull = Join-WinstPath $Root ([string]::Join($sep, $probeSegments.ToArray())) }
     if (-not (Test-WinstPathUnderRoot -Path $probeFull -Root $Root)) {
         $result.Error = ('{0}会落到目标目录之外：{1}' -f $Label, $Child)
         return $result

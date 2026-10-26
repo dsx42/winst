@@ -16,7 +16,7 @@ function Remove-WinstOldPackages {
     $removed = New-Object 'System.Collections.Generic.List[string]'
     # 删除入口再兜一层：id 不是单层目录名时（如 clean 传了 .. / 绝对路径）不猜、不越界删
     if (-not (Test-WinstSafePathSegment -Name $Id)) { return @() }
-    $dir = Join-Path $Context.PkgDir $Id
+    $dir = Join-WinstPath $Context.PkgDir $Id
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
 
     foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue)) {

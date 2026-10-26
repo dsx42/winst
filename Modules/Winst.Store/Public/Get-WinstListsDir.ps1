@@ -7,5 +7,5 @@ function Get-WinstListsDir {
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Context)
 
-    return (Join-Path $Context.DataRoot 'lists')
+    return (Join-WinstPath $Context.DataRoot 'lists')
 }

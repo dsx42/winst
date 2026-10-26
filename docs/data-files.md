@@ -1,4 +1,4 @@
-# 数据文件
+﻿# 数据文件
 
 ## 位置总览
 
@@ -26,7 +26,8 @@
 ```
 
 - `pkgDir` 可指向 U 盘或 NAS，安装包、源列表和清单缓存随之一同共享。
-- 更改 `installRoot` 后，新位置没有原台账；`winst repair` 会扫描安装目录、注册表和 Appx 记录来重建，进入「已装软件」也会执行修复扫描。
+- 更改 `installRoot` 只对此后的安装生效：已装软件留在旧位置继续可用，改完会列出旧位置里已有的软件目录。安装记录跟着安装位置存放，新位置暂时是空的。
+- 新位置没有台账时，`winst repair` 会扫描安装目录、注册表和 Appx 记录来重建，进入「已装软件」也会执行修复扫描。
 - winst 写出的 JSON、`.list` 和生成的文本文件使用 UTF-8 无 BOM。`Write-FileAtomic` 先写临时文件再替换；目标卷不支持原子替换时会退化为直接覆盖。
 - 同一数据目录用 `winst.lock` 的独占句柄防止并发写入。句柄决定占用状态，进程强杀后由系统释放；锁文件本身可能保留。只读的版本/帮助调用不抢锁。
 
@@ -39,7 +40,7 @@
 | `pruneOldPackages` | bool | `true` | 新版本下载成功后删除同 id 目录中不在本次保留列表里的旧文件 |
 | `manifestTTLHours` | int | `24` | 软件源及逐条版本信息的缓存有效期（小时）；不大于 0 时逐条信息视为总过期 |
 | `proxy` | string | 空 | 代理地址 |
-| `proxyMode` | string | `auto` | `auto` 直连失败再试代理；`always` 始终走代理；`off` 不走代理 |
+| `proxyMode` | string | `auto` | `auto` 直连失败再试代理；`always` 始终走代理；`off` 不走代理；`download-direct` 下载先直连、失败再用代理，其它请求直接走代理 |
 | `updateFilesOnly` | bool | `true` | 更新已登记软件时只替换文件，不改环境变量、PATH 和快捷方式；首次安装不受影响 |
 
 - 路径支持 `%VAR%`，写入时保留原文，读取时展开；相对路径以数据目录为基准归一化。
@@ -77,6 +78,7 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
       "appliedPath": [ { "path": "D:\\Apps\\jdk21\\bin", "scope": "Machine" } ],
       "appliedShortcuts": [ "C:\\Users\\me\\Desktop\\Eclipse Temurin JDK 21.lnk" ],
       "appliedFiles": [ "colors\\Alabaster.icls" ],
+      "oldVersions": [ { "version": "21.0.4", "detail": "系统安装记录: Microsoft Windows Desktop Runtime 21.0.4 (x64)", "recordKey": "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\...\\Uninstall\\{...}" } ],
       "uninstall": {
         "method": "portable-dir",
         "removeEnv": [ "JAVA_HOME" ],
@@ -98,6 +100,7 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
 - `installedAt` 是首次安装时间，`updatedAt` 是最近一次通过条目级接口写入该记录的时间。修复扫描的整份合并保存不经过该接口，不会统一重写这两个时间戳。
 - `applied*` 记录 winst 管理的系统项与配套文件位置，供更新和卸载回收；`managed` 为 `winst` 或 `external`。外部登记的 `applied*` 与卸载快照为空，卸载时仍可能使用当前清单的定义。
 - `uninstall` 保存安装时的卸载操作；源条目删除或修改后，已登记软件仍可使用快照。`nameRule` 可以是字符串或字符串数组。
+- `oldVersions` 记录本机与 `version` 并存的低版本：条目为 `{ version; detail; recordKey }`，`recordKey` 是该版本在系统安装记录里的卸载键路径，挑的是**卸载器当前可用**的那条（同一版本常同时有外层引导包与内层 MSI 两条记录）。只有能区分多个版本的检测方式（`registry` / `fileVersion` / `markerFile` / `jsonFile`）才可能产生条目，且只收「同一产品」的旧版本（`appx` 只取最高版本，不把运行时家族的其它包记为旧版本）。每次修复扫描或安装后的版本检测都会重写这个字段，清掉已经不存在的版本。
 - `installed` 的 id 使用 Ordinal 比较。写入会移除与目标 id 仅大小写不同的旧键，避免产生 PowerShell 无法解析的重复 JSON 属性。
 - `download` 类型不写安装台账。
 
@@ -181,7 +184,7 @@ vscode==1.96.0
 
 读取时也接受每项的 `name` 作为 `repo`，或直接用数组作为源列表；写出统一为上述结构。本地源 `local` 不记录在此。
 
-内置源 `dsx42/winst-manifest` 始终由 `Ensure-OfficialManifest` 维护：缺失时补到首位，地址偏离时恢复，并清理保留的历史源名及其清单缓存和 sidecar。内置源仓库只分发 `manifest.json`，软件包来自条目声明的地址，不依赖该仓库的 release。
+内置源 `dsx42/winst-manifest` 始终由 `Ensure-OfficialManifest` 维护：缺失时补到首位，地址偏离时恢复，不在首位时挪回首位。内置源仓库只分发 `manifest.json`，软件包来自条目声明的地址，不依赖该仓库的 release。
 
 ## manifests/remote/*.meta.json（sidecar 与解析锁）
 

@@ -87,8 +87,8 @@ function Install-WinstSelf {
     }
 
     $selfId = 'winst'
-    $installDir = Join-Path $Context.InstallRoot $selfId
-    $launcherPath = Join-Path $installDir 'winst.cmd'
+    $installDir = Join-WinstPath $Context.InstallRoot $selfId
+    $launcherPath = Join-WinstPath $installDir 'winst.cmd'
 
     $exists = Test-Path -LiteralPath $launcherPath -PathType Leaf
 

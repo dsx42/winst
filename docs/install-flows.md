@@ -7,12 +7,16 @@
 | method | 版本来源 |
 |---|---|
 | `registry` | 按 `detect.name` 匹配 HKLM（含 WOW6432Node）/ HKCU 的 Uninstall 项，读取 DisplayVersion，并由系统安装记录解析实际安装目录 |
-| `fileVersion` | 读取 `pathGlob` 首个命中文件的文件版本；文件版本字符串与数值体不一致时按实现规则取舍 |
+| `fileVersion` | 读取 `pathGlob` 命中文件的文件版本；文件版本字符串与数值体不一致时按实现规则取舍 |
 | `markerFile` | 读取 `pathGlob` 命中的标记文件内容 |
 | `jsonFile` | 读取 `pathGlob` 命中的 JSON 文件里 `jsonKey` 指定的值，支持点分嵌套 |
-| `appx` | 按 `detect.name` 匹配 `Get-AppxPackage` 结果，读取版本与 InstallLocation |
+| `appx` | 按 `detect.name` 匹配 `Get-AppxPackage` 结果，取版本最高的那个包，读取版本与 InstallLocation |
 | `cliVersion` | 执行主程序或 `detect.exe` 加 `versionArgs`，先识别 stdout，未命中再识别 stderr |
 | `none` | 不执行本机检测；新记录没有其它版本来源时可记为 `unknown` |
+
+**同一软件装过多个版本**时（升级后旧版本没被清掉，如 .NET Desktop Runtime 保留旧的构建目录），`registry` / `fileVersion` / `markerFile` / `jsonFile` 会读出**全部**命中版本：展示与本机版本取其中最高的那个，其余记进台账的 `oldVersions`，在「已装软件」列表标注「还并存旧版本 x」，详情页给 `o) 清理旧版本` 逐个确认后移除。版本比较一律走 `Compare-WinstVersion`，不按字符串排序。`registry` 命中同一安装器的外层引导包与内层 MSI 时只用外层引导包的 DisplayVersion（内层 MSI 的 80.x 是内部编号）；`appx` 只取最高版本，不把运行时家族的其它包当作旧版本。
+
+文件类检测只知道「还有这个版本的文件」，因此旧版本的移除入口按版本号反查系统安装记录（显示名里带该版本号的那条）得到；查不到时如实提示去「设置 → 应用」手动卸载，不猜测。
 
 文件类检测用 `versionKind` / `versionBetween` 识别文本。`cliVersion` 默认参数为 `-v`，超时 10 秒，在隐藏进程中运行并重定向输出；`.ps1` 由 PowerShell 启动，`.jar` 由 java 启动。
 
@@ -31,6 +35,8 @@
 
 `source.versionFrom: "package"` 的目标版本取自主包。解析结果为 `remoteFresh: "unchanged"` 时复用缓存包及其版本；结果为 `changed` 或无法确认时，先重新取包再套用上述决策，不能拿缓存版本代表远端当前版本。`--dry-run` 不取包，只说明将先取包核对。
 
+github 源在「最新发布里还没有所需文件」时会退回更早的发布（见 `docs\manifest.md` 的 github 源）：这时目标版本是那个**旧发布**的版本，不是最新 tag。解析结果会带上「最新发布 x 里还没有这个文件，已改用更早的发布 y」的说明；升级判断与 `--check` 都以这个实际采用的版本为准，因此不会把「装了旧发布」误报成「已是最新」。
+
 同版本 installer 跳过时会按系统记录修正或清除占位安装目录。检测到同版本软件但尚无台账时，会补一条 `external` 登记；这不等于完全无写入。
 
 常用参数：
@@ -41,7 +47,7 @@
 - `update`：支持 `--check`、`--download-only`、`--force`、`--files-only`、`--system-items`、`--source <名称>`、`<id>...` 或 `--all`。`--check` 与 `--download-only` 互斥；`--all` 不能与具体 id 或 `--source` 同用。
 - `uninstall`：支持 `--force`、`--kill`、`--yes`。
 
-`--files-only` 始终跳过环境变量、PATH 和快捷方式，首次安装也不补齐。未指定时，`updateFilesOnly` 默认开启：已登记软件的更新或重装跳过这些系统项，首次安装只补缺失项；`--system-items` 优先于上述设置，按清单写入或覆盖。仅下载类型忽略安装类选项。
+`--files-only` 始终跳过环境变量与 PATH，首次安装也不补齐；但**已存在的快捷方式仍会校验**（指向不对就修正，见「安装流程 → 系统项」）。未指定时，`updateFilesOnly` 默认开启：已登记软件的更新或重装跳过环境变量与 PATH，首次安装只补缺失项；`--system-items` 优先于上述设置，按清单写入或覆盖。仅下载类型忽略安装类选项。
 
 依赖按传递闭包排序，只处理未安装或可更新的依赖，与本体统一确认一次；依赖失败会中止本体，清单中缺失的依赖只提示并跳过。仅下载类型不解析依赖。
 
@@ -76,10 +82,11 @@
 
 按 `env`、`addToPath`、`shortcuts` 落地：
 
-- 安装目录在 `%USERPROFILE%` 下时使用用户作用域，否则使用全局作用域；全局写入需要管理员权限。快捷方式始终为用户级。
+- 安装目录在 `%USERPROFILE%` 下时使用用户作用域，否则使用全局作用域。快捷方式始终为用户级。
 - `%VAR%` 原样写入，`{installDir}` / `{installRoot}` 按实际路径展开；先写 `env`，再处理 PATH。
-- 只登记实际写入的 `appliedEnv` / `appliedPath` / `appliedShortcuts`。保留的已有变量和快捷方式不接管，同值项不重复写入。
-- 系统项按当前更新方式处理，规则见「安装决策与参数」。快捷方式创建失败只提示，不把未创建的快捷方式登记为已应用。
+- 只登记实际写入的 `appliedEnv` / `appliedPath` / `appliedShortcuts`。保留的已有变量不接管，同值项不重复写入。
+- 快捷方式按「目标程序 + 起始位置」逐项校验：不存在就按清单创建；已存在且指向正确则保留（不重写文件）；已存在但指向不对（安装位置换过、旧版本残留、被手工改过）则覆盖修正。`--files-only` 或 `updateFilesOnly` 下**只修正已存在的、不新建**——用户删掉的快捷方式不该在更新时又冒出来，但留下的旧快捷方式必须跟着改到新位置。
+- 系统项按当前更新方式处理，规则见「安装决策与参数」。快捷方式创建 / 修正失败只提示，不把未处理的快捷方式登记为已应用。
 
 ### 5. 安装后命令
 
@@ -115,7 +122,16 @@
 3. 未声明摘要时按 `refresh`：`ifMissing` 直接使用；`always` 每次重取；`ttl` 按 `lastCheckedAt` 与 `maxAgeHours` 判断；`auto` / `check` 用 HEAD 的 ETag、Last-Modified 和长度确认。
 4. `auto` 无法取得验证器时退到 TTL；`check` 提示无法确认后重取。验证器请求失败本身不否定缓存。配套文件解析出独立版本且版本未变时可复用。
 
-元数据、校验文件和 HEAD 请求走 `Invoke-WebRequest`；普通包下载走 FluxDown，代理由 `--proxy` 传入。`proxyMode` 为 `auto` 时直连失败再试代理，`always` 始终使用代理，`off` 不使用代理。`--offline` 不发起网络请求，只使用本机清单与现有缓存。
+元数据、校验文件和 HEAD 请求走 `Invoke-WebRequest`；普通包下载走 FluxDown，代理由 `--proxy` 传入。`proxyMode` 决定代理口径：
+
+| 取值 | 元数据 / HEAD 请求 | 软件包 / 引擎包下载 |
+|---|---|---|
+| `auto`（默认） | 先直连，失败再试代理 | 先直连，失败再试代理 |
+| `always` | 只用代理 | 只用代理 |
+| `off` | 只直连 | 只直连 |
+| `download-direct` | 只用代理 | 先直连，失败再试代理 |
+
+`download-direct` 用于「网页 / API 必须借代理才打得开，但大文件本身直连很快」的环境。`--offline` 不发起网络请求，只使用本机清单与现有缓存。
 
 ## 更新
 
@@ -148,6 +164,14 @@
 
 `external` 没有可用卸载定义时使用 `record-only`；当前定义提供卸载方式时可实际卸载。registry / appx 卸载失败默认中止并保留台账，`--force` 或菜单中的明确确认可改为只移除记录。卸载器成功后的文件、目录或系统项残留只提示，通常仍继续移除台账；最终台账写入失败则明确报错。`--yes` 或输入重定向时不询问删除安装目录残留，默认保留。
 
+按名称规则卸载会命中同名的**全部**记录，新旧两版会一起卸掉。只想清掉旧版本时用「已装软件」详情的 `o) 清理旧版本`：它按台账 `oldVersions` 里登记的卸载键运行对应的卸载程序（一次只卸一个版本），并且每条都要单独确认。确认页会提前说明「并存的旧版本会被一并移除」。
+
+**同一版本常有多条记录**，卸载时不能只认一条：外层 burn 引导包的卸载命令指向 `%ProgramData%\Package Cache\{...}\xxx.exe`，磁盘清理掉缓存后这条记录还在、卸载器却已经不存在；内层 MSI 用 `MsiExec.exe /X{GUID}`，缓存在 `C:\Windows\Installer`，通常仍可用。因此：
+
+- 登记 `oldVersions` 时就按「卸载器现在是否存在」挑记录（可用者优先，同可用性时非 MsiExec 优先）
+- 执行时若登记的键报「卸载器文件不存在」，自动换同版本的其它记录再试（`Invoke-WinstOldVersionRemoval`），全部失败才报错并逐条列出原因
+- 卸掉之后，同一版本里「卸载器已不存在」的孤儿记录会被清理（`Remove-WinstOrphanRegistryRecord`），否则它们会一直留在「设置 → 应用」里且点了也卸不掉
+
 `uninstall winst` 删除 `<installRoot>\winst\`，不删除同级的 `state.json` 或安装包缓存。仅下载类型没有安装台账，应使用 `winst clean <id>`。
 
 ## 修复（repair）
@@ -163,6 +187,7 @@
 合并规则：
 
 - 已有条目只在本次识别到有效版本时更正 `version`，其它字段保持原值；识别不到时保留原版本。已有条目的安装目录不会因本次扫描被改写。
+- 每次扫描都会重写已有条目的 `oldVersions`：本次检测到同一产品的低版本就记下来，没检测到就清空（旧版本已经不在本机了）。
 - 新条目按扫描结果和当前清单建立，包含来源、`managed`、推导的系统项登记与卸载快照。
 - 仅大小写不同且指向同一目录的重复记录合并为清单 id。
 - 安装目录缺失的已有条目只报告，不删除，也不动系统项；软件源中没有对应条目的已有记录同样保留。
@@ -196,6 +221,8 @@ release 使用 `winst.ps1` + `winst.cmd` + `LICENSE` + `Modules\Winst\`；本地
 ## 失败与退出码
 
 - 批量安装、更新、卸载继续处理其它目标并输出汇总；单条依赖失败只中止其本体。
+- **失败一定要有原因**：汇总行只报条数，逐条原因紧跟其后。原因已在该软件的处理过程里打印过就不再重复；没有打印过的由汇总补齐（`Invoke-WinstInstallTarget` 用 `FailureShown` 标记是否已就地说明，`Write-WinstInstallTargetResult` 在 `Error` 与 `Message` 都为空时给兜底文案）。
+- 选不到可用来源时，错误里逐个列出**每个软件源**的失败原因（如「还没有发布任何版本」「源里没有 versionFrom 声明的字段」），而不是只给一句「软件源里没有可用的版本信息」——否则用户不知道该修哪个源。
 - 下载和校验失败不写安装台账；校验失败的坏包删除。未完成下载及引擎改名残留会在后续下载前清理。
 - 卸载命令失败发生在删除本体前，目录与台账保留；目录或系统项回收残留与台账写入失败是不同结果，按各自提示处理。
 - 需要管理员权限而未提权时明确提示，不把权限问题静默当作成功。

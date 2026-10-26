@@ -86,7 +86,7 @@ function Invoke-WinstPack {
     }
 
     # —— ⑦ 复制安装包 + 生成套件索引 ——
-    $kitAppsDir = Join-Path $TargetDir 'apps'
+    $kitAppsDir = Join-WinstPath $TargetDir 'apps'
     $packages = Copy-WinstBundlePackages -CopyItems $confirm.CopyItems -KitAppsDir $kitAppsDir `
         -SourceCacheIndex $sourceCacheIndex -TargetDir $TargetDir -DryRun:$dryRun
     $copied = [int]$packages.Copied

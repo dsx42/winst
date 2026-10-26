@@ -55,7 +55,7 @@ function Get-WinstSelfSourceVersion {
     try {
         if (Test-Path -LiteralPath $Path -PathType Container) {
             foreach ($relative in $candidates) {
-                $candidatePath = Join-Path $Path $relative
+                $candidatePath = Join-WinstPath $Path $relative
                 if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf)) { continue }
 
                 $version = ConvertFrom-WinstProductVersionText -Text ([IO.File]::ReadAllText($candidatePath))

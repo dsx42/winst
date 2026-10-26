@@ -8,6 +8,7 @@ function New-WinstInstalledItem {
         [ordered]@{ Id; DisplayName; Group; Version; RawVersion; VersionUnknown; Type; TypeText; InstallDir;
                     InstalledAt; UpdatedAt; ManifestOrigin; SourceText; Managed; ManagedText; InCatalog;
                     LatestVersion; LatestSource; HasUpdate; UpdateHint; UpdateState; OtherSourcesText;
+                    OldVersions; OldVersionsText; HasOldVersions;
                     CacheDir; CacheVersion; CacheHas; CacheDirMissing; CacheFiles;
                     DirMissing; DirOnly; ExternalPortable; Row; Ledger }
     #>
@@ -66,6 +67,24 @@ function New-WinstInstalledItem {
     $versionText = '未知'
     if ($rawVersion) { $versionText = $rawVersion }
 
+    # 本机并存的低版本（低于本机版本）：供列表与详情提醒用户清理
+    $oldVersions = @()
+    foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'oldVersions')) {
+        $oldVersion = Get-EntryString -Entry $item -Key 'version'
+        if (-not $oldVersion) { continue }
+        if ($rawVersion -and $rawVersion -ne 'unknown') {
+            $cmp = 0
+            try { $cmp = Compare-WinstVersion -A $oldVersion -B $rawVersion } catch { $cmp = 0 }
+            if ($cmp -ge 0) { continue }
+        }
+        $oldVersions += [ordered]@{
+            Version   = $oldVersion
+            Detail    = (Get-EntryString -Entry $item -Key 'detail')
+            RecordKey = (Get-EntryString -Entry $item -Key 'recordKey')
+        }
+    }
+    $oldVersionsText = Format-WinstOldVersionText -OldVersions $oldVersions
+
     # 已下载的安装包
     $cacheDir = ''
     $cacheVersion = ''
@@ -73,7 +92,7 @@ function New-WinstInstalledItem {
     $cacheDirMissing = $false
     $cacheFiles = @()
     if ($Context.PkgDir) {
-        $cacheDir = Join-Path $Context.PkgDir $Id
+        $cacheDir = Join-WinstPath $Context.PkgDir $Id
         $cacheEntry = $null
         if ($CacheIndex -and $CacheIndex.Contains($Id)) { $cacheEntry = $CacheIndex[$Id] }
         if ($cacheEntry) {
@@ -119,6 +138,9 @@ function New-WinstInstalledItem {
         UpdateHint       = $updateHint
         UpdateState      = $updateState
         OtherSourcesText = $otherSourcesText
+        OldVersions      = @($oldVersions)
+        OldVersionsText  = $oldVersionsText
+        HasOldVersions   = [bool]($oldVersions.Count -gt 0)
         CacheDir         = $cacheDir
         CacheVersion     = $cacheVersion
         CacheHas         = $cacheHas

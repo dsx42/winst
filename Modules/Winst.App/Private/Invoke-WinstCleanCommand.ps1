@@ -74,7 +74,7 @@ function Invoke-WinstCleanCommand {
         if ($keepFiles.Count -eq 0) { continue }   # 索引里没记录文件名时不猜、不动任何文件
 
         $candidates = New-Object 'System.Collections.Generic.List[string]'
-        foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $Context.PkgDir $idText) -File -ErrorAction SilentlyContinue)) {
+        foreach ($file in @(Get-ChildItem -LiteralPath (Join-WinstPath $Context.PkgDir $idText) -File -ErrorAction SilentlyContinue)) {
             if ($keepFiles -notcontains $file.Name) { $candidates.Add([string]$file.Name) }
         }
         if ($candidates.Count -eq 0) { continue }

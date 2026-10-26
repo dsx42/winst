@@ -23,7 +23,7 @@ function New-WinstInstallerBlocks {
     # 解压规则用同一条 stripTopDir（字符串可指向包内子目录 / 单个文件）
     $installerExeRel = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $Entry -Key 'installerExe') -Version $Version
     if ($installerExeRel) {
-        $validationRoot = Join-Path ([IO.Path]::GetTempPath()) 'winst-manifest-path-check'
+        $validationRoot = Join-WinstPath ([IO.Path]::GetTempPath()) 'winst-manifest-path-check'
         $installerCheck = Resolve-WinstSafeChildPattern -Root $validationRoot -Child $installerExeRel -Label 'installerExe'
         if (-not $installerCheck.Ok) {
             return @{ Install = $installBlock; Uninstall = $null; Notes = @(); Error = [string]$installerCheck.Error }

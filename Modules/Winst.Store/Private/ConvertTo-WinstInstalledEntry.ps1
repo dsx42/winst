@@ -23,9 +23,22 @@ function ConvertTo-WinstInstalledEntry {
         appliedPath      = @()
         appliedShortcuts = @()
         appliedFiles     = @()
+        oldVersions      = @()
         uninstall        = (ConvertTo-WinstUninstallSnapshot -Block $null)
     }
     if (-not $result['managed']) { $result['managed'] = 'winst' }
+
+    # 同一软件在本机并存的其它版本（低于 version）：供「已装软件」提醒用户清理旧版本。
+    # recordKey 是该版本的移除入口（registry = 卸载键路径，appx = 包全名），空 = 无法单独移除。
+    foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'oldVersions')) {
+        $oldVersion = Get-EntryString -Entry $item -Key 'version'
+        if (-not $oldVersion) { continue }
+        $result['oldVersions'] += [ordered]@{
+            version   = $oldVersion
+            detail    = (Get-EntryString -Entry $item -Key 'detail')
+            recordKey = (Get-EntryString -Entry $item -Key 'recordKey')
+        }
+    }
 
     # 卸载操作快照（安装时写入；老记录没有这个字段时留空，卸载时回退到软件源里的定义）
     $result['uninstall'] = (ConvertTo-WinstUninstallSnapshot -Block (Get-EntryValue -Entry $Entry -Key 'uninstall' -Default $null))

@@ -16,7 +16,7 @@ function Show-WinstPlanDetail {
     $desktopDir = ''
     try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
     $startMenuDir = ''
-    if ($env:APPDATA) { $startMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
+    if ($env:APPDATA) { $startMenuDir = Join-WinstPath $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
 
     # 本机已装版本与安装路径：用于在详情里突出「将更新到 x.y ↑」，并说明当前装在哪
     $installedVersion = ''

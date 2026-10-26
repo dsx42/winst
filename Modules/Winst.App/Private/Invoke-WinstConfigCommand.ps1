@@ -39,8 +39,16 @@ function Invoke-WinstConfigCommand {
         Write-Section 'winst config list'
         Write-Host ''
         foreach ($one in $keys) {
-            $display = [string](Get-ConfigValue -Config $Context.Config -Key $one)
             $tag = Get-ConfigTag -Context $Context -Key $one
+            # 路径类配置：命令行 / 环境变量 / U 盘来源的优先级高于 config.json，
+            # 此时要显示**实际生效**的路径（$Context 里已解析好的那份），
+            # 否则会打着 [环境变量] 的标记显示一个并未生效的默认值。
+            $display = [string](Get-ConfigValue -Config $Context.Config -Key $one)
+            if ($one -eq 'installRoot' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
+                $display = [string]$Context.InstallRoot
+            } elseif ($one -eq 'pkgDir' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
+                $display = [string]$Context.PkgDir
+            }
             Write-Host ('  {0} = {1}    {2}' -f $one, $display, $tag) -ForegroundColor Gray
         }
         return 0
@@ -59,8 +67,16 @@ function Invoke-WinstConfigCommand {
     }
 
     if ($sub -eq 'get') {
+        $tag = Get-ConfigTag -Context $Context -Key $key
+        # 与 list 同一口径：来源是命令行 / 环境变量 / U 盘时显示实际生效路径
+        $display = [string](Get-ConfigValue -Config $Context.Config -Key $key)
+        if ($key -eq 'installRoot' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
+            $display = [string]$Context.InstallRoot
+        } elseif ($key -eq 'pkgDir' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
+            $display = [string]$Context.PkgDir
+        }
         Write-Host ''
-        Write-Host ('  {0} = {1}    {2}' -f $key, [string](Get-ConfigValue -Config $Context.Config -Key $key), (Get-ConfigTag -Context $Context -Key $key)) -ForegroundColor Gray
+        Write-Host ('  {0} = {1}    {2}' -f $key, $display, $tag) -ForegroundColor Gray
         return 0
     }
 

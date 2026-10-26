@@ -47,7 +47,7 @@ function Resolve-WinstGithubVersion {
         # 版本号不在发布元数据里：置空等取包（{version} / {tag} 占位符仍按发布 tag 展开，见上）
         $resultVersion = ''
     } elseif ($versionFrom -eq 'releaseTitle' -or $versionFrom -eq 'releaseBody') {
-        # 版本号取自发布元数据文本：releaseTitle = 发布标题（feed 的 <title>）；releaseBody = 发布正文（<content>）
+        # 版本号取自发布元数据文本：releaseTitle = 发布标题；releaseBody = 发布正文
         if ($versionBetween.Count -eq 0) {
             return @{
                 Error = ('软件源里声明了 versionFrom: {0}（版本号取自发布标题 / 正文），但没有写 versionBetween——请补上截取标记' -f $versionFrom)
@@ -63,9 +63,9 @@ function Resolve-WinstGithubVersion {
             }
         }
         if (-not $metaSource) {
-            # $releases 还没取过（releases/latest 路径不读 feed）或 feed 里没有这条 tag → 现读一次发布列表
+            # $Releases 还没取过（releases/latest 路径不读列表）或列表里没有这条 tag → 现读一次发布列表
             try {
-                foreach ($item in @(Get-GitHubReleaseTags -Context $Context -Repo $Repo)) {
+                foreach ($item in @(Get-GitHubReleaseListTags -Context $Context -Repo $Repo)) {
                     if ([string]$item['Tag'] -eq $ChosenTag) {
                         $metaSource = [string]$(if ($versionFrom -eq 'releaseTitle') { $item['Title'] } else { $item['Body'] })
                         break

@@ -43,7 +43,7 @@ function Get-WinstRemoteFreshnessHint {
     # files[].compare: "size" = 只比大小——dl.google.com 这类 Last-Modified 阶段性漂移的主机用
     $sizeOnly = ((Get-EntryString -Entry $files[0] -Key 'compare').Trim().ToLowerInvariant() -ieq 'size')
 
-    $target = Join-Path (Join-Path $PkgDir $Id) $name
+    $target = Join-WinstPath (Join-WinstPath $PkgDir $Id) $name
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
         $result.Text = '远端是否有新包无法判断（本地还没下载过这个文件，本次下载后即可对比）'
         return $result

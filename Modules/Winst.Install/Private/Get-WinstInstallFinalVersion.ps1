@@ -7,8 +7,11 @@ function Get-WinstInstallFinalVersion {
     .DESCRIPTION
         检测未命中 → 回落为「本次安装的版本」（软件源里的版本）；软件源也没给版本号时**保留记录里原本
         记着的版本**，不把台账里的版本号抹成空。
+
+        同时返回本机并存的其它版本（`OldVersions`）：安装器升到新版本后旧版本可能仍在系统里
+        （如 .NET 运行时保留旧的构建），这些要写进台账供界面提醒用户清理。
     .OUTPUTS
-        [string]
+        @{ Version; OldVersions }
     #>
     param([hashtable]$Context, $Plan, [string]$InstallDir, [string]$Version, $Ledger, [switch]$Quiet)
 
@@ -22,7 +25,7 @@ function Get-WinstInstallFinalVersion {
             if ($detectResult.Detail) { $verboseLine += ('（{0}）' -f [string]$detectResult.Detail) }
             Write-Host $verboseLine -ForegroundColor DarkGray
         }
-        return $finalVersion
+        return @{ Version = $finalVersion; OldVersions = @($detectResult.OldVersions) }
     }
 
     # 检测本身没跑成（命令超时 / 缺 java / 起不来）时给一行提示：版本号回落为本次安装的目标版本，
@@ -43,5 +46,8 @@ function Get-WinstInstallFinalVersion {
             Write-Host '  [verbose] 版本检测未命中，且这次拿不到任何可用的版本号' -ForegroundColor DarkGray
         }
     }
-    return $finalVersion
+    # 本次没检出旧版本时沿用台账里已有的登记（本次检测没跑成，不能凭这一点断定旧版本已经没了）
+    $oldVersions = @()
+    if ($Ledger) { $oldVersions = @(Get-EntryArray -Entry $Ledger -Key 'oldVersions') }
+    return @{ Version = $finalVersion; OldVersions = @($oldVersions) }
 }

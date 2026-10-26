@@ -31,7 +31,7 @@ function Remove-WinstCachedPackage {
         return $result
     }
 
-    $dir = Join-Path $Context.PkgDir $Id
+    $dir = Join-WinstPath $Context.PkgDir $Id
     if (-not (Test-WinstPathUnderRoot -Path $dir -Root $Context.PkgDir)) {
         $result.Error = ('软件 id 指向安装包位置之外，已拒绝：{0}' -f $Id)
         return $result

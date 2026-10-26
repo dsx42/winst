@@ -36,7 +36,7 @@ function Invoke-WinstCommandList {
             return @{ Ok = $false; Error = ('{0}要执行的程序路径含双引号或控制字符，已拒绝执行：{1}' -f $Label, $exeText) }
         }
         $exePath = $exeText
-        if (-not [IO.Path]::IsPathRooted($exePath)) { $exePath = Join-Path $InstallDir $exePath }
+        if (-not [IO.Path]::IsPathRooted($exePath)) { $exePath = Join-WinstPath $InstallDir $exePath }
         if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
             return @{ Ok = $false; Error = ('{0}要执行的程序不存在：{1}' -f $Label, $exePath) }
         }

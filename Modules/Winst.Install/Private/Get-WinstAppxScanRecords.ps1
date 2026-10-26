@@ -30,6 +30,7 @@ function Get-WinstAppxScanRecords {
         }
         $location = [string]$detectResult['Location']
         $Found[$id] = New-WinstScanRecord -Id $id -Version ([string]$detectResult.Version) `
+            -OldVersions @($detectResult.OldVersions) `
             -Type ((Get-EntryString -Entry $app -Key 'type').Trim().ToLowerInvariant()) `
             -InstallDir $location -Managed 'external' -Source ([string]$Source[$id])
         if ($VerboseOutput) {

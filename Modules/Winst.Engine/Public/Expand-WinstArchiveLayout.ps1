@@ -23,7 +23,7 @@ function Expand-WinstArchiveLayout {
     )
 
     $result = @{ Ok = $false; Error = '' }
-    $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('winst-x-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $tempRoot = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-x-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
 
     try {
         $null = New-Item -ItemType Directory -Path $tempRoot -Force -ErrorAction Stop

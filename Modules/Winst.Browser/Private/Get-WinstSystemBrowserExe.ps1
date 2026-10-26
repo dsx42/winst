@@ -17,8 +17,8 @@ function Get-WinstSystemBrowserExe {
     try { $pf86 = [string]${env:ProgramFiles(x86)} } catch { $pf86 = '' }
     $pf = ''
     try { $pf = [string]$env:ProgramFiles } catch { $pf = '' }
-    if ($pf86) { $candidates += (Join-Path $pf86 'Microsoft\Edge\Application\msedge.exe') }
-    if ($pf) { $candidates += (Join-Path $pf 'Microsoft\Edge\Application\msedge.exe') }
+    if ($pf86) { $candidates += (Join-WinstPath $pf86 'Microsoft\Edge\Application\msedge.exe') }
+    if ($pf) { $candidates += (Join-WinstPath $pf 'Microsoft\Edge\Application\msedge.exe') }
 
     foreach ($one in $candidates) {
         if ($one -and (Test-Path -LiteralPath $one -PathType Leaf)) { return $one }

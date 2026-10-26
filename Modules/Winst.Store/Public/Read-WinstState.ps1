@@ -133,12 +133,15 @@ function Read-WinstState {
     $result.State = @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $installed }
 
     # —— 写入读缓存（缓存归一化结果；NeedSave / Migrated 一并记住，命中时行为与首次一致） ——
+    # 存**副本**、返回原对象：缓存里的那份一旦被调用方就地改到（如 repair 更正版本、
+    # 合并大小写重复 id），下一次读就会读到从未落盘的内容。热路径本来返回副本，
+    # 这里存同一引用会让「冷路径改内存 = 改了缓存」，与文档承诺的「返回副本」相矛盾。
     if ($stamp) {
         $cache = Get-WinstState -Name WinstStateReadCache
         if ($null -ne $cache) {
             $cache[$path] = @{
                 Stamp    = $stamp
-                State    = $result.State
+                State    = (Copy-WinstState -State $result.State)
                 Migrated = [bool]$result.Migrated
                 NeedSave = [bool]$result.NeedSave
             }

@@ -64,7 +64,7 @@ function Invoke-WinstApplication {
     }
 
     if (-not $ScriptPath) {
-        $ScriptPath = Join-Path $Root 'winst.ps1'
+        $ScriptPath = Join-WinstPath $Root 'winst.ps1'
     }
 
     # 必须在任何其它模块运行之前完成：本地清单发现要读 WinstScriptDir，

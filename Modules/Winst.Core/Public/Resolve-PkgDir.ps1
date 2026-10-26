@@ -22,18 +22,18 @@ function Resolve-PkgDir {
 
     # 脚本同目录存在 apps\ 即自动命中离线套件缓存（零配置）
     if ((Get-WinstState -Name WinstScriptDir)) {
-        $scriptApps = Join-Path (Get-WinstState -Name WinstScriptDir) 'apps'
+        $scriptApps = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'apps'
         if (Test-Path -LiteralPath $scriptApps -PathType Container) {
             return @{ Path = $scriptApps; Source = 'script' }
         }
     }
 
-    $configPath = Join-Path $DataRoot 'config.json'
+    $configPath = Join-WinstPath $DataRoot 'config.json'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         # 只取一次配置值（原写法在条件与返回处各取一次）
         $configured = Get-ConfigValue -Config $Config -Key 'pkgDir'
         if ($configured) { return @{ Path = (Expand-WinstPath -Path $configured -Base $DataRoot); Source = 'config' } }
     }
 
-    return @{ Path = (Join-Path $DataRoot 'apps'); Source = 'default' }
+    return @{ Path = (Join-WinstPath $DataRoot 'apps'); Source = 'default' }
 }

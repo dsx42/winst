@@ -16,6 +16,7 @@ function Write-WinstPlanDetectStage {
         }
         'fileVersion' {
             $detectLines += ('读取这个文件的版本号: {0}' -f (Expand-PlanPlaceholders -Value (Get-EntryString -Entry $detect -Key 'pathGlob') -InstallDir $installDir -InstallRoot $View.InstallRoot))
+            $detectLines += '命中多个文件时取版本最高的那个（其余记为并存的旧版本）'
         }
         'markerFile' {
             $detectLines += ('读取这个文件: {0}' -f (Expand-PlanPlaceholders -Value (Get-EntryString -Entry $detect -Key 'pathGlob') -InstallDir $installDir -InstallRoot $View.InstallRoot))
@@ -23,6 +24,7 @@ function Write-WinstPlanDetectStage {
         'jsonFile' {
             $detectLines += ('读取这个文件: {0}' -f (Expand-PlanPlaceholders -Value (Get-EntryString -Entry $detect -Key 'pathGlob') -InstallDir $installDir -InstallRoot $View.InstallRoot))
             $detectLines += ('版本号所在的字段: {0}' -f (Get-EntryString -Entry $detect -Key 'jsonKey'))
+            $detectLines += '命中多个文件时取版本最高的那个（其余记为并存的旧版本）'
         }
         'appx' {
             $detectLines += ('在系统的应用包记录里按名称查找（名称规则: {0}）' -f (Get-EntryString -Entry $detect -Key 'name'))
@@ -32,7 +34,7 @@ function Write-WinstPlanDetectStage {
             # fluxdown-desktop.exe，而带 --version 输出的是同目录的 fluxdown_nmh.exe
             $programText = Expand-PlanPlaceholders -Value (Get-EntryString -Entry $detect -Key 'exe') -InstallDir $installDir -InstallRoot $View.InstallRoot
             if (-not $programText) { $programText = $MainProgram }
-            if ($programText -and $installDir -and -not [IO.Path]::IsPathRooted($programText)) { $programText = Join-Path $installDir $programText }
+            if ($programText -and $installDir -and -not [IO.Path]::IsPathRooted($programText)) { $programText = Join-WinstPath $installDir $programText }
             $argsText = Get-EntryString -Entry $detect -Key 'versionArgs'
             if (-not $argsText) { $argsText = '-v' }
             # jar 主程序要由 java 启动，展示的也应是实际执行的命令（见 Get-WinstDetectedVersionCore）

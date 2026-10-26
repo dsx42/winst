@@ -27,7 +27,7 @@ function Show-WinstBundlePlan {
 
     Write-Host ''
     Write-Host ('  将复制 {0} 个软件的安装包（共 {1} 个文件）到:' -f $copyItems.Count, $totalFiles) -ForegroundColor Cyan
-    Write-Host ('    {0}' -f (Join-Path $TargetDir 'apps')) -ForegroundColor Gray
+    Write-Host ('    {0}' -f (Join-WinstPath $TargetDir 'apps')) -ForegroundColor Gray
     Write-Host '  同时复制脚本本体、软件源清单数据、本次选中的那份清单文件，并生成 winst.cmd。' -ForegroundColor Gray
     Write-Host '  版本相同的包跳过；U 盘里是旧版本时覆盖该软件的旧目录（不碰其它软件的内容）。' -ForegroundColor DarkGray
     if ($DryRun) { Write-Host '  当前为预览模式（--dry-run）：只展示计划，不复制任何文件。' -ForegroundColor DarkYellow }

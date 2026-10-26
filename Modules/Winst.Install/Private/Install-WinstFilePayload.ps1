@@ -18,8 +18,8 @@ function Install-WinstFilePayload {
     if (-not (Test-Path -LiteralPath $InstallDir -PathType Container)) {
         $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction SilentlyContinue
     }
-    $fileTarget = Join-Path $InstallDir $fileName
-    $fileTemp = Join-Path $InstallDir ('.winst-new-' + [Guid]::NewGuid().ToString('N').Substring(0, 8) + '.tmp')
+    $fileTarget = Join-WinstPath $InstallDir $fileName
+    $fileTemp = Join-WinstPath $InstallDir ('.winst-new-' + [Guid]::NewGuid().ToString('N').Substring(0, 8) + '.tmp')
     try {
         Copy-Item -LiteralPath $PrimaryPath -Destination $fileTemp -Force -ErrorAction Stop
         if (Test-Path -LiteralPath $fileTarget -PathType Leaf) {

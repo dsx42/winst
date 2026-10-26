@@ -125,7 +125,7 @@ function Invoke-WinstUpdateExecuteEntry {
     if ($FilesOnly) {
         Write-Host '    仅更新文件：不处理环境变量 / PATH / 快捷方式（保留现有设置）' -ForegroundColor DarkYellow
     } elseif ((-not $ForceSystemItems) -and [bool](Get-ConfigValue -Config $Context.Config -Key 'updateFilesOnly' -Default $true)) {
-        Write-Host '    只更新文件：环境变量 / PATH / 快捷方式保持原样（不新增、不覆盖）' -ForegroundColor DarkGray
+        Write-Host '    只更新文件：环境变量 / PATH 保持原样；快捷方式只修正不新建' -ForegroundColor DarkGray
     }
     $one = Invoke-WinstInstallTarget -Context $Context -Row $targetRow -Force:$forceThisItem -DownloadOnly:$DownloadOnly `
         -Yes:$Yes -AutoPickSource:$AutoPick -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
@@ -137,7 +137,15 @@ function Invoke-WinstUpdateExecuteEntry {
         $Result.Failed++
         if ($one.Network) { $Result.Network = $true }
         $EntryResult.Action = 'failed'
-        $EntryResult.Message = [string]$one.Error
+        $reason = [string]$one.Error
+        if (-not $reason) { $reason = [string]$one.Message }
+        if (-not $reason) { $reason = '未知原因' }
+        $EntryResult.Message = $reason
+        # 失败原因就地打印过就不再重复；没有的话在这里补一句，否则汇总只剩「失败 1」
+        if (-not [bool]$one.FailureShown) {
+            Write-Host ''
+            Write-Host ('  {0}: 更新失败 —— {1}' -f $DisplayName, $reason) -ForegroundColor Red
+        }
     } elseif ($one.Skipped) {
         $Result.Skipped++
         $EntryResult.Action = 'skipped'

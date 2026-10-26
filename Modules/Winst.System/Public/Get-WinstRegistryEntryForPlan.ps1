@@ -8,27 +8,12 @@ function Get-WinstRegistryEntryForPlan {
         选择规则与版本检测一致：先取 InstallLocation 等于预期安装目录（installRoot\id）的记录，
         取不到再取 DisplayName 字典序第一的那条——保证「版本」与「实际安装目录」来自同一条记录。
         名称规则优先 detect.name，未声明时按条目名称推导（与修复安装记录一致）。
+
+        全部命中的记录见 Get-WinstRegistryEntriesForPlan（同一软件可能同时存在新旧两版的多条记录）。
     #>
     param($Plan, [string]$InstallDir = '')
 
-    $ruleText = Get-WinstRegistryNameRuleForPlan -Plan $Plan
-    if (-not $ruleText) { return $null }
-    $rule = New-MatchRule -Rule $ruleText -Kind '软件名称'
-    if (-not $rule.Ok) { return $null }
-
-    $hits = @()
-    foreach ($entry in @(Get-WinstInstalledRegistryEntries)) {
-        if (Test-CompiledMatchRule -Rule $rule -Text ([string]$entry['DisplayName'])) { $hits += $entry }
-    }
+    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir $InstallDir)
     if ($hits.Count -eq 0) { return $null }
-
-    if ($InstallDir) {
-        $expected = ([string]$InstallDir).TrimEnd('\')
-        foreach ($hit in $hits) {
-            $location = ConvertTo-WinstDirPath -Text (Get-EntryString -Entry $hit -Key 'InstallLocation')
-            if ($location -and $location -ieq $expected) { return $hit }
-        }
-    }
-    $sorted = @($hits | Sort-Object -Property @{ Expression = { [string]$_['DisplayName'] } })
-    return $sorted[0]
+    return $hits[0]
 }

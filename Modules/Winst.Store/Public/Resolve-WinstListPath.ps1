@@ -26,7 +26,7 @@ function Resolve-WinstListPath {
         # （Write-FileAtomic 会自动建目录 + 覆盖写），等于任意位置写文件。
         $full = $raw
         if (-not [IO.Path]::IsPathRooted($full)) {
-            try { $full = (Join-Path (Get-Location).Path $full) } catch { }
+            try { $full = (Join-WinstPath (Get-Location).Path $full) } catch { }
         }
         if ($full -notmatch '(?i)\.list$') { $full = $full + '.list' }
         try { $full = [IO.Path]::GetFullPath($full) } catch {
@@ -40,5 +40,5 @@ function Resolve-WinstListPath {
 
     $checked = Test-WinstListFileName -Text $raw
     if (-not $checked.Ok) { return @{ Ok = $false; Error = $checked.Error; Path = '' } }
-    return @{ Ok = $true; Error = ''; Path = (Join-Path $listsDir ([string]$checked.Name)) }
+    return @{ Ok = $true; Error = ''; Path = (Join-WinstPath $listsDir ([string]$checked.Name)) }
 }

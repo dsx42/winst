@@ -27,12 +27,12 @@ function Get-WinstEngineExe {
     if ($entry) {
         $dir = Get-EntryString -Entry $entry -Key 'installDir'
         if ($dir) {
-            $candidate = Join-Path $dir $MainExe
+            $candidate = Join-WinstPath $dir $MainExe
             if (Test-Path -LiteralPath $candidate -PathType Leaf) { $found = $candidate }
         }
     }
     if (-not $found) {
-        $probe = Join-Path (Join-Path $Context.InstallRoot $Id) $MainExe
+        $probe = Join-WinstPath (Join-WinstPath $Context.InstallRoot $Id) $MainExe
         if (Test-Path -LiteralPath $probe -PathType Leaf) { $found = $probe }
     }
     # 未找到时不缓存：本次会话里引擎可能刚被安装，下一次定位必须能读到新装的路径

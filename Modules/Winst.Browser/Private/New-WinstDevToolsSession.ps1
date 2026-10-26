@@ -48,14 +48,14 @@ function New-WinstDevToolsSession {
     }
     $result.Engine = Split-Path -Leaf $exe
 
-    $profileDir = Join-Path ([IO.Path]::GetTempPath()) ('winst-cdp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $profileDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-cdp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
     $result.ProfileDir = $profileDir
     try { $null = New-Item -ItemType Directory -Path $profileDir -Force -ErrorAction Stop } catch { }
 
     # 浏览器的 stdout/stderr 落进 profile 目录内的临时文件（DevTools listening、导入器扫描报错等噪音
     # 不能进 winst 控制台）；文件随 ProfileDir 一并清理，失败路径先杀进程树再删目录（见 $cleanup）。
-    $stdoutFile = Join-Path $profileDir 'browser-stdout.log'
-    $stderrFile = Join-Path $profileDir 'browser-stderr.log'
+    $stdoutFile = Join-WinstPath $profileDir 'browser-stdout.log'
+    $stderrFile = Join-WinstPath $profileDir 'browser-stderr.log'
 
     $argList = @(
         '--headless=new'
@@ -90,7 +90,7 @@ function New-WinstDevToolsSession {
         }
     }
 
-    $portFile = Join-Path $profileDir 'DevToolsActivePort'
+    $portFile = Join-WinstPath $profileDir 'DevToolsActivePort'
     $port = 0
     $portDeadline = [DateTime]::Now.AddSeconds($TimeoutSec)
     while ($port -le 0 -and [DateTime]::Now -lt $portDeadline) {

@@ -26,8 +26,8 @@ function Initialize-WinstInstallContext {
         return @{ Error = ('软件定义里的 id 不合法（只能是单个目录名，且不能是 . / .. 或含非法字符）：{0}' -f $id) }
     }
 
-    $installDir = Join-Path $Context.InstallRoot $id
-    $pkgDir = Join-Path $Context.PkgDir $id
+    $installDir = Join-WinstPath $Context.InstallRoot $id
+    $pkgDir = Join-WinstPath $Context.PkgDir $id
     $Result.InstallDir = $installDir
 
     $install = Get-EntryValue -Entry $Plan -Key 'install' -Default $null

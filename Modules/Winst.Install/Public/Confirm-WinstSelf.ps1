@@ -42,9 +42,9 @@ function Confirm-WinstSelf {
     if ((Get-WinstState -Name WinstSelfChecked)) { return $result }
     $null = Set-WinstState -Name WinstSelfChecked -Value ($true)
 
-    $installDir = Join-Path $Context.InstallRoot 'winst'
-    $launcherPath = Join-Path $installDir 'winst.cmd'
-    $scriptPath = Join-Path $installDir 'winst.ps1'
+    $installDir = Join-WinstPath $Context.InstallRoot 'winst'
+    $launcherPath = Join-WinstPath $installDir 'winst.cmd'
+    $scriptPath = Join-WinstPath $installDir 'winst.ps1'
 
     # 启动器或脚本任一匹配，即认为当前进程跑的是已安装副本；
     # 用户可能直接启动其中任何一个。

@@ -12,7 +12,7 @@ function Invoke-WinstUninstallCachePayload {
         if (-not $Quiet) { Write-Host ('    提示: 软件 id 不合法，已跳过删除已下载的软件包：{0}' -f $Id) -ForegroundColor DarkYellow }
         return
     }
-    $cacheDir = Join-Path $Context.PkgDir $Id
+    $cacheDir = Join-WinstPath $Context.PkgDir $Id
     if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) { return }
     if (-not $Quiet) { Write-Host ('    正在删除已下载的软件包 {0} …' -f $cacheDir) -ForegroundColor Gray }
     Clear-WinstInstallDir -Dir $cacheDir -AllowedRoot $Context.PkgDir

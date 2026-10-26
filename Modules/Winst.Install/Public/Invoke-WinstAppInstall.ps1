@@ -139,7 +139,7 @@ function Invoke-WinstAppInstall {
     if ($files.Count -gt 0) {
         $pn = Get-EntryString -Entry $files[0] -Key 'name'
         if (-not $pn) { $pn = Get-FileNameFromUrl -Url (Get-EntryString -Entry $files[0] -Key 'url') }
-        if ($pn) { $primaryPath = Join-Path $pkgDir $pn }
+        if ($pn) { $primaryPath = Join-WinstPath $pkgDir $pn }
     }
     if (-not $primaryPath -or -not (Test-Path -LiteralPath $primaryPath -PathType Leaf)) {
         $result.Error = ('安装包不在缓存里：{0}' -f $displayName)
@@ -265,14 +265,15 @@ function Invoke-WinstAppInstall {
     if ($system.Error) { $result.Error = [string]$system.Error; return $result }
 
     # —— ⑥ 版本检测 ——
-    $finalVersion = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `
+    $final = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `
         -Version $version -Ledger $ledger -Quiet:$Quiet
+    $finalVersion = [string]$final.Version
 
     # —— ⑦ 写台账 ——
     try {
         Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
             -InstallDir $installDir -Version $finalVersion -SourceName $SourceName `
-            -SystemItems $system.Items -AppliedFiles $appliedFiles
+            -SystemItems $system.Items -AppliedFiles $appliedFiles -OldVersions @($final.OldVersions)
     } catch {
         $result.Error = ('{0} 的文件已落位，但写入安装台账失败：{1}' -f $displayName, $_.Exception.Message)
         return $result
@@ -289,5 +290,10 @@ function Invoke-WinstAppInstall {
     $result.Version = $finalVersion
     $result.Message = Format-WinstInstallResultMessage -Plan $Plan -Method $method -InstallDir $installDir `
         -Version $finalVersion -SystemItemsSkipped ([bool]$system.Skipped) -FilesOnly:$FilesOnly
+    # 安装器升级后旧版本可能仍在系统里：装完就提示，别等用户下次打开「已装软件」才发现
+    $oldVersionText = Format-WinstOldVersionText -OldVersions @($final.OldVersions)
+    if ($oldVersionText -and -not $Quiet) {
+        Write-Host ('    提示: 本机还并存旧版本 {0}，可在「已装软件」的详情里清理。' -f $oldVersionText) -ForegroundColor DarkYellow
+    }
     return $result
 }

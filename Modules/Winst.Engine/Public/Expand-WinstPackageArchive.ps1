@@ -10,6 +10,11 @@ function Expand-WinstPackageArchive {
         7-Zip"这一档。后面两档只是引擎不可用（首次引导的鸡生蛋
         环节）或解压失败时的后备：tar.exe（bsdtar）能解 7z / zip / tar / gz / rar / iso，正好够用来解
         引擎自己的引导包；Expand-Archive 仅 .zip。
+
+        7-Zip 自解压包（`7z<版本>-x64.exe` 这类 PE + 内嵌 7z）：先按 Get-Winst7zSfxPayload 把内嵌
+        载荷切出来当普通 .7z 解。系统自带的 bsdtar 在旧版 Windows（如 10 21H2）上是 libarchive 3.6，
+        只在 0x27000～0x60000 之间扫 7z 签名，而新版 7-Zip 的载荷起点已经前移到这个窗口之下，
+        于是「同样的包在新系统能解、老系统报无法识别格式」——这不是包坏，是系统工具太旧。
     .OUTPUTS
         @{ Ok; Tool; Error }
     #>
@@ -28,60 +33,36 @@ function Expand-WinstPackageArchive {
 
     $errors = New-Object 'System.Collections.Generic.List[string]'
 
-    # ① 解压引擎（7-Zip-CLI 的 7z.exe）：全格式，NSIS 安装包 / RAR / WIM 都走这一档
+    # ⓪ 7-Zip 自解压包：先切出内嵌载荷（不依赖系统工具的扫描窗口版本）
+    $carvedPath = ''
+    try {
+        $carved = Get-Winst7zSfxPayload -Path $ArchivePath -DestDir ([IO.Path]::GetTempPath())
+        if ($carved.Ok -and $carved.Path) {
+            $carvedPath = [string]$carved.Path
+            $inner = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $carvedPath -DestDir $DestDir -Errors $errors
+            if ($inner.Ok) {
+                $result.Ok = $true
+                $result.Tool = $inner.Tool + '(sfx)'
+                return $result
+            }
+        } elseif ($carved.Error) {
+            $errors.Add([string]$carved.Error)
+        }
+    } finally {
+        if ($carvedPath -and (Test-Path -LiteralPath $carvedPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $carvedPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $direct = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors
+    if ($direct.Ok) {
+        $result.Ok = $true
+        $result.Tool = $direct.Tool
+        return $result
+    }
+
     $sevenZip = ''
     if ($Context) { $sevenZip = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
-    if ($sevenZip) {
-        # 路径与解压目录逐项加引号（含空格时 `-oC:\Program Files\x` 会被拆成两个参数）；
-        # 值里出现双引号直接拒绝，不靠手工拼接转义
-        if (-not (Test-WinstArgumentSafe -Value $ArchivePath) -or -not (Test-WinstArgumentSafe -Value $DestDir)) {
-            $errors.Add('压缩包路径或解压目录含有无法安全传给 7z 的字符（双引号 / 控制字符）')
-        } else {
-            try {
-                $argText = 'x {0} {1} -y -bso0 -bse0 -bsp0' -f (Format-WinstCommandArgument -Value $ArchivePath), (Format-WinstCommandArgument -Value ('-o' + $DestDir))
-                $p = Start-Process -FilePath $sevenZip -ArgumentList $argText -Wait -PassThru -NoNewWindow
-                if ($p.ExitCode -eq 0) { $result.Ok = $true; $result.Tool = '7z'; return $result }
-                $errors.Add(('7z 退出码 {0}' -f $p.ExitCode))
-            } catch {
-                $errors.Add(('7z 调用失败：{0}' -f $_.Exception.Message))
-            }
-        }
-    }
-
-    # ② 系统内置 tar.exe（bsdtar）
-    $tarPath = ''
-    try {
-        $tarCmd = Get-Command 'tar.exe' -ErrorAction SilentlyContinue
-        if ($tarCmd) { $tarPath = [string]$tarCmd.Source }
-    } catch {
-        $tarPath = ''
-    }
-    if ($tarPath) {
-        if (-not (Test-WinstArgumentSafe -Value $ArchivePath) -or -not (Test-WinstArgumentSafe -Value $DestDir)) {
-            $errors.Add('压缩包路径或解压目录含有无法安全传给 tar 的字符（双引号 / 控制字符）')
-        } else {
-            try {
-                $argText = '-xf {0} -C {1}' -f (Format-WinstCommandArgument -Value $ArchivePath), (Format-WinstCommandArgument -Value $DestDir)
-                $p = Start-Process -FilePath $tarPath -ArgumentList $argText -Wait -PassThru -NoNewWindow
-                if ($p.ExitCode -eq 0) { $result.Ok = $true; $result.Tool = 'tar'; return $result }
-                $errors.Add(('tar 退出码 {0}' -f $p.ExitCode))
-            } catch {
-                $errors.Add(('tar 调用失败：{0}' -f $_.Exception.Message))
-            }
-        }
-    }
-
-    # ③ Expand-Archive（仅 .zip）
-    if ($ArchivePath -match '(?i)\.zip$') {
-        try {
-            Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestDir -Force -ErrorAction Stop
-            $result.Ok = $true
-            $result.Tool = 'Expand-Archive'
-            return $result
-        } catch {
-            $errors.Add(('Expand-Archive 失败：{0}' -f $_.Exception.Message))
-        }
-    }
 
     $detail = ''
     if ($errors.Count -gt 0) { $detail = '（已尝试：{0}）' -f ($errors -join '；') }

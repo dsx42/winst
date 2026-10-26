@@ -5,9 +5,11 @@ function Invoke-WinstHttpRequest {
     .SYNOPSIS
         HTTP GET（元数据类请求）并返回结构化结果 @{ Content; Links; FromCache }。
     .DESCRIPTION
-        按 proxyMode 实现「直连 → 代理重试」链，并支持自定义请求头。
+        **元数据类**请求（清单 / 版本页 / 校验文件）：按 `proxyMode` 决定尝试序列。
+        这类请求不属于「下载」，`proxyMode = download-direct` 时**只用代理**、不先试直连——
+        这类站点通常正是直连打不开才需要代理。
         默认启用进程内 TTL 缓存；
-        清单本身刷新传 -NoCache。全部尝试失败时抛出最后一次异常，供上层转网络错误退出码。
+        清单本身刷新传 `-NoCache`。全部尝试失败时抛出最后一次异常，供上层转网络错误退出码。
     #>
     param(
         [Parameter(Mandatory = $true)]

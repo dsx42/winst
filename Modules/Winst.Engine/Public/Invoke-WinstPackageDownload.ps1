@@ -14,7 +14,7 @@ function Invoke-WinstPackageDownload {
         [string]$FileName = ''
     )
 
-    $attempts = @(Get-WinstProxyAttempts -Context $Context)
+    $attempts = @(Get-WinstProxyAttempts -Context $Context -Download)
     # 每条返回路径都必须带 Retried。调用方会无条件读 $dl.Retried，
     # 而 Set-StrictMode -Version 2 下缺少该键会直接报错
     # （「找不到属性 Retried」），把一次成功的下载变成失败。

@@ -11,7 +11,7 @@ function Get-ManifestMetaPath {
     param([string]$PkgDir, [string]$Name)
 
     if ($Name -ieq (Get-WinstLocalManifestName)) {
-        return (Join-Path (Get-ManifestRootDir -PkgDir $PkgDir) ((Get-WinstLocalManifestName) + '.meta.json'))
+        return (Join-WinstPath (Get-ManifestRootDir -PkgDir $PkgDir) ((Get-WinstLocalManifestName) + '.meta.json'))
     }
-    return (Join-Path (Get-ManifestCacheDir -PkgDir $PkgDir) ((Get-ManifestFileKey -Name $Name) + '.meta.json'))
+    return (Join-WinstPath (Get-ManifestCacheDir -PkgDir $PkgDir) ((Get-ManifestFileKey -Name $Name) + '.meta.json'))
 }

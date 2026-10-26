@@ -91,7 +91,7 @@ function Get-WinstSelfPackageSource {
         if ($files.Count -gt 0) { $url = Get-EntryString -Entry $files[0] -Key 'url' }
 
         if ($url) {
-            $pkgDir = Join-Path $Context.PkgDir $selfId
+            $pkgDir = Join-WinstPath $Context.PkgDir $selfId
             if (-not (Test-Path -LiteralPath $pkgDir -PathType Container)) {
                 $null = New-Item -ItemType Directory -Path $pkgDir -Force -ErrorAction SilentlyContinue
             }
@@ -104,7 +104,7 @@ function Get-WinstSelfPackageSource {
             if (-not (Test-WinstSafePathSegment -Name $archiveName)) {
                 $errorText = ('winst 安装包的文件名不合法：{0}' -f $archiveName)
             } else {
-                $archivePath = Join-Path $pkgDir $archiveName
+                $archivePath = Join-WinstPath $pkgDir $archiveName
 
                 # 复用已通过校验的缓存压缩包，
                 # 避免同一会话内重复安装时下载两次。

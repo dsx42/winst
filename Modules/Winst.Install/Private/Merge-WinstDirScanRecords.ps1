@@ -16,7 +16,7 @@ function Merge-WinstDirScanRecords {
             $detect = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir ([string]$record['FullName']) -SourceName ([string]$record['Source'])
             $version = 'unknown'
             if ($detect.Ok -and $detect.Version) { $version = [string]$detect.Version }
-            $Found[$matchId] = New-WinstScanRecord -Id $matchId -Version $version -Type $type `
+            $Found[$matchId] = New-WinstScanRecord -Id $matchId -Version $version -OldVersions @($detect.OldVersions) -Type $type `
                 -InstallDir ([string]$record['FullName']) -Managed 'winst' -Source ([string]$record['Source'])
             if ($VerboseOutput) {
                 $detail = ''

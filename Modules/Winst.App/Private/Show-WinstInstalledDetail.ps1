@@ -44,6 +44,12 @@ function Show-WinstInstalledDetail {
         Write-Host ('    其它来源 : {0}' -f [string]$Item['OtherSourcesText']) -ForegroundColor DarkGray
     }
 
+    # 本机并存的旧版本：同一个软件装过多个版本时（如 .NET 运行时升级后旧构建仍在），
+    # 只展示最新版本会让人以为旧版本已经没了；这里明说并存了哪些，并给出清理入口
+    if ([bool]$Item['HasOldVersions']) {
+        Write-Host ('    旧版本   : {0}（仍安装在本机，可清理）' -f [string]$Item['OldVersionsText']) -ForegroundColor DarkYellow
+    }
+
     Write-Host ('    类型     : {0}' -f [string]$Item['TypeText']) -ForegroundColor Gray
 
     Write-WinstDetailDependencies -Context $Context -Item $Item
