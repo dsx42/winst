@@ -6,8 +6,8 @@ function Expand-WinstArchiveWithTool {
         用「解压引擎 → 系统 tar → Expand-Archive」三档依次尝试解压，返回第一个成功的档位。
 
     .DESCRIPTION
-        Expand-WinstPackageArchive 的逐档实现：调用方可能要先处理自解压包（切出内嵌载荷），
-        再用同一套档位解那份载荷，因此把「依次尝试」抽出来复用，避免两处各写一遍。
+        Expand-WinstPackageArchive 的逐档实现：调用方先按原样走这三档；全部失败后可能再切出
+        7-Zip 自解压包的内嵌载荷，并用同一套档位解那份载荷——因此把「依次尝试」抽出来复用。
 
         每一档失败都把原因追加进调用方传进来的 Errors 列表（不抛异常）：
         最终失败时由调用方统一拼报错文案，用户能看到「三档各自为什么不行」。

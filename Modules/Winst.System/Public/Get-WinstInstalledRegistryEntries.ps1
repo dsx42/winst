@@ -29,7 +29,9 @@ function Get-WinstInstalledRegistryEntries {
     foreach ($root in $roots) {
         foreach ($key in @(Get-ChildItem -Path $root -ErrorAction SilentlyContinue)) {
             $props = $null
-            try { $props = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue } catch { $props = $null }
+            # -LiteralPath：-Path 会把键名里的 `[` `]` 当通配符，名字带方括号的记录
+            # （如 `Foo [x64]`）会整条读不到 → 既检测不到安装状态，也无法通过 winst 卸载
+            try { $props = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction SilentlyContinue } catch { $props = $null }
             if ($null -eq $props) { continue }
             $row = [ordered]@{}
             foreach ($fieldName in @('DisplayName', 'DisplayVersion', 'InstallLocation', 'UninstallString', 'DisplayIcon')) {

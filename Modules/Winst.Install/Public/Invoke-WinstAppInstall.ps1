@@ -9,12 +9,13 @@ function Invoke-WinstAppInstall {
         软件包下载一律走 FluxDown CLI（引擎缺失时先自动安装），不设 IWR 兜底。
         `versionFromPackage` 条目在「本机已装、软件源里又拿不到版本号」时不直接跳过：先取包，
         再按包内文件信息得到的版本补做决策矩阵。
-        `-FilesOnly`（仅更新文件）跳过阶段 ④：不写环境变量 / PATH / 快捷方式，台账里原有的登记保持不动。
+        `-FilesOnly`（仅更新文件）跳过阶段 ④ 的写入：环境变量 / PATH 不动、快捷方式只修正已存在的，
+        台账里原有的登记保持不动。
         默认（未指定时）按「设置 → 更新方式」执行：开启（默认「只更新文件」）时**已登记软件**（更新 / 重装）
         同样跳过阶段 ④，只有**首次安装**才补齐缺失项（已存在的保持不动）；
         `-ForceSystemItems` 强制完整落地（覆盖已存在项），忽略配置。
     .OUTPUTS
-        @{ Ok; Skipped; Preview; Message; Version; InstallDir; Error; Network; Downloaded }
+        @{ Ok; Skipped; Preview; Cancelled; Message; Version; InstallDir; Error; Network; Downloaded }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -262,7 +263,20 @@ function Invoke-WinstAppInstall {
     # —— ③ 复制 / 改名 ④ 环境变量 / PATH / 快捷方式 ⑤ 安装后命令 ——
     $system = Invoke-WinstApplySystemItems -Context $Context -Plan $Plan -InstallDir $installDir `
         -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -Ledger $ledger -Quiet:$Quiet
-    if ($system.Error) { $result.Error = [string]$system.Error; return $result }
+    if ($system.Error) {
+        # 系统项在 postInstall 之前就已落地：这里直接返回会让台账里没有这些登记，
+        # 卸载时回收不到（环境变量 / PATH / 快捷方式成为孤儿）。先把已落地的项写进台账再报错。
+        try {
+            Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
+                -InstallDir $installDir -Version $version -SourceName $SourceName `
+                -SystemItems $system.Items -AppliedFiles $appliedFiles -OldVersions @()
+        } catch {
+            $result.Error = ('{0}（且写入安装台账失败：{1}）' -f [string]$system.Error, $_.Exception.Message)
+            return $result
+        }
+        $result.Error = [string]$system.Error
+        return $result
+    }
 
     # —— ⑥ 版本检测 ——
     $final = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `

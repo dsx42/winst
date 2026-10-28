@@ -24,7 +24,8 @@ function Get-WinstPathGroupKey {
     $kept = @()
     foreach ($segment in $segments) {
         if (-not $segment) { continue }
-        # 整段就是版本号（`10.0.13`、`v1.2.3`、`1.8.0_504-b01`）：这是版本目录，抹掉
+        # 整段是「可选 v + 纯数字段」（`10.0.13`、`v1.2.3`、`1.8.0.504`）：版本目录，抹掉。
+        # 段里出现字母的（`1.8.0_504-b01`）不匹配，按普通目录保留。
         if ($segment -match '^[vV]?\d+(?:[._-]\d+)+$') { continue }
         $kept += $segment
     }

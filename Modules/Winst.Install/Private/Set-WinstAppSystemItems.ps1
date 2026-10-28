@@ -15,7 +15,7 @@ function Set-WinstAppSystemItems {
         - 已存在但指向不对 → **覆盖修正**。安装位置换过、旧版本残留、被手工改过都会留下指向
           不存在程序的快捷方式，留着就是「双击打不开」，因此必须修。
 
-        「仅更新文件」模式不做本函数（环境变量一律不动），只走 Repair-WinstAppShortcuts
+        「仅更新文件」模式不做本函数（环境变量一律不动），改由 Set-WinstAppShortcuts -ExistingOnly
         修正已经存在但指向不对的快捷方式。
     .OUTPUTS
         @{ AppliedEnv; AppliedPath; AppliedShortcuts; RepairedShortcuts; Notes; Scope }

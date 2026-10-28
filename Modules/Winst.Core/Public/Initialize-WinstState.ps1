@@ -99,6 +99,14 @@ function Initialize-WinstState {
         $initialized++
     }
 
+    # 本次进程内「解析成功但落盘不可用」的软件源（目标盘不可见 / 只读）：
+    # 源有效期靠 meta.json 判断，写不进去就永远是「过期」，于是每次列表 / 检查 / 安装都会
+    # 重跑一遍同样的网络请求与解析。记下来，同一进程内不再为同一个源重复刷新。
+    if ($null -eq (Get-WinstState -Name 'WinstManifestPersistUnavailable')) {
+        $null = Set-WinstState -Name 'WinstManifestPersistUnavailable' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
+        $initialized++
+    }
+
     # 台账读缓存（Winst.Store）：按文件戳缓存解析 + 归一化后的台账，写入侧 Save-WinstState 负责刷新。
     # 台账在一次操作里会被反复读，一次完整解析在几十条记录时是百毫秒级。
     if ($null -eq (Get-WinstState -Name 'WinstStateReadCache')) {

@@ -7,8 +7,8 @@ function Read-WinstState {
     .OUTPUTS
         @{ State; Migrated; Reset; BackupPath; NeedSave; Error }
     .DESCRIPTION
-        台账位于 <安装根目录>\state.json；解析失败 → 备份为
-        state.json.bak-<时间戳> 并重建空台账；
+        台账位于 <安装根目录>\state.json；解析失败 → 备份为 state.json.bak-<时间戳> 并重建空台账；
+        备份本身失败时**停止写入**（Reset / NeedSave 均为 $false，Error 说明原因），避免空台账覆盖唯一副本。
         schemaVersion 缺失或低于当前 → 迁移补默认值并标记 NeedSave；高于当前 → Error 提示升级 winst。
 
         读缓存：解析 + 归一化的结果按「文件戳（最后写入时间 + 长度）」缓存在进程内，

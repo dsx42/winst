@@ -1,4 +1,23 @@
-﻿#Requires -Version 5.1
+<#
+    install.ps1  (仓库根)
+
+    一行安装引导脚本，只做四件事：下载 release zip、解压出 winst.ps1、
+    提权并等它执行 `winst install winst --from <zip>`、按退出码报告结果。
+
+    编码约束（与仓库其它 .ps1 相反）
+    --------------------------------
+    本文件必须 **UTF-8 无 BOM**，且不能写 `#Requires`。
+
+    它通过 `irm | iex` 执行：`irm` 取回的文本原样交给 `iex` 解析，前导的 U+FEFF
+    在解析字符串时不按 BOM 剥离，而是被当成命令名的一部分：
+
+        ?#Requires : 无法将“?#Requires”项识别为 cmdlet ...
+
+    这句报错不中断后续语句，于是表现为「安装成功，但屏幕上多一条报错」。
+    同理，无 BOM 时 `#Requires` 只是被 `iex` 忽略（不报错但也不生效）。
+
+    build.ps1 会校验这两点，避免编辑器把 BOM 加回来。
+#>
 <#
     winst 一行安装（引导脚本）
 
@@ -8,11 +27,12 @@
     想先看看内容再执行：
         irm https://raw.githubusercontent.com/dsx42/winst/main/install.ps1 | more
 
-    它只做三件事
+    它只做四件事
     ------------
         1. 下载 release 最新版的 winst.zip
         2. 解压到临时目录，只为拿到其中能运行的 winst.ps1
-        3. 调用它：winst install winst --from <刚下载的 zip>
+        3. 以管理员身份运行它并等它结束（本脚本层提权，子进程里不会再派生一个提权进程）
+        4. 调用它：winst install winst --from <刚下载的 zip>
 
     安装逻辑不在这里
     ----------------
@@ -159,9 +179,38 @@ try {
                 return $winstArgBuilder.ToString()
             }) -join ' ')
 
-    $winstInstallProcess = Start-Process -FilePath 'powershell.exe' `
-        -ArgumentList $winstInstallArgText `
-        -NoNewWindow -Wait -PassThru
+    # 提权放在本脚本这一层，并等它真正结束：
+    #   已是管理员 → 直接同步跑，输出留在当前窗口；
+    #   不是管理员 → 用 runas 起一个管理员子进程。子进程里的 winst.ps1 启动时已是管理员，
+    #                不会再把工作交给第三个进程，因此它返回的退出码就是安装结果。
+    # 提权不在这一层完成时，子进程会「起一个新进程后自己 exit 0」，本脚本拿到的 0
+    # 不代表装好了，而最后的 finally 会在安装读取 --from 之前删掉临时目录。
+    $winstInstallIsAdmin = $false
+    try {
+        $winstInstallIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $winstInstallPrincipal = New-Object Security.Principal.WindowsPrincipal($winstInstallIdentity)
+        $winstInstallIsAdmin = $winstInstallPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        $winstInstallIsAdmin = $false
+    }
+
+    if ($winstInstallIsAdmin) {
+        $winstInstallProcess = Start-Process -FilePath 'powershell.exe' `
+            -ArgumentList $winstInstallArgText `
+            -NoNewWindow -Wait -PassThru
+    } else {
+        $winstInstallStart = New-Object System.Diagnostics.ProcessStartInfo
+        $winstInstallStart.FileName = 'powershell.exe'
+        $winstInstallStart.Arguments = $winstInstallArgText
+        $winstInstallStart.UseShellExecute = $true
+        $winstInstallStart.Verb = 'runas'
+        try {
+            $winstInstallProcess = [Diagnostics.Process]::Start($winstInstallStart)
+        } catch {
+            throw ('无法以管理员身份启动安装程序（UAC 被取消？）：{0}' -f $_.Exception.Message)
+        }
+        $winstInstallProcess.WaitForExit()
+    }
 
     $winstInstallExitCode = -1
     try { $winstInstallExitCode = [int]$winstInstallProcess.ExitCode } catch { $winstInstallExitCode = -1 }

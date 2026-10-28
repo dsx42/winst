@@ -8,14 +8,18 @@ function New-WinstDevToolsSession {
         只用系统自带组件：Edge（操作系统组件）+ PS 5.1 自带的 .NET —— `System.Net.WebSockets.ClientWebSocket`
         做 WebSocket 客户端，`Invoke-WebRequest` 取 `/json/version` 里的 ws 地址。
         DevTools 端口用 `--remote-debugging-port=0`（浏览器自己挑，避免占端口冲突），端口号从用户数据目录里的
-        `DevToolsActivePort` 文件首行读。浏览器进程要在整个点击流程里活着，所以用 `Start-Process -PassThru`
-        拿进程句柄（这里不读退出码），结束时由 Close-WinstDevToolsSession 收尾。
-        **stdout / stderr 一律重定向到 profile 目录内的临时文件**：不重定向的话，Edge 的
-        `DevTools listening on ws://…` 行与新 profile 首次运行的导入器扫描报错（QQBrowser user data path
-        not found 等）会直接打进 winst 的控制台。日志文件随 ProfileDir 一并清理。
+        `DevToolsActivePort` 文件首行读。浏览器进程要在整个点击流程里活着，所以拿进程句柄留着（这里不读退出码），
+        结束时由 Close-WinstDevToolsSession 收尾。
+        **起进程用 `[Diagnostics.Process]::Start(ProcessStartInfo)`，不用 `Start-Process`**：后者在环境里同时存在
+        `http_proxy` 与 `HTTP_PROXY` 时会直接抛「已添加项。字典中的关键字:http_proxy」（Windows 环境变量不区分
+        大小写，它复制环境时按区分大小写处理），浏览器根本起不来——装了 Clash / FlClash 之类工具的终端常带这种
+        变量；ProcessStartInfo 原样继承环境，没有这个问题。
+        **stdout / stderr 一律异步抽干**：不重定向的话，Edge 的 `DevTools listening on ws://…` 行与新 profile 首次
+        运行的导入器扫描报错（QQBrowser user data path not found 等）会直接打进 winst 的控制台；而重定向后不读走，
+        几 KB 的管道缓冲写满会让浏览器卡住。所以只保留文本（失败时截尾部拼进原因），不再落临时文件。
         默认把下载设为 `deny`：只让浏览器上报下载地址、不真下文件。
     .OUTPUTS
-        @{ Ok; Error; Socket; Token; TokenSource; SessionId; TargetId; ProcessId; ProfileDir; Engine; Downloads; Requests }
+        @{ Ok; Error; Socket; Token; TokenSource; SessionId; TargetId; ProcessId; Process; StdoutTask; StderrTask; ProfileDir; Engine; Downloads; Requests }
     #>
     param(
         [string]$ProxyUrl = '',
@@ -34,6 +38,9 @@ function New-WinstDevToolsSession {
         SessionId   = ''
         TargetId    = ''
         ProcessId   = 0
+        Process     = $null
+        StdoutTask  = $null
+        StderrTask  = $null
         ProfileDir  = ''
         Engine      = ''
         Downloads   = (New-Object System.Collections.ArrayList)
@@ -52,10 +59,10 @@ function New-WinstDevToolsSession {
     $result.ProfileDir = $profileDir
     try { $null = New-Item -ItemType Directory -Path $profileDir -Force -ErrorAction Stop } catch { }
 
-    # 浏览器的 stdout/stderr 落进 profile 目录内的临时文件（DevTools listening、导入器扫描报错等噪音
-    # 不能进 winst 控制台）；文件随 ProfileDir 一并清理，失败路径先杀进程树再删目录（见 $cleanup）。
-    $stdoutFile = Join-WinstPath $profileDir 'browser-stdout.log'
-    $stderrFile = Join-WinstPath $profileDir 'browser-stderr.log'
+    # 浏览器的 stdout / stderr 必须有人读走（见上方说明），启动后立刻异步抽干；不落临时文件，
+    # 失败时从 $cleanup 里把 stderr 尾部拼进错误原因
+    $stdoutTask = $null
+    $stderrTask = $null
 
     $argList = @(
         '--headless=new'
@@ -73,20 +80,45 @@ function New-WinstDevToolsSession {
     )
     if ($ProxyUrl) { $argList += ('--proxy-server="{0}"' -f $ProxyUrl) }
 
+    $process = $null
     try {
-        $process = Start-Process -FilePath $exe -ArgumentList $argList -PassThru -WindowStyle Hidden `
-            -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $exe
+        $psi.Arguments = ($argList -join ' ')
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $process = [Diagnostics.Process]::Start($psi)
         $result.ProcessId = $process.Id
+        $result.Process = $process
+        # 立刻抽干两路输出：管道写满会把浏览器卡在半路
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $result.StdoutTask = $stdoutTask
+        $result.StderrTask = $stderrTask
     } catch {
         $result.Error = ('无法启动无头浏览器：{0}' -f $_.Exception.Message)
         return $result
     }
 
-    # 启动成功后的各失败出口统一收尾：杀掉整棵浏览器进程树 + 删 profile（含重定向日志），不留残留进程
+    # 启动成功后的各失败出口统一收尾：杀掉整棵浏览器进程树 + 删 profile，不留残留进程。
+    # 按 profile 目录匹配（拿到的 PID 可能只是先退出的那个引导进程），PID 再补一刀兜底；
+    # 顺手把浏览器自己的 stderr 尾部拼进错误原因——端口没就绪 / 连不上 DevTools 时，那才是线索
     $cleanup = {
+        if ($profileDir) { $null = Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir }
         if ($result.ProcessId) { try { $null = & taskkill.exe /PID $result.ProcessId /T /F 2>&1 } catch { } }
         if ($profileDir -and (Test-Path -LiteralPath $profileDir)) {
             Clear-WinstInstallDir -Dir $profileDir
+        }
+        $tail = ''
+        if ($stderrTask) {
+            try { if ($stderrTask.Wait(1500)) { $tail = [string]$stderrTask.Result } } catch { $tail = '' }
+        }
+        if ($tail) {
+            $tail = ($tail -replace '\s+', ' ').Trim()
+            if ($tail.Length -gt 200) { $tail = $tail.Substring($tail.Length - 200) }
+            if ($tail -and $result.Error) { $result.Error += ('（浏览器输出：{0}）' -f $tail) }
         }
     }
 

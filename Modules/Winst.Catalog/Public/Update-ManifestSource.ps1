@@ -115,6 +115,16 @@ function Update-ManifestSource {
         -WriteCache:$writeCache -TargetUrl $targetUrl -Version $manifestVersion -Apps $apps -FetchedAt $fetchedAt
     if ($save.Error) {
         $result.Message = [string]$save.Error
+        # 写盘失败（如目标盘在提权进程里不可见）时解析本身是成功的：把结果一并带出去，
+        # 调用方据此照常展示本次拿到的数据，且**不要**因为「没写成功」就认为需要重新刷新——
+        # 否则每次列表 / 检查 / 安装都会重跑一遍同样的网络请求与解析。
+        $result.Apps = $apps
+        $result.Resolved = $succeeded
+        $result.ResolveFailed = $failed
+        $result.Retained = $retained
+        $result.RetainedReasons = @($retainedReasons)
+        $result.Total = $entries.Count
+        if ($save.PersistUnavailable) { $result.PersistUnavailable = $true }
         return $result
     }
 

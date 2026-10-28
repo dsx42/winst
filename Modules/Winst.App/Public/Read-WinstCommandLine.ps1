@@ -63,9 +63,15 @@ function Read-WinstCommandLine {
         if ($text -ieq '--yes' -or $text -ieq '-y') { $options.Yes = $true; continue }
         if ($text -ieq '--verbose') { $options.Verbose = $true; continue }
 
-        # 还没有命令名：遇到开关先记着（可能是 -v / -h），继续往后找命令名；遇到非开关即命令名
+        # 还没有命令名：遇到 -v / -h 这类「本身就是完整命令」的开关时它就是命令，
+        # 后面的 token 只是它的参数（`winst -v repair` 仍然是「查看版本」，不展开成 repair）。
+        # 其它开关先记着继续往后找命令名；遇到非开关即命令名。
         if (-not $command) {
             if ($text.StartsWith('-')) {
+                if (Test-WinstReadOnlyCommand -Name $text) {
+                    $command = $text
+                    continue
+                }
                 $rest += $text
                 continue
             }

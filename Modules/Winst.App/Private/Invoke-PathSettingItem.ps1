@@ -25,18 +25,32 @@ function Invoke-PathSettingItem {
     Write-Section $DisplayName
     Write-Host ('  当前值: {0}  {1}' -f $CurrentDisplay, (Get-ConfigTag -Context $Context -Key $Key)) -ForegroundColor Gray
     if ($Hint) {
-        Write-Host ('  说明:   {0}' -f $Hint) -ForegroundColor DarkGray
+        # 提示可能有多行（如网络盘的 UNC 说明）：逐行输出，缩进对齐「说明:」
+        $hintLines = @(([string]$Hint) -split "`r?`n")
+        Write-Host ('  说明:   {0}' -f $hintLines[0]) -ForegroundColor DarkGray
+        if ($hintLines.Count -gt 1) {
+            for ($i = 1; $i -lt $hintLines.Count; $i++) {
+                Write-Host ('          {0}' -f $hintLines[$i]) -ForegroundColor DarkGray
+            }
+        }
     }
     Write-Host '  路径支持 %VAR% 环境变量（读取时展开）；相对路径以数据目录为基准。' -ForegroundColor DarkGray
     Write-Host ''
 
-    $raw = Read-Host '  请输入新路径（直接回车取消）'
-    if ($null -eq $raw -or -not ([string]$raw).Trim()) {
+    # 读输入：网络共享只收 UNC；账号、密码随后单独询问（可留空表示不需要认证）。
+    # 具体编排在 Winst.Install 的 Read-WinstSharePathInput 里，本层只负责展示与落盘。
+    $entered = Read-WinstSharePathInput -Prompt '  请输入新路径（UNC 路径直接回车取消）'
+    if ([bool]$entered.Cancelled) {
         Write-Host '  已取消。' -ForegroundColor DarkGray
         return
     }
+    if (-not [bool]$entered.Ok) {
+        Write-Host ''
+        Write-Host ('  路径无效：{0}' -f [string]$entered.Error) -ForegroundColor Yellow
+        return
+    }
 
-    $value = ([string]$raw).Trim().Trim('"')
+    $value = [string]$entered.Path
     $resolved = Expand-WinstPath -Path $value -Base $Context.DataRoot
 
     $errorMessage = ''

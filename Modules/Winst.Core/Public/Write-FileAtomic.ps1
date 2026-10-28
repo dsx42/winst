@@ -18,7 +18,17 @@ function Write-FileAtomic {
 
     $dir = Split-Path -Parent $Path
     if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
-        $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop
+        # 目录不存在有两种原因：真的没有（建它），或整个盘当前不可见——
+        # 别的登录会话里映射的网络盘在提权进程里访问会抛
+        # DriveNotFoundException「找不到驱动器。名为 "Z" 的驱动器不存在」。
+        # 网络共享只支持 UNC 路径，因此这里直接引导用户改用 UNC，而不是原样抛出驱动器错误。
+        try {
+            $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop
+        } catch [System.Management.Automation.DriveNotFoundException] {
+            throw ('目标盘当前不可用（{0}）：网络共享请改用 UNC 路径（\\服务器\共享名\目录），不要用映射盘符。' -f $dir)
+        } catch [System.IO.IOException] {
+            throw ('无法创建目录 {0}：{1}' -f $dir, $_.Exception.Message)
+        }
     }
 
     $tempPath = '{0}.tmp-{1}' -f $Path, ([Guid]::NewGuid().ToString('N').Substring(0, 8))

@@ -151,9 +151,15 @@ function Resolve-ListingSource {
         }
 
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $result
-        $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $source -MainVersion $version
-        if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
-        foreach ($listedNote in @($fileVersion.Notes)) { $result.Notes += [string]$listedNote }
+        # 主包版本就是列表页取到的版本：versionListUrl 只对第 2 项起的配套文件生效（与 page / json 同口径）
+        if ($index -eq 1) {
+            $fileVersion = Get-SourceFileVersion -Item $item -Version $version
+            if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
+        } else {
+            $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $source -MainVersion $version
+            if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
+            foreach ($listedNote in @($fileVersion.Notes)) { $result.Notes += [string]$listedNote }
+        }
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
             -Url (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version)
     }

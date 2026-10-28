@@ -3,7 +3,7 @@
 function Invoke-WinstUninstallCommand {
     <#
     .SYNOPSIS
-        CLI：winst uninstall <id> [<id>...] [--force] [--yes]。
+        CLI：winst uninstall <id> [<id>...] [--force] [--kill] [--yes]。
     .DESCRIPTION
         仅下载类型的软件没有安装记录，报错并提示改用 `winst clean <id>`。
     .OUTPUTS

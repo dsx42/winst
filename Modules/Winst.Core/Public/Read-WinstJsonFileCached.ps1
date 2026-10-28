@@ -6,8 +6,9 @@ function Read-WinstJsonFileCached {
         读取并解析 JSON 文件，结果按 (路径, 时间戳, 长度) 在进程内缓存。
     .DESCRIPTION
         清单 / 解析锁 / 缓存索引 / 状态文件在一次操作里会被反复读（按 id 查、按源查、每条新鲜度提示各读一次），
-        每次都 Get-Content + ConvertFrom-Json 是主要开销。这里只缓存**解析结果**，每次仍返回新的包装哈希表，
-        调用方修改返回值不会污染缓存（修改文件会让时间戳变化、自动失效）。
+        每次都 Get-Content + ConvertFrom-Json 是主要开销。这里只缓存**解析结果**，每次返回新的包装哈希表；
+        但 Value 是缓存里的同一个对象，调用方**不得就地修改**，需要改时先复制（Copy-WinstObjectShallow）。
+        修改文件会让时间戳变化、缓存自动失效。
     .OUTPUTS
         @{ Ok; Value; Raw; Error }
     #>

@@ -24,10 +24,12 @@ function Split-WinstCommandLine {
         }
     }
 
-    $index = $value.IndexOf('.exe', [StringComparison]::OrdinalIgnoreCase)
-    if ($index -ge 0) {
-        $result.Exe = $value.Substring(0, $index + 4).Trim()
-        $result.Args = $value.Substring($index + 4).Trim()
+    # 只认「后面紧跟空白或行尾」的 .exe：参数里带引号的 .exe（regsvr32 /s "C:\x.exe"）
+    # 与路径中间的 .exe.d 目录都不该算作程序部分
+    $exeMatch = [regex]::Match($value, '(?i)\.exe(?=\s|$)')
+    if ($exeMatch.Success) {
+        $result.Exe = $value.Substring(0, $exeMatch.Index + 4).Trim()
+        $result.Args = $value.Substring($exeMatch.Index + 4).Trim()
         $result.Ok = $true
         return $result
     }

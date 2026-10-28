@@ -133,8 +133,8 @@ function Invoke-WinstPackageDownloadLoop {
                 return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
             }
         }
-        # 防御性读取：Retried 只在下载引擎的重试路径上设置，
-        # 其它结果形状里可能没有这个属性。
+        # 防御性读取：Invoke-WinstPackageDownload 的每条返回路径都会带 Retried，
+        # 这里仍按「可能没有」处理，避免调用方换成别处的结果形状时报错。
         $wasRetried = $false
         if ($dl -is [System.Collections.IDictionary] -and $dl.Contains('Retried')) {
             $wasRetried = [bool]$dl['Retried']

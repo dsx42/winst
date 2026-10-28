@@ -15,7 +15,8 @@ function Get-WinstDependencyLines {
           - 依赖 id 在软件源里不存在时说明「安装时会跳过」（与 4.7 的安装口径一致）。
         间接依赖标出经由谁。`download` 类型（只下载软件包、不安装到电脑）不处理依赖，返回空列表。
     .OUTPUTS
-        @( @{ Text; Color } )：一行一条（Text 不含缩进），Color 为 Write-Host 颜色名
+        @( @{ Text; Color; Id; Missing } )：一行一条（Text 不含缩进），Color 为 Write-Host 颜色名，
+        Id 为对应的依赖 id，Missing = $true 表示软件源里没有这个依赖
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,

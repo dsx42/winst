@@ -9,7 +9,7 @@ function Invoke-SoftwareList {
         「仅下载」类型（download）只有三个操作：下载软件包 / 更新软件包 / 删除已下载的软件包。
         列表载入 / 动作菜单 / 动作执行 各由独立函数承担。
     .OUTPUTS
-        无（结果直接打印；q 时设置 $script:WinstQuitRequested）
+        无（结果直接打印；q 时把状态项 WinstQuitRequested 置为 true）
     #>
     param([hashtable]$Context)
 

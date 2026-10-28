@@ -50,7 +50,8 @@ function Read-WinstCacheIndex {
 
         foreach ($id in @($cachedResult.Index.Keys)) {
             if ($existingIds.ContainsKey([string]$id)) {
-                $result.Index[$id] = $cachedResult.Index[$id]
+                # 按条目复制：调用方会就地修改 Index 里的条目，共享引用等于改到缓存本体
+                $result.Index[$id] = Copy-WinstObjectShallow -InputObject $cachedResult.Index[$id]
             } else {
                 $result.Changed = $true
             }
@@ -123,6 +124,17 @@ function Read-WinstCacheIndex {
         }
     }
 
-    (Get-WinstState -Name WinstJsonCache)[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $result; Raw = '' }
+    # 缓存里存副本：调用方（Update-WinstPackageCacheIndex）会就地改 Index 再写盘，
+    # 存本体等于把「还没落盘的改动」留在缓存里，写盘失败后本进程会一直读到一份从未存在的索引。
+    $cacheCopy = @{
+        Rebuilt = [bool]$result.Rebuilt
+        Changed = [bool]$result.Changed
+        Error   = [string]$result.Error
+        Index   = (New-WinstOrdinalDictionary)
+    }
+    foreach ($id in @($result.Index.Keys)) {
+        $cacheCopy.Index[$id] = Copy-WinstObjectShallow -InputObject $result.Index[$id]
+    }
+    (Get-WinstState -Name WinstJsonCache)[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy; Raw = '' }
     return $result
 }

@@ -16,7 +16,10 @@ function Remove-WinstOrphanRegistryRecord {
 
     $result = @{ Ok = $false; Skipped = $false; Error = '' }
     if (-not $KeyPath) { $result.Skipped = $true; return $result }
-    if ($KeyPath -notmatch '(?i)\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\[^\\]+$') {
+    # `[^\\]+` 也会匹配 `..`：`...\Uninstall\..` 解析出来是 `...\CurrentVersion`，
+    # 递归删除会清掉整棵卸载记录分支。因此先排除带 . / .. 段或尾点的写法
+    if ($KeyPath -match '\\\.\.?(\\|$)' -or $KeyPath -match '\\[^\\]*\.$' -or
+        $KeyPath -notmatch '(?i)\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\[^\\]+$') {
         $result.Skipped = $true
         $result.Error = ('不是系统安装记录里的键，已跳过: {0}' -f $KeyPath)
         return $result

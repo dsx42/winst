@@ -67,5 +67,11 @@ function New-ResolvedFileFromDeclaration {
     $compare = (Get-EntryString -Entry $Item -Key 'compare').Trim().ToLowerInvariant()
     if ($compare -ne 'size') { $compare = 'auto' }
     $file['compare'] = $compare
+    # 新鲜度档位随文件记录携带：下载规划（Get-WinstFilePlan）读的是解析结果而不是清单原始条目，
+    # 不在这里透传的话 files[].refresh / maxAgeHours 永远不会生效（一律退化为 auto + 168 小时）
+    $refresh = (Get-EntryString -Entry $Item -Key 'refresh').Trim()
+    if ($refresh) { $file['refresh'] = $refresh }
+    $maxAgeHours = Get-EntryValue -Entry $Item -Key 'maxAgeHours' -Default $null
+    if ($null -ne $maxAgeHours) { $file['maxAgeHours'] = $maxAgeHours }
     return $file
 }

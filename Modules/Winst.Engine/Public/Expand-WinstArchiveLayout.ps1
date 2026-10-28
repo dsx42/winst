@@ -19,7 +19,9 @@ function Expand-WinstArchiveLayout {
         [Parameter(Mandatory = $true)][string]$ArchivePath,
         [Parameter(Mandatory = $true)][string]$DestDir,
         $StripTopDir = $true,
-        [string[]]$ExtractFiles = @()
+        [string[]]$ExtractFiles = @(),
+        # 允许「切出 7-Zip 自解压包的内嵌载荷」：只在安装 7-Zip-CLI 时由调用方传
+        [switch]$AllowSfxPayload
     )
 
     $result = @{ Ok = $false; Error = '' }
@@ -28,7 +30,7 @@ function Expand-WinstArchiveLayout {
     try {
         $null = New-Item -ItemType Directory -Path $tempRoot -Force -ErrorAction Stop
 
-        $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot
+        $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -AllowSfxPayload:$AllowSfxPayload
         if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
 
         # extractFiles：只搬这几个路径（文件 / 目录），一个都不能少
@@ -93,7 +95,7 @@ function Expand-WinstArchiveLayout {
                     if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) {
                         $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
                     }
-                    $inner = Expand-WinstPackageArchive -Context $Context -ArchivePath $candidate -DestDir $DestDir
+                    $inner = Expand-WinstPackageArchive -Context $Context -ArchivePath $candidate -DestDir $DestDir -AllowSfxPayload:$AllowSfxPayload
                     if (-not $inner.Ok) { $result.Error = $inner.Error; return $result }
                     $result.Ok = $true
                     return $result

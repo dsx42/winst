@@ -29,6 +29,10 @@ function Update-WinstStaleSources {
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { $result.Skipped = $true; return $result }
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { $result.Skipped = $true; return $result }
 
+    $persistUnavailable = Get-WinstState -Name WinstManifestPersistUnavailable
+    if ($null -eq $persistUnavailable) { $persistUnavailable = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal) }
+    $persistNoted = @()
+
     $ttl = 24
     try { $ttl = [int](Get-ConfigValue -Config $Context.Config -Key 'manifestTTLHours') } catch { $ttl = 24 }
 
@@ -43,6 +47,17 @@ function Update-WinstStaleSources {
     foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = [string]$source['name']
         $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name
+
+        # 本进程内已经确认「解析成功但写不进盘」的源：不要再来一遍。
+        # 有效期与解析锁都靠落盘文件判断，写不进去就永远是过期状态，
+        # 不拦的话每次列表 / 检查 / 安装都会重跑同样的网络请求与解析。
+        if ($persistUnavailable.ContainsKey($name)) {
+            if ($persistNoted -notcontains $name) {
+                $persistNoted += $name
+                $result.Errors += ('{0}: 上次刷新已取到最新数据，但缓存写不进去（目标盘当前不可用）；本会话内不再重复刷新。' -f $name)
+            }
+            continue
+        }
 
         if ($Force) {
             $staleSources += $source
@@ -127,6 +142,8 @@ function Update-WinstStaleSources {
         } else {
             $result.Failed++
             $result.Errors += ('{0}: {1}' -f $name, $r.Message)
+            # 解析成功、只是写不进盘：记下来，本进程内不再为同一个源重复刷新
+            if ([bool]$r.PersistUnavailable) { $persistUnavailable[$name] = $true }
         }
     }
     return $result

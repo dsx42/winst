@@ -3,7 +3,8 @@
 function Get-WinstExpectedHash {
     <#
     .SYNOPSIS
-        取某个文件「应该」有的 sha256：files[].hash 字面值，或 hashFile + hashFrom 从官方校验文件里取。
+        取某个文件「应该」有的摘要：files[].hash 字面值，或 hashFile + hashFrom 从官方校验文件里取。
+        算法由摘要长度决定（32 = MD5 / 40 = SHA1 / 64 = SHA256 / 128 = SHA512）。
     .OUTPUTS
         @{ Ok; Hash; Label; Skipped; Error; HashFile; HashFrom; Fingerprint }
     .DESCRIPTION

@@ -43,8 +43,12 @@ function ConvertTo-WinstUninstallSnapshot {
             $commands += $commandBlock
         }
         $uninstallArgs = (Get-EntryString -Entry $Block -Key 'uninstallArgs').Trim()
-        # 名称规则支持数组：字符串保持单值，数组按原样透传
-        $nameRuleRaw = Get-EntryValue -Entry $Block -Key 'name' -Default $null
+        # 名称规则支持数组：字符串保持单值，数组按原样透传。
+        # 本函数两个方向都用：清单块里字段叫 name，已保存的快照里叫 nameRule。
+        # 只读 name 会让「快照 → 快照」的归一化（ConvertTo-WinstInstalledEntry）永远取到空值，
+        # 卸载时名称规则随之丢失并被写回磁盘。
+        $nameRuleRaw = Get-EntryValue -Entry $Block -Key 'nameRule' -Default $null
+        if ($null -eq $nameRuleRaw) { $nameRuleRaw = Get-EntryValue -Entry $Block -Key 'name' -Default $null }
         if ($null -ne $nameRuleRaw) {
             $nameRule = @($nameRuleRaw | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         }

@@ -21,12 +21,16 @@ function Get-WinstRegistryEntryInstallDir {
         if (-not $text) { continue }
         # DisplayIcon 常见写法是 "<程序路径>,0"：先把图标序号后缀去掉
         if ($text -match '^(.*?)\s*,\s*-?\d+\s*$') { $text = $Matches[1].Trim() }
+        # 程序路径优先按 .exe 切分：很多安装器写的是**未加引号**的
+        # `C:\Program Files\Foo Bar\uninstall.exe /S`，只按第一个空格切会得到
+        # `C:\Program`，再退到父目录就变成 `C:\`（或 apps 目录的父目录）——
+        # 那个路径会被当成安装目录写进记录，卸载时进入「是否删除残留」，
+        # 一把删掉同目录下的其它软件。Split-WinstCommandLine 就是按 .exe 锚定的。
         $value = ''
-        if ($text.StartsWith('"')) {
-            $end = $text.IndexOf('"', 1)
-            if ($end -gt 1) { $value = $text.Substring(1, $end - 1) }
+        $split = Split-WinstCommandLine -Text $text
+        if ($split.Ok -and [string]$split.Exe) {
+            $value = ([string]$split.Exe).Trim('"')
         } else {
-            # 没加引号：取到第一个空格之前（后面跟的是命令行参数）
             $value = $text
             $spaceIndex = $value.IndexOf(' ')
             if ($spaceIndex -gt 0) { $value = $value.Substring(0, $spaceIndex) }
@@ -38,8 +42,11 @@ function Get-WinstRegistryEntryInstallDir {
             $dir = $path                                      # 记录里直接写的就是目录
         } else {
             $parent = ConvertTo-WinstDirPath -Text (Split-Path -Parent $path)
-            # MsiExec.exe /X{GUID} 这类命令取不到目录；目录已不存在（卸载残留）也不采用
-            if ($parent -and $parent -ne $path -and (Test-Path -LiteralPath $parent -PathType Container)) { $dir = $parent }
+            # MsiExec.exe /X{GUID} 这类命令取不到目录；目录已不存在（卸载残留）也不采用。
+            # 盘根（`C:\unins000.exe` 的父目录就是 `C:\`）同样不采用：它会被当成安装目录写进台账，
+            # 之后「残留目录」判定就以整盘为目标。
+            if ($parent -and $parent -ne $path -and $parent -notmatch '^[A-Za-z]:[\\/]?$' -and
+                (Test-Path -LiteralPath $parent -PathType Container)) { $dir = $parent }
         }
         if ($dir) { return $dir }
     }

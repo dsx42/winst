@@ -84,7 +84,11 @@ function Get-WinstDetectedVersionCore {
                 $props = $null
                 try { $props = Get-ItemProperty -LiteralPath $recordKey -ErrorAction SilentlyContinue } catch { $props = $null }
                 if ($props) {
-                    $keep = Test-WinstUninstallerUsable -Entry ([ordered]@{ UninstallString = [string]$props.UninstallString })
+                    # 卸载键里的属性都是可选的：StrictMode 2 下直接取 $props.UninstallString
+                    # 会抛 PropertyNotFoundException，把整个版本检测（进而是安装 / 更新 / 修复）打断
+                    $keep = Test-WinstUninstallerUsable -Entry ([ordered]@{
+                            UninstallString = (Get-EntryString -Entry $props -Key 'UninstallString')
+                        })
                 }
             }
             if (-not $keep) {

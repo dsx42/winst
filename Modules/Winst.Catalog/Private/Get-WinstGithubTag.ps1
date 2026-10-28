@@ -12,7 +12,8 @@ function Get-WinstGithubTag {
 
         - 声明了 `releaseTag` 前缀：在该前缀的发布里按版本号取最高（含预发布，由前缀自行约定）
         - 未声明：优先 `releases/latest`（GitHub 认定的最新**正式**发布，不会命中预发布）；
-          取不到时退回列表里版本最高的**非预发布**条目
+          取不到时退回列表里版本最高的**非预发布**条目；列表里一条正式发布都没有时，
+          用列表第一条（可能是预发布）并在 Notes 里说明
     .OUTPUTS
         @{ Error; Tag; Releases; Notes }
     #>

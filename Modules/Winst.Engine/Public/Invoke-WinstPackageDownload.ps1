@@ -15,9 +15,8 @@ function Invoke-WinstPackageDownload {
     )
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context -Download)
-    # 每条返回路径都必须带 Retried。调用方会无条件读 $dl.Retried，
-    # 而 Set-StrictMode -Version 2 下缺少该键会直接报错
-    # （「找不到属性 Retried」），把一次成功的下载变成失败。
+    # 每条返回路径都带 Retried：调用方按防御性方式读取，这里仍保证结果形状一致
+    # （Set-StrictMode -Version 2 下缺键会报「找不到属性 Retried」，把一次成功的下载变成失败）。
     $last = @{ Ok = $false; ExitCode = -1; Error = ''; Segments = 0; Retried = $false }
 
     foreach ($proxyUrl in $attempts) {

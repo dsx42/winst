@@ -23,7 +23,10 @@ function Resolve-WinstUninstallerCommand {
         return $result
     }
 
-    $exeText = ([string]$split.Exe).Trim('"')
+    # 注册表里的 UninstallString 常用 %ProgramData% / %ProgramFiles% 写法：先展开再判断
+    # 「带盘符的绝对路径」还是「裸名」，否则这类记录会被当成裸名去 System32 下找、必然找不到。
+    # 只展开程序路径本身：参数原样交给卸载器（参数里的 %VAR% 由卸载器按自己的口径处理）。
+    $exeText = [Environment]::ExpandEnvironmentVariables(([string]$split.Exe).Trim('"'))
     if (-not (Test-WinstArgumentSafe -Value $exeText)) {
         $result.Error = ('卸载命令里的程序路径含引号或控制字符，已拒绝执行: {0}' -f $CommandLine)
         return $result

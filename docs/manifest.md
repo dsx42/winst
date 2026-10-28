@@ -464,7 +464,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `timeoutSec` | `600` | 超时秒数；超时按进程树结束并判为该步失败；≤ 0 回退 600 |
 | `requireAdmin` | `false` | 为真时先检查当前进程是否管理员，不是则明确报错、不执行 |
 
-`postInstall` 非零退出即安装失败。`uninstall.commands` 在**删目录 / 跑官方卸载器之前**执行（如 `regsvr32 /u` 注销滤镜时文件还在原地），失败即中止卸载，`--force` 跳过。
+`postInstall` 的退出码不是 `0` / `1641` / `3010` 即安装失败（后两者表示已发起重启 / 需重启才能完成）。`uninstall.commands` 在**删目录 / 跑官方卸载器之前**执行（如 `regsvr32 /u` 注销滤镜时文件还在原地），失败即中止卸载，`--force` 跳过。
 
 ## 版本检测（`detect`）
 
@@ -558,6 +558,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 - 每条记录带 `resolvedAt`，用于判断展示用的版本信息是否过期（`manifestTTLHours`）
 - 单条解析失败不影响其它条目：记为 `ok: false` + `error`，刷新整体仍算成功
 - 「下载地址 HEAD 可用性校验」在刷新阶段做：`404` / `410` 判为条目解析失败（提示清单地址失效），网络错误 / `405` 不判失败；`skipExistsCheck: true` 可关掉
+- 例外：响应带 `Cf-Mitigated: challenge`（Cloudflare 人机校验页）时不判失败，按「未能确认」记一条备注。这类 CDN 对 .NET / PowerShell 客户端一律回 404（JetBrains 的中国 CDN 就是如此），文件其实存在、下载引擎也下得动，按 404 报错只会冤枉清单；代价是这类站点上「真的写错了地址」同样只能等到安装时才暴露
 - 同一进程内对「方法 + URL」的响应做 TTL 10 分钟缓存（GitHub 网页通道、`listing` / `page` 页面、`json` 接口、校验文件、HEAD 探测），进程退出即失效
 
 ## 依赖与分组

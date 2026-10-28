@@ -3,7 +3,7 @@
 function Invoke-WinstPostInstallCommands {
     <#
     .SYNOPSIS
-        执行 postInstall 命令（安装目录内相对路径或绝对路径；非零退出视为失败）。
+        执行 postInstall 命令（安装目录内相对路径或绝对路径；退出码不是 0 / 1641 / 3010 视为失败）。
     .DESCRIPTION
         执行细节见 Invoke-WinstCommandList。
     .OUTPUTS

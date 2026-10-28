@@ -56,7 +56,7 @@ function Invoke-WinstFluxDownDownload {
 
     try {
         # 不用 `Start-Process -NoNewWindow`：那样引擎与 winst 共用同一个控制台，它的任务号 / 进度会直接打在界面上
-        # 。下载可能很久，因此不限时；成败判定仍是退出码。
+        # 。下载可能很久（大文件在慢速链路上耗时不受控），因此不限时；成败判定仍是退出码。
         $run = Invoke-WinstCapturedCommand -FilePath $exe -Arguments $argText -NoTimeout
         $result.ExitCode = -1
         if ($null -ne $run.ExitCode) { $result.ExitCode = [int]$run.ExitCode }

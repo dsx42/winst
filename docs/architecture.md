@@ -1,4 +1,4 @@
-﻿ 架构
+﻿# 架构
 
 ## 设计目标
 
@@ -120,6 +120,7 @@ winst 自更新先把 release 树放入暂存目录，再替换安装目录；`M
 - **不做静默兜底**：来源解析、校验或必需字段失败时明确报错，不猜地址或版本。
 - **失败隔离**：批量操作逐项 `try/catch`，单项失败不中断其余。
 - **路径安全**：清单提供的 id、文件名和相对路径先校验再拼接；递归删除检查目标根、受保护目录与重解析点。
-- **文件格式**：`.ps1` / `.psm1` / `.psd1` 为 UTF-8 with BOM，`build.cmd` 为 GBK，统一 CRLF；`build.ps1` 校验脚本编码与换行。
+- **文件格式**：`.ps1` / `.psm1` / `.psd1` 为 UTF-8 with BOM（`install.ps1` 例外，见下），`build.cmd` 为 GBK，统一 CRLF；`build.ps1` 校验脚本编码与换行。
+- **`install.ps1` 例外**：经 `irm | iex` 执行，必须 UTF-8 **无** BOM 且不写 `#Requires`（前导 U+FEFF 会被 `iex` 当成命令名的一部分而报错）；`build.ps1` 校验这两点。
 - **文档与注释**：使用中文，只描述当前实现。
 - **id 比较区分大小写**：台账、缓存索引、清单合并统一用 Ordinal 字典（`New-WinstOrdinalDictionary`）。

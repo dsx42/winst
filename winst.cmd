@@ -30,17 +30,22 @@ rem 用它包一层可以保证 winst 的菜单 / 颜色 / %%VAR%% 展开行为与平时双击 cmd 一致
 rem 不受「默认终端」设置影响。用户按 Win+R 或 Win+X 打开的控制台同样不受影响。
 rem
 rem conhost 不存在（极少见的精简系统）时退回直接起 powershell。
+rem 带参数时不能分离进程：start 起的窗口拿不到 stdout，退出码也固定为 0，
+rem 而 winst 自身的版本检测（清单里 winst 条目的 detect 是 cliVersion / winst.cmd -v）
+rem 正是靠本文件的标准输出 —— 分离后永远读不到版本号。
+if not "%~1"=="" goto :passthrough
+
 if exist "%SystemRoot%\System32\conhost.exe" (
     start "" "%SystemRoot%\System32\conhost.exe" "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0winst.ps1" %*
 ) else (
     start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0winst.ps1" %*
 )
 rem
-rem 退出码
-rem ------
-rem 窗口一旦分离，cmd.exe 就不再持有 winst 的退出码，因此本文件固定 exit /b 0。
-rem 双击使用不关心退出码；**脚本 / CI 里需要 0 / 1 / 2 / 3 / 4 这些退出码时，
-rem 请直接调用 winst.ps1**（powershell -File winst.ps1 ...），它会把真实退出码原样返回。
-rem 用本文件取退出码的写法（如 cmd /c winst.cmd update --check）拿到的永远是 0。
+rem 双击路径（无参数）窗口是分离的：cmd.exe 不再持有 winst 的退出码，因此这里固定 exit /b 0。
 
 exit /b 0
+
+:passthrough
+rem 带参数（脚本 / CI / 版本检测）：同步运行，输出与退出码原样返回给调用方。
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0winst.ps1" %*
+exit /b %ERRORLEVEL%

@@ -36,6 +36,22 @@ function Set-ConfigValue {
         $converted.Value = $normalized
     }
 
+    # 路径类配置项：网络共享只收 UNC（不带账号密码）。
+    # 需要认证时必须走设置菜单——凭据要先验证再交给系统凭据管理器，这一步需要交互。
+    if ($Key -eq 'installRoot' -or $Key -eq 'pkgDir') {
+        $parsed = Resolve-WinstUncInput -Value ([string]$converted.Value)
+        if (-not $parsed.Ok) {
+            Write-Host ''
+            Write-Host ('  输入无效：{0}，未做修改。' -f [string]$parsed.Error) -ForegroundColor Yellow
+            if ([bool]$parsed.IsMappedDrive) {
+                Write-Host '  若该共享已有映射，可在资源管理器里查看它的真实地址，再按 UNC 形式填写。' -ForegroundColor DarkGray
+            }
+            return $false
+        }
+        # 只保存解析出来的干净路径（已去掉引号、正规化 UNC）
+        $converted.Value = [string]$parsed.Path
+    }
+
     $configPath = Join-WinstPath $Context.DataRoot 'config.json'
     $Context.Config[$Key] = $converted.Value
     try {

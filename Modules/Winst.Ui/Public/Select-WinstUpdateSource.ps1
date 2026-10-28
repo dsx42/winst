@@ -5,7 +5,8 @@ function Select-WinstUpdateSource {
     .SYNOPSIS
         单独选择用哪个软件源更新（「单独选更新方式与软件源」的第二步）。
     .DESCRIPTION
-        回车 / `b` / `q` = 不改本次来源，按默认来源规则继续更新（调用方据此回退）；
+        回车 / `b` = 不改本次来源，按默认来源规则继续更新（调用方据此回退）；
+        `q` 是退出整个程序（Set-WinstQuit），同样返回 Cancelled。
         越界 / 非数字按统一口径重新提示，不静默取消。
     .OUTPUTS
         @{ Ok; Cancelled; Source; Entry; Error }
@@ -36,7 +37,8 @@ function Select-WinstUpdateSource {
         }
     }
     Write-Host ''
-    $pick = Read-WinstIndexSelection -Prompt '  请输入编号（回车 / b = 不改，用默认来源更新）' -Count $usable.Count
+    # -AllowEmpty：提示承诺「回车 = 不改」，不带它时空输入只会被反复重问（输入被重定向 / EOF 时是死循环）
+    $pick = Read-WinstIndexSelection -Prompt '  请输入编号（回车 / b = 不改，用默认来源更新）' -Count $usable.Count -AllowEmpty
     if ($pick.Action -eq 'quit') { Set-WinstQuit }
     if ($pick.Action -ne 'select') { return @{ Ok = $false; Cancelled = $true; Source = ''; Entry = $null; Error = '' } }
 

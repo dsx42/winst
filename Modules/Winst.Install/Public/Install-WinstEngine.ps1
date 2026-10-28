@@ -6,10 +6,11 @@ function Install-WinstEngine {
         引导安装引擎条目（FluxDown-CLI / 7-Zip-CLI）：IWR 下载 → 解压落地 → 写台账与缓存索引；
         `-ForceUpdate` 时引擎已存在也重新下载覆盖。
     .DESCRIPTION
-        引擎引导包是唯一允许用 Invoke-WebRequest 下载的软件包；
+        引擎引导包与 winst 自身包是仅有的两处允许用 Invoke-WebRequest 下载的地方；
         引擎均为 portable 且不写系统项，因此本函数只做「下载 → 解压 → 复制改名 → 台账」。
         `7-Zip-CLI` 的引导包是官方的 `7z<版本>-x64.exe`（7z 自解压安装包，1.6 MB）——**首次引导时
-        解压引擎还不存在**，靠 `Expand-WinstPackageArchive` 的后续档位（系统 tar.exe / Expand-Archive）解开。
+        解压引擎还不存在**，靠 `Expand-WinstPackageArchive` 的后备档位（系统 tar.exe / Expand-Archive）；
+        系统 tar.exe 太旧时再按 PE 覆盖区起点切出内嵌载荷（该流程传 -AllowSfxPayload）。
         取定义 / 下载与索引 / 解压落地 / 台账 各由独立函数承担。
     .OUTPUTS
         @{ Ok; Exe; Error; Installed; Updated }

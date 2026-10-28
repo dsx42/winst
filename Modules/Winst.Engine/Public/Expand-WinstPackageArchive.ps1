@@ -11,17 +11,21 @@ function Expand-WinstPackageArchive {
         环节）或解压失败时的后备：tar.exe（bsdtar）能解 7z / zip / tar / gz / rar / iso，正好够用来解
         引擎自己的引导包；Expand-Archive 仅 .zip。
 
-        7-Zip 自解压包（`7z<版本>-x64.exe` 这类 PE + 内嵌 7z）：先按 Get-Winst7zSfxPayload 把内嵌
-        载荷切出来当普通 .7z 解。系统自带的 bsdtar 在旧版 Windows（如 10 21H2）上是 libarchive 3.6，
-        只在 0x27000～0x60000 之间扫 7z 签名，而新版 7-Zip 的载荷起点已经前移到这个窗口之下，
-        于是「同样的包在新系统能解、老系统报无法识别格式」——这不是包坏，是系统工具太旧。
+        7-Zip 自解压包（`7z<版本>-x64.exe` 这类 PE + 内嵌 7z）本身能被 7z.exe 直接打开，因此先按原样
+        走三档。`-AllowSfxPayload` 只给「安装 7-Zip-CLI」用：三档全失败时——典型是「引擎还没装上 +
+        系统 bsdtar 太旧」的引导场景——再用 Get-Winst7zSfxPayload 按 PE 覆盖区起点切出内嵌载荷，
+        当普通 .7z 重试一次。老系统的限制是：libarchive 3.6 只在 0x27000～0x60000 之间扫 7z 签名，
+        而新版 7-Zip 的载荷起点已经前移到这个窗口之下，于是「同样的包在新系统能解、老系统报无法
+        识别格式」——这不是包坏，是系统工具太旧。
     .OUTPUTS
         @{ Ok; Tool; Error }
     #>
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$ArchivePath,
-        [Parameter(Mandatory = $true)][string]$DestDir
+        [Parameter(Mandatory = $true)][string]$DestDir,
+        # 允许「切出 7-Zip 自解压包的内嵌载荷」这一档：只在安装 7-Zip-CLI 时传
+        [switch]$AllowSfxPayload
     )
 
     $result = @{ Ok = $false; Tool = ''; Error = '' }
@@ -33,32 +37,38 @@ function Expand-WinstPackageArchive {
 
     $errors = New-Object 'System.Collections.Generic.List[string]'
 
-    # ⓪ 7-Zip 自解压包：先切出内嵌载荷（不依赖系统工具的扫描窗口版本）
-    $carvedPath = ''
-    try {
-        $carved = Get-Winst7zSfxPayload -Path $ArchivePath -DestDir ([IO.Path]::GetTempPath())
-        if ($carved.Ok -and $carved.Path) {
-            $carvedPath = [string]$carved.Path
-            $inner = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $carvedPath -DestDir $DestDir -Errors $errors
-            if ($inner.Ok) {
-                $result.Ok = $true
-                $result.Tool = $inner.Tool + '(sfx)'
-                return $result
-            }
-        } elseif ($carved.Error) {
-            $errors.Add([string]$carved.Error)
-        }
-    } finally {
-        if ($carvedPath -and (Test-Path -LiteralPath $carvedPath -PathType Leaf)) {
-            Remove-Item -LiteralPath $carvedPath -Force -ErrorAction SilentlyContinue
-        }
-    }
-
+    # ① 按原样走三档：7z.exe 自己能打开 7-Zip 自解压包与 NSIS 安装包，
+    #    引擎在的时候这一档就够了，不需要切载荷。
     $direct = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors
     if ($direct.Ok) {
         $result.Ok = $true
         $result.Tool = $direct.Tool
         return $result
+    }
+
+    # ② 仅安装 7-Zip-CLI 时：三档都没解开，就按 PE 覆盖区起点切出内嵌载荷再解一次。
+    #    真正需要它的只有「引擎还没装上（引导）+ 系统 bsdtar 太旧」这条路径，
+    #    旧版 libarchive 的签名扫描窗口够不到新版 7-Zip 的载荷起点。
+    if ($AllowSfxPayload) {
+        $carvedPath = ''
+        try {
+            $carved = Get-Winst7zSfxPayload -Path $ArchivePath -DestDir ([IO.Path]::GetTempPath())
+            if ($carved.Ok -and $carved.Path) {
+                $carvedPath = [string]$carved.Path
+                $inner = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $carvedPath -DestDir $DestDir -Errors $errors
+                if ($inner.Ok) {
+                    $result.Ok = $true
+                    $result.Tool = $inner.Tool + '(sfx)'
+                    return $result
+                }
+            } elseif ($carved.Error) {
+                $errors.Add([string]$carved.Error)
+            }
+        } finally {
+            if ($carvedPath -and (Test-Path -LiteralPath $carvedPath -PathType Leaf)) {
+                Remove-Item -LiteralPath $carvedPath -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     $sevenZip = ''

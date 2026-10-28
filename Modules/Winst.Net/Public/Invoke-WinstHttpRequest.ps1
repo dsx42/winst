@@ -3,7 +3,7 @@
 function Invoke-WinstHttpRequest {
     <#
     .SYNOPSIS
-        HTTP GET（元数据类请求）并返回结构化结果 @{ Content; Links; FromCache }。
+        HTTP GET（元数据类请求）并返回结构化结果 @{ Content; Links; FinalUri; FromCache }。
     .DESCRIPTION
         **元数据类**请求（清单 / 版本页 / 校验文件）：按 `proxyMode` 决定尝试序列。
         这类请求不属于「下载」，`proxyMode = download-direct` 时**只用代理**、不先试直连——

@@ -3,7 +3,7 @@
 function Try-Apply-WinstCommonCliFlag {
     <#
     .SYNOPSIS
-        识别 install / update / uninstall / clean / list / manifest 等子命令共用的 CLI 开关，并写入 $script:WinstOptions。
+        识别 install / update / uninstall / clean / list / manifest 等子命令共用的 CLI 开关，并写入 WinstOptions 状态项。
     .OUTPUTS
         [bool] 是否为已识别的通用开关（调用方应 continue 跳过该 token）。
     #>

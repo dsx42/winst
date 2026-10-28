@@ -224,13 +224,6 @@ try {
 } catch {
 }
 
-# ------------------------------------------------------------------ 根目录
-$script:WinstExitCode = 0
-$script:WinstArguments = @()
-if ($null -ne $args) {
-    $script:WinstArguments = @($args)
-}
-
 # ---------------------------------------------------------------- 模块加载
 function Import-WinstLocalModule {
     <#

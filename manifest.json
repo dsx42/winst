@@ -1,6 +1,73 @@
 {
-  "_manifestVersion": "2026.10.24",
+  "_manifestVersion": "2026.10.28",
   "apps": [
-    
+    {
+      "id": "DiskGenius",
+      "name": "DiskGenius",
+      "description": "磁盘分区、数据恢复与分区管理工具",
+      "group": "系统工具",
+      "homepage": "https://www.diskgenius.cn/",
+      "type": "portable",
+      "source": {
+        "kind": "direct",
+        "versionFrom": "page",
+        "pageUrl": "https://www.diskgenius.cn/download.php",
+        "versionBetween": [ "lk cur\">V", "<" ],
+        "versionKind": "semver",
+        "versionRewrite": { "from": "{major}.{minor}.{patch}.{build}", "to": "{major}.{minor}.{patch}" },
+        "files": [
+          {
+            "url": "https://download_cn.eassos.com/DG{version}_x64.zip",
+            "versionRewrite": { "from": "{major}.{minor}.{patch}.{build}", "to": "{major}{minor}{patch}{build}" }
+          }
+        ]
+      },
+      "stripTopDir": true,
+      "keep": [
+        "Options.ini",
+        "BT Record\\"
+      ],
+      "mainExe": "DiskGenius.exe",
+      "shortcuts": {
+        "desktop": true,
+        "startMenu": true
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\DiskGenius.exe"
+      }
+    },
+    {
+      "id": "WorkBuddy",
+      "name": "WorkBuddy",
+      "description": "AI Agent 办公助手",
+      "group": "AI Agent",
+      "homepage": "https://www.workbuddy.cn/",
+      "type": "portable",
+      "source": {
+        "kind": "page",
+        "pageUrl": "https://www.workbuddy.cn/",
+        "fetchWith": "browser",
+        "click": [
+          { "class": "btn-download" },
+          { "class": "wb2-dl-menu__item", "text": "Windows x64" }
+        ],
+        "files": [ { "file": "*.exe" } ],
+        "versionFrom": "url",
+        "versionBetween": [ "-user-", "-" ],
+        "versionKind": "semver",
+        "versionRewrite": { "from": "{major}.{minor}.{patch}.{build}", "to": "{major}.{minor}.{patch}" }
+      },
+      "stripTopDir": "$PLUGINSDIR\\app-64.7z",
+      "mainExe": "WorkBuddy.exe",
+      "shortcuts": {
+        "desktop": true,
+        "startMenu": true
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\WorkBuddy.exe"
+      }
+    }
   ]
 }

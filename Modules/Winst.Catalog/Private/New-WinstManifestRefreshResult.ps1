@@ -23,5 +23,7 @@ function New-WinstManifestRefreshResult {
         Total           = 0
         LocalManifest   = [bool]$IsLocal
         Files           = @()
+        # 解析成功但落盘不可用（目标盘不可见 / 只读）：本次数据可用，不应因此重刷
+        PersistUnavailable = $false
     }
 }

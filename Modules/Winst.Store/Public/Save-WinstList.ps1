@@ -6,7 +6,7 @@ function Save-WinstList {
         写入行式清单。
     .DESCRIPTION
         先写注释行、再按传入顺序写 `id` 或 `id==版本`；目录不存在时由 Write-FileAtomic 自动创建。
-        `--dry-run` 下只返回将写入的项数，不落盘。
+        `--dry-run` 下不落盘，只把 Count 记为将写入的项数并返回同一结构。
     .OUTPUTS
         @{ Ok; Error; Path; Count; DryRun }
     #>

@@ -61,8 +61,8 @@
     直接当「脚本同目录」来测本地软件源条目，不必额外拷文件。
     打压缩包时按条目名跳过它，**不进 winst.zip**，release 资产保持干净。
 
-    构建校验（任一失败即中止，不会留下半套产物）
-    --------------------------------------
+    构建校验（任一失败即中止；全部通过后才把产物放进 dist\）
+    ----------------------------------------------------
         - Modules\ 下每个子目录都必须能作为模块识别（同名 .psd1 / .psm1 / Public\）
         - 源文件必须 UTF-8 with BOM + CRLF；缺 BOM 或用 LF 直接报错并列出文件
           （5.1 按系统 ANSI 读无 BOM 文件，中文会静默乱码；构建不做自动修正）
@@ -75,10 +75,7 @@
 [CmdletBinding()]
 param(
     # 结尾不等待回车。CI 里也可以设 CI=1 达到同样效果。
-    [switch]$NoPause,
-
-    # 产物目录，默认 <仓库>\dist。
-    [string]$OutDir = ''
+    [switch]$NoPause
 )
 
 Set-StrictMode -Version 2
@@ -95,8 +92,8 @@ $modulesDir = Join-Path $repo 'Modules'
 $constantsPath = Join-Path $modulesDir 'Winst.Core\Public\WinstConstants.ps1'
 $interactive = (-not $NoPause) -and ($env:CI -ne '1')
 
-$dist = $OutDir
-if (-not $dist) { $dist = Join-Path $repo 'dist' }
+# 产物目录固定为 <仓库>\dist：本脚本只负责打包，不做通用构建。
+$dist = Join-Path $repo 'dist'
 $releaseDir = Join-Path $dist 'winst'
 $zipPath = Join-Path $dist 'winst.zip'
 $sidecar = Join-Path $dist 'winst.zip.sha512'
@@ -514,6 +511,30 @@ try {
     # 只校验、不修正：源文件格式由开发者保证，不合规就拦住构建。
     $sourceFiles = @(Get-SourceScriptFile -Root $modulesDir -AdditionalFile (Join-Path $repo 'winst.ps1'))
     Write-Host ('  源文件     : Modules\ 与入口共 {0} 个脚本（BOM / CRLF 校验通过）' -f $sourceFiles.Count) -ForegroundColor Gray
+
+    # ------------------------------------------- 一行安装脚本：必须无 BOM、无 #Requires
+    # install.ps1 是唯一走 `irm | iex` 的文件：文本原样进 iex 解析，前导 U+FEFF 会被
+    # 当成命令名的一部分（`?#Requires : 无法将“?#Requires”项识别为 cmdlet`）。
+    # 那句报错不中断后续语句，于是表现为「装成功 + 一条报错」，必须在这里拦住。
+    $installScript = Join-Path $repo 'install.ps1'
+    if (Test-Path -LiteralPath $installScript -PathType Leaf) {
+        $installBytes = [IO.File]::ReadAllBytes($installScript)
+        $installProblems = New-Object 'System.Collections.Generic.List[string]'
+        if ($installBytes.Length -ge 3 -and $installBytes[0] -eq 0xEF -and $installBytes[1] -eq 0xBB -and $installBytes[2] -eq 0xBF) {
+            $installProblems.Add('install.ps1 带了 UTF-8 BOM。它通过 irm | iex 执行，BOM 会变成命令名的一部分并报错；请存成 UTF-8 无 BOM。')
+        }
+        $installText = [Text.Encoding]::UTF8.GetString($installBytes)
+        if ($installText -match '(?im)^[ \t]*#Requires') {
+            $installProblems.Add('install.ps1 里有 #Requires。无 BOM 时 iex 会忽略它，有 BOM 时会直接报错；一行安装脚本不需要它。')
+        }
+        if ($installText -match "(?<!`r)`n") {
+            $installProblems.Add('install.ps1 的换行不是 CRLF。')
+        }
+        if ($installProblems.Count -gt 0) {
+            throw ($installProblems -join [Environment]::NewLine)
+        }
+        Write-Host '  一行安装   : install.ps1 无 BOM / 无 #Requires（irm | iex 校验通过）' -ForegroundColor Gray
+    }
 
     # --------------------------------------------------------- 2. 合并模块
     $bundle = New-BundleText -Modules $modules -Version $version

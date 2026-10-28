@@ -7,11 +7,11 @@ function Invoke-MenuLoop {
     .DESCRIPTION
         -Render      接收 Context 的渲染脚本块
         -Actions     选项 → 脚本块（可声明 param($ctx)）
-        -Navigation 属于「打开子菜单」的选项，执行后不追加「按回车返回」
+        -NavigationChoices 属于「打开子菜单」的选项，执行后不追加「按回车返回」
         -NoPauseChoices 执行后同样不追加「按回车返回」，直接重绘菜单——动作自带输入循环
          （如「安装软件」「卸载软件」装/卸完一个回到输入处、直接回车即结束返回）的流程用
     .OUTPUTS
-        'quit'（用户退出，含子菜单请求退出）/ 'back'（返回上级）/ $null
+        'quit'（用户退出，含子菜单请求退出）/ 'back'（返回上级）；正常渲染循环不返回其它值
     #>
     param(
         [Parameter(Mandatory = $true)]

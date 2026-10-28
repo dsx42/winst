@@ -87,7 +87,7 @@ winst help                         :: 全部命令
 | `pruneOldPackages` | `true` | 新包下载成功后、安装落位前删除同 id 的旧包 |
 | `manifestTTLHours` | `24` | 软件源缓存有效期（小时） |
 | `proxy` / `proxyMode` | 空 / `auto` | 代理地址与模式（`auto` / `always` / `off`） |
-| `updateFilesOnly` | `true` | 更新 / 重装已登记软件时不处理环境变量 / PATH / 快捷方式；首次安装不受影响 |
+| `updateFilesOnly` | `true` | 更新 / 重装已登记软件时不动环境变量与 PATH；已存在的快捷方式仍会校验并修正指向，首次安装照常补齐缺失项 |
 
 命令行参数优先于同名配置；目录还可用环境变量 `WINST_INSTALL_ROOT`、`WINST_PKG_DIR` 覆盖。软件源列表和清单位于实际使用的 `pkgDir\manifests\` 下，更换缓存目录时需注意。
 

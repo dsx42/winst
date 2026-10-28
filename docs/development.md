@@ -82,7 +82,7 @@ $env:WINST_NO_ELEVATE = '1'          # 临时目录实验不需要管理员权�
 
 | 文件 | 编码 | 说明 |
 |---|---|---|
-| `*.ps1` / `*.psm1` / `*.psd1` | **UTF-8 with BOM** | Windows PowerShell 5.1 按 ANSI 读无 BOM 文件，中文会乱码；`build.ps1` 发现不合规直接报错，不自动改写 |
+| `*.ps1` / `*.psm1` / `*.psd1` | **UTF-8 with BOM**（`install.ps1` 例外：无 BOM、不写 `#Requires`） | Windows PowerShell 5.1 按 ANSI 读无 BOM 文件，中文会乱码；`build.ps1` 发现不合规直接报错，不会自动改写。`install.ps1` 经 `irm | iex` 执行，BOM 会变成命令名的一部分 |
 | `build.cmd` | **GBK** | cmd.exe 在 `chcp 936` 下按该代码页解析批处理 |
 | `manifest.json` / `README.md` / `docs\*.md` | UTF-8 无 BOM | |
 | 换行 | CRLF | |
@@ -147,7 +147,7 @@ dist\winst\winst.cmd list --cached
 - 新增函数文件 → 自动进入导出名单
 - 源文件编码与换行是**开发者的责任**：缺 BOM 或用 LF 时构建直接失败并列出文件，不会替你改写（否则 5.1 读中文会静默乱码）
 
-构建自检，任一失败即中止，不会留下半套产物：
+构建自检，任一失败即中止，产物在全部通过后才写进 `dist\`：
 
 - `Modules\` 下每个子目录都要能作为模块识别（同名 `.psd1` / `.psm1` / `Public\`）
 - `Modules\` 下全部脚本与 `winst.ps1` 都是 UTF-8 with BOM + CRLF
@@ -170,7 +170,7 @@ dist\winst\winst.cmd list --cached
 
 ## 一行安装脚本（install.ps1）
 
-只做三件事：下载 `winst.zip` → 解压到临时目录拿到可运行的 `winst.ps1` → 调用 `winst install winst --from <zip>`。安装逻辑全部在 `Install-WinstSelf` 里，脚本本身不含第二套实现。
+只做四件事：下载 `winst.zip` → 解压到临时目录拿到可运行的 `winst.ps1` → 以管理员身份运行它并等待结束 → 调用 `winst install winst --from <zip>`。提权在这一层完成，子进程里的 `winst.ps1` 已是管理员，不会再把工作交给第三个进程，因此拿到的是真实退出码，临时目录也在安装结束后才删除。安装逻辑全部在 `Install-WinstSelf` 里，脚本本身不含第二套实现。
 
 通过 `irm | iex` 执行时有一些硬约束：
 
@@ -178,7 +178,23 @@ dist\winst\winst.cmd list --cached
 - 不用 `$PSScriptRoot` / `$PSCommandPath`：管道执行时为空
 - 不用 `exit`：会杀掉调用者会话，失败时抛异常
 - 不依赖任何本地文件
-- `Start-Process -ArgumentList` 收到数组时只按空格拼接，不会自动加引号；`-File` 与 `--from` 的路径必须自行按 Windows 命令行规则加引号，避免含空格路径被截断
+- `Start-Process -ArgumentList` 收到数组时只用空格拼接，不会自动加引号：`-File` 与 `--from` 的路径必须自行按 Windows 参数规则加引号，否则含空格路径会被截断
+- **本文件必须 UTF-8 无 BOM，且不能写 `#Requires`**（与仓库其它 `.ps1` 相反）。`irm` 取回的文本原样交给 `iex` 解析，前导 U+FEFF 在解析字符串时不按 BOM 剥离，会被当成命令名的一部分，报 `?#Requires : 无法将“?#Requires”项识别为 cmdlet …`；这句报错不中断后续语句，表现为「安装成功但屏幕上多一条报错」。`build.ps1` 会校验这两点。
+
+### 运行后留下的产物
+
+`irm … | iex` 跑完之后，磁盘上只有这些：
+
+| 位置 | 内容 | 说明 |
+|---|---|---|
+| `<installRoot>\` | `state.json` | 安装台账（默认 `%USERPROFILE%\winst\state.json`） |
+| `<installRoot>\winst\` | `winst.ps1`、`winst.cmd`、`LICENSE`、`Modules\Winst\` | 运行时本体 |
+| 桌面、开始菜单 | `winst.lnk` | 按 `New-WinstSelfPlan` 的 `shortcuts` 定义创建 |
+| `<数据目录>\` | 无 | 首次安装不写 `config.json`；`winst.lock` 在进程退出时释放，不残留 |
+
+`%TEMP%\winst-install-<随机>`（下载的 zip 与解压副本）在 `finally` 里删除，成功与失败都不保留。
+`--from` 指向的 zip 由调用方自己管理，winst 不删除它。
+
 
 ## 自检清单
 

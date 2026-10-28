@@ -6,7 +6,8 @@ Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` 
 
 ## 硬性约束（最容易踩）
 
-- **`.ps1` / `.psm1` / `.psd1` 必须 UTF-8 with BOM**。Windows PowerShell 5.1 读无 BOM 文件按系统 ANSI（本机 cp936），中文会变成乱码且不报错。源文件格式由开发者保证：`build.ps1` 发现缺 BOM 或用 LF 会直接报错并列出文件，不会自动改写。
+- **`.ps1` / `.psm1` / `.psd1` 必须 UTF-8 with BOM**（唯一例外：`install.ps1`，见下）。Windows PowerShell 5.1 读无 BOM 文件按系统 ANSI（本机 cp936），中文会变成乱码且不报错。源文件格式由开发者保证：`build.ps1` 发现缺 BOM 或用 LF 会直接报错并列出文件，不会自动改写。
+- **`install.ps1` 必须 UTF-8 无 BOM，且不能写 `#Requires`**（与上面相反）。它经 `irm | iex` 执行：取回的文本原样交给 `iex` 解析，前导 U+FEFF 在解析字符串时不按 BOM 剥离，会被当成命令名的一部分，报 `?#Requires : 无法将“?#Requires”项识别为 cmdlet …`；这句报错不中断后续语句，表现为「安装成功但屏幕上多一条报错」。`build.ps1` 校验这两点。
 - **`build.cmd` 必须 GBK（cp936）**，而且它只是薄壳（`powershell -File build.ps1 %*`）。用 UTF-8 编辑器保存会让中文提示变乱码，而批处理仍会"看似跑通"。打包逻辑写进 `build.ps1`，不要加回 `build.cmd`。
 - 换行统一 CRLF（含 Markdown）。编辑 `.psd1` / `.ps1` 时不要用 PS 5.1 的 `Set-Content -Encoding UTF8`——它会写出无 BOM 文件；用 `[IO.File]::WriteAllText` 配 `New-Object System.Text.UTF8Encoding($true)`。
 - winst **自己写出**的文件（config / state / 缓存索引 / 侧车 / `.list`）一律 UTF-8 **无** BOM（见 `Write-FileAtomic`）。

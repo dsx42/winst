@@ -7,8 +7,8 @@
     支持两种包形态
     --------------
     1. release 压缩包（常规路径）
-           清单里 id "winst" 条目的 files[0]
-           = https://github.com/<repo>/releases/download/v<version>/winst-<version>.zip
+           清单里 id "winst" 条目的 files[0]：GitHub release 资产，固定名 winst.zip、不带版本号
+           （releases/latest/download/winst.zip 永远指向最新版）
        用 Invoke-WebRequest（Save-WinstFileWithHttp）下载，
        并按 files[0].hashFile 声明的 .zip.sha512 校验。
 
@@ -96,8 +96,7 @@ function Get-WinstSelfPackageSource {
                 $null = New-Item -ItemType Directory -Path $pkgDir -Force -ErrorAction SilentlyContinue
             }
 
-            # 压缩包名从 URL 推出，使缓存文件名与清单指向的完全一致
-            # （winst-<version>.zip）。
+            # 压缩包名从 URL 推出，使缓存文件名与清单指向的完全一致（默认 winst.zip）。
             $archiveName = Get-FileNameFromUrl -Url $url
             if (-not $archiveName) { $archiveName = $archiveFileName }
 

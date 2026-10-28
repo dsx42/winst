@@ -60,8 +60,12 @@ function Invoke-WinstCommand {
         'bundle'    { return (Invoke-WinstBundleCommand -Context $ctx -Arguments $rest) }
         'config'    { return (Invoke-WinstConfigCommand -Context $ctx -Arguments $rest) }
         default     {
+            # 命令位置为空（如 `winst --bogus`）时，报出真正认不出的那个 token
+            $shown = $name
+            if (-not $shown -and $rest.Count -gt 0) { $shown = [string]$rest[0] }
+            if (-not $shown) { $shown = '(未指定)' }
             Write-Host ''
-            Write-Host ('  未知的命令: {0}' -f $name) -ForegroundColor Yellow
+            Write-Host ('  未知的命令: {0}' -f $shown) -ForegroundColor Yellow
             Write-Host '  用 winst help 查看全部命令。' -ForegroundColor Gray
             return 1
         }

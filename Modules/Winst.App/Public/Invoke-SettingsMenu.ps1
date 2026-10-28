@@ -16,9 +16,17 @@ function Invoke-SettingsMenu {
         }
         '2' = {
             param($ctx)
+            $pkgHint = @(
+                '立即生效；可指向本地目录、U 盘或网络共享目录。'
+                '网络共享只支持 UNC 路径：\\服务器\共享名\目录（例：\\nas01\software\winst）。'
+                '  不支持映射盘符（Z:\...）：映射只在当前登录会话可见，winst 以管理员身份运行时会看不到。'
+                '路径里不要写账号密码。需要认证时，输入路径后会单独询问账号与密码（密码不回显），'
+                '  两者都可以直接回车跳过；认证成功才保存，winst 不保存账号密码。'
+                '  账号可带域名（如 CORP\user）。'
+            ) -join "`r`n"
             Invoke-PathSettingItem -Context $ctx -Key 'pkgDir' -DisplayName '安装包位置' `
                 -CurrentDisplay $ctx.PkgDir `
-                -Hint '立即生效；可指向 U 盘或网络共享目录。'
+                -Hint $pkgHint
         }
         '3' = {
             param($ctx)

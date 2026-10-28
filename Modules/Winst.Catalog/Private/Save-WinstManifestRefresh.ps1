@@ -16,7 +16,17 @@ function Save-WinstManifestRefresh {
         Write-ManifestMeta -PkgDir $Context.PkgDir -Name $Name -Url $TargetUrl -Version $Version `
             -FetchedAt $FetchedAt -ResolvedAt (Get-Date).ToString('s') -Apps $Apps
     } catch {
-        return @{ Error = ('写入缓存失败: {0}' -f $_.Exception.Message) }
+        # 目标盘不可用（如映射盘在提权进程里看不到）与「真的写不进去」要分开报告：
+        # 前者是可恢复的环境问题，提示用户换 UNC 路径；两者的共同点是本次解析结果仍然可用，
+        # 调用方不应把它当成「刷新失败 → 下次再来一遍」。
+        $persistUnavailable = $false
+        $message = $_.Exception.Message
+        if ($message -match '目标盘当前不可用' -or
+            $_.Exception -is [System.Management.Automation.DriveNotFoundException] -or
+            $_.Exception -is [System.IO.DriveNotFoundException]) {
+            $persistUnavailable = $true
+        }
+        return @{ Error = ('写入缓存失败: {0}' -f $message); PersistUnavailable = $persistUnavailable }
     }
-    return @{ Error = '' }
+    return @{ Error = ''; PersistUnavailable = $false }
 }

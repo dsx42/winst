@@ -116,8 +116,10 @@ function Invoke-WinstRunUninstaller {
     foreach ($orphan in @($orphanKeys)) {
         $orphanPath = [string]$orphan['KeyPath']
         # 只允许删「卸载记录」分支下的键：KeyPath 虽然来自注册表枚举，但脏数据 / 被改过的值
-        # 不能拿去递归删除任意注册表键
-        if ($orphanPath -notmatch '(?i)\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\[^\\]+$') {
+        # 不能拿去递归删除任意注册表键。`[^\\]+` 会匹配 `..`（解析出来是 CurrentVersion），
+        # 因此额外排除带 . / .. 段与尾点的写法
+        if ($orphanPath -match '\\\.\.?(\\|$)' -or $orphanPath -match '\\[^\\]*\.$' -or
+            $orphanPath -notmatch '(?i)\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\[^\\]+$') {
             if (-not $Quiet) { Write-Host ('    提示: 跳过不在卸载记录分支下的注册表键: {0}' -f $orphanPath) -ForegroundColor DarkYellow }
             continue
         }
