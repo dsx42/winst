@@ -38,10 +38,11 @@
        winst 的 CLI 使用 --force、--pkg-dir=... 这类长开关，交给 PowerShell
        参数绑定器会把它们当成未知参数并直接报错。参数一律从 $args 读。
 
-    2. 本入口只做六件事：
+    2. 本入口只做下面这些事：
            设置进程级偏好
            记录根目录
            必要时申请管理员权限并重启自己
+           设置 TLS 1.2 与进程级 PSModulePath（不改用户环境变量）
            按当前形态加载模块
            调用 Winst.App 的应用入口
            把结果映射为进程退出码
@@ -91,7 +92,8 @@ if ($null -ne $args) {
 # 用户看到的是「装到一半报错」而不是「权限不够」。因此启动即申请提权：
 #
 #   - 已经是管理员：继续。
-#   - 不是管理员：用 RunAs 重新启动自己（带上原来的全部参数），本进程立即退出。
+#   - 不是管理员：用 RunAs 重新启动自己（带上原来的全部参数）。交互式启动（没有子命令）立即退出，
+#     避免父窗口与提权窗口同时存在；带子命令时等待其结束并转发退出码，供调用方判断成败。
 #     UAC 被取消时 RunAs 会抛异常，此时明确报错并返回 1，不静默降级成「无权限继续跑」。
 #   - WINST_NO_ELEVATE=1：跳过提权（排障 / 只读查询时不想弹 UAC），按当前权限运行。
 #   - 只读调用（-v / --version / -h / --help）：不提权。这些会被别的 winst 进程频繁调用
@@ -101,9 +103,31 @@ if ($null -ne $args) {
 # 判据是「命令位置」而不是「参数里出现过某个词」：`winst install Foo help` 是安装，
 # 不能因为末尾那个 help 就跳过提权，否则会装到一半才因权限失败。
 # 与 Modules\Winst.App\Private\Test-WinstReadOnlyInvocation.ps1 保持同一口径。
-function Test-WinstReadOnlyArgument {
+function Get-WinstArgumentScan {
+    <#
+    .SYNOPSIS
+        一次扫描命令行 token，判断本次是「只读调用」还是「不带子命令的交互式启动」。
+
+    .DESCRIPTION
+        提权与窗口行为都由这里分流，因此只扫描一次、两个结论一起给：
+
+        - ReadOnly：命令位置是 version / help / ?，或命令之前的 -v / -h / --help。
+          这类调用不提权，也不受单进程锁约束（它们不写任何文件，而且别的 winst 进程
+          会调用它们做版本检测）。
+        - Interactive：没有命令 token（双击 / 只给了全局开关）。提权后本窗口立即退出，
+          否则父窗口要一直挂到菜单结束；带子命令时等待提权进程结束并转发它的退出码，
+          否则 update --check 的 4、安装失败的 3、网络失败的 2 全部变成 0。
+
+        判据是「命令位置」而不是「参数里出现过某个词」：winst install Foo help 是安装，
+        不能因为末尾那个 help 就跳过提权。带值全局开关的取值不算命令。
+        与 Modules\Winst.App\Private\Test-WinstReadOnlyInvocation.ps1 保持同一口径。
+
+    .OUTPUTS
+        @{ ReadOnly; Interactive }
+    #>
     param([string[]]$Arguments = @())
 
+    $readOnly = $false
     $waitingForValue = $false
     foreach ($one in @($Arguments)) {
         $text = ([string]$one).Trim()
@@ -118,23 +142,27 @@ function Test-WinstReadOnlyArgument {
         if ($text -ieq '--offline' -or $text -ieq '--dry-run' -or $text -ieq '--yes' -or
             $text -ieq '-y' -or $text -ieq '--verbose') { continue }
 
-        if (-not $text.StartsWith('-')) {
-            if ($text -ieq 'version' -or $text -ieq 'help' -or $text -ieq '?') { return $true }
-            return $false
+        if ($text.StartsWith('-')) {
+            # 命令之前的 -v / -h 本身就是一次只读调用，但后面可能还有命令 token，继续扫
+            if ($text -ieq '-v' -or $text -ieq '--version' -or $text -ieq '-h' -or
+                $text -ieq '--help' -or $text -ieq '-?') {
+                $readOnly = $true
+            }
+            continue
         }
-        if ($text -ieq '-v' -or $text -ieq '--version' -or $text -ieq '-h' -or
-            $text -ieq '--help' -or $text -ieq '-?') {
-            return $true
-        }
+
+        # 第一个非开关 token 就是命令位置：交互性与只读性都由它决定
+        if ($text -ieq 'version' -or $text -ieq 'help' -or $text -ieq '?') { $readOnly = $true }
+        return @{ ReadOnly = $readOnly; Interactive = $false }
     }
-    return $false
+    return @{ ReadOnly = $readOnly; Interactive = $true }
 }
 
 function Test-WinstNeedsElevation {
     param([string[]]$Arguments = @())
 
     if ($env:WINST_NO_ELEVATE -eq '1') { return $false }
-    if (Test-WinstReadOnlyArgument -Arguments $Arguments) { return $false }
+    if ((Get-WinstArgumentScan -Arguments $Arguments).ReadOnly) { return $false }
     try {
         $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
         $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -145,6 +173,8 @@ function Test-WinstNeedsElevation {
     }
     return $true
 }
+
+$winstScan = Get-WinstArgumentScan -Arguments $script:WinstArguments
 
 if (Test-WinstNeedsElevation -Arguments $script:WinstArguments) {
     $winstElevateArgs = New-Object 'System.Collections.Generic.List[string]'
@@ -158,6 +188,8 @@ if (Test-WinstNeedsElevation -Arguments $script:WinstArguments) {
     # Start-Process -ArgumentList 收到数组时只用空格拼接、不会加引号：
     # 路径含空格（用户名形如 John Smith 时 %USERPROFILE%\...\winst 就带空格）会被截断，
     # 因此逐项按 Windows argv 规则加引号。
+    # 与 Modules\Winst.Core\Public\Format-WinstCommandArgument.ps1、install.ps1 里的同名逻辑是
+    # 同一算法：这里必须自包含（模块还没加载），改算法时三处一起改。
     $winstArgText = (($winstElevateArgs | ForEach-Object {
                 $winstArgValue = [string]$_
                 if ($winstArgValue -notmatch '[\s"]') { return $winstArgValue }
@@ -181,12 +213,27 @@ if (Test-WinstNeedsElevation -Arguments $script:WinstArguments) {
             }) -join ' ')
 
     try {
-        $winstElevated = Start-Process -FilePath 'powershell.exe' -ArgumentList $winstArgText `
-            -Verb RunAs -PassThru -ErrorAction Stop
-        if ($winstElevated) {
+        # 用 ProcessStartInfo + runas（与 install.ps1 同一写法）：Start-Process -Verb RunAs 拿到的
+        # 进程对象在部分系统上取不到 ExitCode，而带子命令时必须能拿到它。
+        $winstStart = New-Object System.Diagnostics.ProcessStartInfo
+        $winstStart.FileName = 'powershell.exe'
+        $winstStart.Arguments = $winstArgText
+        $winstStart.UseShellExecute = $true
+        $winstStart.Verb = 'runas'
+        $winstProcess = [Diagnostics.Process]::Start($winstStart)
+
+        if ($winstScan.Interactive) {
+            # 交互式菜单：任务已交给提权窗口，本窗口立即关闭——等下去会同时出现两个控制台窗口
             [Console]::Out.WriteLine('winst: 需要管理员权限，已在新窗口中以管理员身份启动，本窗口会自动关闭。')
+            exit 0
         }
-        exit 0
+
+        # 带子命令：等到它结束并转发退出码，否则调用方永远只拿到 0
+        [Console]::Out.WriteLine('winst: 需要管理员权限，已在新窗口中以管理员身份启动，本窗口会等待其结束后退出。')
+        $winstProcess.WaitForExit()
+        $winstCode = 1
+        try { $winstCode = [int]$winstProcess.ExitCode } catch { $winstCode = 1 }
+        exit $winstCode
     } catch {
         # 用户点了「否」/ 系统策略禁止提权：明确报错，不偷偷降级继续跑
         [Console]::Error.WriteLine('winst: 需要管理员权限（安装软件、写系统环境变量、运行安装程序都要用到）。')

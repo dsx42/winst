@@ -7,7 +7,7 @@ function Get-WinstManifestPayload {
     .OUTPUTS
         @{ Ok; Message; Network; Content; Entries; TargetUrl; ManifestVersion; ReusedFromCache; WriteCache; Files }
     #>
-    param([hashtable]$Context, $Source, [string]$Name, [string]$Url, [switch]$IsLocal,
+    param([hashtable]$Context, $Source, [string]$Url, [switch]$IsLocal,
         [string]$CachePath, [switch]$HasCache, [string]$CachedVersion, [switch]$Force)
 
     $out = @{

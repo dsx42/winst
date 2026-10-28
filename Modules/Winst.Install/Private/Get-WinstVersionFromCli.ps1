@@ -17,7 +17,7 @@ function Get-WinstVersionFromCli {
 
     # 检测命令运行哪个程序：detect.exe 优先（如 FluxDown 用同目录的 fluxdown_nmh.exe 报版本），缺省 = 主程序
     $main = Expand-PlanPlaceholders -Value (Get-EntryString -Entry $Detect -Key 'exe') -InstallDir $InstallDir -InstallRoot $Context.InstallRoot
-    if (-not $main) { $main = Get-WinstMainProgram -Plan $Plan -InstallDir $InstallDir }
+    if (-not $main) { $main = Get-WinstMainProgram -Plan $Plan }
     if (-not $main) { return }
     $mainPath = $main
     if ($InstallDir -and -not [IO.Path]::IsPathRooted($mainPath)) { $mainPath = Join-WinstPath $InstallDir $mainPath }

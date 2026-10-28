@@ -18,13 +18,9 @@ function Invoke-WinstListShow {
 
     $targetPath = ''
     if ($Path) {
-        $resolved = Resolve-WinstListPath -Context $Context -Text $Path
-        if (-not $resolved.Ok) {
-            Write-Host ''
-            Write-Host ('  {0}' -f $resolved.Error) -ForegroundColor Red
-            return
-        }
-        $targetPath = $resolved.Path
+        # 解析 + 报错文案在 Resolve-WinstListTargetPath 里（编辑 / 查看两页共用）
+        $targetPath = Resolve-WinstListTargetPath -Context $Context -Path $Path
+        if (-not $targetPath) { return }
     } else {
         $files = @(Get-WinstListFiles -Context $Context)
         Write-Host ''

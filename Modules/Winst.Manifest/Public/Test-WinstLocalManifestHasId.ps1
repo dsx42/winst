@@ -29,7 +29,8 @@ function Test-WinstLocalManifestHasId {
         }
         if ($null -eq $obj) { continue }
         foreach ($entry in @(Get-ManifestEntries -Manifest $obj)) {
-            if ((Get-EntryString -Entry $entry -Key 'id') -ieq $Id) { return $true }
+            # id 一律 Ordinal：与台账 / 缓存索引的 New-WinstOrdinalDictionary 保持同一口径
+            if ((Get-EntryString -Entry $entry -Key 'id') -ceq $Id) { return $true }
         }
     }
     return $false

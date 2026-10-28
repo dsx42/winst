@@ -101,17 +101,3 @@ function Remove-WinstState {
 
     return [Winst.State]::Remove($Name)
 }
-
-function Reset-WinstState {
-    <#
-    .SYNOPSIS
-        清空全部状态项。
-
-    .DESCRIPTION
-        用于开始一轮全新的菜单会话。
-    #>
-    [CmdletBinding()]
-    param()
-
-    [Winst.State]::Clear()
-}

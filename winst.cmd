@@ -22,8 +22,8 @@ rem
 rem 两个必须注意的地方（改这段之前先看）
 rem   - start 的第一项是窗口标题，必须写空标题 ""，否则带空格的路径会被当成标题、
 rem     真正的命令反而丢参数；
-rem   - 不要用 start /wait，也不要在本文件里直接跑 powershell——那两种写法都会让
-rem     cmd.exe 留在原地等，外层窗口又变成不关闭。
+rem   - 无参数分支不要用 start /wait，也不要在本文件里直接跑 powershell——那两种写法都会让
+rem     cmd.exe 留在原地等，外层窗口又变成不关闭；带参数分支必须同步跑（见 :passthrough）。
 rem
 rem conhost.exe 是 Windows 自带的传统控制台宿主（只负责开一个原生控制台窗口），
 rem 用它包一层可以保证 winst 的菜单 / 颜色 / %%VAR%% 展开行为与平时双击 cmd 一致，

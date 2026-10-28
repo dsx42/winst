@@ -10,6 +10,9 @@ function Get-VersionFromSourceText {
           ② 只写 versionKind    —— 按识别器（semver / date / digits）从文本里提取；
           ③ 两者都写           —— **先按标记截取、再按识别器提取**（页面片段里包着版本号时最稳）；
         都没写时返回 Missing（调用方自行回退到条目 version / 包内文件信息）。
+    .PARAMETER Where
+        出错文案里的来源位置（如「版本页」「页面内容」「下载地址」），便于看出是哪一份文本识别失败。
+
     .OUTPUTS
         @{ Ok; Version; Error; Missing }
     #>
@@ -26,7 +29,7 @@ function Get-VersionFromSourceText {
     if ($versionBetween.Count -gt 0) {
         $between = Get-VersionBetween -Spec $versionBetween -Text $value
         if (-not $between.Ok) {
-            $result.Error = ('versionBetween {0} 没有匹配到内容' -f ($versionBetween -join ' '))
+            $result.Error = ('{0}里 versionBetween {1} 没有匹配到内容' -f $Where, ($versionBetween -join ' '))
             return $result
         }
         $value = [string]$between.Value
@@ -34,7 +37,7 @@ function Get-VersionFromSourceText {
     if ($versionKind) {
         $found = Get-VersionValue -Text $value -Kind $versionKind
         if (-not $found) {
-            $result.Error = ('versionKind {0} 没有匹配到版本号' -f $versionKind)
+            $result.Error = ('{0}里 versionKind {1} 没有匹配到版本号' -f $Where, $versionKind)
             return $result
         }
         $value = [string]$found

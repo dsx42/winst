@@ -29,6 +29,8 @@ function Get-WinstHashRule {
         'sha1'       = @{ Length = 40;  NeedsFileName = $false; Algorithm = 'SHA1';   Display = 'sha1' }
         'sha256'     = @{ Length = 64;  NeedsFileName = $false; Algorithm = 'SHA256'; Display = 'sha256' }
         'sha512'     = @{ Length = 128; NeedsFileName = $false; Algorithm = 'SHA512'; Display = 'sha512' }
+        # digest：按文件名就近取摘要，摘要长度由内容决定（32 / 40 / 64 / 128），所以 Length = 0
+        'digest'     = @{ Length = 0;   NeedsFileName = $true;  Algorithm = '';       Display = '摘要' }
     }
     if (-not $table.ContainsKey($k)) {
         return @{ Valid = $false; Key = $k; Length = 0; NeedsFileName = $false; Algorithm = ''; Display = '' }

@@ -15,9 +15,7 @@ function Get-WinstDetectedVersionCore {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$InstallDir = '',
-        [string]$SourceName = '',
-        [string]$PkgDirForCli = ''
+        [string]$InstallDir = ''
     )
 
     # Detail = 检测途径（命令 / 文件 / 记录，供详情展示）；Note = 需要提醒用户的异常原因（超时、缺 java 等，

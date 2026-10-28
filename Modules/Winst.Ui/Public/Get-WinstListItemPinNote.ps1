@@ -3,7 +3,7 @@
 function Get-WinstListItemPinNote {
     <#
     .SYNOPSIS
-        清单里写了 `id==版本` 时的一句说明（版本一致返回空串，避免刷屏）。
+        清单里写了 `id==版本` 时的一句说明：与软件源一致 / 不一致 / 软件源没有版本信息，三种措辞；没写固定版本时返回空串。
     .OUTPUTS
         @{ Text; Color }
     #>

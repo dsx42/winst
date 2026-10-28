@@ -9,28 +9,20 @@ function Get-WinstCachedListItems {
     #>
     param([hashtable]$Context, [switch]$Silent)
 
-    # 先用本地安装包索引确定要展示的软件，再按需刷新这些软件的版本信息（per-app TTL，--offline 自动
-    # 跳过、展示集合全部有效时零解析，列表里的「可更新」标注才是当前值；
-    # 没有已下载包时不做任何刷新
-    $preview = Get-WinstCachedOverview -Context $Context
-    $displayIds = @(Get-WinstDisplayIds -Items $(if ($preview.Ok) { $preview.Items } else { @() }))
-    $refresh = Update-WinstDisplaySources -Context $Context -Ids $displayIds
-    Write-WinstRefreshErrors -Errors $refresh.Errors
-
-    $overview = Get-WinstCachedOverview -Context $Context
-    if (-not $overview.Ok) {
+    # 展示项、按需刷新与总览重建都在 Get-WinstCachedOverviewReady 里（与 CLI 同一段逻辑）
+    $ready = Get-WinstCachedOverviewReady -Context $Context
+    if (-not $ready.Ok) {
         Write-Host ''
-        Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
+        Write-Host ('  {0}' -f $ready.Error) -ForegroundColor Red
         if (-not $Silent) {
             Write-Host ''
             Read-WinstPause -Text '  按回车键返回主菜单 …'
         }
         return @{ Ok = $false; Items = @() }
     }
-    if ($overview.Warning -and -not $Silent) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor Yellow }
+    if ($ready.Warning -and -not $Silent) { Write-Host ('  提示: {0}' -f $ready.Warning) -ForegroundColor Yellow }
 
-    # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-    $items = @($overview.Items | Where-Object { $null -ne $_ })
+    $items = @($ready.Items)
     if ($items.Count -eq 0) {
         if ($Silent) {
             Write-Host ''

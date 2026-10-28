@@ -26,7 +26,7 @@ function Resolve-DirectSource {
                 return $result
             }
             if ($page.Notes.Count -gt 0) { $result.Notes += $page.Notes }
-            $found = Get-VersionFromSourceText -Source $source -Text ([string]$page.Html)
+            $found = Get-VersionFromSourceText -Source $source -Text ([string]$page.Html) -Where '版本页'
             if (-not $found.Ok) {
                 $result.Error = ('无法从版本页 {0} 上识别出版本号（{1}）；可能是页面结构变更，需要更新软件源' -f $pageUrl, $found.Error)
                 return $result

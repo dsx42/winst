@@ -27,7 +27,7 @@ function Get-WinstRunningAppProcess {
         if ($text -and ($dirs -notcontains $text)) { $dirs += $text }
     }
 
-    $main = Get-WinstMainProgram -Plan $Plan -InstallDir $InstallDir
+    $main = Get-WinstMainProgram -Plan $Plan
     $mainBase = ''
     if ($main) {
         try { $mainBase = [IO.Path]::GetFileNameWithoutExtension($main) } catch { $mainBase = '' }

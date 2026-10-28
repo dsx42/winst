@@ -64,8 +64,7 @@ function Set-WinstSelfTree {
         [Parameter(Mandatory = $true)][string]$InstallDir,
         [string]$ArchivePath = '',
         [string]$SourceDir = '',
-        [string]$FallbackSourcePath = '',
-        [switch]$Quiet
+        [string]$FallbackSourcePath = ''
     )
 
     $result = @{ Ok = $false; Error = ''; Extracted = $false }

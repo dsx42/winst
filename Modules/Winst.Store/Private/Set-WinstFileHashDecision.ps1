@@ -8,7 +8,7 @@ function Set-WinstFileHashDecision {
         索引里存两种校验码：hashes = sha256（旧字段，沿用），manifestHashes = 按软件源声明算法的摘要。
         命中判定优先用同算法的那份，直接比对字符串；都没有（旧索引 / 首次）才现算一次。
     #>
-    param($Plan, $Entry, $File, [string]$Name, [string]$Target, $Expected, [switch]$ForceRehash)
+    param($Plan, $Entry, [string]$Name, [string]$Target, $Expected, [switch]$ForceRehash)
 
     $wanted = ([string]$Expected.Hash).ToLowerInvariant()
     $Plan['ExpectedHash'] = $wanted

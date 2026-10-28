@@ -136,7 +136,7 @@ function Install-WinstSelf {
 
         # 两种形态都接受：已解压目录直接复制，压缩包解压。
         # 按实际形态传参，调用方已有树时就不必再解压一次。
-        $treeArgs = @{ InstallDir = $installDir; Quiet = [bool]$Quiet }
+        $treeArgs = @{ InstallDir = $installDir }
         if (Test-Path -LiteralPath $FromPath -PathType Container) {
             $treeArgs['SourceDir'] = $FromPath
         } else {
@@ -188,7 +188,7 @@ function Install-WinstSelf {
     # 这里必须按这两个真实字段名取，写错键名在 StrictMode 下会直接抛
     # 「找不到属性 SourcePath」，把自动安装 winst 打断（首次安装即失败）。
     $write = Set-WinstSelfTree -InstallDir $installDir -ArchivePath ([string]$package.ArchivePath) `
-        -FallbackSourcePath ([string]$package.FallbackSourcePath) -Quiet:$Quiet
+        -FallbackSourcePath ([string]$package.FallbackSourcePath)
     if (-not $write.Ok) {
         $result.Error = [string]$write.Error
         return $result

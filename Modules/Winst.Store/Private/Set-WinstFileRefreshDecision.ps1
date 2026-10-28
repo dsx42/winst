@@ -42,7 +42,7 @@ function Set-WinstFileRefreshDecision {
         return
     }
     if (-not $CanCheckRemote) {
-        # 不发请求的三种情形：调用方没开 -CheckValidators（只读视图走的路径）、--offline、--dry-run。
+        # 不发请求的情形：调用方没开 -CheckValidators（只读视图走的路径）与 --dry-run（--offline 在函数开头已返回）。
         # 这条分支是「只读视图零联网」由构造保证的地方——不要在这里加任何网络调用
         $Plan['NeedDownload'] = $false
         if ($DryRun) {

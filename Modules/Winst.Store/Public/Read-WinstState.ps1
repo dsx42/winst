@@ -113,6 +113,16 @@ function Read-WinstState {
 
     $installed = New-WinstOrdinalDictionary
     $ip = $obj.PSObject.Properties['installed']
+    # installed 必须是「id → 条目」的字典 / 对象。写成数组或字符串时，PSObject.Properties
+    # 会暴露 Length / Count / Rank 这类成员，它们会被当成软件 id 写进台账并整份落盘。
+    $installedShapeOk = ($null -eq $ip) -or ($null -eq $ip.Value) -or
+        ($ip.Value -is [System.Collections.IDictionary]) -or
+        ($ip.Value -is [System.Management.Automation.PSCustomObject])
+    if (-not $installedShapeOk) {
+        $result.Error = '安装台账里的 installed 不是「id → 条目」结构，已停止写入以免覆盖原记录；请人工检查 state.json'
+        $result.NeedSave = $false
+        return $result
+    }
     if ($ip -and $null -ne $ip.Value) {
         # 直接逐条归一化写入台账，不先复制进中转数组
         if ($ip.Value -is [System.Collections.IDictionary]) {

@@ -31,7 +31,29 @@ function Get-WinstConfig {
                 }
             }
         } catch {
-            # 配置损坏：使用默认值，后续业务版本再补「自动备份重建」
+            # 配置损坏：先备份原文，再按默认值运行。
+            # 不静默退回默认值——用户手写的配置失效却查不到原因，比报错更难排查。
+            # 同一份坏文件只留一份 .bak（与 Read-WinstState 的备份口径一致），避免每次读都生成新文件。
+            $backupPath = $configPath + '.bak'
+            $backupOk = $false
+            try {
+                $needCopy = -not (Test-Path -LiteralPath $backupPath -PathType Leaf)
+                if (-not $needCopy) {
+                    $needCopy = (Get-Item -LiteralPath $backupPath).LastWriteTimeUtc -lt (Get-Item -LiteralPath $configPath).LastWriteTimeUtc
+                }
+                if ($needCopy) { Copy-Item -LiteralPath $configPath -Destination $backupPath -Force -ErrorAction Stop }
+                $backupOk = $true
+            } catch { $backupOk = $false }
+
+            # 注意用值判断而不是 Test-WinstState：后者只表示「键存在」，而初始化已经建过这个键
+            if (-not (Get-WinstState -Name 'WinstConfigCorruptReported')) {
+                $null = Set-WinstState -Name 'WinstConfigCorruptReported' -Value $true
+                if ($backupOk) {
+                    Write-Host ('  提示: 配置文件无法解析，本次按默认配置运行；原文件已备份为 {0}。' -f (Split-Path -Leaf $backupPath)) -ForegroundColor Yellow
+                } else {
+                    Write-Host ('  提示: 配置文件无法解析，本次按默认配置运行；备份原文件失败，原文件保持不动: {0}' -f $configPath) -ForegroundColor Yellow
+                }
+            }
         }
     }
 

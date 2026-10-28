@@ -18,13 +18,10 @@ function Get-WinstDetectedVersion {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$InstallDir = '',
-        [string]$SourceName = '',
-        [string]$PkgDirForCli = ''
+        [string]$InstallDir = ''
     )
 
-    $result = Get-WinstDetectedVersionCore -Context $Context -Plan $Plan -InstallDir $InstallDir `
-        -SourceName $SourceName -PkgDirForCli $PkgDirForCli
+    $result = Get-WinstDetectedVersionCore -Context $Context -Plan $Plan -InstallDir $InstallDir
 
     if (-not $result.Versions) { $result.Versions = @() }
     if (-not $result.OldVersions) { $result.OldVersions = @() }

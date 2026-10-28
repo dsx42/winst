@@ -8,7 +8,7 @@ function Resolve-WinstUncInput {
         网络共享只接受 UNC 路径，不接受映射盘符（`Z:\...`）：映射是按登录会话生效的，
         winst 以管理员身份运行时往往看不到非提权会话里映射的盘符。
 
-        本函数**只接收合法 UNC 路径**，账号密码由调用方另外询问（见 Read-WinstSharePathInput）：
+        本函数接收合法 UNC 路径与本地盘路径（映射盘符一律拒绝），账号密码由调用方另外询问（见 Read-WinstSharePathInput）：
 
             \\服务器\共享名\目录
 

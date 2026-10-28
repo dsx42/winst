@@ -63,6 +63,13 @@ function Initialize-WinstState {
         $initialized++
     }
 
+    # 配置损坏的提示只打一次：Get-WinstConfig 每次 Update-WinstContext 都会跑，
+    # 不记标记会在同一次运行里反复刷同一句提示。
+    if (-not (Test-WinstState -Name 'WinstConfigCorruptReported')) {
+        $null = Set-WinstState -Name 'WinstConfigCorruptReported' -Value $false
+        $initialized++
+    }
+
     # ------------------------------------------------------------ 缓存
     # HTTP 响应缓存（Winst.Net）。
     if ($null -eq (Get-WinstState -Name 'WinstHttpCache')) {

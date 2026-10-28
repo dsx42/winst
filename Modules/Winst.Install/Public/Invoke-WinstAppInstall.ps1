@@ -171,15 +171,6 @@ function Invoke-WinstAppInstall {
         return $result
     }
 
-    if ($dryRun) {
-        $result.Ok = $true
-        $result.Preview = $true
-        # 「仅配套文件更新」的预览在上面的取包判定后就直接返回了（它的前提是有文件要下载），
-        # 走到这里只剩「完整安装」的预览
-        $result.Message = ('（预览）将安装 {0}' -f $displayName)
-        return $result
-    }
-
     # —— 运行中检测：目标软件正在运行会锁住文件，导致解压 / 覆盖失败——
     # 仅配套文件更新不触碰主程序，跳过该检测
     if (-not $companionOnlyUpdate) {

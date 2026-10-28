@@ -18,6 +18,9 @@ function Get-FileVerifyText {
     if ($hashFile) {
         $hashFrom = (Get-EntryString -Entry $File -Key 'hashFrom')
         if (-not $hashFrom) { $hashFrom = 'sha256sums' }
+        if ($hashFrom -ieq 'digest') {
+            return ('下载后校验: 按文件名从 {0} 取摘要（MD5 / SHA-1 / SHA-256 / SHA-512，按长度判定）' -f $hashFile)
+        }
         $kindText = $hashFrom
         if ($HashRule -and $HashRule.Valid) { $kindText = [string]$HashRule.Display }
         if ($HashRule -and $HashRule.NeedsFileName) {

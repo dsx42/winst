@@ -3,7 +3,7 @@
 function Save-WinstFileWithHttp {
     <#
     .SYNOPSIS
-        用 Invoke-WebRequest 下载文件（软件包 / 引擎包 / winst 自身更新包）。
+        用 Invoke-WebRequest 下载文件（引擎包 / winst 自身更新包；软件包走下载引擎）。
     .DESCRIPTION
         属于「下载类」请求：`proxyMode = download-direct` 时先直连、失败再走代理。
     .OUTPUTS

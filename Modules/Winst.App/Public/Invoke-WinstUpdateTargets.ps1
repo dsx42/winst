@@ -37,7 +37,6 @@ function Invoke-WinstUpdateTargets {
         [switch]$NoRefresh,
         [switch]$FilesOnly,
         [switch]$ForceSystemItems,
-        [switch]$ResolutionError,
         [string]$SourceName = ''
     )
 

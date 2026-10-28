@@ -53,7 +53,7 @@ function Set-WinstFileValidatorDecision {
 
     # 有可比对的校验器：与索引记账逐项比对（记录里有哪一项就比哪一项）。
     # files[].compare: "size" 时只比大小——dl.google.com 这类 Last-Modified 阶段性漂移的
-    # 主机用；缺省 LM + 大小
+    # 主机用；缺省比 ETag + Last-Modified + 大小
     $sizeOnly = ((Get-EntryString -Entry $File -Key 'compare').Trim().ToLowerInvariant() -ieq 'size')
     $checkedAt = (Get-Date).ToString('s')
     $Plan['ValidatorETag'] = [string]$validators.ETag

@@ -20,6 +20,11 @@ function Test-WinstProtectedDirectory {
     # 递归删除这类路径的风险远大于收益 → 一律按「受保护」拒绝。
     if ($full.StartsWith('\\?\', [StringComparison]::Ordinal) -or $full.StartsWith('\\.\', [StringComparison]::Ordinal)) { return $true }
     if ($full -match '^[A-Za-z]:$') { return $true }
+    # UNC 路径：\\server 与 \\server\share 本身就是共享根，递归删除等于清空整个共享
+    if ($full.StartsWith('\\', [StringComparison]::Ordinal)) {
+        $uncSegments = @($full.Substring(2).Split('\') | Where-Object { $_ })
+        if ($uncSegments.Count -le 2) { return $true }
+    }
     if ($full.Split('\').Count -lt 2) { return $true }
 
     $protected = @(

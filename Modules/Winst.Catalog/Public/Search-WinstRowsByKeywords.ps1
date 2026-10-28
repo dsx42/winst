@@ -18,35 +18,16 @@ function Search-WinstRowsByKeywords {
         [Parameter(Mandatory = $true)][string]$Keyword
     )
 
-    $result = @{ Rows = @(); Keywords = @($Keyword); Merged = $false; HitKeywords = @() }
-    $rows = @(Get-WinstSearchCatalog -Context $Context -Keyword $Keyword)
-    if ($rows.Count -gt 0) {
-        # @() 包住函数调用：函数返回空数组到调用方会变成 $null，调用方再 @() 就成了「1 个 $null 条目」
-        $result.Rows = @(Sort-WinstRowsByGroup -Rows $rows)
-        return $result
+    # 整串优先 / 拆词合并 / 按 id 去重都在 Merge-WinstKeywordSearch 里（与台账搜索同一套规则）。
+    # @() 包住候选：函数返回空数组到调用方会变成 $null，再 @() 就成了「1 个 $null 条目」
+    $merged = Merge-WinstKeywordSearch -Keyword $Keyword -Match {
+        param([string]$Text)
+        return @(Get-WinstSearchCatalog -Context $Context -Keyword $Text)
     }
-
-    $parts = @()
-    foreach ($token in @($Keyword -split '[\s,，、]+')) {
-        $text = ([string]$token).Trim()
-        if ($text -and ($parts -notcontains $text)) { $parts += $text }
+    return @{
+        Rows        = @(Sort-WinstRowsByGroup -Rows @($merged.Items))
+        Keywords    = @($merged.Keywords)
+        Merged      = [bool]$merged.Merged
+        HitKeywords = @($merged.HitKeywords)
     }
-    if ($parts.Count -le 1) { return $result }
-
-    $result.Keywords = @($parts)
-    $result.Merged = $true
-    $ids = New-WinstOrdinalDictionary
-    $merged = @()
-    foreach ($one in $parts) {
-        $found = @(Get-WinstSearchCatalog -Context $Context -Keyword $one)
-        if ($found.Count -gt 0) { $result.HitKeywords += $one }
-        foreach ($row in $found) {
-            $rowId = [string]$row['Id']
-            if (-not $rowId -or $ids.Contains($rowId)) { continue }
-            $ids[$rowId] = $true
-            $merged += $row
-        }
-    }
-    $result.Rows = @(Sort-WinstRowsByGroup -Rows $merged)
-    return $result
 }

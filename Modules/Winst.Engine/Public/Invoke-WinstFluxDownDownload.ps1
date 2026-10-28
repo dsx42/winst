@@ -42,15 +42,17 @@ function Invoke-WinstFluxDownDownload {
         $result.Error = ('下载地址不合法（需要绝对地址，且不能含引号）：{0}' -f $Url)
         return $result
     }
-    if ($FileName -and ([string]$FileName).Contains('"')) {
-        $result.Error = ('下载文件名不合法（不能含引号）：{0}' -f $FileName)
+    # 文件名只允许单个路径段：清单可控的值不能靠 "..\..\" 写到 DestDir 之外
+    if ($FileName -and -not (Test-WinstSafePathSegment -Name $FileName)) {
+        $result.Error = ('下载文件名不合法（不能含路径分隔符 / 保留字符）：{0}' -f $FileName)
         return $result
     }
 
-    $argText = 'add "{0}" -d "{1}"' -f $Url, ([string]$DestDir).Replace('"', '\"')
-    if ($FileName) { $argText += ' -o "{0}"' -f $FileName }
+    # 命令行一律走 Format-WinstCommandArgument：目录以 \ 结尾时手写的 -d "…\" 会把闭合引号转义掉
+    $argText = 'add {0} -d {1}' -f (Format-WinstCommandArgument -Value $Url), (Format-WinstCommandArgument -Value $DestDir)
+    if ($FileName) { $argText += ' -o {0}' -f (Format-WinstCommandArgument -Value $FileName) }
     $argText += ' --local'
-    if ($ProxyUrl) { $argText += ' --proxy "{0}"' -f ([string]$ProxyUrl).Replace('"', '\"') }
+    if ($ProxyUrl) { $argText += ' --proxy {0}' -f (Format-WinstCommandArgument -Value $ProxyUrl) }
     # -s 0 不传（引擎自动分段）；调用方按「多段失败 → 单连接重试」的策略传 -s 1
     if ($Segments -gt 0) { $argText += ' -s {0}' -f $Segments }
 

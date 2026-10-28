@@ -55,6 +55,15 @@ function New-WinstDevToolsSession {
     }
     $result.Engine = Split-Path -Leaf $exe
 
+    # 用户代理与代理地址最终拼进浏览器命令行：含双引号就能提前闭合引号、追加任意开关
+    # （代理地址来自 config.json / --proxy），拼接前显式拒绝
+    foreach ($one in @($UserAgent, $ProxyUrl)) {
+        if ($one -and -not (Test-WinstArgumentSafe -Value ([string]$one))) {
+            $result.Error = '浏览器参数含有无法安全传给命令行的字符（双引号 / 控制字符）：请检查代理地址设置'
+            return $result
+        }
+    }
+
     $profileDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-cdp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
     $result.ProfileDir = $profileDir
     try { $null = New-Item -ItemType Directory -Path $profileDir -Force -ErrorAction Stop } catch { }
@@ -73,12 +82,12 @@ function New-WinstDevToolsSession {
         '--disable-features=UserAgentClientHint'
         '--disable-blink-features=AutomationControlled'
         '--window-size=1440,900'
-        ('--user-agent="{0}"' -f $UserAgent)
-        ('--user-data-dir="{0}"' -f $profileDir)
+        ('--user-agent=' + (Format-WinstCommandArgument -Value $UserAgent))
+        ('--user-data-dir=' + (Format-WinstCommandArgument -Value $profileDir))
         '--remote-debugging-port=0'
         'about:blank'
     )
-    if ($ProxyUrl) { $argList += ('--proxy-server="{0}"' -f $ProxyUrl) }
+    if ($ProxyUrl) { $argList += ('--proxy-server=' + (Format-WinstCommandArgument -Value ([string]$ProxyUrl))) }
 
     $process = $null
     try {
@@ -106,6 +115,9 @@ function New-WinstDevToolsSession {
     # 按 profile 目录匹配（拿到的 PID 可能只是先退出的那个引导进程），PID 再补一刀兜底；
     # 顺手把浏览器自己的 stderr 尾部拼进错误原因——端口没就绪 / 连不上 DevTools 时，那才是线索
     $cleanup = {
+        # 先断开 DevTools 连接再杀进程：否则已建立的 WebSocket 与 CTS 会留在返回的会话对象里没人释放
+        if ($result.Socket) { try { $result.Socket.Dispose() } catch { } }
+        if ($result.TokenSource) { try { $result.TokenSource.Cancel(); $result.TokenSource.Dispose() } catch { } }
         if ($profileDir) { $null = Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir }
         if ($result.ProcessId) { try { $null = & taskkill.exe /PID $result.ProcessId /T /F 2>&1 } catch { } }
         if ($profileDir -and (Test-Path -LiteralPath $profileDir)) {

@@ -23,7 +23,7 @@ function Resolve-WinstShortcutTarget {
     if (-not $displayName) { $displayName = Get-EntryString -Entry $Plan -Key 'id' }
     $result.DisplayName = $displayName
 
-    $main = Get-WinstMainProgram -Plan $Plan -InstallDir $InstallDir
+    $main = Get-WinstMainProgram -Plan $Plan
     if (-not $main) {
         $result.Note = '软件源里要求创建快捷方式，但没有指定主程序，已跳过'
         return $result

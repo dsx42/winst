@@ -70,7 +70,7 @@ function Get-WinstFilePlan {
             $plan['Hint'] = [string]$offlineExpected.Error
             return $plan
         }
-        Set-WinstFileHashDecision -Plan $plan -Entry $Entry -File $File -Name $name -Target $target `
+        Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target `
             -Expected $offlineExpected -ForceRehash
         return $plan
     }
@@ -123,6 +123,6 @@ function Get-WinstFilePlan {
     }
 
     # ③ 已声明校验 → 比对校验码
-    Set-WinstFileHashDecision -Plan $plan -Entry $Entry -File $File -Name $name -Target $target -Expected $expected -ForceRehash:$Offline
+    Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected -ForceRehash:$Offline
     return $plan
 }

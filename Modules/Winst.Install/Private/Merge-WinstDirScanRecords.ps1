@@ -13,7 +13,7 @@ function Merge-WinstDirScanRecords {
             if ($Found.Contains($matchId)) { continue }   # 已由注册表识别（installer 以注册表的安装位置为准）
             $app = $record['App']
             $type = (Get-EntryString -Entry $app -Key 'type').Trim().ToLowerInvariant()
-            $detect = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir ([string]$record['FullName']) -SourceName ([string]$record['Source'])
+            $detect = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir ([string]$record['FullName'])
             $version = 'unknown'
             if ($detect.Ok -and $detect.Version) { $version = [string]$detect.Version }
             $Found[$matchId] = New-WinstScanRecord -Id $matchId -Version $version -OldVersions @($detect.OldVersions) -Type $type `

@@ -4,10 +4,12 @@
 
     清单给出更新版本时更新 winst。
 
-    与 Update-WinstEngineIfOutdated 口径相同
-    ----------------------------------------
+    与 Update-WinstEngineIfOutdated 的关系
+    --------------------------------------
     同样是：比较台账版本与清单版本，`--offline` / `--dry-run` 下跳过，
     任一侧版本未知时不更新，失败不阻断调用方。
+    两处差异：引擎版每个进程只检查一次（WinstEngineUpdateChecked），本函数每次都检查；
+    引擎版只看 Ok，本函数要求 Ok 且 Updated 才算「已更新」。
 
     安装动作交给 Install-WinstSelf，由它处理绿色版 zip 结构
     （winst.ps1 + winst.cmd + Modules\）。

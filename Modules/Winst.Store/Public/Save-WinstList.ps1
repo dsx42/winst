@@ -20,10 +20,11 @@ function Save-WinstList {
 
     $result = @{ Ok = $false; Error = ''; Path = $Path; Count = 0; DryRun = [bool]$DryRun }
 
-    $lines = @()
+    # 逐行数组追加是 O(n²)：与 Read-WinstList 同一口径，统一用 List
+    $lines = New-Object 'System.Collections.Generic.List[string]'
     foreach ($one in @($CommentLines)) {
         $text = [string]$one
-        if ($text) { $lines += $text }
+        if ($text) { $lines.Add($text) }
     }
     $count = 0
     foreach ($one in @($Ids)) {
@@ -31,7 +32,7 @@ function Save-WinstList {
         if (-not $id) { continue }
         $version = ''
         if ($VersionById -and $VersionById.Contains($id)) { $version = [string]$VersionById[$id] }
-        if ($version) { $lines += ('{0}=={1}' -f $id, $version) } else { $lines += $id }
+        if ($version) { $lines.Add(('{0}=={1}' -f $id, $version)) } else { $lines.Add($id) }
         $count++
     }
     $result.Count = $count

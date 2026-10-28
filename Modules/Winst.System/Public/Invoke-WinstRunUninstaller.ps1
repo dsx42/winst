@@ -81,6 +81,11 @@ function Invoke-WinstRunUninstaller {
             $params = @{ FilePath = $exeText; Wait = $true; PassThru = $true }
             if ([string]$command.Args) { $params['ArgumentList'] = [string]$command.Args }
             $process = Start-Process @params
+            if ($null -eq $process -or $null -eq $process.ExitCode) {
+                # [int]$null 会得到 0（= 成功），随后台账被移除而程序还在
+                $result.Error = '读不到卸载程序退出码，未确认卸载成功（如已手动卸载，可加 --force 只移除安装记录）'
+                return $result
+            }
             $result.ExitCode = [int]$process.ExitCode
         } catch {
             $result.Error = ('运行卸载程序失败：{0}' -f $_.Exception.Message)

@@ -21,7 +21,7 @@ function Get-WinstAppxScanRecords {
     if (-not $Quiet) { Write-Host '  正在扫描系统应用包记录 …' -ForegroundColor Gray }
     foreach ($id in $appxIds) {
         $app = $Plan[$id]
-        $detectResult = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir '' -SourceName ([string]$Source[$id])
+        $detectResult = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir ''
         if (-not ($detectResult.Ok -and [string]$detectResult.Version)) {
             if ($VerboseOutput) {
                 Write-Host ('    [应用包] {0} → 没有找到已安装的应用包' -f $id) -ForegroundColor DarkGray

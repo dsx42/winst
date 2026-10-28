@@ -18,8 +18,9 @@ function Show-WinstHelp {
                 Write-Host '    搜索全部软件源（本地清单 + 内置源 + 用户添加的仓库源）；多个关键字整串优先，未命中再分别搜索合并。' -ForegroundColor Gray
             }
             'info'      {
-                Write-Host '  用法: winst info <id>' -ForegroundColor Yellow
+                Write-Host '  用法: winst info <id> [--force]' -ForegroundColor Yellow
                 Write-Host '    查看某个软件的详情（各来源版本、安装状态与位置、下载状态与位置、类型与说明）。' -ForegroundColor Gray
+                Write-Host '    --force: 忽略版本信息有效期，重新解析这个软件（调试本地清单时用）。' -ForegroundColor Gray
             }
             'download'  {
                 Write-Host '  用法: winst download <id> [<id>...]' -ForegroundColor Yellow
@@ -41,7 +42,7 @@ function Show-WinstHelp {
             }
             'uninstall' {
                 Write-Host '  用法: winst uninstall <id> [<id>...] [--force] [--kill] [--yes]' -ForegroundColor Yellow
-                Write-Host '    卸载软件；非 winst 安装（仅登记）默认只移除登记，--force 才实际卸载（也用于跳过失败的卸载命令）；--kill 自动结束正在运行的进程。' -ForegroundColor Gray
+                Write-Host '    卸载软件；非 winst 安装（仅登记）有卸载定义时按定义卸载、没有时只移除登记；--force 跳过卸载命令（卸载器缺失时也用它只移除登记）；--kill 自动结束正在运行的进程。' -ForegroundColor Gray
             }
             'clean'     {
                 Write-Host '  用法: winst clean [<id>]' -ForegroundColor Yellow

@@ -88,7 +88,7 @@ Modules\Winst.Store\
 
 ## 跨模块状态与缓存一致性
 
-PowerShell 的各模块有独立 `$script:` 作用域。`Winst.Core` 用 `Add-Type` 声明静态 `Winst.State` 字典，所有模块只通过 `Get/Set/Test/Remove/Reset-WinstState` 访问：
+PowerShell 的各模块有独立 `$script:` 作用域。`Winst.Core` 用 `Add-Type` 声明静态 `Winst.State` 字典，所有模块只通过 `Get/Set/Test/Remove-WinstState` 访问：
 
 - `Initialize-WinstState` 必须在业务代码前执行，集中声明 CLI 选项、HTTP/JSON/目录聚合缓存、系统快照、引擎路径缓存和菜单标志；重复执行只补空项，不清空已有缓存。
 - 状态只保存进程内数据，跨进程数据必须落盘（见 [data-files.md](data-files.md)）。

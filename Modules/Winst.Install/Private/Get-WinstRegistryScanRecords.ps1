@@ -49,7 +49,7 @@ function Get-WinstRegistryScanRecords {
         # 默认的 registry + 名称匹配，同样走这条路径。检测未命中才退回这条记录的 DisplayVersion，同样按
         # **检测侧**规则 detect.versionRewrite 归一。
         $version = ''
-        $detectResult = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir $location -SourceName ([string]$Source[$id])
+        $detectResult = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir $location
         if ($detectResult.Ok -and $detectResult.Version) { $version = [string]$detectResult.Version }
         if (-not $version) {
             $kind = (Get-EntryString -Entry $detect -Key 'versionKind').Trim()

@@ -51,7 +51,7 @@ function Update-ManifestSource {
     $fetchedAt = (Get-Date).ToString('s')
 
     # —— 取清单（本地 / 远程，含 {version} 指示地址与缓存复用） ——
-    $payload = Get-WinstManifestPayload -Context $Context -Source $Source -Name $name -Url $url -IsLocal:$isLocal `
+    $payload = Get-WinstManifestPayload -Context $Context -Source $Source -Url $url -IsLocal:$isLocal `
         -CachePath $cachePath -HasCache:$hasCache -CachedVersion $cachedVersion -Force:$Force
     if (-not $payload.Ok) {
         $result.Message = [string]$payload.Message

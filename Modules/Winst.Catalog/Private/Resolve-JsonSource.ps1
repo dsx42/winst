@@ -21,7 +21,7 @@ function Resolve-JsonSource {
 
     $result = New-SourceResolveResult -Kind 'json'
 
-    $spec = Get-WinstJsonSourceSpec -Entry $Entry -Result $result
+    $spec = Get-WinstJsonSourceSpec -Entry $Entry
     if ($spec.Error) { $result.Error = $spec.Error; return $result }
     $source = $spec.Source
     $declared = @($spec.Declared)

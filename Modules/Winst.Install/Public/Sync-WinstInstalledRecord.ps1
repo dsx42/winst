@@ -43,7 +43,7 @@ function Sync-WinstInstalledRecord {
         if ($actual.Dir -and $actual.Dir -ine $oldDir) { $newDir = $actual.Dir; $dirChanged = $true }
     }
 
-    $detect = Get-WinstDetectedVersion -Context $Context -Plan $plan -InstallDir $newDir -SourceName $planResult.Source
+    $detect = Get-WinstDetectedVersion -Context $Context -Plan $plan -InstallDir $newDir
     $newVersion = ''
     if ($detect.Ok -and $detect.Version) { $newVersion = [string]$detect.Version }
     $newOldVersions = @()

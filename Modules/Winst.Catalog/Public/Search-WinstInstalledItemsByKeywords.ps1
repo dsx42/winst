@@ -19,7 +19,6 @@ function Search-WinstInstalledItemsByKeywords {
         [Parameter(Mandatory = $true)][string]$Keyword
     )
 
-    $result = @{ Items = @(); Keywords = @($Keyword); Merged = $false; HitKeywords = @() }
     $all = @($Items)
 
     # 单关键字匹配（卸载口径）：先精确匹配 id / 名称，再按子串（均不区分大小写）
@@ -36,30 +35,6 @@ function Search-WinstInstalledItemsByKeywords {
         return $found
     }
 
-    $hits = @(& $matchItems $Keyword)
-    if ($hits.Count -gt 0) { $result.Items = @($hits); return $result }
-
-    $parts = @()
-    foreach ($token in @($Keyword -split '[\s,，、]+')) {
-        $one = ([string]$token).Trim()
-        if ($one -and ($parts -notcontains $one)) { $parts += $one }
-    }
-    if ($parts.Count -le 1) { return $result }
-
-    $result.Keywords = @($parts)
-    $result.Merged = $true
-    $ids = New-WinstOrdinalDictionary
-    $merged = @()
-    foreach ($one in $parts) {
-        $found = @(& $matchItems $one)
-        if ($found.Count -gt 0) { $result.HitKeywords += $one }
-        foreach ($item in $found) {
-            $idText = [string]$item['Id']
-            if (-not $idText -or $ids.Contains($idText)) { continue }
-            $ids[$idText] = $true
-            $merged += $item
-        }
-    }
-    $result.Items = @($merged)
-    return $result
+    # 整串优先 / 拆词合并 / 按 id 去重都在 Merge-WinstKeywordSearch 里（与软件源搜索同一套规则）
+    return (Merge-WinstKeywordSearch -Keyword $Keyword -Match $matchItems)
 }

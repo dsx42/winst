@@ -52,7 +52,13 @@ function Set-WinstAppSystemItems {
             if ($current -ceq $value) { continue }
         }
         Set-WinstEnvironmentVariableEx -Name $name -Value $value -Scope $scope
-        $appliedEnv += [ordered]@{ name = $name; scope = $scope }
+        # 记下覆盖前的原值：卸载时据此还原，否则「本来就有、被本软件覆盖」的变量会被直接删掉
+        $appliedEnv += [ordered]@{
+            name     = $name
+            scope    = $scope
+            existed  = ($null -ne $current)
+            previous = [string]$current
+        }
     }
 
     # PATH：**放在环境变量之后写入**

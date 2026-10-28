@@ -7,7 +7,7 @@ function Get-WinstJsonSourceSpec {
     .OUTPUTS
         @{ Error; Source; ApiUrl; VersionKind; VersionBetween; Declared; MainLocator; FileRule }
     #>
-    param($Entry, $Result)
+    param($Entry)
 
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
     $apiUrl = (Get-EntryString -Entry $source -Key 'apiUrl').Trim()

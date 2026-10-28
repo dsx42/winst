@@ -149,7 +149,9 @@ try {
     # Start-Process -ArgumentList 收到数组时只是用空格拼成一条命令行，不会自动加引号：
     # 临时目录常带空格（用户名形如 John Smith 时 %TEMP% 就是 C:\Users\John Smith\...），
     # 不逐项加引号的话 -File 的路径会被空格截断，--from 的值也会被拆成两个参数。
-    # 这里按 Windows argv 规则（同 winst 内部的 Format-WinstCommandArgument）自行加引号。
+    # 这里按 Windows argv 规则自行加引号。
+    # 同一算法在 Modules\Winst.Core\Public\Format-WinstCommandArgument.ps1 与 winst.ps1 里各有一份
+    # （本文件经 irm | iex 执行，不能依赖任何本地文件），改算法时三处一起改。
     $winstInstallArguments = @(
         '-NoProfile'
         '-ExecutionPolicy', 'Bypass'

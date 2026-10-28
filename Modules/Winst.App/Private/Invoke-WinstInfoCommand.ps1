@@ -13,21 +13,31 @@ function Invoke-WinstInfoCommand {
     )
 
     $id = ''
+    $force = $false
     foreach ($one in @($Arguments)) {
         $text = ([string]$one).Trim()
         if (-not $text) { continue }
+        if ($text -ieq '--force') { $force = $true; continue }
         if ($text.StartsWith('-')) { continue }
         if (-not $id) { $id = $text }
     }
     if (-not $id) {
         Write-Host ''
-        Write-Host '  用法: winst info <id>' -ForegroundColor Yellow
+        Write-Host '  用法: winst info <id> [--force]' -ForegroundColor Yellow
         Write-Host '  示例: winst info jdk21' -ForegroundColor Gray
+        Write-Host '  --force: 忽略版本信息有效期（manifestTTLHours），重新解析这个软件；调试本地清单时用' -ForegroundColor DarkGray
         return 1
     }
 
-    # 按需刷新这个软件的版本信息
-    $null = Update-WinstDisplaySources -Context $Context -Ids @($id) -Quiet
+    # 按需刷新这个软件的版本信息。
+    # --force 走「强制刷新 + 只解析这一个 id」：调试本地清单时改完 manifest.json 立刻能看到结果，
+    # 否则 24 小时有效期内的 id 会直接沿用解析锁里的旧值（改了什么都要等到期才生效）。
+    if ($force) {
+        $refresh = Update-WinstStaleSources -Context $Context -Force -OnlyIds @($id)
+        Write-WinstRefreshErrors -Errors $refresh.Errors
+    } else {
+        $null = Update-WinstDisplaySources -Context $Context -Ids @($id) -Quiet
+    }
     $overview = Get-WinstSoftwareOverview -Context $Context
     if (-not $overview.Ok) {
         Write-Host ''

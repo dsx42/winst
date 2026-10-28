@@ -9,23 +9,16 @@ function Write-WinstCachedList {
     #>
     param([hashtable]$Context)
 
-    # 先用本地安装包索引确定要展示的软件，再按需刷新这些软件的版本信息，
-    # 最后重建总览渲染——不把软件源里所有软件都解析一遍；没有已下载包时不做任何刷新
-    $preview = Get-WinstCachedOverview -Context $Context
-    $displayIds = @(Get-WinstDisplayIds -Items $(if ($preview.Ok) { $preview.Items } else { @() }))
-    $refresh = Update-WinstDisplaySources -Context $Context -Ids $displayIds
-    Write-WinstRefreshErrors -Errors $refresh.Errors
-
-    $overview = Get-WinstCachedOverview -Context $Context
-    if (-not $overview.Ok) {
+    # 展示项、按需刷新与总览重建都在 Get-WinstCachedOverviewReady 里（与菜单页同一段逻辑）
+    $ready = Get-WinstCachedOverviewReady -Context $Context
+    if (-not $ready.Ok) {
         Write-Host ''
-        Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
+        Write-Host ('  {0}' -f $ready.Error) -ForegroundColor Red
         return 1
     }
-    if ($overview.Warning) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor Yellow }
+    if ($ready.Warning) { Write-Host ('  提示: {0}' -f $ready.Warning) -ForegroundColor Yellow }
 
-    # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-    $items = @($overview.Items | Where-Object { $null -ne $_ })
+    $items = @($ready.Items)
     Write-Host ''
     if ($items.Count -eq 0) {
         Write-Host '  安装包位置里还没有下载好的安装包。' -ForegroundColor Yellow

@@ -6,7 +6,7 @@
 winst\
 ├── winst.ps1                 入口（按模块形态导入 + 退出码映射）
 ├── winst.cmd                 双击启动器
-├── manifest.json             内置软件源（独立仓库分发，构建树附测试副本，不进入 winst.zip）
+├── manifest.json             可选：本地测试内置源时放在这里，构建会复制进 dist\winst\（不进入 winst.zip）；内置源本身由独立仓库分发
 ├── install.ps1               一行安装引导脚本
 ├── build.cmd                 构建入口（GBK 批处理薄壳，转交 build.ps1）
 ├── build.ps1                 打包逻辑（合并模块、校验、产出 dist\）
@@ -54,7 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 --help
 - **改完模块要重新导入**：PowerShell 会缓存已导入的模块，设置环境变量 `WINST_DEV=1` 让入口带 `-Force` 导入
 - **单模块试验**：直接 `Import-Module .\Modules\Winst.Store\Winst.Store.psd1 -Force`；跨模块调用在运行时才解析，不必按顺序先导入别的模块
 - **详细日志**：`--verbose` 打印 HTTP、来源解析、文件匹配、版本检测细节；入口未捕获的异常也会带脚本堆栈
-- **不写盘试跑**：`--dry-run` 只展示计划，不下载、不安装、不写台账；软件源也可能联网查询。winst 自身安装是特例，预览会明确拒绝执行
+- **不写盘试跑**：`--dry-run` 只展示计划，不下载、不安装、不写缓存索引；唯一例外是「检测到同版本已安装、但台账里还没有该软件」时补的一条 `external` 登记。软件源也可能联网查询。winst 自身安装是特例，预览会明确拒绝执行
 - **隔离实验**：把数据、安装与缓存目录都指到临时目录，避免污染真实数据。**没有隔离就别说「测一下」**：安装 / 更新会真的写台账、改用户级环境变量与快捷方式
 
 临时目录示例：
@@ -150,6 +150,7 @@ dist\winst\winst.cmd list --cached
 构建自检，任一失败即中止，产物在全部通过后才写进 `dist\`：
 
 - `Modules\` 下每个子目录都要能作为模块识别（同名 `.psd1` / `.psm1` / `Public\`）
+- 各模块的 `.psm1` 加载器除模块名外逐字节一致（加载器是同一份，改一处就要全部一起改）
 - `Modules\` 下全部脚本与 `winst.ps1` 都是 UTF-8 with BOM + CRLF
 - 合并结果能通过 5.1 语法解析（报错会指回源文件）
 - 用 Windows PowerShell 5.1 在临时构建树里真跑一次 `winst.ps1 -v`，且报出的版本等于产品版本

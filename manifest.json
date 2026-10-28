@@ -68,6 +68,68 @@
         "method": "fileVersion",
         "pathGlob": "{installDir}\\WorkBuddy.exe"
       }
+    },
+    {
+      "id": "adb",
+      "name": "adb",
+      "description": "Android SDK Platform-Tools：adb / fastboot 等设备调试命令行工具",
+      "group": "开发工具",
+      "homepage": "https://developer.android.com/tools/releases/platform-tools",
+      "type": "portable",
+      "source": {
+        "kind": "direct",
+        "versionFrom": "page",
+        "pageUrl": "https://developer.android.com/tools/releases/platform-tools?hl=zh-cn",
+        "versionBetween": [ ">修订版本</h2>", "（" ],
+        "versionKind": "semver",
+        "files": [
+          { "url": "https://dl.google.com/android/repository/platform-tools-latest-windows.zip?hl=zh-cn" }
+        ]
+      },
+      "stripTopDir": true,
+      "mainExe": "adb.exe",
+      "processes": [ "adb.exe" ],
+      "addToPath": true,
+      "shortcuts": {
+        "desktop": false,
+        "startMenu": false
+      },
+      "detect": {
+        "method": "markerFile",
+        "pathGlob": "{installDir}\\source.properties",
+        "versionBetween": [ "Pkg.Revision=", "\n" ],
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "RustDesk",
+      "name": "RustDesk",
+      "description": "开源远程桌面",
+      "group": "远程控制",
+      "homepage": "https://rustdesk.com/",
+      "type": "file",
+      "source": {
+        "kind": "github",
+        "repo": "rustdesk/rustdesk",
+        "files": [
+          {
+            "file": "rustdesk-*-x86_64.exe",
+            "hashFile": "https://github.com/rustdesk/rustdesk/releases/expanded_assets/{version}",
+            "hashFrom": "digest"
+          }
+        ]
+      },
+      "postInstallCopy": [
+        { "from": "rustdesk-{version}-x86_64.exe", "to": "rustdesk.exe", "move": true }
+      ],
+      "shortcuts": {
+        "desktop": true,
+        "startMenu": true
+      },
+      "detect": {
+        "method": "fileVersion",
+        "pathGlob": "{installDir}\\rustdesk.exe"
+      }
     }
   ]
 }

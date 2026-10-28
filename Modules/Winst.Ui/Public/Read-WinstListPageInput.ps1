@@ -3,10 +3,11 @@
 function Read-WinstListPageInput {
     <#
     .SYNOPSIS
-        列表页统一输入：回车 / b / q、批量键、f 清过滤、编号选择与越界提示都只在这里定义。
+        列表页统一输入：回车 / b / q、批量键、f 清过滤、编号选择与越界提示。
     .DESCRIPTION
-        「已装软件」「已下载包」「软件列表」三个页面共用同一套输入循环（含越界提示文案），
+        「已装软件」「已下载包」「软件列表」三个页面共用这一套输入循环（含越界提示文案），
         三份容易走样。这里返回 0 基下标，由调用方换算成原数组下标。
+        多选页（Show-WinstListPickRows）自己维护「切换选中」的输入循环，不复用本函数。
     .OUTPUTS
         @{ Action = 'select' | 'back' | 'quit' | 'filter' | <ExtraKeys 里的动作>; Indexes; Filter }
           - filter：Filter 为新的过滤词（f = 清空，其它文本 = 设为该词）

@@ -40,7 +40,7 @@ function Invoke-WinstCommand {
     }
 
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
-        Write-Host '  严格离线模式：本次不会联网（只用已有缓存与本地清单）。' -ForegroundColor DarkGray
+        Write-Host '  严格离线模式：本次不会联网（只用已有的解析结果与缓存；软件源要先刷新过一次才可见）。' -ForegroundColor DarkGray
     }
 
     $ctx = $Context

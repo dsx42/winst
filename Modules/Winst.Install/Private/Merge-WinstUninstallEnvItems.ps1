@@ -22,7 +22,13 @@ function Merge-WinstUninstallEnvItems {
         $key = $text + '|' + $scopeText
         if ($envSeen.ContainsKey($key)) { continue }
         $envSeen[$key] = $true
-        $envList += [ordered]@{ name = $text; scope = $scopeText }
+        # 覆盖前的原值要一路带到卸载侧：安装前就存在的变量要还原，不能直接删掉用户的设置
+        $envList += [ordered]@{
+            name     = $text
+            scope    = $scopeText
+            existed  = [bool](Get-EntryBool -Entry $item -Key 'existed')
+            previous = (Get-EntryString -Entry $item -Key 'previous')
+        }
     }
     foreach ($snapshot in @($RecordSnapshot, $ManifestSnapshot)) {
         foreach ($name in @($snapshot['removeEnv'])) {

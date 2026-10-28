@@ -6,7 +6,7 @@ function Get-WinstBrowserHeaders {
         软件官网下载页抓取用的浏览器式请求头。
     .DESCRIPTION
         部分站点（如 filezilla-project.org）会按客户端特征拒绝自动化请求，只给浏览器放行：
-        page 源的页面抓取（IWR 通道）与提取出的地址做 HEAD 校验时统一带上这组请求头，
+        page 源的页面抓取（IWR 通道）带上这组请求头；部分 HEAD 探测调用点也会显式传入，
         取值与本机真实浏览器（Windows 自带的 Microsoft Edge）一致：User-Agent + Accept + Accept-Language + Cache-Control；
         无头浏览器抓取（Get-WinstBrowserPageHtml）也复用这里的 User-Agent。
         User-Agent 串是 Chromium 系通用的「Chrome/xxx」形态（Edge 自报的 UA 也是这个形状），它只是一串

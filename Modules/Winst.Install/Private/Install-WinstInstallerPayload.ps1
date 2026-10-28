@@ -58,9 +58,11 @@ function Install-WinstInstallerPayload {
     $argumentExpansion = Expand-WinstInstallerArguments -Template (Get-EntryString -Entry $Install -Key 'installArgs') `
         -InstallDir $InstallDir -InstallRoot $Context.InstallRoot
     if (-not (Test-WinstArgumentSafe -Value $work) -or -not (Test-WinstArgumentSafe -Value $InstallDir)) {
+        if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
         return @{ Ok = $false; Error = ('安装包路径或安装目录含有无法安全传给安装程序的字符（双引号 / 控制字符）：{0}' -f $work); InstallDir = $InstallDir }
     }
     if (-not $argumentExpansion.Ok) {
+        if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
         return @{ Ok = $false; Error = ('软件源里的安装参数无法安全展开：{0}' -f $argumentExpansion.Error); InstallDir = $InstallDir }
     }
     $argsText = [string]$argumentExpansion.Value

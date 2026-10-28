@@ -64,7 +64,7 @@ function Install-WinstEngine {
 
     # ② 解压 ③ 复制 / 改名
     $layout = Expand-WinstEnginePackage -Context $Context -Id $Id -Plan $plan -InstallDir $installDir `
-        -ArchivePath ([string]$download.PrimaryPath) -Quiet:$Quiet
+        -ArchivePath ([string]$download.PrimaryPath)
     if (-not $layout.Ok) {
         $result.Error = [string]$layout.Error
         return $result

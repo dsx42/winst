@@ -5,7 +5,7 @@ function Save-WinstConfig {
     .SYNOPSIS
         把配置写回 config.json（UTF-8 无 BOM；临时文件 + 重命名原子写）。
     .DESCRIPTION
-        按固定键序写出全部键，保留未知/探针读到的既有值，避免手工删键后丢失。
+        按固定键序写出全部键；只写这几个键，config.json 里手工加过的其它键不保留。
     #>
     param(
         [Parameter(Mandatory = $true)]

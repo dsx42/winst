@@ -49,7 +49,7 @@ function Get-WinstProxyAttempts {
     # 显式传了 --proxy：即使配置为 off 也按「始终走代理」处理（用户当次意图优先）
     if ($proxy -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Proxy -and $mode -eq 'off') { $mode = 'always' }
 
-    # 没配代理地址时三种模式都退化为「只直连」
+    # 没配代理地址时四种模式（auto / always / off / download-direct）都退化为「只直连」
     if (-not $proxy) { return @('') }
 
     $attempts = @()

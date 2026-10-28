@@ -42,10 +42,17 @@ function Remove-WinstAppliedSystemItems {
         }
 
         try {
-            $removedVariable = Remove-WinstEnvironmentVariableEx -Name $name -Scope $scope
-            if ($removedVariable -and -not $Quiet) { Write-Host ('    已移除环境变量: {0}（{1}）' -f $name, $scope) -ForegroundColor Gray }
+            if ([bool](Get-EntryBool -Entry $item -Key 'existed')) {
+                # 安装前就有这个变量（值被本软件覆盖过）：还原原值，不删用户的设置
+                $previous = Get-EntryString -Entry $item -Key 'previous'
+                Set-WinstEnvironmentVariableEx -Name $name -Value $previous -Scope $scope
+                if (-not $Quiet) { Write-Host ('    环境变量 {0} 已还原为安装前的值' -f $name) -ForegroundColor Gray }
+            } else {
+                $removedVariable = Remove-WinstEnvironmentVariableEx -Name $name -Scope $scope
+                if ($removedVariable -and -not $Quiet) { Write-Host ('    已移除环境变量: {0}（{1}）' -f $name, $scope) -ForegroundColor Gray }
+            }
         } catch {
-            $RunState.Notes += ('移除环境变量 {0} 失败：{1}' -f $name, $_.Exception.Message)
+            $RunState.Notes += ('回收环境变量 {0} 失败：{1}' -f $name, $_.Exception.Message)
         }
     }
 

@@ -34,14 +34,15 @@ function Get-Winst7zEntryPaths {
         return $result
     }
 
-    $paths = @()
+    # 逐条目数组追加是 O(n²)：几万条目的大包（Chrome / VS 安装器）会明显变慢，统一用 List
+    $paths = New-Object 'System.Collections.Generic.List[string]'
     $current = ''
     $isDir = $false
     $hasAttrs = $false
     foreach ($line in @($output)) {
         $text = [string]$line
         if ($text -match '^Path\s*=\s*(.+)\s*$') {
-            if ($current -and -not $isDir -and $hasAttrs) { $paths += $current }
+            if ($current -and -not $isDir -and $hasAttrs) { $paths.Add($current) }
             $current = $Matches[1].Trim()
             $isDir = $false
             $hasAttrs = $false
@@ -59,8 +60,8 @@ function Get-Winst7zEntryPaths {
             continue
         }
     }
-    if ($current -and -not $isDir -and $hasAttrs) { $paths += $current }
+    if ($current -and -not $isDir -and $hasAttrs) { $paths.Add($current) }
     $result.Ok = $true
-    $result.Paths = @($paths)
+    $result.Paths = @($paths.ToArray())
     return $result
 }

@@ -71,7 +71,7 @@ function Invoke-WinstCommandList {
 
         try {
             if (-not $p.WaitForExit($timeoutSec * 1000)) {
-                # 只 Kill 主进程会留下子进程占住安装目录（与 L14394 的超时处理保持同一口径：按进程树结束）
+                # 只 Kill 主进程会留下子进程占住安装目录：按进程树结束（与 Invoke-WinstCapturedCommand 同一口径）
                 try { $null = & taskkill.exe /PID $p.Id /T /F 2>&1 } catch { }
                 try { $p.Kill() } catch { }
                 try { $null = $p.WaitForExit(5000) } catch { }

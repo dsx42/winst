@@ -29,22 +29,7 @@ function Get-WinstProductVersion {
     [OutputType([string])]
     param()
 
-    return '2026.10.26'
-}
-
-function Get-WinstOfficialRepoUrl {
-    <#
-    .SYNOPSIS
-        产品仓库主页（winst 本体的源码与 release 所在仓库）。
-
-    .DESCRIPTION
-        它是产品主页，不是软件源仓库：软件源仓库见 Get-WinstOfficialManifestUrl。
-    #>
-    [CmdletBinding()]
-    [OutputType([string])]
-    param()
-
-    return 'https://github.com/dsx42/winst'
+    return '2026.10.28'
 }
 
 function Get-WinstOfficialManifestUrl {

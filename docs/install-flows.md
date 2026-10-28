@@ -41,7 +41,7 @@ github 源在「最新发布里还没有所需文件」时会退回更早的发�
 
 常用参数：
 
-- 全局：`--yes` / `-y` 跳过确认；`--dry-run` 不下载、不落盘、不写台账；`--offline` 禁止联网。全局开关可放在命令前后。
+- 全局：`--yes` / `-y` 跳过确认；`--dry-run` 不下载、不安装、不写缓存索引（唯一例外：检测到同版本已安装、但台账里还没有该软件时会补一条 `external` 登记）；`--offline` 禁止联网。全局开关可放在命令前后。
 - `install`：`--force`、`--overwrite`、`--keep a,b`、`--kill`、`--files-only`、`--system-items`、`--source <名称>`。
 - `install winst --from <路径>` 只用于本地自安装；其它安装类开关不适用，`download --from` 也不可用。
 - `update`：支持 `--check`、`--download-only`、`--force`、`--files-only`、`--system-items`、`--source <名称>`、`<id>...` 或 `--all`。`--check` 与 `--download-only` 互斥；`--all` 不能与具体 id 或 `--source` 同用。
@@ -131,7 +131,7 @@ github 源在「最新发布里还没有所需文件」时会退回更早的发�
 | `off` | 只直连 | 只直连 |
 | `download-direct` | 只用代理 | 先直连，失败再试代理 |
 
-`download-direct` 用于「网页 / API 必须借代理才打得开，但大文件本身直连很快」的环境。`--offline` 不发起网络请求，只使用本机清单与现有缓存。
+`download-direct` 用于「网页 / API 必须借代理才打得开，但大文件本身直连很快」的环境。`--offline` 不发起网络请求，只使用已有的解析结果（sidecar）与现有缓存：软件源要先刷新过一次才有解析结果，本地清单同样如此（它的正文在本地，但解析锁 `local.meta.json` 要刷新才生成）。
 
 ## 更新
 

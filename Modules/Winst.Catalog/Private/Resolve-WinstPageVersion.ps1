@@ -25,9 +25,10 @@ function Resolve-WinstPageVersion {
     }
 
     $versionSourceText = $DownloadUrl
-    if ($VersionFrom -eq 'page') { $versionSourceText = $Html }
+    $versionSourceWhere = '下载地址'
+    if ($VersionFrom -eq 'page') { $versionSourceText = $Html; $versionSourceWhere = '页面内容' }
 
-    $found = Get-VersionFromSourceText -Source $Source -Text $versionSourceText
+    $found = Get-VersionFromSourceText -Source $Source -Text $versionSourceText -Where $versionSourceWhere
     if ($found.Missing) {
         return @{ Error = ''; Version = (Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')) }
     }

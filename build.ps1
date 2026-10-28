@@ -63,7 +63,7 @@
 
     构建校验（任一失败即中止；全部通过后才把产物放进 dist\）
     ----------------------------------------------------
-        - Modules\ 下每个子目录都必须能作为模块识别（同名 .psd1 / .psm1 / Public\）
+        - Modules\ 下每个子目录都必须能作为模块识别（必须有同名 .psd1；.psm1 与 Public\ 随后另行校验）
         - 源文件必须 UTF-8 with BOM + CRLF；缺 BOM 或用 LF 直接报错并列出文件
           （5.1 按系统 ANSI 读无 BOM 文件，中文会静默乱码；构建不做自动修正）
         - 合并结果能通过 5.1 语法解析
@@ -503,6 +503,32 @@ try {
             $problems.Add(('模块 {0} 缺少 Public\ 目录' -f $dir.Name))
         }
     }
+
+    # ------------------------------------------------------------ 加载器一致性
+    # 各模块的 .psm1 是同一份加载器，只差模块名。改加载器必须每个模块一起改：
+    # 漏一处只有那个模块的加载行为不同，平时看不出来——构建时挡住。
+    $loaderShapes = @{}
+    foreach ($dir in $modules) {
+        $loaderPath = Join-Path $dir.FullName ($dir.Name + '.psm1')
+        if (-not (Test-Path -LiteralPath $loaderPath -PathType Leaf)) { continue }
+        $loaderText = [IO.File]::ReadAllText($loaderPath).Replace($dir.Name, '<module>')
+        $hash = [Security.Cryptography.SHA256]::Create()
+        try {
+            $shape = [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($loaderText)))
+        } finally {
+            $hash.Dispose()
+        }
+        if (-not $loaderShapes.ContainsKey($shape)) {
+            $loaderShapes[$shape] = New-Object 'System.Collections.Generic.List[string]'
+        }
+        $loaderShapes[$shape].Add($dir.Name + '.psm1')
+    }
+    if ($loaderShapes.Count -gt 1) {
+        $loaderGroups = @($loaderShapes.Values | ForEach-Object { '    ' + ($_.ToArray() -join '、') })
+        $problems.Add(('各模块的 .psm1 加载器必须完全相同（只允许模块名不同），当前有 {0} 种写法：{1}{2}' -f
+                $loaderShapes.Count, [Environment]::NewLine, ($loaderGroups -join [Environment]::NewLine)))
+    }
+
     if ($problems.Count -gt 0) {
         throw ($problems -join [Environment]::NewLine)
     }

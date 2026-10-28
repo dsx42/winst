@@ -7,7 +7,7 @@ function Expand-WinstEnginePackage {
     .OUTPUTS
         @{ Ok; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Plan, [string]$InstallDir, [string]$ArchivePath, [switch]$Quiet)
+    param([hashtable]$Context, [string]$Id, $Plan, [string]$InstallDir, [string]$ArchivePath)
 
     $install = Get-EntryValue -Entry $Plan -Key 'install' -Default $null
     $method = Get-EntryString -Entry $install -Key 'method'

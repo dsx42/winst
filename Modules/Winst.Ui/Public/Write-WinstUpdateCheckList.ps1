@@ -9,9 +9,10 @@ function Write-WinstUpdateCheckList {
     #>
     param([hashtable]$Context, $Check)
 
-    # 检查结果分三档展示：
+    # 检查结果分两段展示：
     #   ① 可以更新：绿色 + 编号，含「主包无变化、只有附加文件有更新」的条目；
-    #   ② 无法比较且无从下手：黄色 + 原因（软件源里没有这个软件 / 本机版本比软件源里的更新）。
+    #   ② 无法比较且无从下手：黄色 + 原因（软件源里没有这个软件 / 本机版本比软件源里的更新）；
+    #      解析阶段就失败的条目（ResolutionError）改用红色。
     $buckets = Get-WinstUpdateCheckBuckets -Entries $Check.Entries
     $updatableIds = @($buckets.UpdatableIds)
     $updateEntries = @($buckets.UpdateEntries)

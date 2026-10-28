@@ -3,7 +3,7 @@
 function Read-WinstConfirm {
     <#
     .SYNOPSIS
-        统一确认询问：`y` / `yes` 为同意（不区分大小写），其余输入（含回车）按 -Default 处理。
+        统一确认询问：`y` / `yes` 为同意（不区分大小写），空输入（直接回车）按 -Default，其它文本一律算不同意。
     .DESCRIPTION
         确认提示的「回车算什么」只在这里定义一处，避免各处自己解析出不同口径：
         - `(y/N)` → -Default 'n'：回车 = 不做任何改动；

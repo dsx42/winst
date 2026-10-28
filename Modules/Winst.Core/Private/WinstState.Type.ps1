@@ -14,7 +14,7 @@
 
     访问一律通过公开 API，存储方式将来要换也不必改调用点：
         Get-WinstState    Set-WinstState    Test-WinstState
-        Remove-WinstState Reset-WinstState
+        Remove-WinstState
 #>
 
 if (-not ('Winst.State' -as [type])) {

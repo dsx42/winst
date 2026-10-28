@@ -7,18 +7,7 @@ function Add-WinstPlanUninstallCommands {
     #>
     param($Uninstall, $Entry, [string]$Version)
 
-    $uninstallCommands = @()
     $uninstallSpec = Get-EntryValue -Entry $Entry -Key 'uninstall' -Default $null
-    foreach ($item in @(Get-EntryArray -Entry $uninstallSpec -Key 'commands')) {
-        $exeText = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $item -Key 'exe') -Version $Version
-        if (-not $exeText) { continue }
-        $commandBlock = [ordered]@{
-            exe        = $exeText
-            args       = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $item -Key 'args') -Version $Version
-            timeoutSec = (Get-EntryInt -Entry $item -Key 'timeoutSec' -Default 600)
-        }
-        if (Get-EntryBool -Entry $item -Key 'requireAdmin') { $commandBlock['requireAdmin'] = $true }
-        $uninstallCommands += $commandBlock
-    }
+    $uninstallCommands = @(New-WinstPlanCommandList -Commands (Get-EntryArray -Entry $uninstallSpec -Key 'commands') -Version $Version)
     if ($uninstallCommands.Count -gt 0) { $Uninstall['commands'] = @($uninstallCommands) }
 }

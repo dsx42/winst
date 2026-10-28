@@ -9,8 +9,8 @@ function Get-WinstBrowserPageHtml {
         （不禁用的话无头模式会自报 HeadlessChrome，同样被站点拒绝）、限时等待后输出 DOM。
         浏览器用户数据目录指向**进程级复用的临时 profile**（Get-WinstBrowserProfileDir，不碰用户正在
         使用的浏览器配置）：每次新建 profile 会反复触发新用户目录的首次运行导入器扫描，又慢又吵；
-        抓取失败时删掉该 profile 重建（防坏目录复用），进程正常退出时清理。
-        代理与其它元数据请求同一口径（直连 → 代理重试）。
+        抓取失败时删掉该 profile 重建（防坏目录复用）；正常退出不删，残留由下一个进程按 24 小时清理。
+        代理按 Get-WinstProxyAttempts 的元数据口径（auto：直连 → 代理重试；always / download-direct：只用代理；off：只直连）。
         抓取结果经管道直读（Invoke-WinstCapturedCommand，子进程不接触当前控制台），**不落临时文件**：
         `Start-Process -RedirectStandardOutput` 写文件再读的写法有句柄竞态——Edge 主进程退出 ≠ 输出流关闭
         （子进程或重定向复制仍在写），紧接着读文件会撞上「文件正由另一进程使用」。
@@ -23,7 +23,8 @@ function Get-WinstBrowserPageHtml {
         `--dump-dom` 因此在提权进程里注定空白；winst 安装和刷新都跑在提权进程里，这条不是偶发。
         非提权进程先走 `--dump-dom`，拿不到内容再用 CDP 兜一次。
 
-        两条通道都失败才会报错。`--dump-dom` 这条还会先清掉占着 profile 的残留浏览器
+        非提权进程两条通道都失败才会报错；提权进程只用 CDP，失败即报错（`--dump-dom` 在那里必然空白，
+        不再空跑一轮）。`--dump-dom` 这条还会先清掉占着 profile 的残留浏览器
         （Stop-WinstBrowserProfileProcesses）：profile 被占用时它会把命令行转交给在跑的实例、自己立刻退出，
         stdout 同样为空；清理后仍拿不到内容时删掉 profile、换新目录再试一轮（每个代理最多两轮）。
     .OUTPUTS
@@ -50,7 +51,6 @@ function Get-WinstBrowserPageHtml {
             [Security.Principal.WindowsBuiltInRole]::Administrator)
     } catch { $isElevated = $false }
 
-    $devToolsError = ''
     if ($isElevated) {
         $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec
         if ($viaDevTools.Ok) {
@@ -59,7 +59,10 @@ function Get-WinstBrowserPageHtml {
             $result.Engine = [string]$viaDevTools.Engine
             return $result
         }
-        $devToolsError = [string]$viaDevTools.Error
+        # 提权进程里 --dump-dom 必然拿不到输出（浏览器会降权重启、重定向的管道不跟着走）：
+        # 再走一轮只会白等 2 轮 × 超时，这里直接给结论
+        $result.Error = ('DevTools 抓取失败：{0}。提权进程里不能再用 --dump-dom（浏览器会降权重启、stdout 收不到内容）；请确认系统 Edge 可用，或检查 proxy / proxyMode 设置。' -f [string]$viaDevTools.Error)
+        return $result
     }
 
     $ua = ''
@@ -142,12 +145,6 @@ function Get-WinstBrowserPageHtml {
     if ($result.Ok) { return $result }
 
     if (@($attempts).Count -gt 1) { $lastError = ('{0}（直连与代理均失败）' -f $lastError) }
-
-    if ($isElevated) {
-        # 提权进程只可能走到这里：CDP 先试过、--dump-dom 也没内容。两条原因都带上
-        $result.Error = ('DevTools 抓取失败：{0}；--dump-dom 也没有输出：{1}' -f $devToolsError, $lastError)
-        return $result
-    }
 
     # 非提权进程先试过 --dump-dom 了，再给 CDP 一次机会（有的环境里 stdout 管道就是收不到东西）
     $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec
