@@ -30,7 +30,7 @@
   共享需要认证时，在「设置 → 安装包位置」里先输入 UNC 路径，再按提示单独输入账号与密码（密码不回显；两者都可以直接回车跳过）。winst 调用系统凭据管理器（cmdkey）认证，**认证成功才保存路径**，账号密码本身不写进 `config.json`、也不由 winst 保存。路径里不要写账号密码。
 - 更改 `installRoot` 只对此后的安装生效：已装软件留在旧位置继续可用，改完会列出旧位置里已有的软件目录。安装记录跟着安装位置存放，新位置暂时是空的。
 - 新位置没有台账时，`winst repair` 会扫描安装目录、注册表和 Appx 记录来重建，进入「已装软件」也会执行修复扫描。
-- winst 写出的 JSON、`.list` 和生成的文本文件使用 UTF-8 无 BOM。`Write-FileAtomic` 先写临时文件再替换；目标卷不支持原子替换时会退化为直接覆盖。
+- winst 写出的 JSON、`.list` 和生成的文本文件使用 UTF-8 无 BOM。`Write-FileAtomic` 先写临时文件再替换；目标卷不支持原子替换时会退化为直接覆盖。写入或替换失败同样会清理临时文件；共享目录「可写不可删」或临时文件被其它进程占用导致删不掉时，`--verbose` 会给出路径（清理失败不影响写入结果，也不掩盖原始错误）。
 - 同一数据目录用 `winst.lock` 的独占句柄防止并发写入。句柄决定占用状态，进程强杀后由系统释放；锁文件本身可能保留。只读的版本/帮助调用不抢锁。
 
 ## config.json
@@ -241,6 +241,7 @@ vscode==1.96.0
 - 顶层 `fetchedAt` 是本次取得或复用清单的时间，每次成功刷新都会改写；顶层 `resolvedAt` 是本次 sidecar 写入时间。每条 `resolvedAt` 用于 `manifestTTLHours` 的按需刷新判断，保留上次成功结果时也会更新为本次尝试时间。
 - `version` 已应用版本改写，`sourceVersion` 保留上游值；`sourceVersionRewrite` 供后续包内派生版本使用。`remoteFresh` 只在版本取自主包文件信息的条目中有意义，取 `changed` / `unchanged` / `unknown`，记录刷新时远端与缓存校验器的比对结论；成功下载后可更新为 `unchanged`。
 - 单条失败写 `ok: false` 与 `error`，不影响其它条目。若该 id 上次成功，刷新会保留上次成功计划、追加失败备注并更新本条 `resolvedAt`；清单中删去的 id 会清退。
+- 按需刷新只解析传入的 id，未解析过的条目不会写进 `apps`；关键字搜索零命中时会按清单正文补找并解析这些条目（见 `docs\manifest.md` 的「源刷新与解析锁」）。
 - 远程清单正文与 sidecar 分开：正文缓存用于离线回退，sidecar 保存 URL、时间和解析锁。sidecar 缺失或损坏时返回空结果，不删除正文缓存。
 - 本地清单没有 `remote\` 正文缓存，但仍将解析锁写入 `<pkgDir>\manifests\local.meta.json`。本地正文按以下优先级合并：脚本同目录 `manifest.json`、脚本同目录 `manifests\*.json`、`<pkgDir>\manifests\*.json`；同 id 取先出现者。包目录下的 `*.meta.json` 与 `sources.json` 不当正文读取，任一本地正文解析失败则本地源整体失败。
 

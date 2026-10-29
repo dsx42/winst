@@ -5,7 +5,7 @@ function Save-WinstManifestRefresh {
     .SYNOPSIS
         落盘：需要时写清单缓存，并改写 sidecar 的更新时间与解析锁。
     .OUTPUTS
-        @{ Error }
+        @{ Error; PersistUnavailable }
     #>
     param([hashtable]$Context, [string]$Name, [string]$CachePath, [string]$Content, [switch]$WriteCache,
         [string]$TargetUrl, [string]$Version, $Apps, [string]$FetchedAt)
@@ -19,8 +19,20 @@ function Save-WinstManifestRefresh {
         # 目标盘不可用（如映射盘在提权进程里看不到）与「真的写不进去」要分开报告：
         # 前者是可恢复的环境问题，提示用户换 UNC 路径；两者的共同点是本次解析结果仍然可用，
         # 调用方不应把它当成「刷新失败 → 下次再来一遍」。
+        # 目录不允许写入（共享只读 / ACL 拒绝）同样重试也不会成功，一并按「本会话不再重复刷新」处理。
         $persistUnavailable = $false
         $message = $_.Exception.Message
+        # HResult -2147024891 = 0x80070005 ACCESS_DENIED：系统语言不同也成立，不依赖本地化文案
+        $denied = $false
+        foreach ($candidate in @($_.Exception, $_.Exception.InnerException)) {
+            if ($null -eq $candidate) { continue }
+            if ($candidate -is [System.UnauthorizedAccessException] -or
+                $candidate -is [System.Security.SecurityException] -or
+                $candidate.HResult -eq -2147024891) { $denied = $true; break }
+        }
+        if ($denied -or $message -match '拒绝访问|Access is denied') {
+            $persistUnavailable = $true
+        }
         if ($message -match '目标盘当前不可用' -or
             $_.Exception -is [System.Management.Automation.DriveNotFoundException] -or
             $_.Exception -is [System.IO.DriveNotFoundException]) {

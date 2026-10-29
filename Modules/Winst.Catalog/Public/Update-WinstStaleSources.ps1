@@ -54,7 +54,7 @@ function Update-WinstStaleSources {
         if ($persistUnavailable.ContainsKey($name)) {
             if ($persistNoted -notcontains $name) {
                 $persistNoted += $name
-                $result.Errors += ('{0}: 上次刷新已取到最新数据，但缓存写不进去（目标盘当前不可用）；本会话内不再重复刷新。' -f $name)
+                $result.Errors += ('{0}: 上次刷新已取到最新数据，但缓存写不进去（目标盘当前不可用，或缓存目录不允许写入）；本会话内不再重复刷新。' -f $name)
             }
             continue
         }
