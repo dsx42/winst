@@ -5,7 +5,7 @@ function Copy-WinstBundlePackages {
     .SYNOPSIS
         ⑦ 复制安装包到 <目标>\apps\<id>\，并把摘要 / 文件元数据写进套件索引。
     .OUTPUTS
-        @{ Copied; Skipped; KitIndex }
+        @{ Copied; Skipped; KitIndex; Errors }
     #>
     param(
         $CopyItems,
@@ -23,6 +23,7 @@ function Copy-WinstBundlePackages {
         try { $kitIndex = (Read-WinstCacheIndex -PkgDir $KitAppsDir).Index } catch { $kitIndex = New-WinstOrdinalDictionary }
     }
 
+    $errors = @()
     $copied = 0
     $skipped = 0
     foreach ($entry in @($CopyItems)) {
@@ -34,7 +35,8 @@ function Copy-WinstBundlePackages {
 
         # id 会拼成 U 盘上的目录名：拒绝 ../ 与非目录名，避免清单把内容写到套件目录之外
         if (-not (Test-WinstSafePathSegment -Name $id)) {
-            Write-Host ('  跳过（id 不合法，无法作为目录名）: {0}' -f $id) -ForegroundColor Yellow
+            $errors += ('{0}: id 不合法，无法作为目录名' -f $id)
+            Write-Host ('  失败: {0}' -f $errors[-1]) -ForegroundColor Red
             continue
         }
         $targetIdDir = Join-WinstPath $KitAppsDir $id
@@ -70,6 +72,8 @@ function Copy-WinstBundlePackages {
         }
 
         try {
+            Assert-WinstSafeWritePath -Path $targetIdDir -Directory
+            Assert-WinstDistinctIds -Ids @(@($kitIndex.Keys) + @($id))
             # 版本不同：先删掉 U 盘上这个软件的旧目录，避免新旧文件混在一起
             if ($replacing) {
                 Clear-WinstInstallDir -Dir $targetIdDir -AllowedRoot $TargetDir
@@ -88,7 +92,8 @@ function Copy-WinstBundlePackages {
                 Write-Host ('  已复制: {0}（{1}，{2} 个文件）' -f [string]$item['DisplayName'], $sourceVersion, $sourceFiles.Count) -ForegroundColor Green
             }
         } catch {
-            Write-Host ('  失败: {0}: {1}' -f [string]$item['DisplayName'], $_.Exception.Message) -ForegroundColor Red
+            $errors += ('{0}: {1}' -f $id, $_.Exception.Message)
+            Write-Host ('  失败: {0}' -f $errors[-1]) -ForegroundColor Red
             continue
         }
 
@@ -113,5 +118,5 @@ function Copy-WinstBundlePackages {
         Set-WinstCacheIndexEntry -Index $kitIndex -Id $id -Version $sourceVersion -Files @($sourceFiles) -Hashes $hashes -ManifestHashes $manifestHashes -FileMeta $fileMeta
     }
 
-    return @{ Copied = $copied; Skipped = $skipped; KitIndex = $kitIndex }
+    return @{ Copied = $copied; Skipped = $skipped; KitIndex = $kitIndex; Errors = @($errors) }
 }

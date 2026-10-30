@@ -32,6 +32,10 @@ function Invoke-WinstPackageDownloadLoop {
             Write-Host ('    提示: {0}' -f [string]$filePlan['Hint']) -ForegroundColor DarkYellow
         }
 
+        if ($filePlan['ValidationError']) {
+            return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); Network = [bool]$filePlan['ValidationNetwork']; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+        }
+
         if (-not $filePlan['NeedDownload']) {
             $downloaded += $target
             continue

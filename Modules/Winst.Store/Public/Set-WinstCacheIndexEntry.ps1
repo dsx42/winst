@@ -27,15 +27,7 @@ function Set-WinstCacheIndexEntry {
     if ($null -eq $ManifestHashes) { $ManifestHashes = New-WinstOrdinalDictionary }
     if ($null -eq $FileMeta) { $FileMeta = New-WinstOrdinalDictionary }
 
-    # 防御：同一字典不允许同时存在仅大小写不同的键——这种 JSON 在 PS 5.1 / 7 下都无法被
-    # ConvertFrom-Json 解析（会整份索引判为损坏并重建，全部版本 / 摘要 / 新鲜度基线一起丢）。
-    # 与 Set-WinstInstalledApp 的口径一致：写入前先移除仅大小写不同的旧键。
-    $collisions = @()
-    foreach ($key in @($Index.Keys)) {
-        $keyText = [string]$key
-        if ($keyText -cne $Id -and $keyText -ieq $Id) { $collisions += $keyText }
-    }
-    foreach ($key in $collisions) { $Index.Remove($key) }
+    Assert-WinstDistinctIds -Ids @(@($Index.Keys) + @($Id))
 
     $Index[$Id] = [ordered]@{
         version        = $Version

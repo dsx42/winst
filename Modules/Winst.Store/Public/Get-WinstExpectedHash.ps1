@@ -6,7 +6,7 @@ function Get-WinstExpectedHash {
         取某个文件「应该」有的摘要：files[].hash 字面值，或 hashFile + hashFrom 从官方校验文件里取。
         算法由摘要长度决定（32 = MD5 / 40 = SHA1 / 64 = SHA256 / 128 = SHA512）。
     .OUTPUTS
-        @{ Ok; Hash; Label; Skipped; Error; HashFile; HashFrom; Fingerprint }
+        @{ Ok; Hash; Label; Skipped; Error; Network; HashFile; HashFrom; Fingerprint }
     .DESCRIPTION
         Hash 为空串表示该文件未声明校验（Skipped = $true）；Ok = $false 表示校验文件抓取 / 解析失败。
     #>
@@ -22,7 +22,7 @@ function Get-WinstExpectedHash {
 
     $result = @{
         Ok = $true; Hash = ''; Label = 'sha256'; Skipped = $true; Error = ''
-        HashFile = ''; HashFrom = ''; Fingerprint = ''
+        HashFile = ''; HashFrom = ''; Fingerprint = ''; Network = $false
     }
     if ($null -eq $FileDecl) { return $result }
 
@@ -74,6 +74,7 @@ function Get-WinstExpectedHash {
     } catch {
         $result.Ok = $false
         $result.Skipped = $false
+        $result.Network = $true
         $result.Error = ('下载校验文件失败：{0}（{1}）' -f $hashFile, $_.Exception.Message)
         return $result
     }

@@ -55,6 +55,10 @@ function Remove-RemoteManifest {
         }
     }
 
+    $metaPath = Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $sourceName
+    (Get-WinstState -Name WinstManifestSessionMeta).Remove($metaPath)
+    (Get-WinstState -Name WinstManifestPersistUnavailable).Remove($metaPath)
+    Reset-WinstCatalogCache
     $result.Success = $true
     $result.Message = ('已删除软件源 "{0}"' -f $sourceName)
     return $result

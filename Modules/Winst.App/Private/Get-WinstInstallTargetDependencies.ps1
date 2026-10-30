@@ -15,7 +15,7 @@ function Get-WinstInstallTargetDependencies {
     if (-not $SkipDependencies -and -not $IsDownloadPlan) {
         $depDeclared = @(Get-EntryArray -Entry $Plan -Key 'dependencies')
         if ($depDeclared.Count -gt 0 -and $PlanId) {
-            $resolvedDeps = Resolve-WinstDependencyOrder -Context $Context -Id $PlanId
+            $resolvedDeps = Resolve-WinstDependencyOrder -Context $Context -Id $PlanId -Plan $Plan
             if (-not $resolvedDeps.Ok) {
                 Write-Host ('    提示: 无法解析依赖（{0}），本次只处理本体。' -f $resolvedDeps.Error) -ForegroundColor DarkYellow
             } else {
@@ -34,6 +34,9 @@ function Get-WinstInstallTargetDependencies {
                         continue
                     }
 
+                    # 递归安装必须使用解析闭包时选定的来源，不能再次默认挑中其它来源。
+                    $depRow = Copy-WinstObjectShallow -InputObject $depRow
+                    $depRow['Sources'] = @($depEntry)
                     $depLedger = Get-WinstInstalledApp -State $stateForDeps -Id $depId
                     $depInstalledVersion = ''
                     if ($depLedger) { $depInstalledVersion = Get-EntryString -Entry $depLedger -Key 'version' }

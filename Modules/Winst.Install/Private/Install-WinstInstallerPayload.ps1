@@ -117,7 +117,8 @@ function Install-WinstInstallerPayload {
         }
         # 0 = 成功；1641 = 已发起重启（MSI/大量 exe 安装器常用）；3010 = 需重启才能完成
         if ($null -eq $exitCode) {
-            if (-not $Quiet) { Write-Host '    提示: 读不到安装程序退出码，按成功继续' -ForegroundColor DarkYellow }
+            if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
+            return @{ Ok = $false; Error = '读不到安装程序退出码，无法确认安装成功，请检查安装结果后重试。'; InstallDir = $InstallDir }
         } elseif (@(0, 1641, 3010) -notcontains [int]$exitCode) {
             if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = ('安装程序返回失败（退出码 {0}）' -f $exitCode); InstallDir = $InstallDir }

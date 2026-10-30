@@ -38,7 +38,14 @@ function Save-WinstManifestRefresh {
             $_.Exception -is [System.IO.DriveNotFoundException]) {
             $persistUnavailable = $true
         }
-        return @{ Error = ('写入缓存失败: {0}' -f $message); PersistUnavailable = $persistUnavailable }
+        $metaPath = Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $Name
+        (Get-WinstState -Name WinstManifestSessionMeta)[$metaPath] = @{
+            Url = $TargetUrl; Version = $Version; FetchedAt = $FetchedAt
+            ResolvedAt = (Get-Date).ToString('s'); Apps = @($Apps); HasApps = $true
+        }
+        if ($persistUnavailable) { (Get-WinstState -Name WinstManifestPersistUnavailable)[$metaPath] = $true }
+        Reset-WinstCatalogCache
+        return @{ Error = ('写入缓存失败: {0}；本次解析结果仅在当前会话可用' -f $message); PersistUnavailable = $persistUnavailable }
     }
     return @{ Error = ''; PersistUnavailable = $false }
 }

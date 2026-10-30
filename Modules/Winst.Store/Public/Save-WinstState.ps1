@@ -23,6 +23,7 @@ function Save-WinstState {
     $installed = $State['Installed']
     if ($null -eq $installed) { $installed = (New-WinstOrdinalDictionary) }
 
+    Assert-WinstDistinctIds -Ids @($installed.Keys)
     $obj = [ordered]@{
         schemaVersion = (Get-WinstStateSchemaVersion)
         installed     = $installed

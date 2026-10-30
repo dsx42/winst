@@ -34,14 +34,14 @@ function Invoke-WinstInstallCommand {
         $text = [string]$token
 
         if ($pendingValue) {
-            if (-not $text -or $text.StartsWith('-')) {
+            if (-not $text.Trim() -or $text.StartsWith('-')) {
                 # 下一个 token 是开关（如 `install x --keep --force`）：不能把它当成取值吞掉，
-                # 提示后让当前 token 继续按开关解析
+                # 缺少取值必须中止，避免丢失 --keep 后仍执行清理安装。
                 $missingName = '--source'
                 if ($pendingValue -eq 'keep') { $missingName = '--keep' }
                 if ($pendingValue -eq 'from') { $missingName = '--from' }
-                Write-Host ('  参数缺少取值：{0}（已忽略）' -f $missingName) -ForegroundColor Yellow
-                $pendingValue = ''
+                Write-Host ('  参数缺少取值：{0}' -f $missingName) -ForegroundColor Yellow
+                return 1
             } else {
                 if ($pendingValue -eq 'source') {
                     $sourceName = $text.Trim()
@@ -50,9 +50,18 @@ function Invoke-WinstInstallCommand {
                 } else {
                     $keep = @($text -split '[,，]' | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
                 }
+                if ($pendingValue -eq 'keep' -and $keep.Count -eq 0) {
+                    Write-Host '  --keep 必须指定至少一个保留路径。' -ForegroundColor Yellow
+                    return 1
+                }
                 $pendingValue = ''
                 continue
             }
+        }
+
+        if ($text -match '^--(source|from|keep)=\s*$' -or $text -match '^--keep=[,，\s]*$') {
+            Write-Host ('  参数缺少取值：{0}' -f $text) -ForegroundColor Yellow
+            return 1
         }
 
         if ($text -eq '--force') { $force = $true }

@@ -52,8 +52,8 @@ function Set-WinstSelfTree {
         使一行安装脚本不必把同一个 zip 解开两遍。
 
     .PARAMETER FallbackSourcePath
-        没有压缩包时使用的单个 winst.ps1（从当前运行脚本引导）。
-        此时 winst.cmd 会在本地生成。
+        没有压缩包时使用的 winst.ps1 路径；同时复制其相邻 Modules、winst.cmd 与 LICENSE。
+        运行树不完整时明确失败。
 
     .OUTPUTS
         @{ Ok; Error; Extracted }
@@ -78,6 +78,7 @@ function Set-WinstSelfTree {
     if (-not $sourceLabel) { $sourceLabel = $FallbackSourcePath }
 
     try {
+        Assert-WinstSafeWritePath -Path $InstallDir -Directory
         if (-not (Test-Path -LiteralPath $InstallDir -PathType Container)) {
             $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction Stop
         }
@@ -86,6 +87,7 @@ function Set-WinstSelfTree {
 
         # ---------------------------------------------------------- 取得树
         if ($SourceDir -and (Test-Path -LiteralPath $SourceDir -PathType Container)) {
+            Assert-WinstTreeWithoutReparsePoint -Path $SourceDir
             # 调用方已经解压过：直接复制树，不再把同一个压缩包解一遍。
             foreach ($item in @(Get-ChildItem -LiteralPath $SourceDir -Force -ErrorAction Stop)) {
                 Copy-Item -LiteralPath $item.FullName -Destination (Join-WinstPath $staging $item.Name) -Recurse -Force -ErrorAction Stop
@@ -99,9 +101,17 @@ function Set-WinstSelfTree {
             }
             $result.Extracted = $true
         } elseif ($FallbackSourcePath -and (Test-Path -LiteralPath $FallbackSourcePath -PathType Leaf)) {
-            # 引导场景：只有一个脚本可用。铺一个最小树并在本地生成启动器。
-            Copy-Item -LiteralPath $FallbackSourcePath -Destination (Join-WinstPath $staging 'winst.ps1') -Force -ErrorAction Stop
-            $result.Extracted = $false
+            # 离线首次引导也必须带完整运行树；单独复制入口脚本不能启动。
+            $fallbackDir = Split-Path -Parent $FallbackSourcePath
+            foreach ($required in @('winst.ps1', 'winst.cmd', 'LICENSE', 'Modules')) {
+                $sourceItem = Join-WinstPath $fallbackDir $required
+                if (-not (Test-Path -LiteralPath $sourceItem)) {
+                    throw ('当前运行树缺少 {0}，请使用完整的 winst.zip 或解压目录安装。' -f $required)
+                }
+                Assert-WinstTreeWithoutReparsePoint -Path $sourceItem
+                Copy-Item -LiteralPath $sourceItem -Destination (Join-WinstPath $staging $required) -Recurse -Force -ErrorAction Stop
+            }
+            $result.Extracted = $true
         } else {
             $result.Error = '没有可用的 winst 安装包'
             return $result
@@ -114,8 +124,8 @@ function Set-WinstSelfTree {
             return $result
         }
 
-        # 真正的 release 带可运行的模块，引导场景没有，
-        # 因此只在来源是 release 压缩包时才要求它。
+        # 每一种安装来源都必须提供可运行的模块。
+        Assert-WinstTreeWithoutReparsePoint -Path $staging
         $stagedModules = Join-WinstPath $staging 'Modules'
         if ($result.Extracted) {
             if (-not (Test-Path -LiteralPath $stagedModules -PathType Container)) {
@@ -149,7 +159,6 @@ function Set-WinstSelfTree {
 
         # ------------------------------------------- 清理目标目录的过期条目
         $userDataNames = @('lists')
-        if (-not $result.Extracted) { $userDataNames += 'Modules' }
 
         foreach ($item in @(Get-ChildItem -LiteralPath $InstallDir -Force -ErrorAction SilentlyContinue)) {
             $name = $item.Name
@@ -182,8 +191,7 @@ function Set-WinstSelfTree {
         }
 
         # ---------------------------------------------------- 启动器兜底
-        # 仅单文件引导路径需要。release 自带 winst.cmd，
-        # 不能被生成的版本覆盖。
+        # 完整运行树自带 winst.cmd；显式传入的本地包缺少时可生成启动器。
         $launcherPath = Join-WinstPath $InstallDir 'winst.cmd'
         if (-not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
             $null = New-WinstScriptLauncher -ScriptPath (Join-WinstPath $InstallDir 'winst.ps1')

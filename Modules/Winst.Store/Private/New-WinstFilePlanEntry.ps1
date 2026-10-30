@@ -20,6 +20,8 @@ function New-WinstFilePlanEntry {
         Reason                = ''
         Notice                = ''
         Hint                  = ''
+        ValidationError       = ''
+        ValidationNetwork     = $false
         Refresh               = 'auto'
         RefreshMaxAgeHours    = 168
         MetaUrl               = ''

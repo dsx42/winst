@@ -13,6 +13,8 @@ function Read-ManifestMeta {
     param([string]$PkgDir, [string]$Name)
 
     $path = Get-ManifestMetaPath -PkgDir $PkgDir -Name $Name
+    $sessionMeta = Get-WinstState -Name WinstManifestSessionMeta
+    if ($null -ne $sessionMeta -and $sessionMeta.ContainsKey($path)) { return $sessionMeta[$path] }
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
 
     try {

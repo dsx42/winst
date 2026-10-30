@@ -28,46 +28,52 @@ function Invoke-WinstApplySystemItems {
     $systemItems = @{ AppliedEnv = @(); AppliedPath = @(); AppliedShortcuts = @(); RepairedShortcuts = @(); Notes = @() }
     if (-not $InstallDir) { return @{ Items = $systemItems; Skipped = $false; Error = '' } }
 
-    $copy = Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $InstallDir
-    if (-not $copy.Ok) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$copy.Error } }
+    $systemItemsSkipped = $false
+    try {
+        $copy = Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $InstallDir
+        if (-not $copy.Ok) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$copy.Error } }
 
-    # 完整性优先级：-ForceSystemItems（完整更新）> -FilesOnly（彻底只更新文件）> 「设置 → 更新方式」。
-    $keepExisting = $true
-    if ($ForceSystemItems) {
-        $keepExisting = $false
-    } elseif (-not $FilesOnly) {
-        $keepExisting = [bool](Get-ConfigValue -Config $Context.Config -Key 'updateFilesOnly' -Default $true)
-    }
-    $systemItemsSkipped = [bool]$FilesOnly -or ($keepExisting -and [bool]$Ledger)
+        # 完整性优先级：-ForceSystemItems（完整更新）> -FilesOnly（彻底只更新文件）> 「设置 → 更新方式」。
+        $keepExisting = $true
+        if ($ForceSystemItems) {
+            $keepExisting = $false
+        } elseif (-not $FilesOnly) {
+            $keepExisting = [bool](Get-ConfigValue -Config $Context.Config -Key 'updateFilesOnly' -Default $true)
+        }
+        $systemItemsSkipped = [bool]$FilesOnly -or ($keepExisting -and [bool]$Ledger)
 
-    if ($systemItemsSkipped) {
-        if (-not $Quiet) {
-            if ($FilesOnly) {
-                Write-Host '    仅更新文件：环境变量 / PATH 保持原样；只校验并修正已存在的快捷方式' -ForegroundColor DarkYellow
-            } else {
-                Write-Host '    只更新文件：环境变量 / PATH 保持原样；只校验并修正已存在的快捷方式' -ForegroundColor DarkGray
+        if ($systemItemsSkipped) {
+            if (-not $Quiet) {
+                if ($FilesOnly) {
+                    Write-Host '    仅更新文件：环境变量 / PATH 保持原样；只校验并修正已存在的快捷方式' -ForegroundColor DarkYellow
+                } else {
+                    Write-Host '    只更新文件：环境变量 / PATH 保持原样；只校验并修正已存在的快捷方式' -ForegroundColor DarkGray
+                }
             }
-        }
-        # 环境变量 / PATH 不动，但已有快捷方式必须校验：位置换过以后旧 .lnk 指向空目录，双击打不开
-        $shortcuts = Set-WinstAppShortcuts -Plan $Plan -InstallDir $InstallDir -ExistingOnly
-        $systemItems.AppliedShortcuts = @($shortcuts.Applied)
-        $systemItems.RepairedShortcuts = @($shortcuts.Repaired)
-        if (-not $Quiet) {
-            foreach ($note in @($shortcuts.Notes)) {
-                if ($note -like '*已保留*') { continue }
-                Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow
+            # 环境变量 / PATH 不动，但已有快捷方式必须校验：位置换过以后旧 .lnk 指向空目录，双击打不开
+            $shortcuts = Set-WinstAppShortcuts -Plan $Plan -InstallDir $InstallDir -ExistingOnly
+            $systemItems.AppliedShortcuts = @($shortcuts.Applied)
+            $systemItems.RepairedShortcuts = @($shortcuts.Repaired)
+            if (-not $Quiet) {
+                foreach ($note in @($shortcuts.Notes)) {
+                    if ($note -like '*已保留*') { continue }
+                    Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow
+                }
             }
+        } else {
+            if ($keepExisting -and -not $Quiet) {
+                Write-Host '    首次安装：补齐缺失的环境变量 / 快捷方式（已存在的保持不动）' -ForegroundColor DarkGray
+            }
+            $systemItems = Set-WinstAppSystemItems -Context $Context -Plan $Plan -InstallDir $InstallDir -KeepExisting:$keepExisting
+            if ($systemItems.Error) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$systemItems.Error } }
+            foreach ($note in @($systemItems.Notes)) { Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow }
         }
-    } else {
-        if ($keepExisting -and -not $Quiet) {
-            Write-Host '    首次安装：补齐缺失的环境变量 / 快捷方式（已存在的保持不动）' -ForegroundColor DarkGray
-        }
-        $systemItems = Set-WinstAppSystemItems -Context $Context -Plan $Plan -InstallDir $InstallDir -KeepExisting:$keepExisting
-        foreach ($note in @($systemItems.Notes)) { Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow }
+
+        $post = Invoke-WinstPostInstallCommands -Context $Context -Plan $Plan -InstallDir $InstallDir
+        if (-not $post.Ok) { return @{ Items = $systemItems; Skipped = $systemItemsSkipped; Error = [string]$post.Error } }
+
+    } catch {
+        return @{ Items = $systemItems; Skipped = $systemItemsSkipped; Error = ('应用系统项失败：{0}' -f $_.Exception.Message) }
     }
-
-    $post = Invoke-WinstPostInstallCommands -Context $Context -Plan $Plan -InstallDir $InstallDir
-    if (-not $post.Ok) { return @{ Items = $systemItems; Skipped = $systemItemsSkipped; Error = [string]$post.Error } }
-
     return @{ Items = $systemItems; Skipped = $systemItemsSkipped; Error = '' }
 }

@@ -68,6 +68,9 @@ function Resolve-WinstBundleMissingPackages {
                 }
             }
             # 下载后再判定一次：仍缺包的计入「跳过」
+            $freshLookup = Get-WinstListLookups -Context $Context
+            if (-not $freshLookup.Ok) { throw ('下载后读取缓存失败：{0}' -f $freshLookup.Error) }
+            $Lookup = $freshLookup
             $stillMissing = @()
             foreach ($item in $needDownload) {
                 if ([bool]$item['CacheHas']) { continue }

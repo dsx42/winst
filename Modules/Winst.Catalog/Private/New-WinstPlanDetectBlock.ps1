@@ -11,6 +11,9 @@ function New-WinstPlanDetectBlock {
     $detectObj = Get-EntryValue -Entry $Entry -Key 'detect' -Default $null
     if ($null -ne $detectObj) {
         $method = (Get-EntryString -Entry $detectObj -Key 'method').Trim().ToLowerInvariant()
+        if ($method -and @('none', 'registry', 'fileversion', 'markerfile', 'jsonfile', 'appx', 'cliversion') -notcontains $method) {
+            return @{ Block = $detectBlock; Error = ('不支持的 detect.method：{0}；可用值为 none / registry / fileVersion / markerFile / jsonFile / appx / cliVersion' -f $method) }
+        }
         if ($method) { $detectBlock['method'] = $method }
 
         foreach ($key in @('name', 'versionKind', 'pathGlob', 'jsonKey', 'versionArgs', 'exe')) {

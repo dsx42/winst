@@ -14,6 +14,9 @@ function Move-WinstItemInto {
         [Parameter(Mandatory = $true)][string]$DestDir
     )
 
+    Assert-WinstSafeWritePath -Path $DestDir -Directory
+    Assert-WinstSafeWritePath -Path $Source.FullName
+
     # 压缩包里的符号链接 / junction：搬到安装目录后，后续「清理模式」的递归删除会跟随链接删掉目标内容
     if (Test-WinstReparsePoint -Path $Source.FullName) {
         throw ('压缩包里含有重解析点（junction / 符号链接），已拒绝搬运：{0}' -f $Source.FullName)
@@ -32,6 +35,7 @@ function Move-WinstItemInto {
             return
         }
         if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue }
+        Assert-WinstTreeWithoutReparsePoint -Path $Source.FullName
         Move-Item -LiteralPath $Source.FullName -Destination $target -Force -ErrorAction Stop
         return
     }

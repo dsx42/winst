@@ -10,5 +10,6 @@ function Save-WinstCacheIndex {
         [Parameter(Mandatory = $true)]$Index
     )
 
+    Assert-WinstDistinctIds -Ids @($Index.Keys)
     Write-FileAtomic -Path (Get-WinstCacheIndexPath -PkgDir $PkgDir) -Content (ConvertTo-WinstJson -InputObject $Index -Depth 8)
 }

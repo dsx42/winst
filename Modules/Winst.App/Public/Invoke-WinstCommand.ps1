@@ -33,7 +33,7 @@ function Invoke-WinstCommand {
         Write-Host (Get-WinstProductVersion)
         return 0
     }
-    if ($name -eq '--help' -or $name -eq '-h' -or $name -eq 'help' -or $name -eq '?') {
+    if ($name -eq '--help' -or $name -eq '-h' -or $name -eq 'help' -or $name -eq '?' -or $name -eq '-?') {
         $topic = ''
         if ($rest.Count -gt 0) { $topic = [string]$rest[0] }
         return (Show-WinstHelp -Command $topic)

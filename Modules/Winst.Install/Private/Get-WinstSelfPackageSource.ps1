@@ -12,7 +12,7 @@
        用 Invoke-WebRequest（Save-WinstFileWithHttp）下载，
        并按 files[0].hashFile 声明的 .zip.sha512 校验。
 
-    2. 当前运行的脚本（仅用于引导首次安装，更新时永不使用）
+    2. 当前运行树（脚本 + Modules + 启动器 + LICENSE；仅用于引导首次安装）
            $script:WinstScriptPath
        取不到压缩包时使用：离线，或仓库还没有发布任何版本。
        更新不得回退到它，否则「更新」会静默重装同一版本。
@@ -30,7 +30,7 @@ function Get-WinstSelfPackageSource {
     <#
     .SYNOPSIS
         定位并下载 winst 的 release 压缩包，取不到时回退到
-        当前运行的脚本。
+        当前运行的完整运行树。
 
     .PARAMETER RequireDownload
         指定后不允许用当前运行的脚本顶替。更新流程会用它，
@@ -163,7 +163,7 @@ function Get-WinstSelfPackageSource {
         $result.FallbackSourcePath = (Get-WinstState -Name WinstScriptPath)
         $result.Ok = $true
         if (-not $Quiet) {
-            Write-Host ('    提示: 改用当前运行的脚本作为 winst 的安装来源（{0}）' -f (Split-Path -Leaf $result.FallbackSourcePath)) -ForegroundColor DarkGray
+            Write-Host ('    提示: 改用当前完整运行树作为 winst 的安装来源（{0}）' -f (Split-Path -Leaf $result.FallbackSourcePath)) -ForegroundColor DarkGray
         }
         return $result
     }

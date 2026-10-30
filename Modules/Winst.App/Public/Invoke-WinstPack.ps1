@@ -72,8 +72,11 @@ function Invoke-WinstPack {
     $noSource = @($missing.NoSource)
     $result.Downloaded = [int]$missing.Downloaded
     if ([int]$missing.Downloaded -gt 0) {
-        # 下载补齐后必须重建计划：$plan 的 CacheHas 是下载前的快照，
-        # 沿用旧快照会让刚补齐的包既不复制进套件、也不计入「缺包」统计（静默产出残缺离线包）。
+        # 重新读取目录、索引和列表条目，不能继续引用下载前的缓存快照。
+        $loaded = Get-WinstListItems -Context $Context -Path $ListPath
+        if (-not $loaded.Ok) { $result.Error = [string]$loaded.Error; return $result }
+        $lookup = $loaded.Lookup
+        $sourceCacheIndex = $lookup['CacheIndex']
         $plan = @(Get-WinstPackItemList -Context $Context -Lookup $lookup -Items $loaded.Items)
     }
 
@@ -103,10 +106,14 @@ function Invoke-WinstPack {
 
     # —— ⑨ 汇总 ——
     $missingCount = $needDownload.Count + $noSource.Count
-    Write-WinstBundleSummary -TargetDir $TargetDir -DryRun:$dryRun -Copied $copied -Skipped $skipped `
-        -MissingCount $missingCount -ManifestCopied ([int]$support.ManifestCopied) -ListFileCount ([int]$support.ListFileCount)
-
-    $result.Ok = $true
+    if (@($packages.Errors).Count -gt 0) {
+        $result.Error = ('部分安装包复制失败：{0}' -f (@($packages.Errors) -join '；'))
+        Write-Host ('  制作U盘安装包失败: {0}' -f $result.Error) -ForegroundColor Red
+    } else {
+        Write-WinstBundleSummary -TargetDir $TargetDir -DryRun:$dryRun -Copied $copied -Skipped $skipped `
+            -MissingCount $missingCount -ManifestCopied ([int]$support.ManifestCopied) -ListFileCount ([int]$support.ListFileCount)
+        $result.Ok = $true
+    }
     $result.Copied = $copied
     $result.Skipped = $skipped
     $result.Missing = $missingCount

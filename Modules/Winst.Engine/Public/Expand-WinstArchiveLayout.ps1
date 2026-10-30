@@ -28,10 +28,15 @@ function Expand-WinstArchiveLayout {
     $tempRoot = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-x-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
 
     try {
+        Assert-WinstSafeWritePath -Path $DestDir -Directory
+        Assert-WinstSafeWritePath -Path $tempRoot -Directory
         $null = New-Item -ItemType Directory -Path $tempRoot -Force -ErrorAction Stop
 
         $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -AllowSfxPayload:$AllowSfxPayload
         if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
+
+        # 先校验完整解压树，再选择目录；不能先枚举 junction 的目标。
+        Assert-WinstTreeWithoutReparsePoint -Path $tempRoot
 
         # extractFiles：只搬这几个路径（文件 / 目录），一个都不能少
         # 每一项都先过 Resolve-WinstSafeChildPath：`..\..\Windows\System32` 这类写法能从临时解压目录
@@ -95,7 +100,7 @@ function Expand-WinstArchiveLayout {
                     if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) {
                         $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
                     }
-                    $inner = Expand-WinstPackageArchive -Context $Context -ArchivePath $candidate -DestDir $DestDir -AllowSfxPayload:$AllowSfxPayload
+                    $inner = Expand-WinstArchiveLayout -Context $Context -ArchivePath $candidate -DestDir $DestDir -StripTopDir $false -AllowSfxPayload:$AllowSfxPayload
                     if (-not $inner.Ok) { $result.Error = $inner.Error; return $result }
                     $result.Ok = $true
                     return $result

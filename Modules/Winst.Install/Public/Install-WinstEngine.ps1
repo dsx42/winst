@@ -26,6 +26,9 @@ function Install-WinstEngine {
 
     $result = @{ Ok = $false; Exe = ''; Error = ''; Installed = $false; Updated = $false }
 
+    try { Assert-WinstAppIdentityAvailable -Context $Context -Id $Id }
+    catch { $result.Error = $_.Exception.Message; return $result }
+
     $mainExe = Get-WinstEngineMainExe -Id $Id
     $existing = Get-WinstEngineExe -Context $Context -Id $Id
     if ($existing -and -not $ForceUpdate) {
@@ -53,6 +56,11 @@ function Install-WinstEngine {
     }
     $plan = $resolved.Plan
     $planId = Get-EntryString -Entry $plan -Key 'id'
+    try { Assert-WinstAppIdentityAvailable -Context $Context -Id $planId }
+    catch { $result.Error = $_.Exception.Message; return $result }
+    $downloadBlock = Get-EntryValue -Entry $plan -Key 'download' -Default $null
+    $nameError = Get-WinstDuplicateDownloadNameError -Files @(Get-EntryArray -Entry $downloadBlock -Key 'files')
+    if ($nameError) { $result.Error = $nameError; return $result }
     $installDir = Join-WinstPath $Context.InstallRoot $planId
 
     # ① 下载（引擎引导例外：IWR）+ 缓存索引 + 旧包清理

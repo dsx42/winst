@@ -7,10 +7,16 @@ function Get-WinstRepairCatalog {
     .OUTPUTS
         @{ Plan; Source; CiId; CanScan }
     #>
-    param([hashtable]$Context, [switch]$Quiet)
+    param([hashtable]$Context, [switch]$Quiet, [string[]]$RefreshIds = $null)
 
-    # 超期软件源先按 TTL 刷新，避免用过期清单匹配 id
-    $null = Update-WinstStaleSources -Context $Context -Quiet
+    # 超期软件源先按 TTL 刷新，避免用过期清单匹配 id。
+    # 页面内嵌调用（已装软件 / 检查更新）传 -RefreshIds：只刷这些 id，不把仅下载条目的版本也解析一遍；
+    # 独立执行 `winst repair`、或台账为空（没有可限定的 id）时按未限定处理，保持「刷新全部超期缓存」的口径。
+    if ($RefreshIds -and @($RefreshIds).Count -gt 0) {
+        $null = Update-WinstStaleSources -Context $Context -Quiet -OnlyIds $RefreshIds
+    } else {
+        $null = Update-WinstStaleSources -Context $Context -Quiet
+    }
     if (-not $Quiet) { Write-Host '  正在读取软件源清单 …' -ForegroundColor Gray }
     $allApps = @(Get-WinstAllResolvedApps -Context $Context)
 

@@ -45,5 +45,9 @@ function Resolve-AppSource {
         $result = New-SourceResolveResult -Kind $kind
         $result.Error = '来源解析未返回结果'
     }
+    if ($result.Ok) {
+        $nameError = Get-WinstDuplicateDownloadNameError -Files $result.Files
+        if ($nameError) { $result.Ok = $false; $result.Error = $nameError }
+    }
     return $result
 }

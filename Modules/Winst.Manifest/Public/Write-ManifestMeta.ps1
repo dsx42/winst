@@ -25,6 +25,11 @@ function Write-ManifestMeta {
     if ($null -ne $Apps) { $obj['apps'] = @($Apps) }
     Write-FileAtomic -Path $path -Content (ConvertTo-WinstJson -InputObject $obj -Depth 12)
 
+    $sessionMeta = Get-WinstState -Name WinstManifestSessionMeta
+    if ($null -ne $sessionMeta) { $sessionMeta.Remove($path) }
+    $unavailable = Get-WinstState -Name WinstManifestPersistUnavailable
+    if ($null -ne $unavailable) { $unavailable.Remove($path) }
+
     # 解析锁变化 → 软件清单汇总缓存（搜索 / 依赖索引）必须重建
     Reset-WinstCatalogCache
 }

@@ -10,6 +10,9 @@ function Install-WinstPortablePayload {
     param([hashtable]$Context, $Install, [string]$InstallDir, [string]$PrimaryPath,
         [switch]$Overwrite, [string[]]$Keep = @(), [switch]$Quiet)
 
+    try { Assert-WinstSafeWritePath -Path $InstallDir -Directory }
+    catch { return @{ Ok = $false; Error = $_.Exception.Message } }
+
     $engine = Confirm-WinstExtractEngine -Context $Context -Quiet:$Quiet
     if (-not $engine.Ok -and -not $Quiet) {
         Write-Host ('    解压引擎不可用（{0}），改用系统自带解压方式' -f $engine.Error) -ForegroundColor DarkYellow

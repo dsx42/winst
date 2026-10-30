@@ -87,6 +87,8 @@ function Install-WinstSelf {
     }
 
     $selfId = 'winst'
+    try { Assert-WinstAppIdentityAvailable -Context $Context -Id $selfId }
+    catch { $result.Error = $_.Exception.Message; return $result }
     $installDir = Join-WinstPath $Context.InstallRoot $selfId
     $launcherPath = Join-WinstPath $installDir 'winst.cmd'
 
@@ -184,7 +186,7 @@ function Install-WinstSelf {
 
     # ③ 解压并合并
     # 包来源有两字段（见 Get-WinstSelfPackageSource）：ArchivePath = 下载到的
-    # release zip（正常路径），FallbackSourcePath = 只能拿到运行中脚本时的兜底。
+    # release zip（正常路径），FallbackSourcePath = 当前完整运行树中的入口脚本位置。
     # 这里必须按这两个真实字段名取，写错键名在 StrictMode 下会直接抛
     # 「找不到属性 SourcePath」，把自动安装 winst 打断（首次安装即失败）。
     $write = Set-WinstSelfTree -InstallDir $installDir -ArchivePath ([string]$package.ArchivePath) `

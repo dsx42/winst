@@ -3,7 +3,7 @@
 function Merge-WinstUninstallEnvItems {
     <#
     .SYNOPSIS
-        ④ 合并环境变量与 PATH 项：已登记的实际值 + 两处卸载定义里声明的值，按「名称|作用域」去重。
+        ④ 合并环境变量与 PATH 项：只回收台账中登记的实际写入项，按「名称|作用域」去重。
     .OUTPUTS
         @{ Env; Path }
     #>
@@ -30,20 +30,8 @@ function Merge-WinstUninstallEnvItems {
             previous = (Get-EntryString -Entry $item -Key 'previous')
         }
     }
-    foreach ($snapshot in @($RecordSnapshot, $ManifestSnapshot)) {
-        foreach ($name in @($snapshot['removeEnv'])) {
-            $text = ([string]$name).Trim()
-            if (-not $text) { continue }
-            $scopeText = 'User'
-            if ($DefaultScope -eq 'Machine') { $scopeText = 'Machine' }
-            $key = $text + '|' + $scopeText
-            if ($envSeen.ContainsKey($key)) { continue }
-            $envSeen[$key] = $true
-            $envList += [ordered]@{ name = $text; scope = $scopeText }
-        }
-    }
-
-    # PATH 项：同上（清单里写的是 {installDir}\bin 这类写法，按本机安装目录展开后再比对/回收）
+    # 清单声明不代表实际写入：首次安装可能保留用户已有变量 / PATH，卸载不能据此认领。
+    # PATH 同样只使用实际写入登记。
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'appliedPath')) {
         $text = (Get-EntryString -Entry $item -Key 'path').Trim()
         if (-not $text) { continue }
@@ -54,19 +42,5 @@ function Merge-WinstUninstallEnvItems {
         $pathSeen[$key] = $true
         $pathList += [ordered]@{ path = $text; scope = $scopeText }
     }
-    foreach ($snapshot in @($RecordSnapshot, $ManifestSnapshot)) {
-        foreach ($value in @($snapshot['removePaths'])) {
-            $expanded = Expand-PlanPlaceholders -Value ([string]$value) -InstallDir $InstallDir -InstallRoot $InstallRoot
-            $text = ([string]$expanded).Trim()
-            if (-not $text) { continue }
-            $scopeText = 'User'
-            if ($DefaultScope -eq 'Machine') { $scopeText = 'Machine' }
-            $key = $text + '|' + $scopeText
-            if ($pathSeen.ContainsKey($key)) { continue }
-            $pathSeen[$key] = $true
-            $pathList += [ordered]@{ path = $text; scope = $scopeText }
-        }
-    }
-
     return @{ Env = @($envList); Path = @($pathList) }
 }

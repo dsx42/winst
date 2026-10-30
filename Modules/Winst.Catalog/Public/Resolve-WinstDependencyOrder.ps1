@@ -12,18 +12,23 @@ function Resolve-WinstDependencyOrder {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Id
+        [Parameter(Mandatory = $true)][string]$Id,
+        $Plan = $null
     )
 
     $result = @{ Ok = $false; Order = @(); Missing = @(); Error = '' }
     $index = Get-WinstDependencyIndex -Context $Context
-    if (-not $index['Deps'].Contains($Id)) {
+    $deps = New-WinstOrdinalDictionary
+    foreach ($key in @($index['Deps'].Keys)) { $deps[$key] = $index['Deps'][$key] }
+    # 本体按已选来源覆盖，不能修改进程缓存或合并其它来源的依赖。
+    if ($null -ne $Plan) { $deps[$Id] = @(Get-EntryArray -Entry $Plan -Key 'dependencies') }
+    if (-not $deps.Contains($Id)) {
         $result.Error = ('软件源里没有找到「{0}」，无法解析它的依赖。' -f $Id)
         return $result
     }
 
     $state = @{
-        Deps        = $index['Deps']
+        Deps        = $deps
         Order       = @()
         Levels      = New-WinstOrdinalDictionary
         Via         = New-WinstOrdinalDictionary
@@ -34,7 +39,7 @@ function Resolve-WinstDependencyOrder {
     }
     $state['Done'][$Id] = $true   # 本体不入依赖序；依赖成环绕回本体时直接跳过
 
-    foreach ($depId in @($index['Deps'][$Id])) {
+    foreach ($depId in @($deps[$Id])) {
         if (-not $state['Levels'].Contains($depId)) {
             $state['Levels'][$depId] = 1
             $state['Via'][$depId] = $Id

@@ -13,6 +13,9 @@ function Install-WinstFilePayload {
     #>
     param([string]$InstallDir, [string]$PrimaryPath)
 
+    try { Assert-WinstSafeWritePath -Path $InstallDir -Directory }
+    catch { return @{ Ok = $false; Error = $_.Exception.Message } }
+
     $fileName = Split-Path -Leaf $PrimaryPath
     if (-not $fileName) { return @{ Ok = $false; Error = '安装包文件名不可用，无法落位单文件条目' } }
     if (-not (Test-Path -LiteralPath $InstallDir -PathType Container)) {
@@ -21,6 +24,8 @@ function Install-WinstFilePayload {
     $fileTarget = Join-WinstPath $InstallDir $fileName
     $fileTemp = Join-WinstPath $InstallDir ('.winst-new-' + [Guid]::NewGuid().ToString('N').Substring(0, 8) + '.tmp')
     try {
+        Assert-WinstSafeWritePath -Path $fileTarget
+        Assert-WinstSafeWritePath -Path $fileTemp
         Copy-Item -LiteralPath $PrimaryPath -Destination $fileTemp -Force -ErrorAction Stop
         if (Test-Path -LiteralPath $fileTarget -PathType Leaf) {
             try {

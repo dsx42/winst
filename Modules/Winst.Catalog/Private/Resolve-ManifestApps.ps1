@@ -23,6 +23,16 @@ function Resolve-ManifestApps {
     $onlySet = $null
     if (@($OnlyIds).Count -gt 0) { $onlySet = Get-WinstIdFilterSet -Ids $OnlyIds }
 
+    # 进度分母用「本次要解析的条目数」：按需解析时不该显示整份清单的总数
+    $targetTotal = $entryList.Count
+    if ($onlySet) {
+        $targetTotal = 0
+        foreach ($one in $entryList) {
+            $oneId = Get-EntryString -Entry $one -Key 'id'
+            if ($oneId -and $onlySet.ContainsKey($oneId)) { $targetTotal++ }
+        }
+    }
+
     $apps = New-Object 'System.Collections.Generic.List[object]'
     $succeeded = 0
     $failed = 0
@@ -88,7 +98,7 @@ function Resolve-ManifestApps {
             $versionSlotText = '新版本'
             if ($lineColor -eq 'DarkGray') { $lineColor = 'Yellow' }
         }
-        Write-Host ('    [{0}/{1}] {2}  {3}  {4}' -f $index, $entryList.Count, $displayName, $versionSlotText, $mark) -NoNewline -ForegroundColor $lineColor
+        Write-Host ('    [{0}/{1}] {2}  {3}  {4}' -f $index, $targetTotal, $displayName, $versionSlotText, $mark) -NoNewline -ForegroundColor $lineColor
         Write-Host ''
 
         $apps.Add($plan)

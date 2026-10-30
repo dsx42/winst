@@ -94,14 +94,12 @@ function Invoke-WinstRunUninstaller {
         $ran++
 
         if ($result.ExitCode -eq 3010) {
-            $result.Ok = $true
             $result.NeedRestart = $true
-            return $result
+            continue
         }
         if ($result.ExitCode -eq 1605) {
             # 1605 = 产品未安装：已被上一条卸载连带移除 → 视为已卸载
-            $result.Ok = $true
-            return $result
+            continue
         }
         if ($result.ExitCode -ne 0) {
             $result.Error = ('卸载程序返回失败（退出码 {0}）' -f $result.ExitCode)
@@ -118,7 +116,7 @@ function Invoke-WinstRunUninstaller {
 
     # 卸载成功后收尾：清理「卸载器文件缺失」的孤儿注册键（它们的卸载器已不在，留着的唯一作用是
     # 让「设置 → 应用」里一直显示这个软件）
-    foreach ($orphan in @($orphanKeys)) {
+    foreach ($orphan in $orphanKeys.ToArray()) {
         $orphanPath = [string]$orphan['KeyPath']
         # 只允许删「卸载记录」分支下的键：KeyPath 虽然来自注册表枚举，但脏数据 / 被改过的值
         # 不能拿去递归删除任意注册表键。`[^\\]+` 会匹配 `..`（解析出来是 CurrentVersion），

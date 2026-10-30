@@ -21,7 +21,8 @@ function Get-WinstDependencyLines {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string]$Type = ''
+        [string]$Type = '',
+        $Plan = $null
     )
 
     $lines = New-Object 'System.Collections.Generic.List[object]'
@@ -30,9 +31,8 @@ function Get-WinstDependencyLines {
 
     $index = Get-WinstDependencyIndex -Context $Context
     if (-not $index['Deps'].Contains($Id)) { return $lines }
-    if (@($index['Deps'][$Id]).Count -eq 0) { return $lines }
 
-    $resolved = Resolve-WinstDependencyOrder -Context $Context -Id $Id
+    $resolved = Resolve-WinstDependencyOrder -Context $Context -Id $Id -Plan $Plan
     if (-not $resolved.Ok) { return $lines }
 
     $rows = $index['Rows']

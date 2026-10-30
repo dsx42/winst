@@ -14,7 +14,7 @@ function Invoke-WinstCommandList {
           （pip 的进度 / regsvr32 的报错之类）照常显示在界面上。退出码必须能可靠读到——
           `Start-Process -PassThru` 不带 `-Wait` 时再手动 `WaitForExit()`，`$p.ExitCode` 恒为 `$null`，
           于是 `$null -ne 0` 恒真、退出码 0 的命令被误判成失败（消息里还会渲染出空的「退出码 」）；
-          详。确实拿不到退出码时按成功处理（没有任何证据说明它失败），只打一行提示。
+          无法取得退出码时返回失败，要求用户核实执行结果。
         $Label 用于拼错误消息与提示行（「安装后」/「卸载」），便于用户看出是哪一步。
     .OUTPUTS
         @{ Ok; Error }
@@ -80,8 +80,7 @@ function Invoke-WinstCommandList {
             $exitCode = $null
             try { $exitCode = $p.ExitCode } catch { $exitCode = $null }
             if ($null -eq $exitCode) {
-                # 拿不到退出码就没有任何证据说明它失败：只提示一行，按成功继续（绝不误报）
-                Write-Host ('    提示: 无法读取{0}的退出码，按成功处理' -f $Label) -ForegroundColor DarkYellow
+                return @{ Ok = $false; Error = ('无法读取{0}的退出码，无法确认执行成功：{1}' -f $Label, $exePath) }
             } elseif (@(0, 1641, 3010) -notcontains [int]$exitCode) {
                 # 与 Install-WinstInstallerPayload 同一口径：1641 = 已发起重启，3010 = 需重启才能完成
                 return @{ Ok = $false; Error = ('{0}失败（退出码 {1}）：{2} {3}' -f $Label, $exitCode, $exePath, $argsText) }

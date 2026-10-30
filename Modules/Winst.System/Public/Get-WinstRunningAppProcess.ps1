@@ -9,8 +9,8 @@ function Get-WinstRunningAppProcess {
         路径读不到时（如以管理员运行）仅在进程名与主程序一致时才作为候选。
         `Certain` 区分「路径确认」与「仅按名字兜底」：
           - 路径确认在安装目录下 → $true，允许不询问就结束；
-          - 清单 `processes` 里声明的名字与主程序同名（chrome.exe）→ $true；
-          - 声明的是共享运行时（java / python / node 等）或路径在别处 → $false，必须让用户确认。
+          - 只按清单进程名 / 主程序名命中 → $false，要求用户手动关闭。
+        -Refresh 跳过进程快照缓存，强制用实时数据判定（交互确认后复核用）。
     .OUTPUTS
         @( @{ Id; Name; Path; Certain } )
     #>
@@ -18,7 +18,8 @@ function Get-WinstRunningAppProcess {
         [hashtable]$Context,
         $Plan,
         [string]$InstallDir = '',
-        [string[]]$ExtraDirs = @()
+        [string[]]$ExtraDirs = @(),
+        [switch]$Refresh
     )
 
     $dirs = @()
@@ -44,7 +45,7 @@ function Get-WinstRunningAppProcess {
 
     $result = @()
     $self = $PID
-    foreach ($proc in @(Get-WinstProcessSnapshot)) {
+    foreach ($proc in @(Get-WinstProcessSnapshot -Refresh:$Refresh)) {
         $procId = [int]$proc['Id']
         if ($procId -eq $self) { continue }
 
@@ -65,17 +66,13 @@ function Get-WinstRunningAppProcess {
             }
         }
 
-        # 声明的进程名：清单声明 = 有意覆盖该产品的全部进程（如 Chrome 的 MsiExec 型记录拿不到安装目录）。
-        # 但「只按名字命中」的风险取决于名字是不是这个软件自己的主程序：
-        #   - 与主程序同名（chrome.exe）→ 视为确认命中，可自动结束；
-        #   - 是共享运行时（java / python / dotnet / node 等）→ 只算候选，必须让用户确认，
-        #     否则 `processes: ["java"]` 一条声明就能把用户机器上所有 JVM 一起杀掉。
+        # 仅按名字命中的进程不能证明属于本次安装，只提示用户手动关闭。
         if (-not $matched -and $declaredNames.Count -gt 0) {
             $nameBase = ''
             try { $nameBase = [IO.Path]::GetFileNameWithoutExtension([string]$proc['Name']) } catch { $nameBase = '' }
             if ($nameBase -and ($declaredNames -contains $nameBase.ToLowerInvariant())) {
                 $matched = $true
-                $certain = [bool]($mainBase -and ($nameBase -ieq $mainBase))
+                $certain = $false
             }
         }
 

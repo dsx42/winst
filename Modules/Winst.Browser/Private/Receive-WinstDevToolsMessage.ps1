@@ -19,6 +19,8 @@ function Receive-WinstDevToolsMessage {
             Buffer  = $buffer
             Segment = (New-Object 'System.ArraySegment[byte]' -ArgumentList @(, $buffer))
             Builder = (New-Object System.Text.StringBuilder 4096)
+            Decoder = [System.Text.Encoding]::UTF8.GetDecoder()
+            Chars   = (New-Object char[] ([System.Text.Encoding]::UTF8.GetMaxCharCount(65536)))
             Task    = $null
         }
     }
@@ -43,10 +45,13 @@ function Receive-WinstDevToolsMessage {
             throw ('无头浏览器的 DevTools 连接出错：{0}' -f $_.Exception.Message)
         }
 
-        $null = $pending.Builder.Append([System.Text.Encoding]::UTF8.GetString($pending.Buffer, 0, $received.Count))
+        # UTF-8 字符可能跨分片；Decoder 与待接收任务一起保留到消息结束（包括超时重入）。
+        $charCount = $pending.Decoder.GetChars($pending.Buffer, 0, $received.Count, $pending.Chars, 0, [bool]$received.EndOfMessage)
+        $null = $pending.Builder.Append($pending.Chars, 0, $charCount)
         if ($received.EndOfMessage) {
             $text = $pending.Builder.ToString()
             $null = $pending.Builder.Clear()
+            $pending.Decoder.Reset()
             return $text
         }
     }

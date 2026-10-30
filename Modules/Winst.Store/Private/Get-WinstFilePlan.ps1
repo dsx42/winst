@@ -110,9 +110,12 @@ function Get-WinstFilePlan {
             $plan['Hint'] = [string]$expected.Error
             return $plan
         }
-        # 校验文件读不到：不因此否定缓存（真正需要时报错由下载 / 校验阶段给出）
-        $plan['NeedDownload'] = $false
-        $plan['Reason'] = '已缓存（暂时取不到校验文件）'
+        # 无法取得声明的校验信息时，缓存不能被视为已验证；交给下载 / 校验阶段明确报错。
+        $plan['NeedDownload'] = $true
+        $plan['ValidationError'] = [string]$expected.Error
+        $plan['ValidationNetwork'] = Get-EntryBool -Entry $expected -Key 'Network'
+        $plan['Reason'] = '无法验证缓存的完整性'
+        $plan['Hint'] = [string]$expected.Error
         return $plan
     }
     if ($expected.Skipped) {

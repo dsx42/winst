@@ -94,7 +94,7 @@ function Show-WinstHelp {
     Write-Host '    --install-root <路径>      软件安装位置' -ForegroundColor Gray
     Write-Host '    --proxy <地址>             代理地址' -ForegroundColor Gray
     Write-Host '    --offline                  严格离线（不联网，只用已有缓存）' -ForegroundColor Gray
-    Write-Host '    --dry-run                  只预览，不写盘' -ForegroundColor Gray
+    Write-Host '    --dry-run                  预览操作，仍可能联网或写入元数据' -ForegroundColor Gray
     Write-Host '    --yes | -y                 非交互确认' -ForegroundColor Gray
     Write-Host '    --verbose                  输出详细日志' -ForegroundColor Gray
     return 0

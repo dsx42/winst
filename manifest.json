@@ -1,6 +1,78 @@
 {
-  "_manifestVersion": "2026.10.28",
+  "_manifestVersion": "2026.10.30",
   "apps": [
-    
+    {
+      "id": "ChatGPT",
+      "name": "ChatGPT",
+      "description": "OpenAI 桌面客户端",
+      "group": "AI Agent",
+      "type": "portable",
+      "source": {
+        "kind": "direct",
+        "versionFrom": "page",
+        "pageUrl": "https://persistent.oaistatic.com/codex-app-prod/windows-store-update.json",
+        "versionBetween": [ "\"buildVersion\": \"", "\"" ],
+        "files": [
+          { "url": "https://persistent.oaistatic.com/codex-app-prod/releases/{version}/ChatGPT-x64.msix" }
+        ]
+      },
+      "extractFiles": [ "app" ],
+      "mainExe": "ChatGPT.exe",
+      "shortcuts": { "desktop": true, "startMenu": true }
+    },
+    {
+      "id": "Codex-CLI",
+      "name": "Codex CLI",
+      "description": "OpenAI Codex 命令行客户端",
+      "group": "AI Agent",
+      "type": "portable",
+      "source": {
+        "kind": "github",
+        "repo": "openai/codex",
+        "versionRewrite": { "stripPrefix": "rust-v" },
+        "files": [
+          { "file": "codex-x86_64-pc-windows-msvc.exe.zip" }
+        ]
+      },
+      "stripTopDir": false,
+      "postInstallCopy": [
+        { "from": "codex-x86_64-pc-windows-msvc.exe", "to": "codex.exe", "move": true }
+      ],
+      "mainExe": "codex.exe",
+      "addToPath": [ true ],
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    },
+    {
+      "id": "Codebuddy-CLI",
+      "name": "CodeBuddy Code",
+      "description": "CodeBuddy Code 命令行客户端",
+      "group": "AI Agent",
+      "type": "portable",
+      "source": {
+        "kind": "direct",
+        "versionFrom": "page",
+        "pageUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/@tencent-ai/codebuddy-code/releases/latest",
+        "versionKind": "semver",
+        "files": [
+          {
+            "url": "https://acc-1258344699.cos.accelerate.myqcloud.com/@tencent-ai/codebuddy-code/releases/download/{version}/codebuddy-code_Windows_x86_64.zip",
+            "hashFile": "https://acc-1258344699.cos.accelerate.myqcloud.com/@tencent-ai/codebuddy-code/releases/download/{version}/checksums.txt",
+            "hashFrom": "sha256sums"
+          }
+        ]
+      },
+      "stripTopDir": false,
+      "mainExe": "codebuddy.exe",
+      "addToPath": [ true ],
+      "detect": {
+        "method": "cliVersion",
+        "versionArgs": "--version",
+        "versionKind": "semver"
+      }
+    }
   ]
 }

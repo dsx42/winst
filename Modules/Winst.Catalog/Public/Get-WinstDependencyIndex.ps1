@@ -6,7 +6,7 @@ function Get-WinstDependencyIndex {
         依赖关系索引（id → 依赖 id 列表、id → 软件清单行），进程内只构建一次。
     .DESCRIPTION
         依赖来自各软件源解析锁里条目的 dependencies 字段（经 Get-WinstSearchCatalog 汇总；
-        同一 id 多来源时取并集、按 Ordinal 去重）。索引在进程内缓存，软件源刷新后置空重建
+        每个 id 默认使用最高可用版本的来源，依赖 id 按 Ordinal 去重）。索引在进程内缓存，软件源刷新后置空重建
         （见 Update-ManifestSource / Remove-RemoteManifest）。
     .OUTPUTS
         @{ Deps = <ordinal 字典: id → @(依赖 id)>; Rows = <ordinal 字典: id → 软件清单行> }
@@ -24,12 +24,17 @@ function Get-WinstDependencyIndex {
 
         $seen = New-WinstOrdinalDictionary
         $list = New-Object 'System.Collections.Generic.List[string]'
-        foreach ($sourceEntry in @($row['Sources'])) {
+        $sourceEntry = Get-WinstRowBestSourceEntry -Row $row
+        if (-not $sourceEntry) {
+            foreach ($candidate in @($row['Sources'])) {
+                if ($candidate['Ok']) { $sourceEntry = $candidate; break }
+            }
+        }
+        if ($sourceEntry) {
             foreach ($depItem in @(Get-EntryArray -Entry $sourceEntry['Plan'] -Key 'dependencies')) {
                 if ($null -eq $depItem) { continue }
                 $depId = ([string]$depItem).Trim()
-                if (-not $depId) { continue }
-                if ($seen.Contains($depId)) { continue }
+                if (-not $depId -or $seen.Contains($depId)) { continue }
                 $seen[$depId] = $true
                 $list.Add($depId)
             }

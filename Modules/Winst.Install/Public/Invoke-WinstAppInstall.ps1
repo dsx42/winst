@@ -152,7 +152,7 @@ function Invoke-WinstAppInstall {
         -Id $id -DisplayName $displayName -Version $version -Detected $detected -Result $result -Ledger $ledger `
         -CompanionDownloadCount $companionDownloadCount -Defer:$deferVersionDecision -Quiet:$Quiet -SourceName $SourceName
     if ($deferred.Return) { return $deferred.Result }
-    $companionOnlyUpdate = [bool]$deferred.CompanionOnly
+    if ($deferVersionDecision) { $companionOnlyUpdate = [bool]$deferred.CompanionOnly }
     if ($isDownloadType) {
         $result.Ok = $true
         $result.Version = $version
@@ -196,8 +196,9 @@ function Invoke-WinstAppInstall {
     # —— ② 解压 / 安装 ——
     # 旧解析锁里单文件条目的 method 还是 exe（已更名为 file），先归一再分派
     $method = ConvertTo-WinstEntryType -Type (Get-EntryString -Entry $install -Key 'method')
-    if ($companionOnlyUpdate) { $method = 'companionOnly' }
-    switch ($method) {
+    $payloadMethod = $method
+    if ($companionOnlyUpdate) { $payloadMethod = 'companionOnly' }
+    switch ($payloadMethod) {
         'companionOnly' { }
         'portable' {
             $payload = Install-WinstPortablePayload -Context $Context -Install $install -InstallDir $installDir `

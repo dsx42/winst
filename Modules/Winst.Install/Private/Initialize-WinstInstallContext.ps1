@@ -26,6 +26,12 @@ function Initialize-WinstInstallContext {
         return @{ Error = ('软件定义里的 id 不合法（只能是单个目录名，且不能是 . / .. 或含非法字符）：{0}' -f $id) }
     }
 
+    # 在任何下载 / 清理之前检查磁盘身份及台账；Windows 不能为 Foo / foo 提供独立目录。
+    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+    try { Assert-WinstAppIdentityAvailable -Context $Context -Id $id -State $stateRead.State -Index $indexRead.Index }
+    catch { return @{ Error = $_.Exception.Message } }
+
     $installDir = Join-WinstPath $Context.InstallRoot $id
     $pkgDir = Join-WinstPath $Context.PkgDir $id
     $Result.InstallDir = $installDir
@@ -36,6 +42,9 @@ function Initialize-WinstInstallContext {
     if ($files.Count -eq 0) {
         return @{ Error = ('{0} 的软件定义里没有可下载的文件' -f $displayName) }
     }
+
+    $nameError = Get-WinstDuplicateDownloadNameError -Files $files
+    if ($nameError) { return @{ Error = $nameError } }
 
     # versionFromPackage（清单里是 source.versionFrom: "package"）：清单 / 接口都拿不到版本号时，从已下载的主包文件信息里取
     $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
@@ -80,7 +89,6 @@ function Initialize-WinstInstallContext {
 
     # —— ① 取包判定（缓存里已有需要的文件 → 跳过下载，绝不重复下载）——
     # 放在已装检测之前：版本相同时也需要知道「配套文件有没有变化」
-    $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
     $index = $indexRead.Index
     if ($indexRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $indexRead.Error) -ForegroundColor DarkYellow }
     $prevEntry = $null
@@ -106,7 +114,6 @@ function Initialize-WinstInstallContext {
     }
     $companionsOnly = [bool]($companionDownloadCount -gt 0 -and -not $mainNeedsDownload)
 
-    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     $state = $stateRead.State
     if ($stateRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor DarkYellow }
     $ledger = Get-WinstInstalledApp -State $state -Id $id

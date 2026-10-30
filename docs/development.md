@@ -49,12 +49,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 --help
 
 `winst.ps1` 启动即申请管理员权限，因为安装软件要写系统级环境变量、静默运行安装程序、读写 HKLM 卸载记录。排障时不想弹 UAC 就设 `WINST_NO_ELEVATE=1`（只读查询不需要管理员）；`-v` / `--version` / `-h` / `--help` 自动不提权，这些会被别的 winst 进程频繁调用做版本检测。
 
+## 隔离回归验证
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Tests\Regression.Tests.ps1
+```
+
+脚本在唯一临时目录中验证文件落位、台账和离线包流程，网络、安装器与系统环境写入使用测试桩；结束时清理本次目录。可用 `-Filter '<用例名通配>'` 只运行相关用例。验证目标是 Windows PowerShell 5.1；构建自带的发布树冒烟仍需单独运行。
+
 ## 开发调试
 
 - **改完模块要重新导入**：PowerShell 会缓存已导入的模块，设置环境变量 `WINST_DEV=1` 让入口带 `-Force` 导入
 - **单模块试验**：直接 `Import-Module .\Modules\Winst.Store\Winst.Store.psd1 -Force`；跨模块调用在运行时才解析，不必按顺序先导入别的模块
 - **详细日志**：`--verbose` 打印 HTTP、来源解析、文件匹配、版本检测细节；入口未捕获的异常也会带脚本堆栈
-- **不写盘试跑**：`--dry-run` 只展示计划，不下载、不安装、不写缓存索引；唯一例外是「检测到同版本已安装、但台账里还没有该软件」时补的一条 `external` 登记。软件源也可能联网查询。winst 自身安装是特例，预览会明确拒绝执行
+- **预览试跑**：使用 `--dry-run`，联网与写入边界统一见 [CLI 预览边界](cli.md#预览边界)。
 - **隔离实验**：把数据、安装与缓存目录都指到临时目录，避免污染真实数据。**没有隔离就别说「测一下」**：安装 / 更新会真的写台账、改用户级环境变量与快捷方式
 
 临时目录示例：

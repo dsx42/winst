@@ -32,14 +32,29 @@ function Copy-WinstBundleSupportFiles {
     $scriptDir = [string](Get-WinstState -Name WinstScriptDir)
     $mainScript = Join-WinstPath $scriptDir 'winst.ps1'
     $modulesDir = Join-WinstPath $scriptDir 'Modules'
+    $licensePath = Join-WinstPath $scriptDir 'LICENSE'
     if (-not $scriptDir -or -not (Test-Path -LiteralPath $mainScript -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $modulesDir -PathType Container)) {
-        return @{ Ok = $false; Error = '当前 winst 的脚本或 Modules 目录不存在，无法制作套件。'; ManifestCopied = $manifestCopied; ListFileCount = 0 }
+        -not (Test-Path -LiteralPath $modulesDir -PathType Container) -or
+        -not (Test-Path -LiteralPath $licensePath -PathType Leaf)) {
+        return @{ Ok = $false; Error = '当前 winst 的脚本、Modules 或 LICENSE 不完整，无法制作套件。'; ManifestCopied = $manifestCopied; ListFileCount = 0 }
     }
     if (-not $DryRun) {
         try {
             Copy-Item -LiteralPath $mainScript -Destination (Join-WinstPath $TargetDir 'winst.ps1') -Force -ErrorAction Stop
-            Copy-Item -LiteralPath $modulesDir -Destination (Join-WinstPath $TargetDir 'Modules') -Recurse -Force -ErrorAction Stop
+            Copy-Item -LiteralPath $licensePath -Destination (Join-WinstPath $TargetDir 'LICENSE') -Force -ErrorAction Stop
+            $targetModules = Join-WinstPath $TargetDir 'Modules'
+            Assert-WinstSafeWritePath -Path $targetModules -Directory
+            # 先确认目标不包含当前运行的模块，避免自复制时删除来源。
+            if ((Test-WinstPathUnderRoot -Path $modulesDir -Root $targetModules -AllowEqual) -or
+                (Test-WinstPathUnderRoot -Path $targetModules -Root $modulesDir -AllowEqual)) {
+                throw '套件 Modules 目录不能与当前运行的 Modules 目录重叠。'
+            }
+            Assert-WinstTreeWithoutReparsePoint -Path $modulesDir
+            if (Test-Path -LiteralPath $targetModules) {
+                Clear-WinstInstallDir -Dir $targetModules -AllowedRoot $TargetDir
+                if (Test-Path -LiteralPath $targetModules) { throw ('无法安全替换套件 Modules 目录：{0}' -f $targetModules) }
+            }
+            Copy-Item -LiteralPath $modulesDir -Destination $targetModules -Recurse -Force -ErrorAction Stop
 
             $scriptManifest = Join-WinstPath $scriptDir 'manifest.json'
             if (Test-Path -LiteralPath $scriptManifest -PathType Leaf) {
@@ -96,7 +111,6 @@ function Copy-WinstBundleSupportFiles {
     # winst.cmd 双击启动器
     $cmdContent = (@(
         '@echo off',
-        'rem winst 离线套件：双击本文件即可打开 winst 菜单（无需联网）。',
         'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0winst.ps1" %*'
     ) -join [Environment]::NewLine) + [Environment]::NewLine
 

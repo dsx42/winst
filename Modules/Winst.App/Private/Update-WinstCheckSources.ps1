@@ -16,10 +16,14 @@ function Update-WinstCheckSources {
         foreach ($key in @($stateRead.State['Installed'].Keys)) { $ledgerIds += [string]$key }
     }
 
-    # 每次进入都强制刷新（不受有效期限制）：清单本体仍强制重新下载 / 读取（保证发现清单变更），
+    # 每次进入都强制刷新（不受源有效期限制）：清单本体仍强制重新下载 / 读取（保证发现清单变更），
     # 但传 -OnlyIds 时只逐条解析已装软件的最新版本。
+    # pkgDir 是 UNC 共享时再按条目有效期过滤：其它机器刷过的条目在 manifestTTLHours 内直接沿用解析锁，
+    # 只有过期条目才重新解析（解析锁本来就在共享目录里，不必每台机器每次点都重刷一遍）；
+    # 条目全部有效时整源跳过，清单本体也不再重新下载。
+    $honorEntryTtl = ([string]$Context.PkgDir).StartsWith('\\', [StringComparison]::Ordinal)
     if ($ledgerIds.Count -gt 0) {
-        $refresh = Update-WinstStaleSources -Context $Context -Force -OnlyIds $ledgerIds
+        $refresh = Update-WinstStaleSources -Context $Context -Force -OnlyIds $ledgerIds -HonorEntryTtl:$honorEntryTtl
     } else {
         $refresh = Update-WinstStaleSources -Context $Context -Force
     }
@@ -27,9 +31,10 @@ function Update-WinstCheckSources {
 
     # 软件源刷新之后紧接着读取安装记录（与「已装软件」页同一套扫描）：
     # 升级判断必须建立在「刷新后的软件源 + 校对过的记录」上；只写 state.json，--dry-run 下整段跳过。
+    # RefreshIds 限定已装软件：修复内部不再把仅下载条目的版本也解析一遍
     if (-not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
         Write-Host '  正在读取安装记录 …' -ForegroundColor Gray
-        $null = Invoke-Repair -Context $Context -Quiet
+        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds
     }
 
     # 修复可能新登记了之前不在台账里的软件：这些软件的版本信息若已过期则按需补刷新

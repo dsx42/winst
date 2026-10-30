@@ -26,9 +26,10 @@ function Invoke-InstalledList {
     # 按磁盘上的实际目录与注册表重新识别版本 / 安装位置并更正记录，列表才不会停留在过期数据上；
     # 只写 state.json，不动任何文件与系统项；--dry-run 下整段跳过（预览模式不写盘）。
     # 进度提示说「读取」而不是「刷新」：这一步对用户来说就是开始读记录，改了什么会在随后的一行结论里说清楚。
+    # RefreshIds 限定本页展示的已装软件：修复内部不再顺手把仅下载条目的版本也解析一遍
     if (-not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
         Write-Host '  正在读取安装记录 …' -ForegroundColor Gray
-        $null = Invoke-Repair -Context $Context -Quiet
+        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds
     }
 
     $overview = Get-WinstInstalledOverview -Context $Context

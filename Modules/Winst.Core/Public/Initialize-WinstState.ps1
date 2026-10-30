@@ -114,6 +114,12 @@ function Initialize-WinstState {
         $initialized++
     }
 
+    # 未能写入 sidecar 的解析结果，以 sidecar 完整路径隔离不同 pkgDir。
+    if ($null -eq (Get-WinstState -Name 'WinstManifestSessionMeta')) {
+        $null = Set-WinstState -Name 'WinstManifestSessionMeta' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase))
+        $initialized++
+    }
+
     # 台账读缓存（Winst.Store）：按文件戳缓存解析 + 归一化后的台账，写入侧 Save-WinstState 负责刷新。
     # 台账在一次操作里会被反复读，一次完整解析在几十条记录时是百毫秒级。
     if ($null -eq (Get-WinstState -Name 'WinstStateReadCache')) {
