@@ -8,9 +8,9 @@ function Remove-WinstAppxOutdatedPackages {
         Windows App SDK 运行时的 DDLM（Dynamic Dependency Lifetime Manager）包「按版本命名」
         （如 Microsoft.WinAppRuntime.DDLM.2.4.0.0-x6），安装器升级到新版本后，旧版本的 DDLM 包
         会一直留着、越积越多（系统里能看到一排「Windows App Runtime DDLM xxx」）。安装 / 更新
-        完成后按清单卸载规则清点：版本等于 / 高于本次检出版本的包保留（Singleton 的 8002.x
-        前缀版本号天然高于检出值，不会被误删），低于的逐一移除；只对卸载方式为 appx 的条目
-        生效。
+        完成后只在清单卸载规则允许的范围内清点：版本等于 / 高于本次检出版本的包保留，
+        低于的逐一移除；清单名称规则应明确限定系列、通道及是否包含共享组件，不能依靠内部版本号
+        判断所属系列。只对卸载方式为 appx 的条目生效。
     .OUTPUTS
         @{ Ok; Error; Removed; Failed; Kept }
     #>

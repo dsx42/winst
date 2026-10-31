@@ -38,6 +38,57 @@ function Invoke-WinstUpdateEntry {
         return @{ Entries = @($entryResult); Installed = $true; DownloadOnlySkipped = $false; RefreshState = $false }
     }
 
+    # 先按当前来源的身份规则回读系统记录，避免过期台账中的其它产品 / 主系列版本挡住更新。
+    $probeEntry = Get-WinstRowBestPlanEntry -Row $row
+    if ($SourceName) {
+        foreach ($candidate in @($row['Sources'])) {
+            if ([string]$candidate['Source'] -ieq $SourceName -and $candidate['Ok']) { $probeEntry = $candidate; break }
+        }
+    } elseif (Get-EntryString -Entry $ledger -Key 'manifestOrigin') {
+        foreach ($candidate in @($row['Sources'])) {
+            if ([string]$candidate['Source'] -ieq (Get-EntryString -Entry $ledger -Key 'manifestOrigin') -and $candidate['Ok']) { $probeEntry = $candidate; break }
+        }
+    }
+    if ($probeEntry) {
+        $probePlan = Get-EntryValue -Entry $probeEntry -Key 'Plan' -Default $null
+        $probeMethod = Get-EntryString -Entry (Get-EntryValue -Entry $probePlan -Key 'detect' -Default $null) -Key 'method'
+        if (@('registry', 'appx') -contains $probeMethod) {
+            $probe = Get-WinstDetectedVersion -Context $Context -Plan $probePlan -InstallDir (Get-EntryString -Entry $ledger -Key 'installDir')
+            if (-not [bool]$probe.QuerySucceeded) {
+                if ($Check) {
+                    $Result.Unknown++
+                    $entryResult.Action = 'unknown'
+                } else {
+                    $Result.Failed++
+                    $entryResult.Action = 'failed'
+                }
+                $entryResult.Message = [string]$probe.Note
+                if (-not $entryResult.Message) { $entryResult.Message = '无法完成系统安装记录查询，请排除查询错误后重试' }
+                if (-not $Quiet) { Write-Host ('  {0}: {1}' -f $displayName, $entryResult.Message) -ForegroundColor Yellow }
+                return @{ Entries = @($entryResult); Installed = $true; DownloadOnlySkipped = $false; RefreshState = $false }
+            }
+            if ($probe.Ok) {
+                $installedVersion = [string]$probe.Version
+            } elseif (-not $probe.Found) {
+                # 完整查询确认目标身份不存在时，才丢弃旧台账版本。
+                $installedVersion = ''
+            } elseif ((-not $installedVersion -or $installedVersion -ieq 'unknown') -and -not $Force -and -not $DownloadOnly) {
+                # 身份仍在但版本不可读时，不能因版本未知而自动强制重装。
+                if ($Check) {
+                    $Result.Unknown++
+                    $entryResult.Action = 'unknown'
+                } else {
+                    $Result.Skipped++
+                    $entryResult.Action = 'skipped'
+                }
+                $entryResult.Message = ('系统记录中存在该软件，但无法识别版本，且台账里没有可用版本{0}' -f (Get-WinstForceHint -Kind 'continue'))
+                if (-not $Quiet) { Write-Host ('  {0}: {1}' -f $displayName, $entryResult.Message) -ForegroundColor Yellow }
+                return @{ Entries = @($entryResult); Installed = $true; DownloadOnlySkipped = $false; RefreshState = $false }
+            }
+            $entryResult.Installed = $installedVersion
+        }
+    }
+
     $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
     $latest = [string]$snap.Latest
     $latestSource = [string]$snap.LatestSource

@@ -26,7 +26,10 @@ function Get-WinstVersionFromRegistry {
         [hashtable]$Result
     )
 
-    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir $InstallDir)
+    $query = @{}
+    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir $InstallDir -Status $query)
+    $Result['QuerySucceeded'] = [bool]$query.Ok
+    if (-not $query.Ok) { $Result.Note = ('查询系统安装记录未完成：{0}' -f $query.Error) }
     if ($hits.Count -eq 0) { return }
 
     $Result.Found = $true

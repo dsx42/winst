@@ -175,7 +175,11 @@ function Invoke-WinstAppInstall {
     # 仅配套文件更新不触碰主程序，跳过该检测
     if (-not $companionOnlyUpdate) {
         $checkDirs = @()
-        if ($ledger) {
+        if ($type -eq 'installer') {
+            # 安装版进程归属按当前产品规则确认，旧台账可能保留名称相近软件的目录。
+            $currentDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir '').Dir
+            if ($currentDir) { $checkDirs += $currentDir }
+        } elseif ($ledger) {
             $ledgerDir = Get-EntryString -Entry $ledger -Key 'installDir'
             if ($ledgerDir) { $checkDirs += $ledgerDir }
         }

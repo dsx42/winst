@@ -10,7 +10,9 @@ function Get-WinstAppxPackagesMatching {
         uninstall.name 里声明多个规则，命中任意一个即纳入。系统自带位置（%WINDIR%\SystemApps 下的
         收件箱包）一律排除。
     #>
-    param($NameRules)
+    param($NameRules, [hashtable]$Status = $null)
+
+    if ($null -ne $Status) { $Status.Ok = $false; $Status.Error = '没有可用的应用包名称规则' }
 
     $rules = @()
     foreach ($one in @($NameRules)) {
@@ -26,7 +28,10 @@ function Get-WinstAppxPackagesMatching {
     # 写入侧（Add-AppxPackage / Remove-WinstAppxPackage）立即失效
     $packages = @()
     try {
-        if (-not (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue)) { return @() }
+        if (-not (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue)) {
+            if ($null -ne $Status) { $Status.Error = '当前系统无法查询应用包记录' }
+            return @()
+        }
         $cacheValid = $false
         if ((Get-WinstState -Name WinstAppxCache)) {
             $age = ((Get-Date) - [datetime](Get-WinstState -Name WinstAppxCache)['At']).TotalSeconds
@@ -35,10 +40,12 @@ function Get-WinstAppxPackagesMatching {
         if ($cacheValid) {
             $packages = @((Get-WinstState -Name WinstAppxCache)['Items'])
         } else {
-            $packages = @(Get-AppxPackage -ErrorAction SilentlyContinue)
+            $packages = @(Get-AppxPackage -ErrorAction Stop)
             $null = Set-WinstState -Name WinstAppxCache -Value (@{ At = (Get-Date); Items = $packages })
         }
+        if ($null -ne $Status) { $Status.Ok = $true; $Status.Error = '' }
     } catch {
+        if ($null -ne $Status) { $Status.Error = ('查询应用包记录失败：{0}' -f $_.Exception.Message) }
         return @()
     }
     if ($packages.Count -eq 0) { return @() }

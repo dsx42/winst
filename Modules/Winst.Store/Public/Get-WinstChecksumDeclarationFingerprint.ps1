@@ -3,7 +3,7 @@
 function Get-WinstChecksumDeclarationFingerprint {
     <#
     .SYNOPSIS
-        为远程校验文件声明生成稳定指纹，防止离线时把旧校验值套到另一地址 / 版本的包上。
+        为远程校验声明生成稳定指纹，防止把旧校验值套到另一地址 / 版本的包上。
     #>
     param(
         [string]$FileName,

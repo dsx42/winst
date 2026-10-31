@@ -44,7 +44,15 @@ function Resolve-WinstInstallDecision {
 
     $detect = Get-WinstDetectedVersion -Context $Context -Plan $Plan -InstallDir $InstallDir
     if ($detect.Ok) { $detected = [string]$detect.Version }
-    elseif ($Ledger) { $detected = [string]$Ledger['version'] }
+    elseif ($Ledger -and -not [bool]$detect.QuerySucceeded) { $detected = [string]$Ledger['version'] }
+
+    # 系统记录的完整查询确认未命中时，旧台账不能证明目标产品仍已安装；查询失败则明确中止。
+    $detectMethod = Get-EntryString -Entry (Get-EntryValue -Entry $Plan -Key 'detect' -Default $null) -Key 'method'
+    if (@('registry', 'appx') -contains $detectMethod -and -not [bool]$detect.QuerySucceeded) {
+        $Result.Error = [string]$detect.Note
+        if (-not $Result.Error) { $Result.Error = '无法完成系统安装记录查询，请排除查询错误后重试' }
+        return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = '' }
+    }
 
     if ($detected -and $detected -ine 'unknown') {
         $hasTarget = [bool]$Version

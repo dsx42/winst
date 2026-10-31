@@ -6,8 +6,8 @@ function Remove-WinstAppxPackage {
         移除应用包（MSIX / AppX）：按名称规则（字符串或数组）找到已安装的全部包，逐个用系统自带的
         Remove-AppxPackage 卸载。
     .DESCRIPTION
-        一个软件可能对应多个应用包：如 Windows App Runtime 的 framework / Main / Singleton / DDLM
-        四个包家族、x64 与 x86 各一份——按名称规则命中的**全部**包都要移除，只删其中一个等于没卸。
+        一个软件可能对应不同包家族及架构；逐个移除清单名称规则明确允许的包。
+        清单应限定所属系列与通道，并明确列出需要一并卸载的共享组件。
     .OUTPUTS
         @{ Ok; Error; PackageFullName; Removed; Failed }
     #>

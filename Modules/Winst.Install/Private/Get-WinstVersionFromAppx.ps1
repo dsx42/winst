@@ -5,10 +5,10 @@ function Get-WinstVersionFromAppx {
     .SYNOPSIS
         detect.method = appx：从系统应用包记录读版本（顺带写回安装位置）。
     .DESCRIPTION
-        同一家族常常同时装着多个包（Windows App Runtime 的 framework / Main / Singleton / DDLM），
-        它们的版本号各不相同、而且都是运行时的一部分（DDLM 按版本命名是设计要求）。
-        因此这里只取**版本最高的那个包**作为本机版本，**不**把其余包当作「旧版本」报给用户——
-        那会把运行时的组成部分说成待清理的旧版本，用户照着删掉会弄坏运行时。
+        名称规则应限定可比较版本的同一包家族，例如目标主系列的 framework 包。
+        Windows App Runtime 不同主系列及 framework / Main / Singleton / DDLM 的内部版本体系
+        可能不同，不能依赖版本比较识别产品归属。这里只在名称命中后选版本最高的包，
+        不把其余包当作「旧版本」报给用户，以免误删运行时的组成部分。
         安装 / 更新后由 Remove-WinstAppxOutdatedPackages 负责清理真正该清的残留包。
     #>
     param(
@@ -25,7 +25,10 @@ function Get-WinstVersionFromAppx {
     # 版本与安装位置都从系统的应用包记录里读
     $pattern = Get-EntryString -Entry $Detect -Key 'name'
     if (-not $pattern) { return }
-    $package = Get-WinstAppxPackageBest -NameRule $pattern
+    $query = @{}
+    $package = Get-WinstAppxPackageBest -NameRule $pattern -Status $query
+    $Result['QuerySucceeded'] = [bool]$query.Ok
+    if (-not $query.Ok) { $Result.Note = [string]$query.Error }
     if (-not $package) { return }
 
     $Result.Found = $true

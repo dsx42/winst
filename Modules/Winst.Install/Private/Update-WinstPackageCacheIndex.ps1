@@ -17,12 +17,13 @@ function Update-WinstPackageCacheIndex {
     foreach ($filePlan in @($Plans)) {
         $name = [string]$filePlan['Name']
         if (-not $name) { continue }
+        $wasDownloaded = @($DownloadedNames) -contains $name
         if ($indexNames -notcontains $name) { $indexNames += $name }
         $hash = Get-WinstIndexHashForPlan -FilePath ([string]$filePlan['Target']) -Plan $filePlan
-        if (-not $hash) { $hash = Get-WinstRecordedHash -Entry $PrevEntry -FileName $name }
+        if (-not $hash -and -not $wasDownloaded) { $hash = Get-WinstRecordedHash -Entry $PrevEntry -FileName $name }
         if ($hash) { $indexHashes[$name] = $hash }
         $manifestHash = Get-WinstManifestHashFromPlan -Plan $filePlan
-        if (-not $manifestHash.Hash) {
+        if (-not $manifestHash.Hash -and -not $wasDownloaded) {
             $manifestHash.Hash = Get-WinstManifestHash -Entry $PrevEntry -FileName $name -Algorithm $manifestHash.Algorithm
         }
         if ($manifestHash.Hash) {
@@ -35,7 +36,7 @@ function Update-WinstPackageCacheIndex {
             try { $size = (Get-Item -LiteralPath $path -Force).Length } catch { $size = $null }
         }
         $downloadedAt = ''
-        if (@($DownloadedNames) -contains $name) { $downloadedAt = $stampNow }
+        if ($wasDownloaded) { $downloadedAt = $stampNow }
         $checkedAt = [string]$filePlan['CheckedAt']
         if (-not $checkedAt -and $downloadedAt) { $checkedAt = $downloadedAt }
         $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
@@ -43,6 +44,11 @@ function Update-WinstPackageCacheIndex {
             -DownloadedAt $downloadedAt -LastCheckedAt $checkedAt `
             -ETag ([string]$filePlan['ValidatorETag']) -LastModified ([string]$filePlan['ValidatorLastModified'])
         if ([string]$filePlan['ChecksumMetadataAction'] -eq 'replace') {
+            # 包内派生版本可能在下载校验后才确定，来源指纹必须绑定最终写入解析锁的版本。
+            if ($filePlan['ChecksumHashFile']) {
+                $filePlan['ChecksumFingerprint'] = Get-WinstChecksumDeclarationFingerprint -FileName $name `
+                    -FileDecl $filePlan['Decl'] -FileUrl ([string]$filePlan['Url']) -SourceVersion $Version
+            }
             $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
                 -ExpectedHash ([string]$filePlan['ExpectedHash']) -ExpectedAlgorithm ([string]$filePlan['ExpectedAlgorithm']) `
                 -ChecksumHashFile ([string]$filePlan['ChecksumHashFile']) -ChecksumHashFrom ([string]$filePlan['ChecksumHashFrom']) `

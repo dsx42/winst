@@ -3,13 +3,14 @@
 function Confirm-WinstAppNotRunning {
     <#
     .SYNOPSIS
-        安装 / 覆盖 / 卸载前确认目标软件没有在运行：强杀 / 已手动关闭 / 取消。
+        安装 / 覆盖 / 卸载前检查目标进程，安装版软件可选择交给安装程序处理。
     .DESCRIPTION
         正在运行的软件会锁住安装目录里的文件，导致解压、覆盖或删除失败。检测到运行中的进程时：
         `k` = 结束这些进程后继续；`c` = 用户已手动关闭，重新检测；其它输入 = 取消。
+        安装 / 更新 `installer` 类型时额外提供 `i` = 直接安装，不结束进程，由安装程序处理占用。
         是否「仍在运行」一律以重新检测为准：结束进程和用户回答之后都强制重新取快照，进程已经
         不在了就直接继续，不拿操作前那份列表报错（用户常常是关掉进程之后才选 `k` 的）。
-        -Action 传动作名词（安装 / 卸载），只影响提示文案；默认「安装」。
+        -Action 传动作名词（安装 / 卸载）；只有「安装」允许安装版软件选择直接安装。
         非交互（`--yes` / 输入被重定向）时不擅自杀进程：`--kill` 才结束进程，否则报错并给出指引。
     .OUTPUTS
         @{ Ok; Cancelled; Error; Killed; Running }
@@ -29,6 +30,7 @@ function Confirm-WinstAppNotRunning {
 
     $displayName = Get-EntryString -Entry $Plan -Key 'name'
     if (-not $displayName) { $displayName = Get-EntryString -Entry $Plan -Key 'id' }
+    $allowDirectInstall = ($Action -eq '安装' -and (Get-EntryString -Entry $Plan -Key 'type') -eq 'installer')
 
     $attempt = 0
     # 已经执行过「结束进程」：之后重新检测仍在运行，才把结束失败 / 不能自动结束当成失败
@@ -66,7 +68,7 @@ function Confirm-WinstAppNotRunning {
             }
         }
         # 上一轮只遇到「不能自动结束」的进程：这次检测确认它还在才报错，让用户自己关
-        if ($killAttempted -and $blocked.Count -gt 0) {
+        if ($killAttempted -and $blocked.Count -gt 0 -and ($Kill -or -not $allowDirectInstall)) {
             $blockedNames = @($blocked | ForEach-Object { ('{0}（进程号 {1}）' -f [string]$_['Name'], [int]$_['Id']) })
             $result.Ok = $false
             $result.Error = ('无法确认以下进程属于 {0}，为避免误杀同名程序未自动结束：{1}。请手动关闭后重试。' -f $displayName, ($blockedNames -join '、'))
@@ -112,7 +114,7 @@ function Confirm-WinstAppNotRunning {
         }
 
         Write-Host ''
-        Write-Host ('  {0} 正在运行，文件被占用会导致{1}失败：' -f $displayName, $Action) -ForegroundColor Yellow
+        Write-Host ('  {0} 正在运行，文件被占用可能导致{1}失败：' -f $displayName, $Action) -ForegroundColor Yellow
         foreach ($proc in $running) {
             $pathText = [string]$proc['Path']
             if (-not $pathText) { $pathText = '（路径不可见）' }
@@ -121,12 +123,20 @@ function Confirm-WinstAppNotRunning {
         Write-Host ''
         Write-Host ('  k) 结束这些进程，然后继续{0}' -f $Action) -ForegroundColor White
         Write-Host '  c) 我已经手动关闭了（重新检测）' -ForegroundColor White
+        if ($allowDirectInstall) {
+            Write-Host '  i) 直接安装（由安装程序处理进程占用）' -ForegroundColor White
+        }
         Write-Host ('  回车 / 其它任意输入 = 取消{0}' -f $Action) -ForegroundColor DarkGray
 
         $answer = ''
         try { $answer = [string](Read-Host '  请选择') } catch { $answer = '' }
         $choice = ''
         if ($null -ne $answer) { $choice = $answer.Trim().ToLowerInvariant() }
+
+        if ($choice -eq 'i' -and $allowDirectInstall) {
+            Write-Host '  继续安装，由安装程序处理进程占用。' -ForegroundColor Gray
+            return $result
+        }
 
         if ($choice -eq 'k') {
             # 交互确认也只自动结束「路径确认」的进程；按名字兜底的仍要求用户自己关。

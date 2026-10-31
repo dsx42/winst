@@ -57,8 +57,14 @@ function Get-WinstFilePlan {
     $plan['MetaUrl'] = [string]$meta.Url
     $plan['ValidatorETag'] = [string]$meta.ETag
     $plan['ValidatorLastModified'] = [string]$meta.LastModified
+    # 所有复用分支都携带已实测的摘要，避免版本 / refresh 快捷命中后写索引时又读取整个文件。
+    $plan['RecordedHash'] = Get-WinstRecordedHash -Entry $Entry -FileName $name
+    $plan['ExpectedAlgorithm'] = [string]$meta.ExpectedAlgorithm
+    if ($meta.ExpectedAlgorithm -and $meta.ExpectedAlgorithm -ne 'SHA256') {
+        $plan['ManifestHash'] = Get-WinstManifestHash -Entry $Entry -FileName $name -Algorithm $meta.ExpectedAlgorithm
+    }
 
-    # 严格离线时，声明过完整性校验的缓存必须先验证当前字节；不能被“版本相同”等快捷分支绕过。
+    # 离线同样比对缓存里的期望摘要与实测摘要，不重复读取远端或计算文件摘要。
     $declaredHash = (Get-EntryString -Entry $File -Key 'hash').Trim()
     $declaredHashFile = (Get-EntryString -Entry $File -Key 'hashFile').Trim()
     if ($Offline -and ($declaredHash -or $declaredHashFile)) {
@@ -71,7 +77,7 @@ function Get-WinstFilePlan {
             return $plan
         }
         Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target `
-            -Expected $offlineExpected -ForceRehash
+            -Expected $offlineExpected
         return $plan
     }
 
@@ -126,6 +132,6 @@ function Get-WinstFilePlan {
     }
 
     # ③ 已声明校验 → 比对校验码
-    Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected -ForceRehash:$Offline
+    Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
     return $plan
 }

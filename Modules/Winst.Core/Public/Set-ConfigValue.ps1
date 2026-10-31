@@ -36,9 +36,20 @@ function Set-ConfigValue {
         $converted.Value = $normalized
     }
 
-    # 路径类配置项：网络共享只收 UNC（不带账号密码）。
+    # 软件安装位置只收本地路径；安装包位置可用 UNC（不带账号密码）。
     # 需要认证时必须走设置菜单——凭据要先验证再交给系统凭据管理器，这一步需要交互。
-    if ($Key -eq 'installRoot' -or $Key -eq 'pkgDir') {
+    if ($Key -eq 'installRoot') {
+        $pathValue = ([string]$converted.Value).Trim().Trim('"').Trim()
+        try {
+            if (-not $pathValue) { throw '路径不能为空' }
+            $null = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options @{ InstallRoot = $pathValue } -Config $Context.Config
+        } catch {
+            Write-Host ''
+            Write-Host ('  输入无效：{0}，未做修改。' -f $_.Exception.Message) -ForegroundColor Yellow
+            return $false
+        }
+        $converted.Value = $pathValue
+    } elseif ($Key -eq 'pkgDir') {
         $parsed = Resolve-WinstUncInput -Value ([string]$converted.Value)
         if (-not $parsed.Ok) {
             Write-Host ''

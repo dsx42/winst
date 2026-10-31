@@ -12,7 +12,7 @@ function Invoke-SettingsMenu {
             param($ctx)
             Invoke-PathSettingItem -Context $ctx -Key 'installRoot' -DisplayName '软件安装位置' `
                 -CurrentDisplay $ctx.InstallRoot `
-                -Hint '仅对此后的安装生效：已装软件留在旧位置继续可用（改完会列出旧位置里已有的软件目录）。安装记录跟着这个位置存放，新位置暂时是空的，进入「已装软件」时会自动扫描登记。已打开的终端需重开后才完全生效。'
+                -Hint '只允许本地目录，不支持 UNC 路径或网络映射盘；网络共享只能用于安装包位置。仅对此后的安装生效：已装软件留在旧位置继续可用（改完会列出旧位置里已有的软件目录）。安装记录跟着这个位置存放，新位置暂时是空的，进入「已装软件」时会自动扫描登记。已打开的终端需重开后才完全生效。'
         }
         '2' = {
             param($ctx)

@@ -9,9 +9,9 @@ function Get-WinstAppxPackageBest {
         应用包（msixbundle）安装的软件不在注册表卸载项里，只能从系统的应用包记录里读版本与安装位置。
         挑选顺序：先排除系统自带位置（%WINDIR%\SystemApps 下的收件箱包）→ 版本最高 → 同版本优先 x64 / 中性架构。
     #>
-    param([string]$NameRule)
+    param([string]$NameRule, [hashtable]$Status = $null)
 
-    $candidates = @(Get-WinstAppxPackagesMatching -NameRules $NameRule)
+    $candidates = @(Get-WinstAppxPackagesMatching -NameRules $NameRule -Status $Status)
     if ($candidates.Count -eq 0) { return $null }
 
     $best = $null

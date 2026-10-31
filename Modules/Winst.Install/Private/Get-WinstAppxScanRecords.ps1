@@ -22,6 +22,10 @@ function Get-WinstAppxScanRecords {
     foreach ($id in $appxIds) {
         $app = $Plan[$id]
         $detectResult = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir ''
+        if (-not [bool]$detectResult.QuerySucceeded) {
+            Write-Host ('    {0} 的应用包查询未完成：{1}' -f $id, $detectResult.Note) -ForegroundColor Yellow
+            continue
+        }
         if (-not ($detectResult.Ok -and [string]$detectResult.Version)) {
             if ($VerboseOutput) {
                 Write-Host ('    [应用包] {0} → 没有找到已安装的应用包' -f $id) -ForegroundColor DarkGray
@@ -32,7 +36,7 @@ function Get-WinstAppxScanRecords {
         $Found[$id] = New-WinstScanRecord -Id $id -Version ([string]$detectResult.Version) `
             -OldVersions @($detectResult.OldVersions) `
             -Type ((Get-EntryString -Entry $app -Key 'type').Trim().ToLowerInvariant()) `
-            -InstallDir $location -Managed 'external' -Source ([string]$Source[$id])
+            -InstallDir $location -Managed 'external' -Source ([string]$Source[$id]) -VerifiedIdentity
         if ($VerboseOutput) {
             $detail = [string]$detectResult.Detail
             if ($detail) { $detail = ('，{0}' -f $detail) }

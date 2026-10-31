@@ -96,8 +96,9 @@ function Get-WinstSelfPackageSource {
                 $null = New-Item -ItemType Directory -Path $pkgDir -Force -ErrorAction SilentlyContinue
             }
 
-            # 压缩包名从 URL 推出，使缓存文件名与清单指向的完全一致（默认 winst.zip）。
-            $archiveName = Get-FileNameFromUrl -Url $url
+            # 文件名与普通安装包使用相同规则，优先使用清单明确声明的名称。
+            $archiveName = Get-EntryString -Entry $files[0] -Key 'name'
+            if (-not $archiveName) { $archiveName = Get-FileNameFromUrl -Url $url }
             if (-not $archiveName) { $archiveName = $archiveFileName }
 
             if (-not (Test-WinstSafePathSegment -Name $archiveName)) {
@@ -105,16 +106,21 @@ function Get-WinstSelfPackageSource {
             } else {
                 $archivePath = Join-WinstPath $pkgDir $archiveName
 
-                # 复用已通过校验的缓存压缩包，
-                # 避免同一会话内重复安装时下载两次。
-                $reuse = $false
-                if (Test-Path -LiteralPath $archivePath -PathType Leaf) {
-                    $existing = Test-WinstFileIntegrity -Context $Context -FilePath $archivePath -FileDecl $files[0] `
-                        -FileUrl $url -SourceVersion $sourceVersion
-                    if ($existing.Ok) { $reuse = $true }
+                # 自身包也使用统一索引，复用已记录的远端期望值和本地实测值。
+                $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+                $prevEntry = $null
+                if ($cacheRead.Index.Contains($selfId)) { $prevEntry = $cacheRead.Index[$selfId] }
+                $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId `
+                    -Files @($files[0]) -CheckValidators -SourceVersion $sourceVersion)
+                $filePlan = $packagePlans[0]
+                if ($filePlan['ValidationError']) {
+                    $result.Error = [string]$filePlan['ValidationError']
+                    return $result
                 }
 
-                if ($reuse) {
+                if (-not $filePlan['NeedDownload']) {
+                    Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
+                        -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames @()
                     $result.ArchivePath = $archivePath
                     $result.Resolved = $true
                     $result.Ok = $true
@@ -132,6 +138,9 @@ function Get-WinstSelfPackageSource {
                         $result.Error = ('{0} 校验失败：{1}' -f $archiveName, $check.Error)
                         return $result
                     }
+                    Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
+                    Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
+                        -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames @($archiveName)
 
                     $result.ArchivePath = $archivePath
                     $result.Downloaded = $true

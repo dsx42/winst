@@ -29,7 +29,7 @@ function Expand-WinstPath {
         $slashIndex = $body.IndexOf('\')
         $head = $(if ($slashIndex -ge 0) { $body.Substring(0, $slashIndex) } else { $body })
         if ($head.LastIndexOf('@') -gt 0 -and $head.Substring(0, $head.LastIndexOf('@')).Contains(':')) {
-            throw ('路径里不能写账号密码：UNC 路径只写 \\服务器\共享名\目录。需要认证时请到「设置 → 安装包位置 / 软件安装位置」，输入路径后会单独询问账号与密码。')
+            throw ('路径里不能写账号密码：UNC 路径只写 \\服务器\共享名\目录。需要认证时请到「设置 → 安装包位置」，输入路径后会单独询问账号与密码。')
         }
     }
 

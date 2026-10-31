@@ -44,10 +44,38 @@ function Update-WinstLedgerFromScan {
             }
 
             $versionChanged = ($existingVersion -ne $detected)
+            $detectedDir = Get-EntryString -Entry $info -Key 'InstallDir'
+            $verifiedInstaller = [bool]((Get-EntryString -Entry $info -Key 'Type') -eq 'installer' -and (Get-EntryBool -Entry $info -Key 'VerifiedIdentity'))
+            $dirChanged = [bool]($verifiedInstaller -and $detectedDir -and $detectedDir -ine (Get-EntryString -Entry $existing -Key 'installDir'))
+            $uninstallSnapshot = $null
+            $nameChanged = $false
+            if ($verifiedInstaller -and $Plan.Contains($id)) {
+                # 身份已由当前系统记录确认，才把快照中的名称规则同步为当前精确规则；其它卸载设置仍沿用快照。
+                $currentSnapshot = Get-WinstUninstallSnapshotFromPlan -Plan $Plan[$id]
+                $uninstallSnapshot = ConvertTo-WinstUninstallSnapshot -Block (Get-EntryValue -Entry $existing -Key 'uninstall' -Default $null)
+                $currentNames = @($currentSnapshot['nameRule'] | Where-Object { $null -ne $_ -and [string]$_ })
+                $savedNames = @($uninstallSnapshot['nameRule'])
+                $nameChanged = [bool]($currentNames.Count -gt 0 -and (ConvertTo-Json -InputObject $currentNames -Compress) -cne (ConvertTo-Json -InputObject $savedNames -Compress))
+                if ($nameChanged) {
+                    $currentMethod = Get-EntryString -Entry $currentSnapshot -Key 'method'
+                    $savedMethod = Get-EntryString -Entry $uninstallSnapshot -Key 'method'
+                    $planVersion = Get-EntryString -Entry $Plan[$id] -Key 'version'
+                    if ($savedMethod -and $savedMethod -ne $currentMethod) {
+                        $nameChanged = $false
+                        if (-not $Quiet) { Write-Host ('    [=] 保留 {0} 的卸载名称规则：当前清单与台账的卸载方式不同' -f $id) -ForegroundColor Yellow }
+                    } elseif ($currentMethod -eq 'appx' -and (-not $planVersion -or $planVersion -cne $detected)) {
+                        # 应用包卸载名称独立于检测名称，已展开的目标版本规则不能套到另一版本。
+                        $nameChanged = $false
+                        if (-not $Quiet) { Write-Host ('    [=] 保留 {0} 的卸载名称规则：解析版本 {1} 与本机检出版本 {2} 的文本不一致' -f $id, $planVersion, $detected) -ForegroundColor Yellow }
+                    } else {
+                        $uninstallSnapshot['nameRule'] = @($currentNames)
+                    }
+                }
+            }
             $savedOld = @(Get-EntryArray -Entry $existing -Key 'oldVersions')
             $oldChanged = -not (Test-WinstOldVersionsEqual -A $savedOld -B $oldVersions)
 
-            if (-not $versionChanged -and -not $oldChanged) {
+            if (-not $versionChanged -and -not $oldChanged -and -not $dirChanged -and -not $nameChanged) {
                 $Counters.Kept++
                 if (-not $Quiet) {
                     Write-Host ('    [=] 已登记 {0}  版本 {1}（与记录一致，未改动）  目录 {2}' -f $id, $existingVersion, $recordDir) -ForegroundColor DarkGray
@@ -57,14 +85,23 @@ function Update-WinstLedgerFromScan {
 
             $existing['oldVersions'] = @($oldVersions)
             if ($versionChanged) { $existing['version'] = $detected }
+            if ($dirChanged) {
+                $existing['installDir'] = $detectedDir
+                $recordDir = $detectedDir
+                if (-not $Quiet) { Write-Host ('    [~] 更正 {0} 的实际安装目录：{1}' -f $id, $recordDir) -ForegroundColor Gray }
+            }
+            if ($nameChanged) {
+                $existing['uninstall'] = $uninstallSnapshot
+                if (-not $Quiet) { Write-Host ('    [~] 按系统记录确认 {0} 的产品身份并同步卸载名称规则' -f $id) -ForegroundColor Gray }
+            }
             $Counters.Changed = $true
             if (-not $Quiet) {
-                if (-not $versionChanged) {
+                if (-not $versionChanged -and $oldChanged) {
                     Write-Host ('    [~] 更新 {0} 的旧版本登记：{1}  目录 {2}' -f $id, (Format-WinstOldVersionText -OldVersions $oldVersions), $recordDir) -ForegroundColor Gray
-                } elseif ($existingVersion -eq 'unknown') {
+                } elseif ($versionChanged -and $existingVersion -eq 'unknown') {
                     $Counters.Filled++
                     Write-Host ('    [~] 补全版本 {0} → {1}  目录 {2}' -f $id, $detected, $recordDir) -ForegroundColor Gray
-                } else {
+                } elseif ($versionChanged) {
                     $Counters.Updated++
                     Write-Host ('    [~] 更正版本 {0}：{1} → {2}  目录 {3}' -f $id, $existingVersion, $detected, $recordDir) -ForegroundColor Gray
                 }

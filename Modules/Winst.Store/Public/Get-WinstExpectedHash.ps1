@@ -44,17 +44,13 @@ function Get-WinstExpectedHash {
     $result.Fingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $FileName -FileDecl $FileDecl `
         -FileUrl $FileUrl -SourceVersion $SourceVersion
 
-    if ($Offline) {
-        $cachedHash = ''
-        $cachedFingerprint = ''
-        $cachedHashFile = ''
-        $cachedHashFrom = ''
-        if ($CachedMeta) {
-            $cachedHash = ([string]$CachedMeta.ExpectedHash).Trim()
-            $cachedFingerprint = ([string]$CachedMeta.ChecksumFingerprint).Trim()
-            $cachedHashFile = ([string]$CachedMeta.ChecksumHashFile).Trim()
-            $cachedHashFrom = ([string]$CachedMeta.ChecksumHashFrom).Trim()
-        }
+    # 已确认过的远端摘要同时供联网和离线安装复用，声明指纹绑定文件名、地址、版本与解析规则。
+    # 这里只信任索引记录；缓存文件的实测摘要由调用方从 hashes / manifestHashes 读取。
+    if ($CachedMeta) {
+        $cachedHash = ([string]$CachedMeta.ExpectedHash).Trim()
+        $cachedFingerprint = ([string]$CachedMeta.ChecksumFingerprint).Trim()
+        $cachedHashFile = ([string]$CachedMeta.ChecksumHashFile).Trim()
+        $cachedHashFrom = ([string]$CachedMeta.ChecksumHashFrom).Trim()
         if ($cachedHash -and $cachedFingerprint -and
                 $cachedFingerprint -ieq $result.Fingerprint -and
                 $cachedHashFile -eq $hashFile -and $cachedHashFrom -ieq $hashFrom) {
@@ -62,6 +58,8 @@ function Get-WinstExpectedHash {
             $result.Skipped = $false
             return $result
         }
+    }
+    if ($Offline) {
         $result.Ok = $false
         $result.Skipped = $false
         $result.Error = ('严格离线模式无法验证 {0}：缓存索引没有与当前 hashFile 声明匹配的已验证校验值；请先在联网环境刷新缓存' -f $FileName)

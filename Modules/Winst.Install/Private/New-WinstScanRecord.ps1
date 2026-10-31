@@ -12,7 +12,7 @@ function New-WinstScanRecord {
         `OldVersions` 是同一软件在本机并存的低版本（`[ordered]@{ version; detail; recordKey }`），
         由检测结果原样带上来，供台账记录后提醒用户清理。
     .OUTPUTS
-        [ordered]@{ Id; Version; OldVersions; Type; InstallDir; Managed; Source; DirOnly }
+        [ordered]@{ Id; Version; OldVersions; Type; InstallDir; Managed; Source; DirOnly; VerifiedIdentity }
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Id,
@@ -22,7 +22,8 @@ function New-WinstScanRecord {
         [string]$InstallDir = '',
         [string]$Managed = 'winst',
         [string]$Source = '',
-        [switch]$DirOnly
+        [switch]$DirOnly,
+        [switch]$VerifiedIdentity
     )
 
     $old = @()
@@ -46,5 +47,6 @@ function New-WinstScanRecord {
         Managed     = $Managed
         Source      = $Source
         DirOnly     = [bool]$DirOnly
+        VerifiedIdentity = [bool]$VerifiedIdentity
     }
 }

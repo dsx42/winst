@@ -13,7 +13,8 @@ function Get-WinstDetectedVersion {
         - `OldVersions` 是其余版本（`[ordered]@{ Version; Detail }`，从高到低），供界面提醒用户卸载旧版本；
         - `Versions` 是去重排序后的全部版本，含最新那个。
     .OUTPUTS
-        @{ Ok; Found; Version; Versions; OldVersions; Method; Detail; Note }
+        @{ Ok; Found; Version; Versions; OldVersions; Method; Detail; Note; QuerySucceeded }
+        QuerySucceeded 仅 registry / appx 使用：完整查询成功为真，表示未命中时也可确认目标身份不在系统记录中。
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,

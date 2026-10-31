@@ -3,7 +3,7 @@
 function Read-WinstSharePathInput {
     <#
     .SYNOPSIS
-        读取并校验一个「安装包位置 / 安装位置」路径：UNC 路径 + 可选的账号密码。
+        读取并校验安装包位置：本地路径或 UNC 路径 + 可选的账号密码。
     .DESCRIPTION
         网络共享只接受 UNC 路径，不接受映射盘符：映射按登录会话生效，winst 以管理员身份
         运行时往往看不到非提权会话里映射的盘符。

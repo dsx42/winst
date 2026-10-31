@@ -37,9 +37,14 @@ function Invoke-PathSettingItem {
     Write-Host '  路径支持 %VAR% 环境变量（读取时展开）；相对路径以数据目录为基准。' -ForegroundColor DarkGray
     Write-Host ''
 
-    # 读输入：网络共享只收 UNC；账号、密码随后单独询问（可留空表示不需要认证）。
-    # 具体编排在 Winst.Install 的 Read-WinstSharePathInput 里，本层只负责展示与落盘。
-    $entered = Read-WinstSharePathInput -Prompt '  请输入新路径（UNC 路径直接回车取消）'
+    # 软件安装位置不进入共享认证流程；只有安装包位置可单独输入共享账号密码。
+    $entered = @{ Ok = $true; Cancelled = $false; Path = ''; Error = '' }
+    if ($Key -eq 'installRoot') {
+        try { $entered.Path = ([string](Read-Host '  请输入本地路径（直接回车取消）')).Trim().Trim('"').Trim() } catch { $entered.Cancelled = $true }
+        if (-not $entered.Path) { $entered.Cancelled = $true }
+    } else {
+        $entered = Read-WinstSharePathInput -Prompt '  请输入新路径（直接回车取消）'
+    }
     if ([bool]$entered.Cancelled) {
         Write-Host '  已取消。' -ForegroundColor DarkGray
         return
@@ -51,7 +56,17 @@ function Invoke-PathSettingItem {
     }
 
     $value = [string]$entered.Path
-    $resolved = Expand-WinstPath -Path $value -Base $Context.DataRoot
+    try {
+        if ($Key -eq 'installRoot') {
+            $resolved = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options @{ InstallRoot = $value } -Config $Context.Config
+        } else {
+            $resolved = Expand-WinstPath -Path $value -Base $Context.DataRoot
+        }
+    } catch {
+        Write-Host ''
+        Write-Host ('  路径无效：{0}' -f $_.Exception.Message) -ForegroundColor Yellow
+        return
+    }
 
     $errorMessage = ''
     if (-not $value) {

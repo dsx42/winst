@@ -10,7 +10,7 @@ function Get-WinstDetectedVersionCore {
         能命中多个版本的检测方式（registry / fileVersion / markerFile / jsonFile / appx）累积到
         `Result.Versions`，再由 Complete-WinstDetectedVersion 挑出最新版本、其余记为旧版本。
     .OUTPUTS
-        @{ Ok; Found; Version; Versions; OldVersions; Method; Detail; Note }
+        @{ Ok; Found; Version; Versions; OldVersions; Method; Detail; Note; QuerySucceeded }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -29,6 +29,7 @@ function Get-WinstDetectedVersionCore {
         Method      = 'none'
         Detail      = ''
         Note        = ''
+        QuerySucceeded = $false
     }
 
     $detect = Get-EntryValue -Entry $Plan -Key 'detect' -Default $null
@@ -66,6 +67,9 @@ function Get-WinstDetectedVersionCore {
                 -Kind $kind -Between $between -Result $result
         }
     }
+
+    # 系统记录只在完整查询成功时可信，部分命中不能掩盖权限或枚举失败。
+    if (@('registry', 'appx') -contains $method -and -not [bool]$result.QuerySucceeded) { $result.Ok = $false; return $result }
 
     # 归一写法 + 挑出最新版本（单值检测方式只有一条，等于原样沿用）
     Complete-WinstDetectedVersion -Result $result -RewriteRules @(Get-EntryArray -Entry $detect -Key 'versionRewrite')

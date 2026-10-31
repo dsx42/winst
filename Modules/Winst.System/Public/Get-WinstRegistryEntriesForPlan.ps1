@@ -19,7 +19,9 @@ function Get-WinstRegistryEntriesForPlan {
     .OUTPUTS
         [object[]]：命中的卸载记录；无规则 / 无命中时返回空数组
     #>
-    param($Plan, [string]$InstallDir = '')
+    param($Plan, [string]$InstallDir = '', [hashtable]$Status = $null)
+
+    if ($null -ne $Status) { $Status.Ok = $false; $Status.Error = '没有可用的注册表名称规则' }
 
     $ruleText = Get-WinstRegistryNameRuleForPlan -Plan $Plan
     if (-not $ruleText) { return @() }
@@ -27,7 +29,7 @@ function Get-WinstRegistryEntriesForPlan {
     if (-not $rule.Ok) { return @() }
 
     $hits = @()
-    foreach ($entry in @(Get-WinstInstalledRegistryEntries)) {
+    foreach ($entry in @(Get-WinstInstalledRegistryEntries -Status $Status)) {
         if (Test-CompiledMatchRule -Rule $rule -Text ([string]$entry['DisplayName'])) { $hits += $entry }
     }
     if ($hits.Count -eq 0) { return @() }

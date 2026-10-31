@@ -6,7 +6,7 @@ function Get-WinstIndexHashForPlan {
         取某个包文件写回缓存索引 hashes 用的 sha256。
     .DESCRIPTION
         优先用计划里已有的 sha256（RecordedHash / IndexHash）；都没有而文件又在缓存里时，
-        才现算一次（仅「软件源声明非 sha256 摘要 + 索引里还没有 sha256」这一种情况会走到），
+        才现算一次（新下载但未声明校验，或旧索引尚未记过 sha256），
         算出来交给调用方写回索引，下次运行就能直接命中、不重复计算。
     #>
     param([string]$FilePath, $Plan)

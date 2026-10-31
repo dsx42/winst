@@ -58,16 +58,17 @@ function New-WinstInstallerBlocks {
         }
     }
     # 卸载：主包是应用包，或版本检测走的就是系统应用包记录（如 Windows App Runtime 的安装器会把运行时装成应用包）。
-    # 卸载名称规则：条目 uninstall.name 可声明（字符串或数组，覆盖 detect.name）——Windows App Runtime 的
-    # 运行时由 .exe 安装器装成 4 个包家族（framework / Main / Singleton / DDLM，名字前缀都不同）：
-    # 检测只对框架包取版本，卸载却要按全部家族移除
+    # 卸载名称规则可声明为字符串或数组，覆盖 detect.name；解析时展开版本占位符并逐条校验，
+    # 让清单按目标产品系列和通道明确限定范围，共享组件是否移除同样由规则决定。
     if ($isAppxInstall -or (Get-EntryString -Entry $DetectBlock -Key 'method') -eq 'appx') {
         $entryUninstall = Get-EntryValue -Entry $Entry -Key 'uninstall' -Default $null
         $uninstallName = Get-EntryValue -Entry $entryUninstall -Key 'name' -Default $null
         if ($null -eq $uninstallName) { $uninstallName = Get-EntryValue -Entry $DetectBlock -Key 'name' -Default '' }
+        $nameRules = New-WinstAppxUninstallNameRules -NameRules $uninstallName -Version $Version
+        if ($nameRules.Error) { return @{ Install = $installBlock; Uninstall = $null; Notes = @(); Error = [string]$nameRules.Error } }
         $uninstallBlock = [ordered]@{
             method        = 'appx'
-            name          = $uninstallName
+            name          = $nameRules.Value
             uninstallArgs = ''
         }
     }

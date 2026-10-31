@@ -50,6 +50,29 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 - winst 自己写出的文件（清单缓存、`bundle pack` 复制的清单、`.list`）一律 UTF-8 无 BOM
 - `_manifestVersion` 只用于人看与排错，winst 不按它做兼容分支；改内置清单时要一起更新
 
+## 通用匹配规则
+
+`source.files[].file`、`source.versionFilter`、`source.files[].versionFilter`、页面链接条件中的 `href`、`detect.name` 和 `uninstall.name` 使用同一套匹配规则。它们接受以下全部写法：
+
+| 写法 | 匹配方式 |
+|---|---|
+| 普通文本或通配 | 默认写法，整串匹配且区分大小写；`*` 匹配任意多个字符，`?` 匹配单个字符，反斜杠转义下一个字符，其余字符按字面量处理 |
+| `re:<正则>` | 直接使用自定义正则，默认区分大小写；需要完整匹配时自行写出首尾边界，需要忽略大小写时使用正则选项 `(?i)`；正则无法编译时规则报错 |
+| `product:<产品名列表>` | 预置的完整产品名称匹配器；接受列出的任一产品名，以及产品名后可选的空白和数字点分版本后缀；产品名按字面量处理且区分大小写，不把 `*`、`?` 或正则元字符当成特殊语法 |
+
+`re:` 和 `product:` 前缀不区分大小写，前面可以有空白；未使用这两个前缀时按通配处理。页面条件的 `class` / `id` / `text`、文件系统路径通配、`hashFrom` 和 `versionKind` 分别使用各自的规则，不使用此匹配器。
+
+`product:` 后用 `|` 分隔产品别名，每个别名会去掉首尾空白。示例 `product:微信|WeChat|Weixin` 接受「微信」「WeChat」「Weixin」「微信 4.2.0」，不接受「企业微信」「WeChat Work」「微信测试版」。版本后缀是至少一个空白字符，后接一个或多个以点分隔的数字段，如 `4`、`4.2.0`；版本前后不能额外夹带其它文字。`product:` 后没有名称、连续 `||`、末尾 `|` 或仅含空白的别名，均报「product: 预置规则的产品名不能为空」。`|` 只作分隔，名称自身含此字符时应使用 `re:` 自定义规则。
+
+例如，微信的注册表版本检测可写为：
+
+```json
+"detect": {
+  "method": "registry",
+  "name": "product:微信|WeChat|Weixin"
+}
+```
+
 ## 条目结构
 
 ```jsonc
@@ -137,7 +160,8 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 2. 未被路径命中时，再按 `processes` 声明的名字匹配。仅按名字不能确认归属，即使与主程序同名，也不会自动结束。
 3. 仅按名字命中但不能确认归属的进程会列出并要求用户手动关闭；`--kill` 和交互式“结束进程”都不会自动结束它们，以避免误杀同名或共享运行时进程。
 4. 路径不可见且未命中 `processes` 时，只有进程名与主程序相同才会作为候选，且不属于可自动结束的一组。
-5. 结束进程或用户回答之后都重新检测，判定只看重新检测的结果：进程已经不在了就直接继续。「不能自动结束」的进程在重新检测仍命中时中止；结束进程失败在 `--kill` 下立即中止，交互模式下重新提示（最多 5 轮）。
+5. 安装 / 更新 `installer` 时，交互提示提供「直接安装」：保留运行中的进程并继续执行安装器，由安装器处理占用；只按名字命中、无法确认归属的进程也允许这样继续。卸载以及 `portable` / `file` 的安装 / 更新没有这个选项；`--yes`、`--kill` 和输入重定向不会自动选择它。
+6. 未选择「直接安装」时，结束进程或用户回答之后都重新检测，判定只看重新检测的结果：进程已经不在了就直接继续。「不能自动结束」的进程在重新检测仍命中时中止；结束进程失败在 `--kill` 下立即中止，交互模式下重新提示（最多 5 轮）。
 
 ## 条目类型
 
@@ -209,7 +233,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 `source.repo` 必填，`source.files` 至少一项。`files[]` 的定位方式二选一：
 
 - `url` 可写完整地址，也可只写文件名（如 `"rufus-{version}.exe"`）→ 自动补全 `releases/download/<tag>/<文件名>`；逐个探测地址可用性
-- `file` 通配或 `re:` 正则 → 读该发布的资产列表再匹配；无命中即报错，多命中取第一个并提示
+- `file` 使用[通用匹配规则](#通用匹配规则) → 读该发布的资产列表再匹配；无命中即报错，多命中取第一个并提示
 
 **最新发布里没有所需文件时退回更早的发布。** GitHub 上常见「release 已建好、资产还在分批上传」：这时 `releases/latest` 指向的发布里还没有安装包，但上一次发布的文件是可用的。判定为「这个发布里没有要的文件」后，逐个试更早的发布，用第一个确实含有该文件的发布（最多查最近 5 个），并在结果的 `notes` 里写明「最新发布 x 里还没有这个文件，已改用更早的发布 y」。
 
@@ -222,7 +246,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 触发条件只有两种，都属于「这个发布里没有该文件」而非配置错误：
 
-- `file` 通配在该发布的资产列表里一个都没命中，或该发布还没上传任何资产
+- `file` 匹配规则在该发布的资产列表里一个都没命中，或该发布还没上传任何资产
 - `files[].url` **只写了文件名**（地址由 winst 拼成）且探测到 404
 
 清单自己写了完整地址模板时（如 `https://…/download/v{version}/x.exe`）404 仍按配置错误直接报错，不退回旧版本——那通常意味着模板写错，静默安装旧版只会掩盖问题。`latestOnly: true` 可关闭整个回退逻辑。
@@ -246,7 +270,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
   "kind": "listing",
   "indexUrl": [ "https://dlcdn.apache.org/maven/maven-3/" ],   // 可为数组，多个页面的候选合并
   "versionKind": "semver",             // 必填：semver | date | digits
-  "versionFilter": "3.*",              // 可选：候选版本过滤（通配或 re: 正则）
+  "versionFilter": "3.*",              // 可选：候选版本过滤（见通用匹配规则）
   "sort": "semver",                    // 可选：semver（默认）| text
   "skipExistsCheck": false,            // 可选：不逐个探测地址可用性
   "files": [
@@ -263,7 +287,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 "source": {
   "kind": "page",
   "pageUrl": "https://www.microsoft.com/en-us/download/details.aspx?id=49117",
-  "link": { "class": "dlcdetail__download-btn" },   // class / id / text（子串）/ href（通配）
+  "link": { "class": "dlcdetail__download-btn" },   // class / id / text（子串）/ href（见通用匹配规则）
   "files": [ { "file": "*.exe" } ],                  // 可选：在候选链接里挑一个
   "versionKey": "version",                           // 可选：版本在页面哪个字段
   "versionFrom": "url",                              // 可选：url（默认）| page | package
@@ -282,7 +306,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `thenLink` | `link` 命中的是网页（中转页）时，再抓一层定位真实地址 | 必须搭配 `link`；不能与 `thenClick` 同用；需要 `thenLink.link`（中转页上的定位规则，至少写一个条件）或 `files[0].file`；显式写了空的 `thenLink.link` 时即使有 `files[0].file` 也会被拒绝 |
 | `thenClick` | `link` 命中中转页后还要在浏览器里点按钮取址 | 必须搭配 `link`；不能与 `click` 同用；步骤数组每一步至少要一个条件 |
 
-`link` / `thenLink.link` / `click` / `thenClick` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 是通配或 `re:` 正则；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；`thenClick` 不必再单独声明 `fetchWith: "browser"`，但该值仍决定初始下载页和中转页的抓取方式。
+`link` / `thenLink.link` / `click` / `thenClick` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 使用[通用匹配规则](#通用匹配规则)；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；`thenClick` 不必再单独声明 `fetchWith: "browser"`，但该值仍决定初始下载页和中转页的抓取方式。
 
 `link` 在下载页无命中时会检查 iframe；候选项经过 `files[0].file` 过滤后取第一个。使用 `thenLink` 时，若声明 `thenLink.link`，最终地址只由它筛选，`files[0].file` 不再参与第二次筛选；未声明 `thenLink.link` 时才用 `files[0].file` 过滤中转页全部链接并取第一个。
 
@@ -294,7 +318,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 4. 未写 `versionKind` / `versionBetween` 时回退条目 `version`；写了识别规则但匹配失败则报错
 5. `versionFrom: "package"` → 页面 / 地址都不找版本，等主包下载后取；此时不能再写 `versionKey` / `versionKind` / `versionBetween`
 
-`source.pageUrl` 必填。`files[0]` 是主包（只用于「挑哪一个」与校验）；第 2 条起是配套文件，写成带 `{version}` 的 `url` + `dest`。主包不能写 `url`（地址由页面提取），只能写 `file` 通配或 `re:` 正则；主包 `dest` 忽略并提示。`skipExistsCheck` 默认 `false`，控制最终下载地址探测。
+`source.pageUrl` 必填。`files[0]` 是主包（只用于「挑哪一个」与校验）；第 2 条起是配套文件，写成带 `{version}` 的 `url` + `dest`。主包不能写 `url`（地址由页面提取），只能写 `file` 匹配规则（见[通用匹配规则](#通用匹配规则)）；主包 `dest` 忽略并提示。`skipExistsCheck` 默认 `false`，控制最终下载地址探测。
 
 ### json 源
 
@@ -347,7 +371,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 | 占位符 | 展开为 | 可用位置 |
 |---|---|---|
-| `{version}` | 本次解析出的版本 | `files[].url` / `file` / `name` / `hash` / `hashFile` / `versionListUrl`、`postInstallCopy.from` / `to`、`postInstall` / `uninstall.commands` 的 `exe` / `args`、`installArgs` / `uninstallArgs` / `installerExe`、`mainExe`、`keep`、`env` 的值、`addToPath`、`detect.name` / `versionKind` / `pathGlob` / `jsonKey` / `versionArgs` / `exe` |
+| `{version}` | 本次解析出的版本 | `files[].url` / `file` / `name` / `hash` / `hashFile` / `versionListUrl`、`postInstallCopy.from` / `to`、`postInstall` / `uninstall.commands` 的 `exe` / `args`、`installArgs` / `uninstallArgs` / `installerExe`、`uninstall.name`、`mainExe`、`keep`、`env` 的值、`addToPath`、`detect.name` / `versionKind` / `pathGlob` / `jsonKey` / `versionArgs` / `exe` |
 | `{versionMajor}` | 版本号按 `.` 切分的第一段（`2.57.1` → `2`） | 同上 |
 | `{tag}` | GitHub release tag（按 URL 路径段转义） | github 源的 `files[].url` / `file` |
 | `{urlQuery:参数名}` | 本文件下载地址查询串里该参数的值 | `files[].hashFile` |
@@ -412,7 +436,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `url` | — | 下载地址或地址模板 |
-| `file` | — | 文件名匹配规则（通配或 `re:` 正则） |
+| `file` | — | 文件名匹配规则，见[通用匹配规则](#通用匹配规则) |
 | `urlKey` | — | 仅 `json` 源：接口里存放下载地址的字段名 |
 | `dest` | 空 = 仅缓存，不落位 | 配套文件的相对落位路径（不能为绝对路径、`.` 或含 `..`）；普通文件填写目标文件名（如 `config.ini`），`extract: true` 时必须填写解压目标目录，否则安装时报错；主包上的 `dest` 忽略并提示 |
 | `extract` | `false` | 该文件是压缩包，安装时解压到 `dest`（仅配套文件） |
@@ -429,7 +453,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `compare` | `auto` | 无摘要时的比对判据，见下方枚举；空值及无法识别的值按 `auto` |
 | `versionListUrl` | 空 | 该配套文件独立去版本列表页找最新版（不跟随主包版本节奏）；只支持 `url` 模板定位的文件 |
 | `versionKind` | 空 = 用 `source.versionKind` | 配合 `versionListUrl` 收集候选；此时本文件或 source 层必须至少写一处 |
-| `versionFilter` | 空 | `versionListUrl` 的候选过滤，通配或 `re:` 正则 |
+| `versionFilter` | 空 | `versionListUrl` 的候选过滤，见[通用匹配规则](#通用匹配规则) |
 | `versionRewrite` | 空 | 只作用于该文件的地址模板展开与文件版本记录，不影响主包和其它文件 |
 
 `url`、`urlKey` 分别与 `file` 互斥；`url` 与 `urlKey` 也互斥，同时写会报错。**例外是 json 主包的 `urlKey` + `file`，这是允许且常用的组合**：前者定位接口字段，后者筛选候选条目。`urlKey` 只能用于 `json` 源。page 主包不能写 `url`，只能写 `file`；各来源具体必填组合见前文。
@@ -469,7 +493,9 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `auto`（默认） | 比 `ETag` + `Last-Modified` + 文件大小（记录里有哪项比哪项） |
 | `size` | 只比文件大小——主机 `ETag` / `Last-Modified` 会漂移时用（如 `dl.google.com`） |
 
-`--offline` 下声明过 `hash` / `hashFile` 的缓存文件必须能重新验证；验证不了就报「离线缓存无法验证」而不会静默使用。
+安装包下载后，`winst.json` 同时保存远端预期摘要 `expectedHash` 和本地计算摘要 `hashes` / `manifestHashes`。校验声明指纹匹配时，在线与离线安装都会直接复用已保存的校验结果，不重新获取远端摘要，也不重新计算本地文件摘要；缺少可复用结果时才执行必要的校验，离线无法完成则明确报错。
+
+**这是为了减少网络请求和本地计算作出的安全取舍**：校验完成后安装包被篡改，可能不会被发现；能修改 `winst.json` 的人也能伪造缓存记录。该记录不能作为防篡改保证，详细格式和复用条件见 `docs\data-files.md`。
 
 ## 命令条目
 
@@ -503,7 +529,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | 字段 | 默认 | 说明 | 适用 method |
 |---|---|---|---|
 | `method` | 见条目字段表 | `none` / `registry` / `fileVersion` / `markerFile` / `jsonFile` / `appx` / `cliVersion` | 全部 |
-| `name` | `registry` 未写时按 `*<name>*` 推导；`appx` 无默认 | 匹配规则：`registry` 比 `DisplayName`，`appx` 比包名；通配或 `re:` 正则；`appx` 检测只接受单条字符串规则 | `registry` / `appx` |
+| `name` | `registry` 未写时按 `*<name>*` 推导；`appx` 无默认 | `registry` 比 `DisplayName`，`appx` 比包名；写法见[通用匹配规则](#通用匹配规则)；`appx` 检测只接受单条字符串规则 | `registry` / `appx` |
 | `pathGlob` | 空 | 文件定位通配（支持 `{installDir}` / `{installRoot}`）；命中多个时逐个读取、取版本最高的那个作为本机版本（其余记为旧版本） | `fileVersion` / `markerFile` / `jsonFile` |
 | `jsonKey` | 空 | JSON 里的版本字段名（支持点分嵌套） | `jsonFile` |
 | `exe` | `mainExe` | 要运行的程序（相对安装目录或绝对路径） | `cliVersion` |
@@ -520,16 +546,63 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 - 未声明 `versionKind` / `versionBetween` 时，原始文本整体像单行版本号就原样采用；否则按 `semver` → `date` → `digits` 找第一个像版本号的内容。`markerFile` 即使声明了识别规则但未命中，也执行这个兜底；其它方式不兜底。
 - `cliVersion` 在一个独立隐藏进程里运行，`stdin` 立即关闭；先读 `stdout`，未识别再读 `stderr`，直接写控制台而不走重定向的输出拿不到。运行超时固定 10 秒，会连同子进程一起结束。
 - 同一软件在本机装过多份时，`registry` / `fileVersion` / `markerFile` / `jsonFile` 读出全部命中版本，以最高版本作为本机版本，其余记为旧版本；`registry` 同时命中外层引导包与内层 MSI 时只采用外层引导包的 `DisplayVersion`；`appx` 只取版本最高的包。详见 `docs\install-flows.md` 的「版本检测」。
+- 安装 / 更新对 `registry` / `appx` 按当前名称规则查询系统记录：完整查询成功但没有匹配时，不采用旧台账版本阻止安装；版本可读时，更新比较使用本次检测值。身份命中但版本不可读时，更新比较保留有效台账版本；台账也没有有效版本时，普通更新跳过并提示，显式 `--force` 可继续，检查模式列为「无法比较」。权限或枚举失败会明确提示并中止该软件的安装 / 更新，不按未安装处理；实际更新计为失败并返回退出码 `3`，检查模式列为「无法比较」。
+
+名称规则必须限定同一产品和可比较的版本体系，不能把名称相近的软件或不同包家族一起比较：
+
+- Windows App Runtime 的 1.x 应用包使用内部编号（如 `8000.x`），2.x 使用产品版本（如 `2.6.4.0`），两者不能直接比较。面向 2.x 及后续主系列的条目，用 `Microsoft.WindowsAppRuntime.{versionMajor}` 精确匹配目标主系列的正式版 framework 包；目标版本 `2.6.4` 展开为 `Microsoft.WindowsAppRuntime.2`。只有 1.x、其它主系列或预览通道时不算已安装该目标系列，因此会安装目标系列；同机的其它系列仍可保留。1.x 的包名包含主次版本（如 `Microsoft.WindowsAppRuntime.1.8`），若单独维护 1.x 条目，应填写对应的完整包名，不能套用仅主版本占位符的规则。命名及版本编码依据 [微软的应用包规范](https://github.com/microsoft/WindowsAppSDK/blob/main/specs/Deployment/MSIXPackageVersioning.md)。
+- 微信的 `*微信*` 会同时命中「企业微信」。用 `product:微信|WeChat|Weixin` 只接受列出的完整产品名，以及可选的空白和数字版本后缀。`detect.name` 同时用于注册表版本检测、实际安装目录解析、修复扫描和注册表卸载名称规则，因而这些路径都排除企业微信。
+
+以下是可直接放入相应条目的检测定义：
+
+```json
+"detect": {
+  "method": "appx",
+  "name": "Microsoft.WindowsAppRuntime.{versionMajor}"
+}
+```
+
+```json
+"detect": {
+  "method": "registry",
+  "name": "product:微信|WeChat|Weixin"
+}
+```
 
 ## 卸载定义（`uninstall`）
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `commands` | `[]` | 卸载命令（结构同「命令条目」）；在删目录 / 跑官方卸载器之前执行，失败即中止，`--force` 跳过 |
-| `name` | 未写时 = `detect.name` | `appx` 卸载时的包名规则；可为字符串或数组，命中任意一条即移除；仅卸载应用包时读取 |
+| `name` | 未写时 = `detect.name` | `appx` 卸载时的包名规则，见[通用匹配规则](#通用匹配规则)；可为字符串或字符串数组，逐条展开 `{version}` / `{versionMajor}` 后编译，命中任意一条即纳入卸载范围；仅卸载应用包时读取 |
 | `uninstallArgs` | 不支持 | 卸载参数必须写条目级 `uninstallArgs`；写在这里不会生效，应用包卸载也不使用它 |
 
 `uninstall` 只读 `commands` 与 `name`：删目录要回收哪些环境变量 / PATH 项由 `env` / `addToPath` 自动推导，不从这里读取。
+
+`uninstall.name` 中的版本占位符取当前解析出的软件版本，展开结果写入解析锁和安装台账卸载快照；`re:` 规则里的版本值按正则字面量插入。声明版本占位符但没有可用版本时，条目解析报错，不会把占位符替换为空串后继续匹配。展开前后必须保持同一种匹配器，版本值不能把普通通配改成 `re:` 或 `product:`，发生变化时报「uninstall.name 的版本占位符不能改变匹配规则类型」。
+
+应用包条目必须能从 `uninstall.name` 或默认的 `detect.name` 得到至少一条非空规则：空数组报「uninstall.name 至少需要一条名称规则」，空白项、非字符串项和无法编译的规则都会使条目解析失败。版本占位符区分大小写；非 `re:` 规则中的未知字母占位符会报不支持，`re:` 中拼错的 `{version...}` 模板也会报错，合法正则量词和 Unicode 属性不受影响。`product:` 规则不允许版本占位符的值包含 `|`，否则报错，避免把版本内容解释为新的产品别名。
+
+面向 Windows App Runtime 2.x 及后续主系列的正式版条目，Framework、Main 和 DDLM 的卸载规则限定系列和通道，并明确列入正式版共享 Singleton：
+
+```json
+"uninstall": {
+  "name": [
+    "Microsoft.WindowsAppRuntime.{versionMajor}",
+    "MicrosoftCorporationII.WinAppRuntime.Main.{versionMajor}",
+    "MicrosoftCorporationII.WinAppRuntime.Singleton",
+    "Microsoft.WinAppRuntime.DDLM.{versionMajor}.*-x6",
+    "Microsoft.WinAppRuntime.DDLM.{versionMajor}.*-x8",
+    "Microsoft.WinAppRuntime.DDLM.{versionMajor}.*-a6"
+  ]
+}
+```
+
+例如版本 `2.6.4` 展开后，Framework 和 Main 精确匹配主系列 `2`；DDLM 必须属于主系列 `2`，并以正式架构后缀 `-x6` / `-x8` / `-a6` 结束，不接受其后的预览或实验通道后缀。共享 Singleton 使用不带版本号、无通配符的完整包名，只匹配正式通道。该规则不匹配其它主系列的独立包和预览包，但会卸载跨系列共享的正式 Singleton，可能影响其它系列使用它的应用。
+
+卸载与安装后旧包清理共用这组范围；完整卸载会处理所有匹配包，旧包清理仅移除版本低于本次检出版本的匹配包。包的系列和通道归属由名称规则确定，不能依靠内部版本号大小推断。
+
+调整清单卸载范围后，已有台账仍优先使用原卸载快照。先用 `winst info WindowsAppRuntime --force` 定向重新解析该条目，再运行 `winst repair --offline`，使用现有解析锁扫描而不重新刷新其它软件；扫描完整查询成功并确认当前产品身份后，才尝试同步台账快照中的名称规则；已有卸载方式与当前清单不同时保留原规则。应用包还要求解析锁版本与本机检出版本的文本完全一致（包括末尾的 `.0`），否则保留原规则并提示，避免把新版本已展开的名称写入旧版本台账。应在卸载前核对确认页展示的范围。
 
 卸载方式由 winst 根据 `type` 与主包扩展名自动判定，清单不能直接指定。内部方法名（仅出现在详情页与排错信息里）：
 
