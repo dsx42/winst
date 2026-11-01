@@ -18,7 +18,9 @@ function Resolve-DirectSource {
     $version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
     if (-not $version) {
         $versionFrom = (Get-EntryString -Entry $source -Key 'versionFrom').Trim().ToLowerInvariant()
-        if ($versionFrom -eq 'page') {
+        if (@('header', 'json') -contains $versionFrom) {
+            $version = Resolve-WinstExternalVersion -Context $Context -Source $source -VersionFrom $versionFrom
+        } elseif ($versionFrom -eq 'page') {
             $pageUrl = (Get-EntryString -Entry $source -Key 'pageUrl').Trim()
             $page = Get-SourcePageHtml -Context $Context -Source $source -PageUrl $pageUrl -Label '版本页'
             if (-not $page.Ok) {
@@ -33,7 +35,7 @@ function Resolve-DirectSource {
             }
             $version = [string]$found.Version
         } elseif ($versionFrom -and $versionFrom -ne 'package') {
-            $result.Error = ('不认识的版本来源「{0}」（source.versionFrom）；固定地址来源可用 page（从官网页面实时取版本）' -f $versionFrom)
+            $result.Error = ('不认识的版本来源「{0}」（source.versionFrom）；固定地址来源可用 page / package / header / json' -f $versionFrom)
             return $result
         }
     }

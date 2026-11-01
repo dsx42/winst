@@ -5,7 +5,7 @@ function Get-WinstRemoteValidators {
     .SYNOPSIS
         发一次 HEAD 取远端文件的校验器（ETag / Last-Modified / Content-Length），供 files[].refresh 判定使用。
     .OUTPUTS
-        @{ Ok; ETag; LastModified; Size; Error }
+        @{ Ok; ETag; LastModified; Size; Headers; Error }
     .DESCRIPTION
         元数据类请求：与 HEAD 可用性探测共用「直连 → 代理重试」链，并把结果按 URL 记入进程内
         TTL 缓存——同一批安装 / 更新里同一个地址只请求一次。
@@ -18,7 +18,7 @@ function Get-WinstRemoteValidators {
         [int]$TimeoutSec = 20
     )
 
-    $result = @{ Ok = $false; ETag = ''; LastModified = ''; Size = $null; Error = '' }
+    $result = @{ Ok = $false; ETag = ''; LastModified = ''; Size = $null; Headers = @{}; Error = '' }
     if (-not $Uri) { $result.Error = '缺少地址'; return $result }
 
     if (-not (Get-WinstState -Name WinstHttpCache)) {
@@ -52,6 +52,7 @@ function Get-WinstRemoteValidators {
             $headers = $null
             try { $headers = $response.Headers } catch { $headers = $null }
             if ($headers) {
+                foreach ($key in @($headers.Keys)) { $result.Headers[[string]$key] = [string]$headers[$key] }
                 foreach ($key in @($headers.Keys)) {
                     $text = ([string]$headers[$key]).Trim()
                     if ([string]$key -ieq 'ETag') { $etag = $text }

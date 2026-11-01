@@ -9,7 +9,7 @@ function Get-WinstPackageVersionSpec {
         条目声明 source.packageVersion 让 winst 用 7-Zip 读包内结构派生版本——
           file  （可选，通配）：外层包文件，缺省 = 主包（files[0] 的实际缓存文件）；
           inner （可选，通配）：外层包里需要先取出的内层压缩包（取第一个命中，如 Chrome 的 updater.7z）；
-          path  （必填，通配）：最内层压缩包里的条目路径匹配规则（取第一个命中）；
+          path  （必填，通配）：最内层压缩包里的条目路径匹配规则（取第一个命中；尾部分隔符表示目录）；
           versionKind / versionBetween（可选）：从命中条目的**文件名**识别版本，与 versionFrom: "file"
                 同一套识别器；都未声明时用「第一个像版本号的内容」兜底。
         各软件的包内结构差异（updater.7z / *_chrome_installer.exe …）全部写在清单里，winst 不内置规则。

@@ -81,6 +81,12 @@ function Get-WinstFilePlan {
         return $plan
     }
 
+    if (-not $Offline -and (Get-EntryString -Entry $File -Key 'hashHeader')) {
+        $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File
+        if (-not $expected.Ok -or $expected.Skipped) { throw '响应头摘要尚未解析，不能验证本地包' }
+        Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected -ForceRehash
+        return $plan
+    }
     $hasCurrentChecksumProvenance = $true
     if ($declaredHash) {
         # 版本相同只能在索引明确记录的是“当前字面摘要”时走快捷分支；若上次来自 hashFile，

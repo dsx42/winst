@@ -180,10 +180,10 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 | kind | 用途 | `versionFrom` 可用值 |
 |---|---|---|
-| `direct` | 固定地址或带 `{version}` 的地址模板 | `page`（官网页面实时取）、`package`（下载后读文件信息）；**也可完全不写 `versionFrom`**，改用条目 `version`；条目 `version` 非空时优先于 `versionFrom` |
+| `direct` | 固定地址或带 `{version}` 的地址模板 | `page`（官网页面实时取）、`package`（下载后读文件信息）、`header`、`json`；**也可完全不写 `versionFrom`**，改用条目 `version`；条目 `version` 非空时优先于 `versionFrom` |
 | `github` | GitHub Releases（走网页通道，不用 API） | `tag`（默认，发布 tag）、`file`（下载文件名）、`package`、`releaseTitle`（发布标题）、`releaseBody`（发布正文） |
 | `listing` | 版本 / 目录列表页 | 不读 `versionFrom`——版本由列表页候选 + `versionKind` 决定 |
-| `page` | 下载详情页，按元素定位下载按钮 | `url`（默认，从下载地址识别）、`page`（从页面内容识别）、`package` |
+| `page` | 下载详情页，按元素定位下载按钮 | `url`（默认，从下载地址识别）、`page`（从页面内容识别）、`package`、`header`、`json` |
 | `json` | 下载信息只在接口里的站点 | 不读 `versionFrom`——用 `versionKey`，或 `versionKind` / `versionBetween` 从下载地址识别 |
 | `magnet` | 磁力链接（BitTorrent），交给 `FluxDown-CLI` 取包 | 不读 `versionFrom`——用 `versionKind` / `versionBetween` 从文件名 `dn` 识别 |
 
@@ -196,7 +196,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 ```jsonc
 "source": {
   "kind": "direct",
-  "versionFrom": "page",                        // 可选：page | package；不写则用条目 version
+  "versionFrom": "page",                        // 可选：page | package | header | json；不写则用条目 version
   "pageUrl": "https://example.com/download",    // versionFrom: page 时必填
   "versionKind": "semver",                      // 可选：从版本页识别版本
   "versionBetween": [ "Version ", " " ],        // 可选：与 versionKind 二选一或搭配
@@ -206,8 +206,8 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 }
 ```
 
-- 条目 `version` 非空时直接使用，不再读取 `versionFrom` / `pageUrl`；为空时，`versionFrom: "page"` 从页面取版本，`"package"` 等取包，未写 `versionFrom` 会报缺少版本号。
-- `versionFrom` 只接受 `page` / `package`；写别的值会报错。`page` 必须配 `pageUrl` 以及 `versionKind` / `versionBetween` 至少一项，无法识别即报错；`fetchWith` 可选 `iwr`（默认）/ `browser`。
+- 条目 `version` 非空时直接使用，不再读取 `versionFrom` / `pageUrl`；为空时，`versionFrom: "page"` 从页面取版本，`"package"` 等取包，`"header"` / `"json"` 从独立版本地址取值（见下文），未写 `versionFrom` 会报缺少版本号。
+- `versionFrom` 只接受 `page` / `package` / `header` / `json`；写别的值会报错。`page` 必须配 `pageUrl` 以及 `versionKind` / `versionBetween` 至少一项，无法识别即报错；`fetchWith` 可选 `iwr`（默认）/ `browser`。
 - `source.packageVersion` 只能配合 `versionFrom: "package"`，写法见「包内版本派生」。
 - 每个文件都必须写完整地址 `url`；只写文件名通配 `file` 无法定位。地址中的 `{version}` / `{versionMajor}` 无法展开为版本时即报错。
 - 刷新时会探测主包地址一次；`404` / `410` 判为条目解析失败。
@@ -290,7 +290,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
   "link": { "class": "dlcdetail__download-btn" },   // class / id / text（子串）/ href（见通用匹配规则）
   "files": [ { "file": "*.exe" } ],                  // 可选：在候选链接里挑一个
   "versionKey": "version",                           // 可选：版本在页面哪个字段
-  "versionFrom": "url",                              // 可选：url（默认）| page | package
+  "versionFrom": "url",                              // 可选：url（默认）| page | package | header | json
   "versionKind": "semver",                           // 可选：与 versionBetween 搭配
   "versionBetween": [ "Build ", " " ],
   "fetchWith": "browser"                             // 可选：iwr（默认）| browser（Edge 无头）
@@ -310,7 +310,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `link` 在下载页无命中时会检查 iframe；候选项经过 `files[0].file` 过滤后取第一个。使用 `thenLink` 时，若声明 `thenLink.link`，最终地址只由它筛选，`files[0].file` 不再参与第二次筛选；未声明 `thenLink.link` 时才用 `files[0].file` 过滤中转页全部链接并取第一个。
 
-`versionFrom` 取值与优先级：
+`versionFrom: "header"` / `"json"` 优先使用独立版本地址（见「独立版本地址」）；其中 `json` 的 `versionKey` 指接口字段，不读取页面字段。其余取值与优先级：
 
 1. `versionKey`（页面数据里的字段名）—— 声明后优先用它，不再看下面几项
 2. `versionFrom: "page"` → 在页面 HTML 里按 `versionKind` / `versionBetween` 识别
@@ -366,6 +366,30 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 - 交给 `FluxDown-CLI`（下载引擎）以 BitTorrent 任务取包
 
 ## 版本号处理
+
+### 独立版本地址（direct / page）
+
+`source.versionFrom` 在 `direct` / `page` 中额外支持 `header` / `json`，将版本获取与下载地址解析分开。direct 的条目 `version` 非空时仍优先使用条目版本。
+
+| 字段 | 默认 | 约束 |
+|---|---|---|
+| `versionUrl` | 无 | 两种方式都必填，完整版本地址；不支持 `{version}` / `{versionMajor}` 占位符 |
+| `versionHeader` | 无 | `header` 必填；向 `versionUrl` 发 HEAD，按不区分大小写的响应头名取值 |
+| `versionKey` | 无 | `json` 必填；向 `versionUrl` 发 GET，将响应解析为 JSON，按字段路径取版本；支持点分路径和数组下标，如 `0.version` |
+
+请求失败、JSON 非法、字段或响应头缺失、空值或值不是版本号时条目解析失败并明确报错。独立版本请求使用 HTTP 通道的代理和进程内缓存；page 的 `fetchWith` 仍只控制下载页面抓取。无需声明 `versionKind` / `versionBetween`；这两种方式直接使用头或字段的完整版本值。`source.packageVersion` 只允许配合 `versionFrom: "package"`。
+
+```json
+{
+  "kind": "direct",
+  "versionFrom": "header",
+  "versionUrl": "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-x64.msix",
+  "versionHeader": "x-ms-meta-package_version",
+  "files": [
+    { "url": "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-x64.msix" }
+  ]
+}
+```
 
 ### 占位符
 
@@ -442,6 +466,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `extract` | `false` | 该文件是压缩包，安装时解压到 `dest`（仅配套文件） |
 | `stripTopDir` | `false` | `extract` 时该压缩包自己的剥壳设置 |
 | `name` | 空 = 从地址或来源推导 | 下载产物文件名（地址里带不出文件名时用；magnet 源也可覆盖 `dn`）；github 的 `file` 使用实际资产名。同一条目的全部下载产物必须使用不重复的文件名（Windows 不区分大小写），否则报「下载文件名重复」。下载引擎按单层文件名使用它：不能含 `\` / `/`、`.` / `..`、保留设备名或超过 100 字符，写错会报「下载文件名不合法」 |
+| `hashHeader` | 空 = 不读取响应头 | HTTP 来源可用，magnet 不支持。对最终下载地址发 HEAD，以指定响应头作为摘要；与 `hash` / `hashFile` / `hashFrom` 互斥。响应头必须是非空十六进制摘要，长度只接受 32（MD5）/ 40（SHA1）/ 64（SHA256）/ 128（SHA512）；请求失败、缺头或格式非法时条目解析失败。解析结果保存为 `hash`，下载后按该摘要校验；package 来源用此摘要与本地包实际摘要判断远端有无新包，本地缺包时无法比较。已存在包按摘要一致复用、不一致重取，不因地址变化强制重取 |
 | `hash` | 空 = 不校验 | 固定摘要。算法由长度推断：32 → MD5，40 → SHA1，64 → SHA256，128 → SHA512；其它长度按 SHA256 计算。`hash` 优先于 `hashFile` |
 | `hashFile` | 空 | 外部校验文件的地址；与 `hashFrom` 搭配；只有 `hashFrom` 而没有 `hashFile` 不会触发校验 |
 | `hashFrom` | 有 `hashFile` 时 = `sha256sums`，否则不生效 | 校验值的提取方式，见下方枚举 |
@@ -635,7 +660,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
-| `path` | 是 | 最内层压缩包里的条目路径通配（取第一个命中） |
+| `path` | 是 | 最内层压缩包里的条目路径通配（取第一个命中）；尾部 `\` / `/` 表示只匹配目录，否则只匹配文件 |
 | `file` | 否 | 外层包文件通配，缺省 = 主包 |
 | `inner` | 否 | 外层包里需要先取出的内层压缩包（取第一个命中） |
 | `versionKind` | 否 | 从命中条目文件名识别版本的识别器 |
@@ -644,6 +669,18 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 - 只接受上表五个键；写了别的会报错并列出可用键
 - `versionKind` 必须是 `semver` / `date` / `digits` 之一
 - 两个识别字段都不写时，按「第一个像版本号的内容」兜底
+
+包内版本派生的 `source.packageVersion.path` 以 `\` 或 `/` 结尾时只匹配目录，匹配前去掉尾部分隔符，从命中目录的名称识别版本；不带尾部分隔符时只匹配文件。未命中即报错。例如微信安装包可用：
+
+```json
+"packageVersion": {
+  "inner": "install.7z",
+  "path": "[0-9]*.[0-9]*.[0-9]*.[0-9]*\\",
+  "versionKind": "semver"
+}
+```
+
+此规格必须搭配 `source.versionFrom: "package"`；读取 `install.7z` 内版本目录（如 `4.2.0.12`），不使用外层安装器文件名中的版本。
 
 ## 源刷新与解析锁
 

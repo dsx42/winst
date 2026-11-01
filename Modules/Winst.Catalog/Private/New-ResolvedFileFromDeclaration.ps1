@@ -73,5 +73,10 @@ function New-ResolvedFileFromDeclaration {
     if ($refresh) { $file['refresh'] = $refresh }
     $maxAgeHours = Get-EntryValue -Entry $Item -Key 'maxAgeHours' -Default $null
     if ($null -ne $maxAgeHours) { $file['maxAgeHours'] = $maxAgeHours }
+    $hashHeader = (Get-EntryString -Entry $Item -Key 'hashHeader').Trim()
+    if ($hashHeader) {
+        if ($hash -or $hashFile -or $hashFrom) { throw 'files[].hashHeader 不能与 hash / hashFile / hashFrom 同时声明' }
+        $file['hashHeader'] = $hashHeader
+    }
     return $file
 }

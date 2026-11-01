@@ -46,6 +46,20 @@ function Resolve-AppSource {
         $result.Error = '来源解析未返回结果'
     }
     if ($result.Ok) {
+        try {
+            foreach ($file in @($result.Files)) {
+                $header = Get-EntryString -Entry $file -Key 'hashHeader'
+                if (-not $header) { continue }
+                if ($kind -ieq 'magnet') { throw 'magnet 来源不支持 hashHeader' }
+                $hash = Get-WinstRemoteHeader -Context $Context -Uri ([string]$file['url']) -Name $header
+                if ($hash -notmatch '^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64}|[0-9a-fA-F]{128})$') {
+                    throw ('响应头 {0} 不是有效的十六进制摘要' -f $header)
+                }
+                $file['hash'] = $hash
+            }
+        } catch { $result.Ok = $false; $result.Error = $_.Exception.Message }
+    }
+    if ($result.Ok) {
         $nameError = Get-WinstDuplicateDownloadNameError -Files $result.Files
         if ($nameError) { $result.Ok = $false; $result.Error = $nameError }
     }

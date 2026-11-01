@@ -6,7 +6,7 @@ function Get-WinstArchiveInnerVersion {
         按 source.packageVersion 规格用 7-Zip 读包内结构派生版本号。
     .DESCRIPTION
         流程：`7z l -slt` 列外层包 →（规格声明 inner 时）按通配取出第一个命中的内层压缩包、再列它 →
-        按规格 path 通配命中第一条目路径 → 用 versionKind / versionBetween 从命中条目的**文件名**识别
+        按规格 path 通配命中第一条目路径（尾部分隔符表示只匹配目录） → 用 versionKind / versionBetween 从命中条目的**文件名**识别
         版本，未声明识别器时退「第一个像版本号的内容」。
         内层包解到进程临时目录，finally 里清理。各软件的包内结构差异全部写在清单里，本函数不含任何软件特例。
     .OUTPUTS
@@ -24,6 +24,9 @@ function Get-WinstArchiveInnerVersion {
         $result.Error = 'packageVersion 规格里没有 path（最内层压缩包里的条目路径通配）'
         return $result
     }
+
+    $directoriesOnly = ($pathGlob.EndsWith('\') -or $pathGlob.EndsWith('/'))
+    if ($directoriesOnly) { $pathGlob = $pathGlob.TrimEnd('\', '/') }
 
     $workDir = Join-WinstPath ([System.IO.Path]::GetTempPath()) ('winst-pkgver-' + [guid]::NewGuid().ToString('N'))
     try {
@@ -61,7 +64,7 @@ function Get-WinstArchiveInnerVersion {
             $listArchive = $innerFile
         }
 
-        $entries = Get-Winst7zEntryPaths -SevenZip $SevenZip -ArchivePath $listArchive
+        $entries = Get-Winst7zEntryPaths -SevenZip $SevenZip -ArchivePath $listArchive -DirectoriesOnly:$directoriesOnly
         if (-not $entries.Ok) {
             $result.Error = ('读不出包内容（{0}）' -f $entries.Error)
             return $result
@@ -76,7 +79,7 @@ function Get-WinstArchiveInnerVersion {
         }
         $result.MatchedPath = $matched
 
-        $baseName = Split-Path $matched -Leaf
+        $baseName = Split-Path ($matched.TrimEnd('\', '/')) -Leaf
         $version = Get-WinstVersionFromText -Text $baseName `
             -Kind ([string](Get-EntryString -Entry $Spec -Key 'kind')).Trim() `
             -Between @(Get-EntryArray -Entry $Spec -Key 'between')

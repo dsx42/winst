@@ -7,7 +7,11 @@ function Resolve-WinstPageVersion {
     .OUTPUTS
         @{ Error; Version }
     #>
-    param($Entry, $Source, [string]$Html, [string]$DownloadUrl, [string]$VersionFrom, [string]$PageUrl)
+    param($Entry, $Source, [string]$Html, [string]$DownloadUrl, [string]$VersionFrom, [string]$PageUrl, [hashtable]$Context)
+
+    if (@('header', 'json') -contains $VersionFrom) {
+        return @{ Error = ''; Version = (Resolve-WinstExternalVersion -Context $Context -Source $Source -VersionFrom $VersionFrom) }
+    }
 
     $versionKey = (Get-EntryString -Entry $Source -Key 'versionKey').Trim()
     if ($versionKey) {

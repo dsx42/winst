@@ -26,7 +26,7 @@ function Get-WinstPageClickedUrl {
     # 版本要从页面里取、或 files[0].hashFrom: "page"（校验值就在页面数据里，如飞牛官网的 MD5）时，
     # 把点击之后的 DOM 一并带回来
     $wantPageHash = ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page'))
-    $wantPageHtml = [bool]$clickVersionKey -or ($clickVersionFrom -eq 'page') -or $wantPageHash
+    $wantPageHtml = ([bool]$clickVersionKey -and @('header', 'json') -notcontains $clickVersionFrom) -or ($clickVersionFrom -eq 'page') -or $wantPageHash
 
     $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $PageUrl -ClickSpecs $clickSteps -WantHtml:$wantPageHtml
     foreach ($note in @($clicked.Notes)) { if ($note) { $Result.Notes += $note } }

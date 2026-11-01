@@ -67,7 +67,7 @@ function Resolve-PageSource {
     if ($result.Error) { return $result }
 
     $versionResult = Resolve-WinstPageVersion -Entry $Entry -Source $source -Html $html -DownloadUrl $downloadUrl `
-        -VersionFrom $versionFrom -PageUrl $pageUrl
+        -VersionFrom $versionFrom -PageUrl $pageUrl -Context $Context
     if ($versionResult.Error) { $result.Error = $versionResult.Error; return $result }
     $result.Version = [string]$versionResult.Version
 

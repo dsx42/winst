@@ -49,6 +49,25 @@ function Get-WinstRemoteFreshnessHint {
         return $result
     }
 
+    $header = Get-EntryString -Entry $files[0] -Key 'hashHeader'
+    if ($header) {
+        try {
+            $hash = Get-WinstRemoteHeader -Context $Context -Uri $url -Name $header
+            $algorithm = ''
+            switch ($hash.Length) { 32 { $algorithm = 'MD5' }; 40 { $algorithm = 'SHA1' }; 64 { $algorithm = 'SHA256' }; 128 { $algorithm = 'SHA512' } }
+            if (-not $algorithm -or $hash -notmatch '^[0-9a-fA-F]+$') { throw '远端摘要格式无效' }
+            $actual = (Get-FileHash -LiteralPath $target -Algorithm $algorithm -ErrorAction Stop).Hash
+            if ($actual -ieq $hash) {
+                $result.State = 'unchanged'
+                $result.Text = '远端摘要与本地安装包一致，无需下载'
+            } else {
+                $result.State = 'changed'
+                $result.Text = '远端摘要与本地安装包不一致，有新包，建议更新'
+            }
+        } catch { $result.Text = ('无法确认远端是否有新包（{0}）' -f $_.Exception.Message) }
+        return $result
+    }
+
     # 缓存索引里的记账 = 上次下载完成时写下的校验器基线
     $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir
     $entry = $null

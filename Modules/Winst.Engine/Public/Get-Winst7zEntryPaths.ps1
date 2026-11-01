@@ -3,13 +3,14 @@
 function Get-Winst7zEntryPaths {
     <#
     .SYNOPSIS
-        列出压缩包里的条目路径（`7z l -slt` 技术列表：解析 `Path =` 行，跳过目录与压缩包自身的元信息块）。
+        列出压缩包里的条目路径（`7z l -slt` 技术列表：解析 `Path =` 行，默认只取文件，DirectoriesOnly 时只取目录；跳过压缩包自身的元信息块）。
     .OUTPUTS
         @{ Ok; Paths; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][string]$SevenZip,
-        [Parameter(Mandatory = $true)][string]$ArchivePath
+        [Parameter(Mandatory = $true)][string]$ArchivePath,
+        [switch]$DirectoriesOnly
     )
 
     $result = @{ Ok = $false; Paths = @(); Error = '' }
@@ -42,7 +43,7 @@ function Get-Winst7zEntryPaths {
     foreach ($line in @($output)) {
         $text = [string]$line
         if ($text -match '^Path\s*=\s*(.+)\s*$') {
-            if ($current -and -not $isDir -and $hasAttrs) { $paths.Add($current) }
+            if ($current -and $hasAttrs -and ($isDir -eq [bool]$DirectoriesOnly)) { $paths.Add($current) }
             $current = $Matches[1].Trim()
             $isDir = $false
             $hasAttrs = $false
@@ -60,7 +61,7 @@ function Get-Winst7zEntryPaths {
             continue
         }
     }
-    if ($current -and -not $isDir -and $hasAttrs) { $paths.Add($current) }
+    if ($current -and $hasAttrs -and ($isDir -eq [bool]$DirectoriesOnly)) { $paths.Add($current) }
     $result.Ok = $true
     $result.Paths = @($paths.ToArray())
     return $result
