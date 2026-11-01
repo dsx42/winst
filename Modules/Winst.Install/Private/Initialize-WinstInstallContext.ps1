@@ -96,7 +96,7 @@ function Initialize-WinstInstallContext {
 
     # -CheckValidators：安装 / 更新 / 仅下载都要按 files[].refresh 判定「缓存里那份还算不算数」
     # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）沿用缓存，changed / unknown 才重新取
-    # -DownloadOnly：type: download 的条目（或按仅下载操作）——主包版本优先判定
+    # 安装与仅下载操作共用主包版本优先判定；FreshMain 时不能用缓存包版本命中
     $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $id -Files $files -CheckValidators `
         -FreshMain:$freshMain -FreshMainReason:$freshMainReason -DownloadOnly:$isDownloadType -SourceVersion $version)
     if ($plans.Count -eq 0) {

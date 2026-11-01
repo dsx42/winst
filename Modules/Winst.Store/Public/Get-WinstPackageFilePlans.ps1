@@ -7,7 +7,8 @@ function Get-WinstPackageFilePlans {
     .DESCRIPTION
         判定顺序：
           ① 文件不存在 → 需要下载；
-          ② 地址与索引记账（fileMeta.url）不一致 → 缓存里是另一份文件，需要下载；
+          ② 主包两侧版本可比较、未显式声明 refresh 且不要求 FreshMain 时，版本相同即复用、不同则重取。
+             否则地址与索引记账（fileMeta.url）不一致 → 缓存里是另一份文件，需要下载；
           ③ 已声明校验（hash / hashFile）：索引里记录了该文件的摘要（同算法）时**直接比对校验码**；
              没有记录则计算一次并写回索引，以后不重复计算。
           ④ 未声明校验 → 按 files[].refresh 档位（缺省 auto）与 HEAD 校验器判定。

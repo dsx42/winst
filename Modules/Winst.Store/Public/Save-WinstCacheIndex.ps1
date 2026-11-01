@@ -3,7 +3,7 @@
 function Save-WinstCacheIndex {
     <#
     .SYNOPSIS
-        原子写入缓存索引（UTF-8 无 BOM）。
+        缓存索引内容变化时原子写入（UTF-8 无 BOM）；内容相同则保留文件与缓存。
     #>
     param(
         [Parameter(Mandatory = $true)][string]$PkgDir,
@@ -11,5 +11,5 @@ function Save-WinstCacheIndex {
     )
 
     Assert-WinstDistinctIds -Ids @($Index.Keys)
-    Write-FileAtomic -Path (Get-WinstCacheIndexPath -PkgDir $PkgDir) -Content (ConvertTo-WinstJson -InputObject $Index -Depth 8)
+    $null = Write-WinstJsonFileIfChanged -Path (Get-WinstCacheIndexPath -PkgDir $PkgDir) -InputObject $Index -Depth 8
 }

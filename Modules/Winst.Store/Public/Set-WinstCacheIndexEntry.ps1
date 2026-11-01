@@ -10,6 +10,8 @@ function Set-WinstCacheIndexEntry {
         不必为判断缓存是否可用而重算整包哈希。
         FileMeta 记录每个文件的实际地址 / 本次版本 / 校验器基线 / 大小与时间，
         供 8.4 的文件级新鲜度判定（files[].refresh）使用。
+        未指定 DownloadedAt 时取当前文件记账中最新的下载时间；文件无下载时间则沿用已有条目，
+        不因缓存检查、安装或套件复制而记录一次下载。
     #>
     param(
         [Parameter(Mandatory = $true)]$Index,
@@ -22,7 +24,21 @@ function Set-WinstCacheIndexEntry {
         [string]$DownloadedAt = ''
     )
 
-    if (-not $DownloadedAt) { $DownloadedAt = (Get-Date).ToString('s') }
+    if (-not $DownloadedAt) {
+        $latest = [datetime]::MinValue
+        foreach ($fileName in @($Files)) {
+            $meta = Get-WinstFileMeta -Entry @{ fileMeta = $FileMeta } -FileName $fileName
+            $stamp = [string]$meta.DownloadedAt
+            $parsed = [datetime]::MinValue
+            if ($stamp -and [datetime]::TryParse($stamp, [ref]$parsed) -and $parsed -gt $latest) {
+                $latest = $parsed
+                $DownloadedAt = $stamp
+            }
+        }
+        if (-not $DownloadedAt -and $Index.Contains($Id)) {
+            $DownloadedAt = Get-EntryString -Entry $Index[$Id] -Key 'downloadedAt'
+        }
+    }
     if ($null -eq $Hashes) { $Hashes = New-WinstOrdinalDictionary }
     if ($null -eq $ManifestHashes) { $ManifestHashes = New-WinstOrdinalDictionary }
     if ($null -eq $FileMeta) { $FileMeta = New-WinstOrdinalDictionary }

@@ -3,19 +3,17 @@
 function Test-WinstFileVersionPriorBranch {
     <#
     .SYNOPSIS
-        ②″（仅下载类型）版本优先判定：主包版本与记账一致即命中，不一致则重取。
+        ②″ 主包版本优先判定：远端版本与下载时记账一致即命中，不一致则重取。
     .DESCRIPTION
-        type: download 的主包，本次解析出的版本与下载时记录的 sourceVersion 一致 → 缓存命中
-        （版本相同 = 软件源没有新包），不一致 → 重新下载。签名链接（飞牛官网这类 ?sign=…&t=… 每次
-        解析都变）的地址与校验器都会阶段性漂移，LM / ETag / 地址对不上不代表有新包——这类条目两侧
-        都有版本号时版本号说了算，跳过后面的地址比对与校验器比对。任一侧拿不到版本
-        （如 versionFrom: "package" 的条目）或文件显式声明了 refresh 时，仍走原有判定链。
+        安装与仅下载操作共用：两侧都有版本号时，使用版本判断主包是否更新，避免下载地址、
+        ETag 或 Last-Modified 漂移导致同版本重复下载。文件显式声明 refresh 时按声明处理。
+        FreshMain 表示版本仅来自缓存包、尚未确认远端是否变化，不能用这个版本命中缓存。
     .OUTPUTS
         [bool] 是否已得出结论（调用方据此继续下一个文件）
     #>
-    param($Plan, $File, $Meta, [int]$FileIndex, [switch]$DownloadOnly, [string]$RefreshRaw)
+    param($Plan, $File, $Meta, [int]$FileIndex, [switch]$FreshMain, [string]$RefreshRaw)
 
-    if (-not $DownloadOnly -or $FileIndex -ne 0 -or $RefreshRaw) { return $false }
+    if ($FreshMain -or $FileIndex -ne 0 -or $RefreshRaw) { return $false }
 
     $currentVersion = [string](Get-EntryString -Entry $File -Key 'version')
     $recordedVersion = [string]$Meta.SourceVersion

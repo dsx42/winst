@@ -102,7 +102,7 @@ function Get-WinstFilePlan {
     }
     if ($hasCurrentChecksumProvenance) {
         if (Test-WinstFileVersionPriorBranch -Plan $plan -File $File -Meta $meta -FileIndex $FileIndex `
-                -DownloadOnly:$DownloadOnly -RefreshRaw ([string]$refresh.Raw)) {
+                -FreshMain:$FreshMain -RefreshRaw ([string]$refresh.Raw)) {
             return $plan
         }
     }

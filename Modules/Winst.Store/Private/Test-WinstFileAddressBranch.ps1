@@ -13,7 +13,7 @@ function Test-WinstFileAddressBranch {
     # 显式写 NeedDownload，不依赖 New-WinstFilePlanEntry 的默认 $true：
     # 上游一旦插入把 NeedDownload 置假的判定，就会出现「提示要重新下载、实际沿用旧缓存」。
     $Plan['NeedDownload'] = $true
-    # 仅下载类型的签名链接已由版本优先判定兜住，走不到这里
+    # 主包两侧版本可比较且未显式声明 refresh 时，已由版本优先判定处理
     $Plan['Reason'] = '文件地址已变化（缓存记录的是另一份），将重新下载'
     return $true
 }
