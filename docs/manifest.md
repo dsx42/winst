@@ -150,7 +150,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 - `installer` 忽略 `stripTopDir`（除非声明了 `installerExe`）、`portableMode`、`keep`、`mainExe`、`addToPath`、`env`、`shortcuts`、`postInstallCopy`、`postInstall` —— 安装位置与系统设置都由安装程序自己管理。写了会记一条提示，不会静默生效。
 - `download` 只保留下载来源与公共元数据；忽略全部安装、进程检测、系统设置、版本检测和卸载字段（`processes` / `stripTopDir` / `extractFiles` / `portableMode` / `keep` / `mainExe` / `addToPath` / `env` / `shortcuts` / `postInstallCopy` / `postInstall` / `installArgs` / `uninstallArgs` / `installerExe` / `detect` / `uninstall`）。
-- `file` 忽略 `stripTopDir`、`extractFiles`、`portableMode`、`keep` 和 `mainExe`。主程序 = 主包落位文件；`postInstallCopy` 中与主包文件名完全一致的 `from` 且 `move: true` 时，取该规则的 `to` 文件名作为改名结果。
+- `file` 忽略 `stripTopDir`、`extractFiles`、`portableMode`、`keep` 和 `mainExe`。主程序 = 主包落位文件；`postInstallCopy` 中与主包文件名完全一致的 `from` 且 `move: true` 时，主程序取该规则的完整相对路径 `to`（如 `bin/tool.exe`），保留子目录；仅复制不改变主程序。
 
 ### 进程占用检测
 
@@ -239,10 +239,10 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 候选与排序规则（都用网页通道，不消耗 API 配额）：
 
-- **候选来自 `releases` 列表页**（前 2 页）。这是发布信息的唯一来源：tag、标题、正文、`Pre-release` 标记都在这一页上；不用 `releases.atom`——它只含最近约 10 条，而且与真实发布列表可能完全脱节（adoptium 的 temurin21/temurin25 feed 里是 2023 年的 nightly beta，近期正式版一条都没有）
-- **按版本号从高到低排，不按页面顺序**。列表页是 GitHub 的展示顺序（temurin21 页面上 `21.0.9+10` 排在 `21.0.13+9` 前面），按页面顺序回退会取到错误的「次新版本」
-- `+build` 不参与排序：JEP 223 里 `25+36` 是「feature 25 / build 36」，等价于 `25.0.0`；否则 `25+36` 会排在 `25.0.5` 之后
-- 只保留版本**严格低于**最新发布的候选；解析不出版本号的 nightly（`jdk25u-2026-02-02-15-22-beta`）排在最后
+- **候选来自 `releases` 列表页**，保留 tag、标题、正文和 `Pre-release` 标记。
+- **按版本号从高到低排，不按页面顺序**；初选与缺资产时的回退共用版本比较规则：相同数字版本的正式版高于预发布，预发布数字段按数值比较（`beta.10` 高于 `beta.2`），`+build` 不参与优先级。
+- 只保留版本**严格低于**所选发布且能够比较版本的候选，不自动尝试更高版本或无法确定先后的发布。
+- 未声明 `releaseTag` 且所选发布为正式版时，只回退正式发布；声明前缀或所选发布本身为预发布时，允许该范围内的预发布候选。
 
 触发条件只有两种，都属于「这个发布里没有该文件」而非配置错误：
 
@@ -402,6 +402,8 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `{installDir}` / `{installRoot}` | 实际路径 | `installArgs`、`env`、`addToPath`、`postInstall`、`uninstall.commands`、`detect.pathGlob` / `detect.exe`；`postInstallCopy` 只按安装目录内的相对路径使用 |
 | `%VAR%` | `env` / `addToPath` 中原样写入；执行命令前展开 | `env` / `addToPath` / `postInstall` / `uninstall.commands` |
 
+`files[].file` 中的版本占位符只适用于已取得版本的 github 源；page / json 在识别主包版本前就需要匹配文件，因此主包 `file` 应使用固定文字和通配符。正则规则中的版本值按字面量转义，`{versionMajor}` 与 `{version}` 遵循相同规则。
+
 `{installDir}` 与 `%VAR%` 的区别很重要：前者是 winst 自己的路径，后者是对其它环境变量的引用（如 `%JAVA_HOME%\bin`），在 `env` / `addToPath` 中保留下来才能在用户切换版本时自动跟随。
 
 `installArgs` 未写在双引号内的 `{installDir}` / `{installRoot}` 会自动按单个参数加引号。`postInstall` / `uninstall.commands` 的展开顺序是先展开 `%VAR%`，再替换 `{installDir}` / `{installRoot}`；版本占位符在来源解析阶段已经展开。
@@ -433,7 +435,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 
 - 模板写法的 `{占位符}` 在 `from` 与 `to` 里同名对应；`to` 写空串 `""` 表示整段去掉
 - 正则写法的 `replace` 沿用 .NET 正则替换语法（`$1` / `${name}` 引用捕获组）
-- 单条规则匹配不上时保持原值（幂等）
+- 单条规则匹配不上时保持原值；规则不保证幂等，只对相应阶段的原始读数应用一次
 - 声明了但没有任何有效规则、或一条规则里混用多种写法，清单报错
 
 三处作用域，用途互不重叠：
@@ -442,16 +444,18 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 |---|---|
 | `source.versionRewrite` | 源侧解析出的版本（tag / 文件名 / 页面 / 接口 / 包内信息） |
 | `detect.versionRewrite` | 本机检测出的版本（`registry` / `fileVersion` / `cliVersion` 等全部检测方式） |
-| `files[].versionRewrite` | 只作用于该文件的地址模板展开，不影响主包版本 |
+| `files[].versionRewrite` | 作用于该文件下载声明的版本占位符，不改写软件整体版本 |
 
-两侧都要归一就各写一份；`{version}` / `{tag}` 仍用改写前的原始值展开，原始值记在解析锁的 `sourceVersion`。
+来源与本机检测各自需要归一时，分别声明对应规则。下载地址、文件名及校验声明在来源解析阶段使用该文件的版本展开；计划中的 `mainExe`、`detect`、复制和命令字段使用来源归一后的软件版本展开。`{tag}` 始终使用发布 tag。来源发生版本改写时，改写前的值保存在解析锁的 `sourceVersion`。
+
+缓存索引和安装台账存放已归一的版本，展示或从索引恢复版本时不再次应用来源规则。修改规则不会自动迁移既有索引版本，需要通过重新取包确认新读数。
 
 ### 版本比较规则
 
 1. 去 `v` 前缀与首尾空白。
-2. 两侧都是严格 SemVer 2.0.0 时按 SemVer 比较：逐段比较预发布标识，构建元数据不参与优先级。
-3. 其它写法按数字串 / 字母串切分，非字母数字分隔符忽略；数字段都按数值比，其余段不区分大小写比较；缺段补 `0`（`1.0` = `1.0.0`，`1.8.0_504` = `1.8.0.504`）。
-4. `-` 后的预发布后缀整体低于同版本正式版；两侧都有后缀时按同一分段规则比较。
+2. 所有写法均忽略 `+` 后的构建元数据，不因另一侧是否严格 SemVer 而改变规则。
+3. 核心按数字串 / 字母串切分，分隔符忽略；数字段按数值比，文字段不区分大小写；缺段补 `0`（`1.0` = `1.0.0`，`1.8.0_504` = `1.8.0.504`）。
+4. `-` 后的预发布后缀低于同核心正式版；后缀按点分标识比较：数字按数值且低于文字，文字区分大小写，标识前缀相同时较短者低。
 
 ## 文件级属性
 
@@ -475,7 +479,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `match` | 空 | 仅 `json` 主包：对象，键为字段路径、值为期望文本；在多个候选条目里筛选，所有条件都满足才命中，比较不区分大小写 |
 | `refresh` | `auto` | 新鲜度判定，见下方枚举 |
 | `maxAgeHours` | `168` | `ttl` / `auto` 的 TTL 兜底；非正数回退 168 |
-| `compare` | `auto` | 无摘要时的比对判据，见下方枚举；空值及无法识别的值按 `auto` |
+| `compare` | `auto`（无摘要时比较最后修改时间 + 大小） | 远端文件的比对判据，见下方枚举；空值及无法识别的值按 `auto` |
 | `versionListUrl` | 空 | 该配套文件独立去版本列表页找最新版（不跟随主包版本节奏）；只支持 `url` 模板定位的文件 |
 | `versionKind` | 空 = 用 `source.versionKind` | 配合 `versionListUrl` 收集候选；此时本文件或 source 层必须至少写一处 |
 | `versionFilter` | 空 | `versionListUrl` 的候选过滤，见[通用匹配规则](#通用匹配规则) |
@@ -497,11 +501,11 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `sha512` | 同上，SHA-512 |
 | `sha1` | 同上，SHA-1 |
 | `md5` | 同上，MD5 |
-| `digest` | 预置的「按文件名就近取摘要」：在 `hashFile` 的内容里定位该文件名，取其后最近的一段十六进制摘要，算法按摘要长度判定（32 = MD5 / 40 = SHA-1 / 64 = SHA-256 / 128 = SHA-512）。适合「文件名 + 摘要」排在一起的页面（GitHub 资产列表页、镜像站 ISO 列表），不必再写 `re:` 正则 |
+| `digest` | 按完整文件名字段或链接路径中的文件名匹配，在同一文本行或 HTML 条目内取后面最近的摘要；不接受其它文件名的前后缀命中。表格按整行处理，遇到另一安装包文件名停止。长度 32 / 40 / 64 / 128 分别为 MD5 / SHA-1 / SHA-256 / SHA-512；没有摘要或同一文件对应多个不同摘要时报错 |
 | `re:<正则>` | 自定义正则提取，命名组 `h` 或第 1 捕获组 |
-| `page` | 仅 `page` 源、仅主包：从下载页按文件名就近提取摘要（不能与 `hash` 同写） |
+| `page` | 仅 `page` 源、仅主包：从下载页按 `digest` 相同的条目边界提取摘要，不能与 `hash` 同写 |
 
-主包未显式声明 `refresh` 时，安装与仅下载操作均优先比较远端版本和该文件缓存记录的 `sourceVersion`：版本相同复用，版本不同重取，不受地址或 HTTP 校验器漂移影响。两侧任一版本缺失、或版本仅来自尚未确认新鲜度的缓存包时，继续按地址、摘要与新鲜度规则判定。声明的摘要仍须满足校验规则。
+未显式声明 `refresh` 或非默认 `compare` 时，安装与仅下载操作均优先比较远端版本和该文件缓存记录的 `sourceVersion`：版本相同复用，版本不同重取，不受地址或 HTTP 校验器漂移影响。只有**这个文件自己的版本**参与该判定：主包恒有；配套文件仅当声明 `versionListUrl` 并独立解析出版本时才有，其余跟随主包版本的配套文件不记录也不比较版本。两侧任一版本缺失、或版本仅来自尚未确认新鲜度的缓存包时，继续按地址、摘要与新鲜度规则判定。声明的摘要仍须满足校验规则；显式比较项不会被同版本快捷命中绕过。
 
 `refresh` 的全部取值（大小写、`-` 与 `_` 不敏感；无法识别时按 `auto` 并在 `--verbose` 提示）：
 
@@ -513,16 +517,21 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `check` | 必须靠校验器 / 摘要确认；拿不到校验信息就重取，不做 TTL 兜底 |
 | `ttl` | 距上次确认未超 `maxAgeHours` 则命中，否则联网确认一次 |
 
-`compare` 的全部取值：
+`compare` 的全部取值（大小写、`-` 与 `_` 不敏感；可用 `,` / `;` / `|` / 空白分隔组合，只比列出的项）：
 
 | 取值 | 行为 |
 |---|---|
-| `auto`（默认） | 比 `ETag` + `Last-Modified` + 文件大小（记录里有哪项比哪项） |
-| `size` | 只比文件大小——主机 `ETag` / `Last-Modified` 会漂移时用（如 `dl.google.com`） |
+| `auto`（默认） | 比 `Last-Modified` + 文件大小（记录里有哪项比哪项）。`ETag` 在不少主机上阶段性漂移，不作为默认判据 |
+| `size` | 只比文件大小——主机 `Last-Modified` 也会漂移时用（如 `dl.google.com`） |
+| `etag` | 比 `ETag`；需要按主机提供的实体标识判断时显式写 |
+| `lastModified` | 比 `Last-Modified`；别名 `lm` |
+| `checksum` | 强制重取远端校验文件（`hashFile`）并与本地比对的判据；别名 `hash` / `fingerprint`。地址固定的 `hashFile`（不随版本变化）只有写它才能发现远端换了文件。该文件未声明 `hash` / `hashFile` 时忽略这一项并提示 |
 
-安装包下载后，`winst.json` 同时保存远端预期摘要 `expectedHash` 和本地计算摘要 `hashes` / `manifestHashes`。校验声明指纹匹配时，在线与离线安装都会直接复用已保存的校验结果，不重新获取远端摘要，也不重新计算本地文件摘要；缺少可复用结果时才执行必要的校验，离线无法完成则明确报错。
+组合示例：`"compare": "lastModified,size"` 选择与无摘要时 `auto` 相同的字段，但显式写法要求执行比较；`"compare": "etag,size"` 选择 ETag 与大小。声明 `hash` / `hashFile` 时仍先校验摘要：默认 `auto` 在摘要一致后直接复用，显式 HTTP 判据则继续组合比较；`hashFile` 默认可复用与当前声明指纹匹配的缓存期望摘要，只有显式 `checksum` 才强制重取校验文件。能够取得的判据中任一变化即重取，一个都无法比较时按 `refresh` 的失败/TTL 策略处理，未成功确认不会刷新确认时间。无法识别的词会给出提示；没有合法词时按 `auto`，存在合法词时只保留合法项。
 
-**这是为了减少网络请求和本地计算作出的安全取舍**：校验完成后安装包被篡改，可能不会被发现；能修改 `winst.json` 的人也能伪造缓存记录。该记录不能作为防篡改保证，详细格式和复用条件见 `docs\data-files.md`。
+安装包下载后，`winst.json` 同时保存远端期望摘要 `expectedHash` 和本地计算摘要 `hashes` / `manifestHashes`。校验声明指纹匹配时可以复用远端期望摘要；普通安装、引擎引导和自更新在实际使用缓存包前仍重算当前文件摘要并比对。在线发现不一致则重新下载，离线则保留原文件并报错；缺少匹配的远端期望摘要时需联网补取，离线明确报错。列表与更新检查可以沿用历史摘要判断缓存状态。
+
+期望摘要来自清单或缓存索引；同时修改文件与其期望摘要的人仍可伪造一致的结果。未声明校验的包按新鲜度规则处理。详细格式和复用条件见 [缓存索引](data-files.md#winstjson缓存索引)。
 
 ## 命令条目
 
@@ -574,6 +583,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 - `cliVersion` 在一个独立隐藏进程里运行，`stdin` 立即关闭；先读 `stdout`，未识别再读 `stderr`，直接写控制台而不走重定向的输出拿不到。运行超时固定 10 秒，会连同子进程一起结束。
 - 同一软件在本机装过多份时，`registry` / `fileVersion` / `markerFile` / `jsonFile` 读出全部命中版本，以最高版本作为本机版本，其余记为旧版本；`registry` 同时命中外层引导包与内层 MSI 时只采用外层引导包的 `DisplayVersion`；`appx` 只取版本最高的包。详见 `docs\install-flows.md` 的「版本检测」。
 - 安装 / 更新对 `registry` / `appx` 按当前名称规则查询系统记录：完整查询成功但没有匹配时，不采用旧台账版本阻止安装；版本可读时，更新比较使用本次检测值。身份命中但版本不可读时，更新比较保留有效台账版本；台账也没有有效版本时，普通更新跳过并提示，显式 `--force` 可继续，检查模式列为「无法比较」。权限或枚举失败会明确提示并中止该软件的安装 / 更新，不按未安装处理；实际更新计为失败并返回退出码 `3`，检查模式列为「无法比较」。
+- 更新检查在版本未知时先按当前 `detect` 定义重新识别并更正台账（`registry` / `appx`）。仍没有可用版本、且条目是 `source.versionFrom: "package"` 时：远端安装包未变化（HEAD 检测）且已下载包版本与台账记录一致，则判为「已是最新」并跳过更新（提示按安装台账判断），不会重跑安装器；远端有新包时照常取包核对。`--force` 仍强制重装。
 
 名称规则必须限定同一产品和可比较的版本体系，不能把名称相近的软件或不同包家族一起比较：
 

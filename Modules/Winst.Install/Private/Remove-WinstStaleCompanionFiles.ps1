@@ -19,7 +19,7 @@ function Remove-WinstStaleCompanionFiles {
         $CurrentFiles
     )
 
-    $result = @{ Removed = @(); KeptDirs = @() }
+    $result = @{ Removed = @(); KeptDirs = @(); Notes = @() }
     if (-not $InstallDir) { return $result }
 
     $current = @()
@@ -28,19 +28,19 @@ function Remove-WinstStaleCompanionFiles {
         if ($text) { $current += $text.ToLowerInvariant().Replace('/', '\').TrimEnd('\') }
     }
 
-    $rootFull = ''
-    try { $rootFull = ([IO.Path]::GetFullPath($InstallDir)).TrimEnd('\') } catch { $rootFull = '' }
-
     foreach ($item in @($PreviousFiles)) {
         $text = ([string]$item).Trim()
         if (-not $text) { continue }
         $normalized = $text.ToLowerInvariant().Replace('/', '\').TrimEnd('\')
         if ($current -contains $normalized) { continue }
-        $path = Join-WinstPath $InstallDir $text
-        if (-not (Test-Path -LiteralPath $path)) { continue }
-        $full = ''
-        try { $full = [IO.Path]::GetFullPath($path) } catch { $full = '' }
-        if (-not $full -or -not $rootFull -or -not $full.StartsWith($rootFull + '\', [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $safe = Resolve-WinstSafeChildPath -Root $InstallDir -Child $text -Label '旧附加文件路径'
+        if (-not $safe.Ok) { $result.Notes += [string]$safe.Error; continue }
+        $full = [string]$safe.Path
+        try { Assert-WinstSafeWritePath -Path $full } catch {
+            $result.Notes += ('旧附加文件已保留：{0}（{1}）' -f $text, $_.Exception.Message)
+            continue
+        }
+        if (-not (Test-Path -LiteralPath $full)) { continue }
 
         $isDir = $false
         try { $isDir = [bool](Get-Item -LiteralPath $full -Force).PSIsContainer } catch { $isDir = $false }
@@ -55,7 +55,7 @@ function Remove-WinstStaleCompanionFiles {
             Remove-Item -LiteralPath $full -Force -ErrorAction Stop
             $result.Removed += $text
         } catch {
-            # 删不掉（被占用 / 权限不足）不阻断更新，下一次仍会尝试
+            $result.Notes += ('旧附加文件删除失败：{0}（{1}）' -f $text, $_.Exception.Message)
         }
     }
     return $result

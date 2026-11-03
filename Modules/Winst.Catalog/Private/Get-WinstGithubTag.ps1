@@ -49,12 +49,13 @@ function Get-WinstGithubTag {
         }
         # 前缀内部的版本线也可能有多条（cli-v1 / cli-v2）：按版本号取最高
         $best = $null
-        $bestKey = ''
+        $bestVersion = ''
         foreach ($item in $matched) {
-            $key = Get-WinstVersionSortKey -Version ([string]$item['Tag'])
-            if (-not $best -or [string]::CompareOrdinal($key, $bestKey) -gt 0) {
+            $version = Get-WinstGithubTagVersion -Tag ([string]$item['Tag']) -ReleaseTagPrefix $ReleaseTagPrefix
+            if ($best -and $version -notmatch '\d') { continue }
+            if (-not $best -or $bestVersion -notmatch '\d' -or (Compare-WinstVersion -A $version -B $bestVersion) -gt 0) {
                 $best = $item
-                $bestKey = $key
+                $bestVersion = $version
             }
         }
         return @{ Error = ''; Tag = [string]$best['Tag']; Releases = $releases; Notes = @() }
@@ -83,12 +84,13 @@ function Get-WinstGithubTag {
     }
 
     $best = $null
-    $bestKey = ''
+    $bestVersion = ''
     foreach ($item in $stable) {
-        $key = Get-WinstVersionSortKey -Version ([string]$item['Tag'])
-        if (-not $best -or [string]::CompareOrdinal($key, $bestKey) -gt 0) {
+        $version = Get-WinstGithubTagVersion -Tag ([string]$item['Tag']) -ReleaseTagPrefix $ReleaseTagPrefix
+        if ($best -and $version -notmatch '\d') { continue }
+        if (-not $best -or $bestVersion -notmatch '\d' -or (Compare-WinstVersion -A $version -B $bestVersion) -gt 0) {
             $best = $item
-            $bestKey = $key
+            $bestVersion = $version
         }
     }
     $notes += ('{0} 没有标记为「最新」的正式发布，已改用发布列表里版本最高的正式发布 {1}。' -f $Repo, [string]$best['Tag'])

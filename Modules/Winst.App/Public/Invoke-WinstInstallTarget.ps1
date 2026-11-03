@@ -5,7 +5,7 @@ function Invoke-WinstInstallTarget {
     .SYNOPSIS
         对已选定的软件执行「展示详情 → 确认 → 安装」。
     .DESCRIPTION
-        `-FilesOnly`（仅更新文件）时只替换文件，不处理环境变量 / PATH / 快捷方式；
+        `-FilesOnly`（仅更新文件）保持环境变量 / PATH，快捷方式只修正已存在的、不新建；
         不指定时按「设置 → 更新方式」执行（默认「只更新文件」）。
         依赖（条目的 dependencies 字段）：先解析出全部传递依赖里**需要动作**的部分（未安装 / 可更新），
         统一提示一次并随本体的确认一并执行——依赖先装 / 先更新，本体后装；
@@ -108,7 +108,7 @@ function Invoke-WinstInstallTarget {
     }
 
     if ($FilesOnly) {
-        Write-Host '    仅更新文件：不改动环境变量 / PATH / 快捷方式（保留现有设置）' -ForegroundColor DarkYellow
+        Write-Host '    仅更新文件：环境变量 / PATH 保持原样；快捷方式只修正不新建' -ForegroundColor DarkYellow
     }
 
     # —— 依赖：先解析传递依赖里需要动作的部分，统一提示一次、随本体一并确认 ——
@@ -150,6 +150,7 @@ function Invoke-WinstInstallTarget {
             return $result
         }
         if (-not $depResult.Ok -and -not $depResult.Skipped) {
+            $result.Network = [bool]$depResult.Network
             $depReason = [string]$depResult.Error
             if (-not $depReason) { $depReason = [string]$depResult.Message }
             if (-not $depReason) { $depReason = '未知原因' }

@@ -40,6 +40,11 @@ function Initialize-WinstState {
 
     $initialized = 0
 
+    if (-not (Test-WinstState -Name 'WinstProtectedDirectoryPaths')) {
+        $null = Set-WinstState -Name 'WinstProtectedDirectoryPaths' -Value $null
+        $initialized++
+    }
+
     # ------------------------------------------------------------ 标志
     # 菜单 / CLI 的控制流。
     if (-not (Test-WinstState -Name 'WinstMenuMode')) {

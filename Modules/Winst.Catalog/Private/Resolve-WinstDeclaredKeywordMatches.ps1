@@ -28,13 +28,17 @@ function Resolve-WinstDeclaredKeywordMatches {
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { $result.Skipped = $true; return $result }
 
     $persistUnavailable = Get-WinstState -Name WinstManifestPersistUnavailable
-    if ($null -eq $persistUnavailable) { $persistUnavailable = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal) }
+    if ($null -eq $persistUnavailable) {
+        $persistUnavailable = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+        $null = Set-WinstState -Name WinstManifestPersistUnavailable -Value $persistUnavailable
+    }
 
     foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = Get-EntryString -Entry $Source -Key 'name'
         if (-not $name) { continue }
         # 本进程内已确认「解析成功但写不进盘」的源不再重复尝试（与 Update-WinstStaleSources 同一口径）
-        if ($persistUnavailable.ContainsKey($name)) { continue }
+        $metaPath = Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $name
+        if ($persistUnavailable.ContainsKey($metaPath)) { continue }
 
         $declared = Get-WinstDeclaredManifestEntries -Context $Context -Source $Source
         if ($declared.Error) {
@@ -71,7 +75,7 @@ function Resolve-WinstDeclaredKeywordMatches {
         $ids = @()
         foreach ($entry in @($matched.Items)) {
             $id = Get-EntryString -Entry $entry -Key 'id'
-            if ($id -and $ids -notcontains $id) { $ids += $id }
+            if ($id -and $ids -cnotcontains $id) { $ids += $id }
         }
         if ($ids.Count -eq 0) { continue }
 
@@ -82,7 +86,7 @@ function Resolve-WinstDeclaredKeywordMatches {
         if (-not $r.Success) {
             $result.Failed++
             $result.Errors += ('{0}: {1}' -f $name, [string]$r.Message)
-            if ([bool]$r.PersistUnavailable) { $persistUnavailable[$name] = $true }
+            if ([bool]$r.PersistUnavailable) { $persistUnavailable[$metaPath] = $true }
             continue
         }
         # 正文缓存可能与当前 url 的清单不一致：命中的 id 在新清单里已不存在时解析数为 0，

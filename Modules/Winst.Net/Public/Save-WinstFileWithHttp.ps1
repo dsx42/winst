@@ -27,8 +27,7 @@ function Save-WinstFileWithHttp {
     foreach ($currentProxy in $attempts) {
         $tempPath = '{0}.part-{1}' -f $OutFile, ([Guid]::NewGuid().ToString('N').Substring(0, 6))
         try {
-            $params = @{ Uri = $Uri; OutFile = $tempPath; UseBasicParsing = $true; TimeoutSec = $TimeoutSec }
-            if ($currentProxy) { $params['Proxy'] = $currentProxy }
+            $params = New-WinstHttpRequestParameters -Uri $Uri -OutFile $tempPath -TimeoutSec $TimeoutSec -Proxy $currentProxy
             $null = Invoke-WebRequest @params
             if (Test-Path -LiteralPath $tempPath -PathType Leaf) {
                 Move-Item -LiteralPath $tempPath -Destination $OutFile -Force

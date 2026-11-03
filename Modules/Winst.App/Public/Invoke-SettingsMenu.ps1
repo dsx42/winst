@@ -32,7 +32,7 @@ function Invoke-SettingsMenu {
             param($ctx)
             Invoke-SettingItem -Context $ctx -Key 'proxy' -DisplayName '代理' `
                 -CurrentDisplay (Format-ProxyDisplay -Value (Get-ConfigValue -Config $ctx.Config -Key 'proxy')) `
-                -Hint '形如 http://127.0.0.1:7890；留空表示不使用代理。'
+                -Hint '形如 http://127.0.0.1:7890；输入 - 清除显式代理，仍遵循系统代理 / PAC。'
         }
         '4' = {
             param($ctx)
@@ -40,12 +40,12 @@ function Invoke-SettingsMenu {
             Invoke-SettingChoiceItem -Context $ctx -Key 'proxyMode' -DisplayName '代理模式' `
                 -CurrentDisplay (Format-ProxyModeDisplay -Value (Get-ConfigValue -Config $ctx.Config -Key 'proxyMode')) `
                 -Options @(
-                    [ordered]@{ Value = 'auto';            Text = '自动';           Note = '先直连，连不上时再用代理重试' },
-                    [ordered]@{ Value = 'download-direct'; Text = '下载直连优先'; Note = '下载先直连、失败再用代理；其它请求直接走代理' },
-                    [ordered]@{ Value = 'always';          Text = '始终走代理';     Note = '每次都直接走代理，不做直连尝试' },
-                    [ordered]@{ Value = 'off';             Text = '不使用代理';     Note = '只直连；填了代理地址也不使用' }
+                    [ordered]@{ Value = 'auto';            Text = '自动';             Note = '先按系统默认连接，失败再用显式代理重试' },
+                    [ordered]@{ Value = 'download-direct'; Text = '下载优先默认连接'; Note = '下载先按系统默认连接、失败再用显式代理；其它请求直接用显式代理' },
+                    [ordered]@{ Value = 'always';          Text = '始终用显式代理';   Note = '每次都直接使用配置的代理' },
+                    [ordered]@{ Value = 'off';             Text = '禁用显式代理';     Note = '仍遵循系统代理 / PAC' }
                 ) `
-                -Hint ('仅影响 winst 自己发起的下载 / 刷新；当前代理地址: {0}（没填地址时四种模式都不启用代理）。' -f $proxyAddress)
+                -Hint ('仅影响 winst 自己发起的下载 / 刷新；当前显式代理地址: {0}（没填地址时四种模式均使用系统默认连接，不保证绕过系统代理 / PAC）。' -f $proxyAddress)
         }
         '5' = {
             param($ctx)

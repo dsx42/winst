@@ -67,10 +67,12 @@ function Read-WinstState {
         $obj = $null
     }
 
-    if ($null -eq $obj) {
+    if ($null -eq $obj -or ($obj -isnot [System.Collections.IDictionary] -and
+            $obj -isnot [System.Management.Automation.PSCustomObject])) {
         $stampText = (Get-Date).ToString('yyyyMMdd-HHmmss')
-        $backup = '{0}.bak-{1}' -f $path, $stampText
+        $backup = '{0}.bak-{1}-{2}' -f $path, $stampText, ([guid]::NewGuid().ToString('N').Substring(0, 8))
         try {
+            Assert-WinstSafeWritePath -Path $backup
             Copy-Item -LiteralPath $path -Destination $backup -Force -ErrorAction Stop
             $result.BackupPath = $backup
         } catch {

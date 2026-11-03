@@ -37,7 +37,7 @@ function Show-WinstListContent {
         $index++
         $status = Get-WinstListItemStatus -Item $item
         if (-not [bool]$item['InCatalog']) { $missingCount++ }
-        elseif (-not [string]$item['BestVersion']) { $unusableCount++ }
+        elseif (-not [bool]$item['PlanAvailable']) { $unusableCount++ }
         elseif ([bool]$item['Installed']) { $installedCount++ }
         elseif ([bool]$item['CacheHas']) { $cachedCount++ }
         else { $needCount++ }
@@ -49,6 +49,7 @@ function Show-WinstListContent {
             Write-Host ('  ({0})' -f [string]$item['Id']) -NoNewline -ForegroundColor DarkGray
         }
         Write-Host ('    清单项: {0}' -f (Get-WinstListItemPinNoteText -Item $item)) -ForegroundColor DarkGray
+        Write-WinstCompanionVersions -Item $item
         Write-Host '     状态: ' -NoNewline -ForegroundColor Gray
         Write-Host ([string]$status['Text']) -ForegroundColor ([string]$status['Color'])
         if ([string]$item['SourceText']) {

@@ -28,6 +28,7 @@ function Initialize-WinstInstallContext {
 
     # 在任何下载 / 清理之前检查磁盘身份及台账；Windows 不能为 Foo / foo 提供独立目录。
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    if ($stateRead.Error -and -not $stateRead.Reset) { return @{ Error = [string]$stateRead.Error } }
     $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
     try { Assert-WinstAppIdentityAvailable -Context $Context -Id $id -State $stateRead.State -Index $indexRead.Index }
     catch { return @{ Error = $_.Exception.Message } }
@@ -54,13 +55,13 @@ function Initialize-WinstInstallContext {
     $versionFromCachedPackage = [bool](Get-EntryBool -Entry $Plan -Key 'versionFromCache')
     # 解析锁里的远端新鲜度结论：versionFromPackage 条目据此决定「主包要不要重新取」——
     # unchanged（远端无新包）时缓存里那份就是软件源当前这一份，安装 / 更新直接沿用缓存、按缓存版本决策；
-    # changed（远端有新包）/ unknown（HEAD 没比出结论）才重新取包；明确的下载操作（DownloadOnly）始终重新下载
+    # changed（远端有新包）/ unknown（文件比较没有结论）才重新取包；明确的下载操作（DownloadOnly）始终重新下载
     $planFreshState = [string](Get-EntryString -Entry $Plan -Key 'remoteFresh')
     $freshMain = [bool]$versionFromPackage
     if ($freshMain -and -not $DownloadOnly -and $planFreshState -ieq 'unchanged') { $freshMain = $false }
     $freshMainReason = ''
     if ($freshMain) {
-        if ($planFreshState -ieq 'changed') { $freshMainReason = '远端有新包（HEAD 检测），将重新下载安装包' }
+        if ($planFreshState -ieq 'changed') { $freshMainReason = '远端有新包（文件比较），将重新下载安装包' }
         else { $freshMainReason = '无法确认远端文件是否变化，将重新取包核对版本' }
     }
     if (-not $version -and $versionFromPackage) {
@@ -98,7 +99,7 @@ function Initialize-WinstInstallContext {
     # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）沿用缓存，changed / unknown 才重新取
     # 安装与仅下载操作共用主包版本优先判定；FreshMain 时不能用缓存包版本命中
     $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $id -Files $files -CheckValidators `
-        -FreshMain:$freshMain -FreshMainReason:$freshMainReason -DownloadOnly:$isDownloadType -SourceVersion $version)
+        -FreshMain:$freshMain -FreshMainReason:$freshMainReason)
     if ($plans.Count -eq 0) {
         return @{ Error = ('{0} 的软件定义里没有可下载的文件' -f $displayName) }
     }
@@ -117,6 +118,13 @@ function Initialize-WinstInstallContext {
     $state = $stateRead.State
     if ($stateRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor DarkYellow }
     $ledger = Get-WinstInstalledApp -State $state -Id $id
+    if (-not $isDownloadType -and $plans.Count -gt 1) {
+        # 复用已完成的取包计划，同时把缺失目标、落位规则变化计入附件更新；不重复规划或联网。
+        $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Plan -FilePlans $plans
+        if ($companionInfo.Error) { return @{ Error = [string]$companionInfo.Error } }
+        $companionDownloadCount = [int]$companionInfo.ChangedCount
+        $companionsOnly = [bool]$companionInfo.CompanionsOnly
+    }
 
     return @{
         Error = ''; Id = $id; DisplayName = $displayName; Type = $type; Version = $version

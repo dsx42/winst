@@ -14,10 +14,11 @@ function Copy-WinstBundleSupportFiles {
     if (Test-Path -LiteralPath $srcManifestDir -PathType Container) {
         if (-not $DryRun) {
             try {
+                Assert-WinstSafeWritePath -Path $KitAppsDir -Directory
                 if (-not (Test-Path -LiteralPath $KitAppsDir -PathType Container)) {
                     $null = New-Item -ItemType Directory -Path $KitAppsDir -Force -ErrorAction Stop
                 }
-                Copy-Item -LiteralPath $srcManifestDir -Destination $KitAppsDir -Recurse -Force -ErrorAction Stop
+                Copy-WinstBundleItem -Source $srcManifestDir -Destination (Join-WinstPath $KitAppsDir 'manifests')
                 $manifestCopied = @(Get-ChildItem -LiteralPath (Join-WinstPath $KitAppsDir 'manifests') -Recurse -File -ErrorAction Stop).Count
             } catch {
                 $errorText = '复制软件源清单数据失败: {0}' -f $_.Exception.Message
@@ -40,8 +41,8 @@ function Copy-WinstBundleSupportFiles {
     }
     if (-not $DryRun) {
         try {
-            Copy-Item -LiteralPath $mainScript -Destination (Join-WinstPath $TargetDir 'winst.ps1') -Force -ErrorAction Stop
-            Copy-Item -LiteralPath $licensePath -Destination (Join-WinstPath $TargetDir 'LICENSE') -Force -ErrorAction Stop
+            Copy-WinstBundleItem -Source $mainScript -Destination (Join-WinstPath $TargetDir 'winst.ps1')
+            Copy-WinstBundleItem -Source $licensePath -Destination (Join-WinstPath $TargetDir 'LICENSE')
             $targetModules = Join-WinstPath $TargetDir 'Modules'
             Assert-WinstSafeWritePath -Path $targetModules -Directory
             # 先确认目标不包含当前运行的模块，避免自复制时删除来源。
@@ -54,15 +55,15 @@ function Copy-WinstBundleSupportFiles {
                 Clear-WinstInstallDir -Dir $targetModules -AllowedRoot $TargetDir
                 if (Test-Path -LiteralPath $targetModules) { throw ('无法安全替换套件 Modules 目录：{0}' -f $targetModules) }
             }
-            Copy-Item -LiteralPath $modulesDir -Destination $targetModules -Recurse -Force -ErrorAction Stop
+            Copy-WinstBundleItem -Source $modulesDir -Destination $targetModules
 
             $scriptManifest = Join-WinstPath $scriptDir 'manifest.json'
             if (Test-Path -LiteralPath $scriptManifest -PathType Leaf) {
-                Copy-Item -LiteralPath $scriptManifest -Destination (Join-WinstPath $TargetDir 'manifest.json') -Force -ErrorAction Stop
+                Copy-WinstBundleItem -Source $scriptManifest -Destination (Join-WinstPath $TargetDir 'manifest.json')
             }
             $scriptManifestDir = Join-WinstPath $scriptDir 'manifests'
             if (Test-Path -LiteralPath $scriptManifestDir -PathType Container) {
-                Copy-Item -LiteralPath $scriptManifestDir -Destination $TargetDir -Recurse -Force -ErrorAction Stop
+                Copy-WinstBundleItem -Source $scriptManifestDir -Destination (Join-WinstPath $TargetDir 'manifests')
             }
         } catch {
             $errorText = '复制脚本 / 模块 / 本地清单失败: {0}' -f $_.Exception.Message
@@ -80,10 +81,11 @@ function Copy-WinstBundleSupportFiles {
     if ($listFileName -and (Test-Path -LiteralPath $ListPath -PathType Leaf)) {
         if (-not $DryRun) {
             try {
+                Assert-WinstSafeWritePath -Path $dstListsDir -Directory
                 if (-not (Test-Path -LiteralPath $dstListsDir -PathType Container)) {
                     $null = New-Item -ItemType Directory -Path $dstListsDir -Force -ErrorAction Stop
                 }
-                Copy-Item -LiteralPath $ListPath -Destination (Join-WinstPath $dstListsDir $listFileName) -Force -ErrorAction Stop
+                Copy-WinstBundleItem -Source $ListPath -Destination (Join-WinstPath $dstListsDir $listFileName)
                 $listFileCount = 1
             } catch {
                 $errorText = '复制清单文件失败: {0}' -f $_.Exception.Message
@@ -98,7 +100,12 @@ function Copy-WinstBundleSupportFiles {
 
     # 套件索引（只含本次相关条目；已有条目不删除）
     if (-not $DryRun) {
-        try { Save-WinstCacheIndex -PkgDir $KitAppsDir -Index $KitIndex }
+        try {
+            Save-WinstCacheIndex -PkgDir $KitAppsDir -Update {
+                param($index)
+                foreach ($id in @($KitIndex.Keys)) { $index[$id] = $KitIndex[$id] }
+            }
+        }
         catch {
             $errorText = '写入套件索引失败: {0}' -f $_.Exception.Message
             Write-Host ('  ' + $errorText) -ForegroundColor Red

@@ -17,6 +17,9 @@ function Invoke-WinstUninstallRegistryPayload {
         detect    = @{ method = 'registry'; name = [string]$Targets['NameRule'] }
         uninstall = @{ method = 'registry'; name = [string]$Targets['NameRule']; uninstallArgs = [string]$Targets['UninstallArgs'] }
     }
+    $selectedRecord = Get-WinstRegistryEntryForPlan -Plan $uninstallPlan -InstallDir ([string]$Targets['InstallDir'])
+    $recordDir = ''
+    if ($selectedRecord) { $recordDir = Get-WinstRegistryEntryInstallDir -Entry $selectedRecord }
     $run = Invoke-WinstRunUninstaller -Context $Context -Plan $uninstallPlan -Quiet:$Quiet
     if (-not $run.Ok) {
         $result.Missing = [bool]$run.Missing
@@ -34,6 +37,7 @@ function Invoke-WinstUninstallRegistryPayload {
     if (-not $Quiet) { Write-Host '    卸载程序已执行完成。' -ForegroundColor Gray }
 
     # 回读系统安装记录：仍在 → 可能需重启才能完成
+    Reset-WinstSystemCache
     if (Get-WinstRegistryEntryForPlan -Plan $uninstallPlan -InstallDir ([string]$Targets['InstallDir'])) {
         $RunState.Notes += '系统安装记录里仍有该软件，可能需重启电脑后才会完全移除'
     }
@@ -70,6 +74,16 @@ function Invoke-WinstUninstallRegistryPayload {
     # 安装目录残留：列出并询问是否删除（默认保留，非交互 / --yes 时保留）
     $dir = [string]$Targets['InstallDir']
     if ($dir -and (Test-Path -LiteralPath $dir -PathType Container)) {
+        $verified = $false
+        try {
+            $verified = ($recordDir -and (([IO.Path]::GetFullPath($recordDir)).TrimEnd('\') -ieq ([IO.Path]::GetFullPath($dir)).TrimEnd('\')))
+            if ($verified) { Assert-WinstSafeWritePath -Path $dir -Directory }
+        } catch { $verified = $false }
+        if (-not $verified) {
+            $RunState.Leftovers += $dir
+            $RunState.Notes += ('安装目录无法与本次系统记录安全对应，残留已保留：{0}' -f $dir)
+            return @{ Abort = $false; Error = '' }
+        }
         $remain = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue)
         if ($remain.Count -gt 0) {
             Write-Host ''

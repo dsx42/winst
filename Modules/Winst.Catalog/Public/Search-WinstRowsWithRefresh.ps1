@@ -8,13 +8,18 @@ function Search-WinstRowsWithRefresh {
         菜单「安装软件」与 CLI `winst search` 共用「搜索 → 取命中 id → 按需刷新 → 重搜」。
         搜索只覆盖解析锁（meta 的 apps）：解析锁里零命中时，先按各源清单正文再找一遍并解析命中的条目
         （Resolve-WinstDeclaredKeywordMatches），清单正文里也没有才算真的搜不到。
+
+        `-SkipVersionRefresh` 只跳过「刷新全部命中 id」这一段（菜单安装流程用）：先按缓存把候选列出来，
+        用户选中后再按 id 定向刷新，避免为了展示几十个命中项把每个条目都联网解析一遍。
+        正文补找仍会执行——它只解析关键字命中的声明项，是「能不能搜到」的前提。
     .OUTPUTS
         @{ Searched = <Search-WinstRowsByKeywords 的结果>; Refresh = <Update-WinstDisplaySources 的结果> }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [string]$Keyword,
-        [switch]$Quiet
+        [switch]$Quiet,
+        [switch]$SkipVersionRefresh
     )
 
     $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
@@ -28,10 +33,13 @@ function Search-WinstRowsWithRefresh {
         }
     }
 
-    $hitIds = @(Get-WinstDisplayIds -Items $searched.Rows)
-    $refresh = Update-WinstDisplaySources -Context $Context -Ids $hitIds -Quiet:$Quiet
-    if ([int]$refresh.Refreshed -gt 0) {
-        $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
+    $refresh = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @() }
+    if (-not $SkipVersionRefresh) {
+        $hitIds = @(Get-WinstDisplayIds -Items $searched.Rows)
+        $refresh = Update-WinstDisplaySources -Context $Context -Ids $hitIds -Quiet:$Quiet
+        if ([int]$refresh.Refreshed -gt 0) {
+            $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
+        }
     }
 
     # 两段刷新合并上报：调用方只看 Refresh 的 Errors / Skipped，正文补找产生的错误不能丢

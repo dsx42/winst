@@ -10,14 +10,14 @@ function Resolve-WinstShortcutTarget {
         快捷方式改指向启动器。清单没有 mainExe、或启动器建不出来时返回空 Target，调用方跳过即可。
 
     .OUTPUTS
-        @{ Target; WorkingDirectory; DisplayName; TargetIsMain; Note }
+        @{ Target; WorkingDirectory; DisplayName; Note }
     #>
     param(
         [Parameter(Mandatory = $true)]$Plan,
         [Parameter(Mandatory = $true)][string]$InstallDir
     )
 
-    $result = @{ Target = ''; WorkingDirectory = ''; DisplayName = ''; TargetIsMain = $true; Note = '' }
+    $result = @{ Target = ''; WorkingDirectory = ''; DisplayName = ''; Note = '' }
 
     $displayName = Get-EntryString -Entry $Plan -Key 'name'
     if (-not $displayName) { $displayName = Get-EntryString -Entry $Plan -Key 'id' }

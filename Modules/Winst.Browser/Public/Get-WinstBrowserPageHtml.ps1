@@ -10,7 +10,8 @@ function Get-WinstBrowserPageHtml {
         浏览器用户数据目录指向**进程级复用的临时 profile**（Get-WinstBrowserProfileDir，不碰用户正在
         使用的浏览器配置）：每次新建 profile 会反复触发新用户目录的首次运行导入器扫描，又慢又吵；
         抓取失败时删掉该 profile 重建（防坏目录复用）；正常退出不删，残留由下一个进程按 24 小时清理。
-        代理按 Get-WinstProxyAttempts 的元数据口径（auto：直连 → 代理重试；always / download-direct：只用代理；off：只直连）。
+        代理按 Get-WinstProxyAttempts 的元数据口径（auto：系统默认连接 → 显式代理重试；always / download-direct：只用显式代理；off：系统默认连接）。
+        未配置显式代理时均采用系统默认连接，仍可能使用系统代理 / PAC。
         抓取结果经管道直读（Invoke-WinstCapturedCommand，子进程不接触当前控制台），**不落临时文件**：
         `Start-Process -RedirectStandardOutput` 写文件再读的写法有句柄竞态——Edge 主进程退出 ≠ 输出流关闭
         （子进程或重定向复制仍在写），紧接着读文件会撞上「文件正由另一进程使用」。

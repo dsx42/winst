@@ -5,8 +5,9 @@ function Get-WinstUpdateEntrySnapshot {
     .SYNOPSIS
         取一条软件的最新版本 / 来源 / 版本号来源 / 远端新鲜度 / 安装来源与版本比较结果。
     .OUTPUTS
-        @{ Latest; LatestSource; VersionFromPackage; CachedPackageVersion; RemoteFresh; HasUsableSource;
+        @{ Latest; LatestSource; VersionFromPackage; CachedPackageVersion; RemoteFresh; LedgerVersion; HasUsableSource;
            Comparable; Cmp; OriginName; OriginEntry; OriginVersion; OriginUsable; OriginNewer }
+        LedgerVersion = 安装台账里记着的版本（系统安装记录没覆盖到该软件时，用它判断「没有更新可做」）。
     #>
     param([hashtable]$Context, $Row, $Ledger, [string]$InstalledVersion)
 
@@ -68,9 +69,12 @@ function Get-WinstUpdateEntrySnapshot {
     }
     if ($comparable -and $cmp -le 0 -and $originNewer) { $cmp = 1 }
 
+    $ledgerVersion = Get-EntryString -Entry $Ledger -Key 'version'
+
     return @{
         Latest = $latest; LatestSource = $latestSource; VersionFromPackage = $versionFromPackageRow
         CachedPackageVersion = $cachedPackageVersion; RemoteFresh = $remoteFreshState
+        LedgerVersion = $ledgerVersion
         HasUsableSource = $hasUsableSource; Comparable = $comparable; Cmp = $cmp
         OriginName = $originName; OriginEntry = $originEntry; OriginVersion = $originVersion
         OriginUsable = $originUsable; OriginNewer = $originNewer

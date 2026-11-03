@@ -7,7 +7,7 @@ function Remove-WinstUninstallLedgerEntry {
     .OUTPUTS
         @{ Error }
     #>
-    param([hashtable]$Context, $State, [string]$Id)
+    param([hashtable]$Context, [string]$Id)
 
     try {
         $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot

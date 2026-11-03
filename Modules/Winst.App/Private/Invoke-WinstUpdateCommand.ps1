@@ -20,6 +20,7 @@ function Invoke-WinstUpdateCommand {
     $filesOnly = $false
     $forceSystemItems = $false
     $sourceName = ''
+    $sourceSpecified = $false
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
 
     $usage = '  用法: winst update [--check] [--download-only] [--force] [--files-only|--system-items] [--source <名称>] [<id>...|--all]'
@@ -33,6 +34,7 @@ function Invoke-WinstUpdateCommand {
         elseif ($text -eq '--files-only') { $filesOnly = $true }
         elseif ($text -eq '--system-items') { $forceSystemItems = $true }
         elseif ($text -eq '--source') {
+            $sourceSpecified = $true
             # 值就地消费；下一个 token 是开关或已到末尾时明确报错，不静默按默认来源执行
             if ((($i + 1) -lt @($Arguments).Count) -and -not (([string]$Arguments[$i + 1]).StartsWith('-'))) {
                 $sourceName = ([string]$Arguments[$i + 1]).Trim()
@@ -44,17 +46,18 @@ function Invoke-WinstUpdateCommand {
                 return 1
             }
         }
-        elseif ($text.StartsWith('--source=')) { $sourceName = ($text.Substring(9)).Trim() }
-        elseif (Try-Apply-WinstCommonCliFlag -Text $text -Yes ([ref]$yes)) { }
+        elseif ($text.StartsWith('--source=')) { $sourceSpecified = $true; $sourceName = ($text.Substring(9)).Trim() }
         elseif ($text.StartsWith('-')) {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow
             Write-Host $usage -ForegroundColor Gray
             return 1
         } else {
-            if ($ids -notcontains $text) { $ids += $text }
+            if ($ids -cnotcontains $text) { $ids += $text }
         }
     }
+
+    if ($sourceSpecified -and -not (Test-WinstCliRequiredValue -Name '--source' -Value $sourceName)) { return 1 }
 
     if ($check -and $downloadOnly) {
         Write-Host ''
@@ -77,7 +80,7 @@ function Invoke-WinstUpdateCommand {
 
     Write-Section 'update'
     if ($filesOnly) {
-        Write-Host '  仅更新文件：不处理环境变量 / PATH / 快捷方式（保留现有设置）' -ForegroundColor DarkYellow
+        Write-Host '  仅更新文件：环境变量 / PATH 保持原样，快捷方式只修正不新建' -ForegroundColor DarkYellow
     } elseif ($forceSystemItems) {
         Write-Host '  完整更新：按软件源里的定义写入 / 覆盖环境变量、PATH 项与快捷方式' -ForegroundColor DarkYellow
     } else {

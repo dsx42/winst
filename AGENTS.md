@@ -1,6 +1,6 @@
-﻿# AGENTS.md
+# AGENTS.md
 
-Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` → `Modules\Winst.*` → 业务逻辑；`build.cmd`（逻辑在 `build.ps1`）打包发布。本目录是 git 仓库，`dist/` 与 `manifest.json` 已 gitignore。
+Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` → `Modules\Winst.*` → 业务逻辑；`build.cmd`（逻辑在 `build.ps1`）打包发布。本目录是 git 仓库，`dist/` 与根目录测试用 `manifest.json` 由 .gitignore 忽略；manifest.json 不参与 Git 跟踪，保留本地测试副本。
 
 ## 硬性约束
 
@@ -11,7 +11,7 @@ Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` 
 | `build.cmd`、`winst.cmd` | **GBK（cp936）**，否则中文提示 / 注释乱码；两者都不在 `build.ps1` 的编码校验范围内 |
 | winst 写出的文件 | config / state / 索引 / sidecar / `.list` 一律 UTF-8 **无** BOM（见 `Write-FileAtomic`） |
 
-写 `.ps1` 不要用 `Set-Content -Encoding UTF8`（PS 5.1 会写出无 BOM 文件），用 `[IO.File]::WriteAllText` + `New-Object System.Text.UTF8Encoding($true)`。
+写 `.ps1` 用 `[IO.File]::WriteAllText` + `New-Object System.Text.UTF8Encoding($true)` 显式控制 BOM 与 CRLF。Windows PowerShell 5.1 的 `Set-Content -Encoding UTF8` 会写 BOM，但不同版本默认行为不同，不依赖隐式编码。
 
 ## 模块机制
 

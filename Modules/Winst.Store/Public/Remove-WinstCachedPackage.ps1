@@ -72,12 +72,12 @@ function Remove-WinstCachedPackage {
     # 下次读取索引时该条目会因目录已不存在而自动清除。
     $indexNote = ''
     try {
-        $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
-        $index = $cacheRead.Index
-        foreach ($key in @($index.Keys)) {
-            if ([string]$key -ieq $Id) { $index.Remove($key) }
+        Save-WinstCacheIndex -PkgDir $Context.PkgDir -Update {
+            param($index)
+            foreach ($key in @($index.Keys)) {
+                if ([string]$key -ieq $Id) { $index.Remove($key) }
+            }
         }
-        Save-WinstCacheIndex -PkgDir $Context.PkgDir -Index $index
     } catch {
         $indexNote = ('（安装包索引未能更新，下次会自动校正）')
     }

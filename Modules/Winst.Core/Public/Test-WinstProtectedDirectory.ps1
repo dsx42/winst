@@ -27,6 +27,14 @@ function Test-WinstProtectedDirectory {
     }
     if ($full.Split('\').Count -lt 2) { return $true }
 
+    $actual = Get-WinstProtectedDirectoryPaths
+    foreach ($root in $actual.Exact) {
+        if ($full -ieq $root) { return $true }
+    }
+    foreach ($root in $actual.Trees) {
+        if (Test-WinstPathUnderRoot -Path $full -Root $root -AllowEqual) { return $true }
+    }
+
     $protected = @(
         '(?i)^[A-Za-z]:\\Windows$',
         '(?i)^[A-Za-z]:\\Windows\\(System32|SysWOW64|WinSxS|System|Temp|assembly|Microsoft\.NET|servicing|Fonts|INF|Boot|diagnostics|Prefetch)$',

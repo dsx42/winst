@@ -24,6 +24,7 @@ function Invoke-WinstInstallCommand {
     $filesOnly = $false
     $forceSystemItems = $false
     $sourceName = ''
+    $sourceSpecified = $false
     $fromPath = ''
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
 
@@ -59,7 +60,7 @@ function Invoke-WinstInstallCommand {
             }
         }
 
-        if ($text -match '^--(source|from|keep)=\s*$' -or $text -match '^--keep=[,，\s]*$') {
+        if ($text -match '^--(from|keep)=\s*$' -or $text -match '^--keep=[,，\s]*$') {
             Write-Host ('  参数缺少取值：{0}' -f $text) -ForegroundColor Yellow
             return 1
         }
@@ -69,11 +70,10 @@ function Invoke-WinstInstallCommand {
         elseif ($text -eq '--kill') { $kill = $true }
         elseif ($text -eq '--files-only') { $filesOnly = $true }
         elseif ($text -eq '--system-items') { $forceSystemItems = $true }
-        elseif ($text -eq '--source') { $pendingValue = 'source' }
-        elseif ($text.StartsWith('--source=')) { $sourceName = ($text.Substring(9)).Trim() }
+        elseif ($text -eq '--source') { $sourceSpecified = $true; $pendingValue = 'source' }
+        elseif ($text.StartsWith('--source=')) { $sourceSpecified = $true; $sourceName = ($text.Substring(9)).Trim() }
         elseif ($text -eq '--from') { $pendingValue = 'from' }
         elseif ($text.StartsWith('--from=')) { $fromPath = ($text.Substring(7)).Trim() }
-        elseif (Try-Apply-WinstCommonCliFlag -Text $text -Yes ([ref]$yes)) { }
         elseif ($text -eq '--keep') { $pendingValue = 'keep' }
         elseif ($text.StartsWith('--keep=')) {
             $keep = @(($text.Substring(7)) -split '[,，]' | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
@@ -95,6 +95,8 @@ function Invoke-WinstInstallCommand {
         Write-Host ('  {0} 缺少取值，请写成 {0} <值> 或 {0}=<值>。' -f $missing) -ForegroundColor Yellow
         return 1
     }
+
+    if ($sourceSpecified -and -not (Test-WinstCliRequiredValue -Name '--source' -Value $sourceName)) { return 1 }
 
     # ---------------------------------------------------------------- 本地包
     # 从本地包（release zip 或已解压目录）安装 winst 自身。
@@ -156,7 +158,7 @@ function Invoke-WinstInstallCommand {
         Write-Host ('  用法: winst {0} <id> [<id>...]' -f $commandName) -ForegroundColor Yellow
         Write-Host ('  示例: winst {0} jdk21 Rufus' -f $commandName) -ForegroundColor Gray
         Write-Host '  可选参数: --force（相同版本也重装 / 降级）/ --overwrite / --keep a,b / --kill（结束正在运行的该软件）/ --yes' -ForegroundColor Gray
-        Write-Host '            --files-only（仅更新文件：不动环境变量 / PATH / 快捷方式；首次安装时也不补，比默认更彻底）' -ForegroundColor Gray
+        Write-Host '            --files-only（环境变量 / PATH 保持原样，快捷方式只修正不新建；首次安装也不补系统项）' -ForegroundColor Gray
         Write-Host '            --system-items（完整更新：覆盖已存在的环境变量 / 快捷方式）' -ForegroundColor Gray
         Write-Host '            --source <名称>（指定软件源）' -ForegroundColor Gray
         Write-Host '            --from <路径>（从本地 winst 安装包安装 winst 自身：zip 或解压目录；不走软件源、不联网）' -ForegroundColor Gray

@@ -20,7 +20,7 @@ function Sync-WinstRepairCacheIndex {
 
     if ($DryRun) { return '需要修复（预览模式未写入）' }
     try {
-        Save-WinstCacheIndex -PkgDir $Context.PkgDir -Index $indexRead.Index
+        Save-WinstCacheIndex -PkgDir $Context.PkgDir -Update { }
         return '已重建 / 校对'
     } catch {
         return ('写入失败：{0}' -f $_.Exception.Message)

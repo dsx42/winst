@@ -11,7 +11,7 @@ function Read-MenuChoice {
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$Valid,
-        [string]$Prompt = '请选择'
+        [string]$Prompt = '请选择', [switch]$EmptyAsBack
     )
 
     $emptyStreak = 0
@@ -26,6 +26,7 @@ function Read-MenuChoice {
         $value = ''
         if ($null -ne $raw) { $value = ([string]$raw).Trim() }
 
+        if (-not $value -and $EmptyAsBack -and -not (Test-WinstInputRedirected)) { return 'b' }
         if (-not $value) {
             $emptyStreak++
             if ((Test-WinstInputRedirected) -or $emptyStreak -ge 5) {

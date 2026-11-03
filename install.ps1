@@ -81,6 +81,9 @@
 #>
 
 # 管道执行时，函数与变量都落在调用者作用域，用显眼前缀避免碰坏用户环境。
+$winstInstallPreviousError = $ErrorActionPreference
+$winstInstallPreviousProgress = $ProgressPreference
+try {
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
@@ -160,6 +163,7 @@ try {
     )
     $winstInstallArgText = (($winstInstallArguments | ForEach-Object {
                 $winstArgText = [string]$_
+                if ($winstArgText -eq '') { return '""' }
                 if ($winstArgText -notmatch '[\s"]') { return $winstArgText }
                 # 引号前的反斜杠要翻倍，结尾反斜杠要翻倍，否则会转义闭合引号
                 $winstArgBuilder = New-Object System.Text.StringBuilder
@@ -237,4 +241,9 @@ try {
             Remove-Item -LiteralPath $winstInstallRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
     } catch { }
+}
+
+} finally {
+    $ErrorActionPreference = $winstInstallPreviousError
+    $ProgressPreference = $winstInstallPreviousProgress
 }

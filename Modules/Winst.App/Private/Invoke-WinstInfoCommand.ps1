@@ -48,7 +48,7 @@ function Invoke-WinstInfoCommand {
 
     $item = $null
     foreach ($one in @($overview.Items)) {
-        if ([string]$one['Id'] -ieq $id) { $item = $one; break }
+        if ([string]$one['Id'] -ceq $id) { $item = $one; break }
     }
     if (-not $item) {
         Write-Host ''

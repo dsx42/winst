@@ -50,6 +50,7 @@ function Show-WinstSoftwareRows {
                 Write-Host '    软件源: （没有可用的版本信息）' -ForegroundColor DarkYellow
             }
 
+            Write-WinstCompanionVersions -Item $item
             # —— 第 2 行：安装状态 ——
             Write-WinstInstalledStateLine -Item $item -Label '安装:   '
 

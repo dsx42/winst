@@ -54,6 +54,27 @@ function Resolve-WinstInstallDecision {
         return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = '' }
     }
 
+    # 检测不到版本、但可以确定「没有升级可做」：版本号取自主包文件信息 + 远端无新包（FreshMain=false）
+    # + 目标版本等于安装台账版本。系统安装记录可能没覆盖到该软件（如 VC++ 运行库只登记 MSI 子产品），
+    # 这时不该重跑安装器；有附件变化就只更新附件，否则跳过。
+    if (-not $detected -and $VersionFromPackage -and -not $Force -and -not $FreshMain -and $Version -and $Ledger) {
+        $ledgerVersion = Get-EntryString -Entry $Ledger -Key 'version'
+        $sameAsLedger = $false
+        if ($ledgerVersion -and $ledgerVersion -ine 'unknown') {
+            try { $sameAsLedger = ((Compare-WinstVersion -A $ledgerVersion -B $Version) -eq 0) } catch { $sameAsLedger = $false }
+        }
+        if ($sameAsLedger) {
+            if ($CompanionsOnly -and $CompanionDownloadCount -gt 0) {
+                if (-not $Quiet) {
+                    Write-Host ('  {0} {1}：主包无变化，只更新 {2} 个附加文件（不重装）' -f $DisplayName, $ledgerVersion, $CompanionDownloadCount) -ForegroundColor Gray
+                }
+                return @{ Return = $false; Result = $null; Defer = $false; CompanionOnly = $true; Detected = $ledgerVersion }
+            }
+            return (Complete-WinstInstallSkip -Result $Result -Version $ledgerVersion `
+                -Message ('{0} 已是最新版本（{1}；系统安装记录里没有找到该软件，按安装台账判断），无需重复安装' -f $DisplayName, $ledgerVersion))
+        }
+    }
+
     if ($detected -and $detected -ine 'unknown') {
         $hasTarget = [bool]$Version
         $cmp = 0
@@ -66,7 +87,7 @@ function Resolve-WinstInstallDecision {
         $deferVersionDecision = [bool]($VersionFromPackage -and -not $Force -and $FreshMain)
         if ($deferVersionDecision -and -not $Quiet) {
             if ($PlanFreshState -ieq 'changed') {
-                Write-Host ('  {0} 本机已安装 {1}；远端有新包（HEAD 检测），将重新下载安装包、取包后核对版本。' -f $DisplayName, $detected) -ForegroundColor DarkYellow
+                Write-Host ('  {0} 本机已安装 {1}；远端有新包（文件比较），将重新下载安装包、取包后核对版本。' -f $DisplayName, $detected) -ForegroundColor DarkYellow
             } elseif ($VersionFromCachedPackage) {
                 Write-Host ('  {0} 本机已安装 {1}；无法确认远端文件是否变化，将重新取包核对版本（缓存里的包是 {2}，取自包内文件信息）。' -f $DisplayName, $detected, $Version) -ForegroundColor DarkYellow
             } else {

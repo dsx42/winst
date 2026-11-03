@@ -26,32 +26,7 @@ function Get-HashFromChecksumFile {
     # 预置处理器：校验内容里文件名与摘要相邻（GitHub 资产列表页、镜像站的 ISO 列表等），
     # 清单里不必再写一条 re: 正则。只在文件名之后的一小段里找，避免取到相邻条目的摘要。
     if ($ruleText -ieq 'digest') {
-        $target = ([string]$FileName).Trim()
-        $text = [string]$Text
-        if (-not $target) {
-            $result.Error = '按文件名取摘要需要文件名，但调用方没有给出'
-            return $result
-        }
-        if (-not $text) {
-            $result.Error = '校验内容为空，无法按文件名取摘要'
-            return $result
-        }
-        $index = $text.IndexOf($target, [StringComparison]::OrdinalIgnoreCase)
-        if ($index -lt 0) {
-            $result.Error = ('校验内容里没有找到这个安装包的文件名（{0}）' -f $target)
-            return $result
-        }
-        $start = $index + $target.Length
-        $window = $text.Substring($start, [Math]::Min(2000, $text.Length - $start))
-        # 长摘要优先：同一段十六进制不会被更短的规则先截断
-        $match = [regex]::Match($window, '(?i)(?<![0-9a-f])(?:[0-9a-f]{128}|[0-9a-f]{64}|[0-9a-f]{40}|[0-9a-f]{32})(?![0-9a-f])')
-        if (-not $match.Success) {
-            $result.Error = ('校验内容里「{0}」后面没有可识别的摘要（32 / 40 / 64 / 128 位十六进制）' -f $target)
-            return $result
-        }
-        $result.Hash = $match.Value.ToLowerInvariant()
-        $result.Ok = $true
-        return $result
+        return (Get-WinstAdjacentFileHash -Text $Text -FileName $FileName)
     }
 
     if (Test-RegexRuleText -Rule $ruleText) {

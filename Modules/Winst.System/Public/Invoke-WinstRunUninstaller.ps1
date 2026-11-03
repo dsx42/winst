@@ -42,7 +42,7 @@ function Invoke-WinstRunUninstaller {
         if (-not (Test-CompiledMatchRule -Rule $rule -Text ([string]$candidate['DisplayName']))) { continue }
         $commandLine = [string]$candidate['UninstallString']
         if (-not $commandLine) { continue }
-        $isMsiExec = $commandLine.Trim().StartsWith('msiexec', [StringComparison]::OrdinalIgnoreCase)
+        $isMsiExec = Test-WinstRegistryEntryIsMsi -Entry $candidate
         $hits += [ordered]@{ Entry = $candidate; CommandLine = $commandLine; IsMsiExec = $isMsiExec }
     }
     if ($hits.Count -eq 0) {

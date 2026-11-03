@@ -10,14 +10,15 @@ function Invoke-WinstUpdateCustom {
         - 软件源：从该软件可用的来源里选择（标出安装时用的来源）；所选来源版本不比本机新时按强制安装处理
           （相同版本 = 重装一次，更低版本 = 降级覆盖），执行前仍有安装流程的确认提示。
     .OUTPUTS
-        @{ Ok; Cancelled; Mode; Source; ExitCode; Error }
+        @{ Ok; Cancelled; Mode; Source; ExitCode; Error; Updated; Skipped; Failed }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Item
     )
 
-    $result = @{ Ok = $false; Cancelled = $false; Mode = ''; Source = '' }
+    $result = @{ Ok = $false; Cancelled = $false; Mode = ''; Source = ''; ExitCode = 0; Error = '';
+        Updated = 0; Skipped = 0; Failed = 0 }
     $id = [string]$Item['Id']
 
     if (-not $Item['Row']) {
@@ -67,9 +68,10 @@ function Invoke-WinstUpdateCustom {
         Force = $force; AutoPickSource = $true
     }
     if ($mode.Mode -eq 'full') { $params['ForceSystemItems'] = $true }
+    else { $params['FilesOnly'] = $true }
     $updated = Invoke-WinstUpdateTargets @params
 
-    # 结果必须如实透传：之前无条件置 Ok=$true，下载 / 校验失败也会被当成「更新成功」
+    # 保留实际更新 / 跳过 / 失败计数；执行阶段取消不会再触发默认更新。
     $mapped = ConvertFrom-WinstUpdateTargetsResult -Result $updated -Mode $mode.Mode -Source $source.Source
     if (-not $mapped.Ok -and $mapped.Error) {
         Write-Host ''

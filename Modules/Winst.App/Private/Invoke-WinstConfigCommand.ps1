@@ -3,7 +3,7 @@
 function Invoke-WinstConfigCommand {
     <#
     .SYNOPSIS
-        CLI：winst config get|set|list [<key> [<value>]]。
+        CLI：winst config get|set|reset|list [<key> [<value>]]。
     .OUTPUTS
         [int] 退出码：0 成功 / 1 参数或键名问题
     #>
@@ -26,8 +26,8 @@ function Invoke-WinstConfigCommand {
     if ($tokens.Count -gt 2) { $value = $tokens[2] }
 
     if (-not $sub) { $sub = 'list' }
-    if (@('list', 'get', 'set') -notcontains $sub) {
-        Write-WinstUnknownSubcommand -Sub $sub -Usage 'winst config get|set|list [<key> [<value>]]'
+    if (@('list', 'get', 'set', 'reset') -notcontains $sub) {
+        Write-WinstUnknownSubcommand -Sub $sub -Usage 'winst config get|set|reset|list [<key> [<value>]]'
         return 1
     }
 
@@ -78,6 +78,15 @@ function Invoke-WinstConfigCommand {
         Write-Host ''
         Write-Host ('  {0} = {1}    {2}' -f $key, $display, $tag) -ForegroundColor Gray
         return 0
+    }
+
+    if ($sub -eq 'reset') {
+        if ($key -ne 'proxy') {
+            Write-Host '  reset 只支持 proxy；其它配置请用 config set。' -ForegroundColor Yellow
+            return 1
+        }
+        if (Set-ConfigValue -Context $Context -Key 'proxy' -DisplayName '代理' -Value '') { return 0 }
+        return 1
     }
 
     if ($tokens.Count -lt 3) {

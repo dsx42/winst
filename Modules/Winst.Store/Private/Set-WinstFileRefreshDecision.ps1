@@ -9,7 +9,7 @@ function Set-WinstFileRefreshDecision {
         auto / check 继续走校验器。offline 与「不发请求的三种情形」在这里短路（只读视图零联网由构造保证，
         不要在这里加任何网络调用。
     #>
-    param($Plan, [hashtable]$Context, $File, $Meta, $Refresh, [int]$FileIndex, [string]$Name, [string]$Target,
+    param($Plan, [hashtable]$Context, $Meta, $Refresh, [string]$Name, [string]$Target,
         [switch]$Offline, [switch]$DryRun, [switch]$CanCheckRemote)
 
     $lastChecked = [datetime]::MinValue
@@ -53,6 +53,6 @@ function Set-WinstFileRefreshDecision {
         return
     }
 
-    Set-WinstFileValidatorDecision -Plan $Plan -Context $Context -File $File -Meta $Meta -Refresh $Refresh `
-        -FileIndex $FileIndex -Name $Name -Target $Target -HasLastChecked:$hasLastChecked -AgeHours $ageHours
+    Set-WinstFileValidatorDecision -Plan $Plan -Context $Context -Meta $Meta -Refresh $Refresh `
+        -Name $Name -Target $Target -HasLastChecked:$hasLastChecked -AgeHours $ageHours
 }

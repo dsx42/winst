@@ -21,7 +21,10 @@ function New-ResolvedFileFromDeclaration {
         [switch]$MainFile,
         [string]$HashOverride = '',
         [string]$HashFileOverride = '',
-        [string]$HashFromOverride = ''
+        [string]$HashFromOverride = '',
+        # 这个文件的版本是不是「它自己的」：主包恒为真；附加文件只有声明 versionListUrl 并独立
+        # 解析出版本时才为真。为假时 Version 只是主包版本，只用于地址模板展开，不能记录 / 比较。
+        [bool]$OwnVersion = $true
     )
 
     if ($MainFile) { $Dest = '' }
@@ -61,12 +64,15 @@ function New-ResolvedFileFromDeclaration {
         -Extract:$extract `
         -StripTopDir $stripTopDir
     # 本文件自己的版本（独立取版的附加文件 = versionListUrl 解析出的版本；其余 = 主包版本）与
-    # 比较项随文件记录携带，
-    # 供下载规划（filePlan）与远端新鲜度提示读取
+    # 比较项随文件记录携带，供下载规划（filePlan）与远端新鲜度提示读取。
+    # versionOwned 区分这两种情况：跟随主包版本的附加文件不能拿主包版本当自己的版本记录 / 比较。
     $file['version'] = [string]$Version
-    $compare = (Get-EntryString -Entry $Item -Key 'compare').Trim().ToLowerInvariant()
-    if ($compare -ne 'size') { $compare = 'auto' }
-    $file['compare'] = $compare
+    $file['versionOwned'] = [bool]$OwnVersion
+    # 判据：远端哪些信息算「这个文件变了」（默认最后修改时间 + 大小；ETag 不作为默认判据）。
+    # 无法识别的词按 auto 处理，由下载计划给一行提示——与 refresh 的容错口径一致
+    $compareInfo = Get-WinstFileCompareCriteria -Text (Get-EntryString -Entry $Item -Key 'compare')
+    $file['compare'] = [string]$compareInfo.Text
+    if (@($compareInfo.Invalid).Count -gt 0) { $file['compareInvalid'] = @($compareInfo.Invalid) }
     # 新鲜度档位随文件记录携带：下载规划（Get-WinstFilePlan）读的是解析结果而不是清单原始条目，
     # 不在这里透传的话 files[].refresh / maxAgeHours 永远不会生效（一律退化为 auto + 168 小时）
     $refresh = (Get-EntryString -Entry $Item -Key 'refresh').Trim()

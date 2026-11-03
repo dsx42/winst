@@ -97,12 +97,13 @@ function Show-WinstInstalledDetail {
     $uninstallTargets = Get-WinstUninstallTargets -Context $Context -Id ([string]$Item['Id']) -Entry $Item['Ledger']
     $cleanup = @($uninstallTargets['CleanupItems'])
     Write-Host ''
-    if ([string]$Item['Managed'] -ne 'winst') {
-        Write-Host '    卸载时会移除安装记录；该软件不是 winst 安装的，程序本身与系统设置不会被改动' -ForegroundColor DarkGray
+    if ([string]$uninstallTargets['Method'] -eq 'record-only') {
+        Write-Host '    卸载时只移除安装记录，程序本身与系统设置不会被改动' -ForegroundColor DarkGray
     } else {
+        Write-Host ('    卸载方式: {0}' -f [string]$uninstallTargets['Method']) -ForegroundColor DarkGray
         Write-Host ('    卸载动作来源: {0}' -f (@($uninstallTargets['Sources']) -join ' + ')) -ForegroundColor DarkGray
         if ($cleanup.Count -eq 0) {
-            Write-Host '    卸载时会删除安装目录，没有需要回收的环境变量 / PATH 项 / 快捷方式' -ForegroundColor DarkGray
+            Write-Host '    卸载时按上述方式移除程序，没有需要回收的环境变量 / PATH 项 / 快捷方式' -ForegroundColor DarkGray
         } else {
             Write-Host '    卸载时会回收：' -ForegroundColor DarkGray
             foreach ($one in $cleanup) {

@@ -10,11 +10,10 @@ function Invoke-UninstallFlow {
         匹配全程不区分大小写（精确 -ieq / 子串 OrdinalIgnoreCase）。
         卸载完一个（取消 / 失败 / 没找到同理）后回到名称输入接着操作，与「安装软件」同一节奏；
         **在名称输入处直接回车即结束、回主菜单**（安装 / 卸载同一口径）。
-        **输入界面先给、软件源刷新与安装记录读取放后面**：`Update-WinstStaleSources` 只刷超过
-        `manifestTTLHours`（默认 24 小时）有效期的软件源，刷新时逐条联网重新解析（本地清单 60 个软件的
-        可达数十秒到数分钟）。放在输入之前时，用户要先对着没有任何提示的界面干等——这正是「进入
-        卸载软件要停顿一下才出现输入界面」的原因。挪到 `Read-Host` 之后，输入界面立刻可用，刷新的进度
-        也直接打印在用户按下回车之后。
+        **软件源刷新只刷选中的软件**：搜索阶段只读安装台账与软件清单缓存（零网络），
+        确定要卸载的 id（单个或多选）之后才 `Update-WinstDisplaySources -Ids <选中 id>`，
+        只对这些条目做按需解析（超过 `manifestTTLHours` 的才联网）。已装软件可能几十个，
+        进入本页就把它们全部刷新一遍会让输入名称后长时间干等。
     #>
     param([hashtable]$Context)
 
@@ -34,13 +33,8 @@ function Invoke-UninstallFlow {
             return
         }
 
-        # 先读台账拿到要展示的软件，再按需刷新它们的版本信息；
-        # 台账为空（没有已装软件）时不做任何刷新。每轮重读：刚卸载的软件不会再出现在列表里。
-        $ledgerIds = @(Get-WinstDisplayIds -Ids (Read-WinstInstalledKeys -Context $Context))
-        $refresh = Update-WinstDisplaySources -Context $Context -Ids $ledgerIds
-        Write-WinstRefreshErrors -Errors $refresh.Errors
-
-
+        # 搜索阶段只读台账 + 清单缓存（零网络）：已装软件可能几十个，先全部刷新会让输入名称后干等。
+        # 软件源的刷新放在选中之后、只刷选中项（见下方）；每轮重读台账：刚卸载的软件不会再出现在列表里。
         $overview = Get-WinstInstalledOverview -Context $Context
         if (-not $overview.Ok) {
             Write-Host ''
@@ -81,7 +75,15 @@ function Invoke-UninstallFlow {
                 $pick = Show-WinstInstalledRows -Items $hits -Prompt '请输入编号（可多选，如 1 3 5）' -ItemNoun '匹配到的软件' -AllowMultiSelect
                 if ($pick.Action -eq 'quit') { Set-WinstQuit; return }
                 if ($pick.Action -eq 'select-multi') {
-                    # 多选：逐个走卸载确认，结束给一行汇总
+                    # 多选：只刷新选中的这几个（一次批量，超过 TTL 的才解析），再逐个走卸载确认
+                    $pickedIds = @()
+                    foreach ($idx in @($pick.Indexes)) { $pickedIds += [string]$hits[[int]$idx]['Id'] }
+                    $pickedIds = @($pickedIds | Where-Object { $_ })
+                    if ($pickedIds.Count -gt 0) {
+                        $pickedRefresh = Update-WinstDisplaySources -Context $Context -Ids $pickedIds
+                        Write-WinstRefreshErrors -Errors $pickedRefresh.Errors
+                    }
+                    # 逐个走卸载确认，结束给一行汇总
                     $okCount = 0
                     $cancelCount = 0
                     $failCount = 0
@@ -122,6 +124,9 @@ function Invoke-UninstallFlow {
         }
 
         $id = [string]$target['Id']
+        # 选中之后才刷新软件源：只解析这一个 id（超过 TTL 的才联网），卸载定义用刷新后的
+        $targetRefresh = Update-WinstDisplaySources -Context $Context -Ids @($id)
+        Write-WinstRefreshErrors -Errors $targetRefresh.Errors
         Write-Host ''
         Write-Host ('  —— {0}（{1}）——' -f [string]$target['DisplayName'], $id) -ForegroundColor Cyan
         $one = Invoke-WinstUninstallApp -Context $Context -Id $id

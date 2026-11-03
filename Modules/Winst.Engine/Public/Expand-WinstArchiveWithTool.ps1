@@ -3,81 +3,73 @@
 function Expand-WinstArchiveWithTool {
     <#
     .SYNOPSIS
-        用「解压引擎 → 系统 tar → Expand-Archive」三档依次尝试解压，返回第一个成功的档位。
-
-    .DESCRIPTION
-        Expand-WinstPackageArchive 的逐档实现：调用方先按原样走这三档；全部失败后可能再切出
-        7-Zip 自解压包的内嵌载荷，并用同一套档位解那份载荷——因此把「依次尝试」抽出来复用。
-
-        每一档失败都把原因追加进调用方传进来的 Errors 列表（不抛异常）：
-        最终失败时由调用方统一拼报错文案，用户能看到「三档各自为什么不行」。
-
+        按引擎、系统 tar、系统 ZIP 的顺序在独立暂存树解压，只交付成功档的内容。
     .OUTPUTS
         @{ Ok; Tool }
     #>
-    param(
-        [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$ArchivePath,
-        [Parameter(Mandatory = $true)][string]$DestDir,
-        [Parameter(Mandatory = $true)]$Errors
-    )
+    param([hashtable]$Context, [Parameter(Mandatory = $true)][string]$ArchivePath,
+        [Parameter(Mandatory = $true)][string]$DestDir, [Parameter(Mandatory = $true)]$Errors)
 
     $result = @{ Ok = $false; Tool = '' }
-
-    # ① 解压引擎（7-Zip-CLI 的 7z.exe）：全格式，NSIS 安装包 / RAR / WIM 都走这一档
+    Assert-WinstSafeWritePath -Path $DestDir -Directory
+    foreach ($value in @($ArchivePath, $DestDir)) {
+        if (-not (Test-WinstArgumentSafe -Value $value)) {
+            $Errors.Add('压缩包或目标路径含有不安全的命令行字符')
+            return $result
+        }
+    }
+    $tools = New-Object 'System.Collections.Generic.List[object]'
     $sevenZip = ''
     if ($Context) { $sevenZip = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
-    if ($sevenZip) {
-        # 路径与解压目录逐项加引号（含空格时 `-oC:\Program Files\x` 会被拆成两个参数）；
-        # 值里出现双引号直接拒绝，不靠手工拼接转义
-        if (-not (Test-WinstArgumentSafe -Value $ArchivePath) -or -not (Test-WinstArgumentSafe -Value $DestDir)) {
-            $Errors.Add('压缩包路径或解压目录含有无法安全传给 7z 的字符（双引号 / 控制字符）')
-        } else {
-            try {
-                $argText = 'x {0} {1} -y -bso0 -bse0 -bsp0' -f (Format-WinstCommandArgument -Value $ArchivePath), (Format-WinstCommandArgument -Value ('-o' + $DestDir))
-                $p = Start-Process -FilePath $sevenZip -ArgumentList $argText -Wait -PassThru -NoNewWindow
-                if ($p.ExitCode -eq 0) { $result.Ok = $true; $result.Tool = '7z'; return $result }
-                $Errors.Add(('7z 退出码 {0}' -f $p.ExitCode))
-            } catch {
-                $Errors.Add(('7z 调用失败：{0}' -f $_.Exception.Message))
-            }
-        }
-    }
+    if ($sevenZip) { $tools.Add(@{ Name = '7z'; Path = $sevenZip }) }
+    $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
+    if ($tar) { $tools.Add(@{ Name = 'tar'; Path = [string]$tar.Source }) }
+    if ($ArchivePath -match '(?i)\.zip$') { $tools.Add(@{ Name = 'Expand-Archive'; Path = '' }) }
 
-    # ② 系统内置 tar.exe（bsdtar）
-    $tarPath = ''
-    try {
-        $tarCmd = Get-Command 'tar.exe' -ErrorAction SilentlyContinue
-        if ($tarCmd) { $tarPath = [string]$tarCmd.Source }
-    } catch {
-        $tarPath = ''
-    }
-    if ($tarPath) {
-        if (-not (Test-WinstArgumentSafe -Value $ArchivePath) -or -not (Test-WinstArgumentSafe -Value $DestDir)) {
-            $Errors.Add('压缩包路径或解压目录含有无法安全传给 tar 的字符（双引号 / 控制字符）')
-        } else {
-            try {
-                $argText = '-xf {0} -C {1}' -f (Format-WinstCommandArgument -Value $ArchivePath), (Format-WinstCommandArgument -Value $DestDir)
-                $p = Start-Process -FilePath $tarPath -ArgumentList $argText -Wait -PassThru -NoNewWindow
-                if ($p.ExitCode -eq 0) { $result.Ok = $true; $result.Tool = 'tar'; return $result }
-                $Errors.Add(('tar 退出码 {0}' -f $p.ExitCode))
-            } catch {
-                $Errors.Add(('tar 调用失败：{0}' -f $_.Exception.Message))
-            }
-        }
-    }
-
-    # ③ Expand-Archive（仅 .zip）
-    if ($ArchivePath -match '(?i)\.zip$') {
+    foreach ($tool in $tools) {
+        $stage = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-unpack-' + [guid]::NewGuid().ToString('N'))
         try {
-            Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestDir -Force -ErrorAction Stop
+            Assert-WinstSafeWritePath -Path $stage -Directory
+            $null = New-Item -ItemType Directory -Path $stage -ErrorAction Stop
+            try {
+                if ($tool.Name -eq 'Expand-Archive') {
+                    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $stage -Force -ErrorAction Stop
+                } else {
+                    $arguments = ''
+                    if ($tool.Name -eq '7z') {
+                        $arguments = 'x {0} {1} -y -bso0 -bse0 -bsp0' -f (Format-WinstCommandArgument $ArchivePath), (Format-WinstCommandArgument ('-o' + $stage))
+                    } else {
+                        $arguments = '-xf {0} -C {1}' -f (Format-WinstCommandArgument $ArchivePath), (Format-WinstCommandArgument $stage)
+                    }
+                    $run = Invoke-WinstCapturedCommand -FilePath $tool.Path -Arguments $arguments -NoTimeout -TailOutput -MaxOutputChars 65536
+                    if (-not $run.Ok -or $run.ExitCode -ne 0) {
+                        $Errors.Add(('{0} 解压失败（退出码 {1}）：{2} {3}' -f $tool.Name, $run.ExitCode, $run.Error, $run.ErrText))
+                        continue
+                    }
+                }
+            } catch {
+                $Errors.Add(('{0} 解压失败：{1}' -f $tool.Name, $_.Exception.Message))
+                continue
+            }
+            # 交付阶段失败必须直接返回，不能把部分交付的目录交给下一档继续合并。
+            try {
+                Assert-WinstTreeWithoutReparsePoint -Path $stage
+                if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) {
+                    $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
+                }
+                foreach ($item in @(Get-ChildItem -LiteralPath $stage -Force -ErrorAction Stop)) {
+                    Move-WinstItemInto -Source $item -DestDir $DestDir
+                }
+            } catch {
+                $Errors.Add(('交付解压结果失败：{0}' -f $_.Exception.Message))
+                return $result
+            }
             $result.Ok = $true
-            $result.Tool = 'Expand-Archive'
+            $result.Tool = $tool.Name
             return $result
-        } catch {
-            $Errors.Add(('Expand-Archive 失败：{0}' -f $_.Exception.Message))
+        } finally {
+            if (Test-Path -LiteralPath $stage) { Clear-WinstInstallDir -Dir $stage }
         }
     }
-
     return $result
 }

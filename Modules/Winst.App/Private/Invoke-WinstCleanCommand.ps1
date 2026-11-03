@@ -20,8 +20,7 @@ function Invoke-WinstCleanCommand {
     foreach ($token in @($Arguments)) {
         $text = [string]$token
         if (-not $text) { continue }
-        if (Try-Apply-WinstCommonCliFlag -Text $text) { }
-        elseif ($text -like '-*') {
+        if ($text -like '-*') {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow
             Write-Host '  用法: winst clean [<id>]' -ForegroundColor Gray

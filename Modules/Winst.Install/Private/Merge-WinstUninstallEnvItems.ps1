@@ -7,7 +7,7 @@ function Merge-WinstUninstallEnvItems {
     .OUTPUTS
         @{ Env; Path }
     #>
-    param($Entry, $RecordSnapshot, $ManifestSnapshot, [string]$DefaultScope, [string]$InstallDir, [string]$InstallRoot)
+    param($Entry)
 
     $envList = @()
     $envSeen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
@@ -23,12 +23,16 @@ function Merge-WinstUninstallEnvItems {
         if ($envSeen.ContainsKey($key)) { continue }
         $envSeen[$key] = $true
         # 覆盖前的原值要一路带到卸载侧：安装前就存在的变量要还原，不能直接删掉用户的设置
-        $envList += [ordered]@{
+        $envItem = [ordered]@{
             name     = $text
             scope    = $scopeText
-            existed  = [bool](Get-EntryBool -Entry $item -Key 'existed')
-            previous = (Get-EntryString -Entry $item -Key 'previous')
         }
+        $known = Get-EntryValue -Entry $item -Key 'existed' -Default $null
+        if ($null -ne $known) {
+            $envItem['existed'] = Get-EntryBool -Entry $item -Key 'existed'
+            $envItem['previous'] = Get-EntryString -Entry $item -Key 'previous'
+        }
+        $envList += $envItem
     }
     # 清单声明不代表实际写入：首次安装可能保留用户已有变量 / PATH，卸载不能据此认领。
     # PATH 同样只使用实际写入登记。

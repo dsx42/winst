@@ -24,9 +24,15 @@ function Remove-WinstAppliedSystemItems {
         $scope = Get-EntryString -Entry $item -Key 'scope'
         if ($scope -ne 'Machine') { $scope = 'User' }
 
+        if ($null -eq (Get-EntryValue -Entry $item -Key 'existed' -Default $null)) {
+            $RunState.Notes += ('环境变量 {0} 缺少安装前的恢复记录，已保留，请按需手动处理' -f $name)
+            continue
+        }
+
         # 同一作用域还有别的软件声明同名变量 → 恢复为其中最近安装的那个需要的值
         $restore = Get-WinstEnvRestoreValue -Context $Context -State $State -Name $name -Scope $scope -ExceptId $Id
         if ($restore.Found) {
+            Move-WinstSystemItemOwnership -Context $Context -State $State -FromId $Id -ToId $restore.FromId -Field 'appliedEnv' -Item $item
             if ($restore.Error) {
                 $RunState.Notes += ('环境变量 {0} 仍被其它已装软件使用，本次保留、未删除（{1}）' -f $name, $restore.Error)
                 continue
@@ -62,7 +68,9 @@ function Remove-WinstAppliedSystemItems {
         $scope = Get-EntryString -Entry $item -Key 'scope'
         if ($scope -ne 'Machine') { $scope = 'User' }
 
-        if (Test-WinstPathEntryClaimed -Context $Context -State $State -Path $path -Scope $scope -ExceptId $Id) {
+        $ownerId = Get-WinstPathEntryOwner -Context $Context -State $State -Path $path -Scope $scope -ExceptId $Id
+        if ($ownerId) {
+            Move-WinstSystemItemOwnership -Context $Context -State $State -FromId $Id -ToId $ownerId -Field 'appliedPath' -Item $item
             if (-not $Quiet) { Write-Host ('    PATH 项仍被其它已装软件使用，已保留: {0}' -f $path) -ForegroundColor Gray }
             continue
         }

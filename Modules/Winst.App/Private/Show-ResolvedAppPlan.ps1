@@ -22,7 +22,7 @@ function Show-ResolvedAppPlan {
         [string]$StartMenuDir = '',
         [string]$InstalledVersion = '',
         [string]$InstalledDir = '',
-        [hashtable]$Context = $null
+        [hashtable]$Context = $null, $State = $null, $CacheIndex = $null
     )
 
     $view = New-WinstPlanViewState -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
@@ -37,6 +37,14 @@ function Show-ResolvedAppPlan {
             Write-Host ('    说明: {0}' -f $note) -ForegroundColor DarkYellow
         }
         return
+    }
+
+    if ($Context) {
+        $id = Get-EntryString -Entry $Plan -Key 'id'
+        if ($null -eq $State) { $State = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
+        $ledger = Get-WinstInstalledApp -State $State -Id $id
+        $lines = @(Get-WinstCompanionVersionLines -Context $Context -Id $id -Plan $Plan -Ledger $ledger -CacheIndex $CacheIndex)
+        Write-WinstCompanionVersions -Item @{ CompanionVersionLines = $lines }
     }
 
     # 校验说明的展示名取自 Get-WinstHashRule（Winst.Store），由这里传入委托，

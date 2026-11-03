@@ -13,13 +13,13 @@ function Format-ProxyModeDisplay {
     $mode = ''
     if ($null -ne $Value) { $mode = ([string]$Value).Trim().ToLowerInvariant() }
     switch ($mode) {
-        'always'          { return '始终走代理（每次都直接走代理，不做直连尝试）' }
-        'off'             { return '不使用代理（只直连）' }
-        'download-direct' { return '下载直连优先（下载先直连、失败再用代理；其它请求直接走代理）' }
-        'auto'            { return '自动（先直连，失败后再用代理重试）' }
+        'always'          { return '始终用显式代理（每次都直接使用配置的代理）' }
+        'off'             { return '禁用显式代理（仍遵循系统代理 / PAC）' }
+        'download-direct' { return '下载优先默认连接（失败再用显式代理；其它请求直接用显式代理）' }
+        'auto'            { return '自动（先按系统默认连接，失败后再用显式代理重试）' }
         default {
             if ($mode) { return $mode }
-            return '自动（先直连，失败后再用代理重试）'
+            return '自动（先按系统默认连接，失败后再用显式代理重试）'
         }
     }
 }

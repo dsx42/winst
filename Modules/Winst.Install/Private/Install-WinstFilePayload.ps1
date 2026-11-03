@@ -28,13 +28,7 @@ function Install-WinstFilePayload {
         Assert-WinstSafeWritePath -Path $fileTemp
         Copy-Item -LiteralPath $PrimaryPath -Destination $fileTemp -Force -ErrorAction Stop
         if (Test-Path -LiteralPath $fileTarget -PathType Leaf) {
-            try {
-                [IO.File]::Replace($fileTemp, $fileTarget, $null)
-            } catch {
-                # 目标卷不支持 Replace / 目标被别的进程占用：退化为直接覆盖（与 Write-FileAtomic 同一策略）
-                Copy-Item -LiteralPath $fileTemp -Destination $fileTarget -Force -ErrorAction Stop
-                Remove-Item -LiteralPath $fileTemp -Force -ErrorAction SilentlyContinue
-            }
+            [IO.File]::Replace($fileTemp, $fileTarget, [System.Management.Automation.Language.NullString]::Value)
         } else {
             Move-Item -LiteralPath $fileTemp -Destination $fileTarget -Force -ErrorAction Stop
         }

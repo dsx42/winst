@@ -49,6 +49,7 @@ function Invoke-WinstUpdateEntry {
             if ([string]$candidate['Source'] -ieq (Get-EntryString -Entry $ledger -Key 'manifestOrigin') -and $candidate['Ok']) { $probeEntry = $candidate; break }
         }
     }
+    $probeMethod = ''
     if ($probeEntry) {
         $probePlan = Get-EntryValue -Entry $probeEntry -Key 'Plan' -Default $null
         $probeMethod = Get-EntryString -Entry (Get-EntryValue -Entry $probePlan -Key 'detect' -Default $null) -Key 'method'
@@ -89,6 +90,33 @@ function Invoke-WinstUpdateEntry {
         }
     }
 
+    # 已安装版本未知时先尝试修复安装记录：用软件源里最新解析的检测定义重新识别一次并更正台账。
+    # 只有 registry / appx 才有「按系统记录确认身份」这一步，其它检测方式重跑同一套规则没有意义；
+    # 修复只写台账（--dry-run 跳过）。修复失败不中断检查，只会让「是否已是最新」退回台账版本判断。
+    $installedVersionUnknown = (-not $installedVersion -or $installedVersion -ieq 'unknown')
+    if ($installedVersionUnknown -and @('registry', 'appx') -contains $probeMethod -and
+        -not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
+        try {
+            $synced = Sync-WinstInstalledRecord -Context $Context -Id $Id
+        } catch {
+            $synced = $null
+        }
+        if ($synced -and $synced.Ok -and $synced.Changed) {
+            $ledger = Get-WinstInstalledApp -State (Read-WinstState -InstallRoot $Context.InstallRoot).State -Id $Id
+            $repairedVersion = Get-EntryString -Entry $ledger -Key 'version'
+            if ($repairedVersion -and $repairedVersion -ine 'unknown') {
+                $installedVersion = $repairedVersion
+                $entryResult.Installed = $installedVersion
+                if (-not $Quiet) {
+                    Write-Host ('  {0}: 安装记录已修复，当前版本 {1}。' -f $displayName, $repairedVersion) -ForegroundColor DarkGray
+                }
+            }
+        } elseif ($synced -and -not $synced.Ok -and -not $Quiet -and [string]$synced.Error) {
+            Write-Host ('  {0}: 修复安装记录未完成 —— {1}' -f $displayName, [string]$synced.Error) -ForegroundColor DarkYellow
+        }
+    }
+    $ledgerVersion = Get-EntryString -Entry $ledger -Key 'version'
+
     $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
     $latest = [string]$snap.Latest
     $latestSource = [string]$snap.LatestSource
@@ -107,18 +135,45 @@ function Invoke-WinstUpdateEntry {
 
     if (-not $latest) {
         $unknown = Get-WinstUpdateUnknownText -Snap $snap
-        if ($Check -and $snap.VersionFromPackage) {
-            # 三条件满足 = 远端无新包 + 已下载安装包有版本号 + 已安装版本与已下载包版本一致 → 按「已是最新」处理
-            if (Test-WinstUpdateUpToDateByPackage -Snap $snap -InstalledVersion $installedVersion) {
-                $Result.UpToDate++
-                $entryResult.Action = 'latest'
-                $entryResult.Latest = [string]$snap.CachedPackageVersion
-                $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
-                $entryResult.RemoteFresh = [string]$snap.RemoteFresh
-                if (-not $Quiet) {
-                    Write-Host ('  {0}: 已是最新版本（{1}；远端无新包，与已下载的安装包一致）。' -f $displayName, $installedVersion) -ForegroundColor Gray
+        if ($snap.VersionFromPackage) {
+            # 三条件满足 = 远端无新包 + 已下载安装包有版本号 + 已安装版本（或台账版本）与包版本一致
+            # → 检查时判「已是最新」；执行时只有未指定强制重装才跳过。
+            # 先看附加文件：主包没变但附件变了，要单列「附加文件有更新」并允许只更新这些文件。
+            $upToDate = Test-WinstUpdateUpToDateByPackage -Snap $snap -InstalledVersion $installedVersion -LedgerVersion $ledgerVersion
+            if ($upToDate.UpToDate -and ($Check -or -not $Force)) {
+                $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $row
+                $companionsChanged = [bool]($companionInfo -and $companionInfo.CompanionsOnly)
+                if ($companionsChanged) {
+                    if ($Check) {
+                        $Result.Updatable++
+                        $entryResult.Action = 'files'
+                        $entryResult.Message = ('附加文件有更新（{0} 个）' -f [int]$companionInfo.ChangedCount)
+                        $entryResult.CompanionCount = [int]$companionInfo.ChangedCount
+                        $entryResult.CompanionNames = @($companionInfo.Names)
+                        $entryResult.Latest = [string]$snap.CachedPackageVersion
+                        $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
+                        $entryResult.RemoteFresh = [string]$snap.RemoteFresh
+                        return @{ Entries = @($entryResult); Installed = $true; DownloadOnlySkipped = $false; RefreshState = $false }
+                    }
+                    # 非检查（执行更新）且附件有变化：不在这里返回，交给安装侧走「仅附件更新」
+                } else {
+                    $Result.UpToDate++
+                    $entryResult.Action = 'latest'
+                    $entryResult.Latest = [string]$snap.CachedPackageVersion
+                    $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
+                    $entryResult.RemoteFresh = [string]$snap.RemoteFresh
+                    $shownVersion = $installedVersion
+                    $basisNote = '远端无新包，与已下载的安装包一致'
+                    if ($upToDate.Basis -eq 'ledger') {
+                        $shownVersion = $ledgerVersion
+                        $entryResult.Installed = $ledgerVersion
+                        $basisNote = '系统安装记录里没有找到该软件，已按安装台账判断；可先修复安装记录或刷新软件源'
+                    }
+                    if (-not $Quiet) {
+                        Write-Host ('  {0}: 已是最新版本（{1}；{2}）。' -f $displayName, $shownVersion, $basisNote) -ForegroundColor Gray
+                    }
+                    return @{ Entries = @($entryResult); Installed = $true; DownloadOnlySkipped = $false; RefreshState = $false }
                 }
-                return @{ Entries = @($entryResult); Installed = $true; DownloadOnlySkipped = $false; RefreshState = $false }
             }
         }
         if ($Check) {

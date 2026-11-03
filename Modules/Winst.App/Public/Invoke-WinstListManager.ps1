@@ -65,7 +65,7 @@ function Invoke-WinstListManager {
 
             if ((Test-WinstQuitKey -Text $subText)) { Set-WinstQuit; return }
             if ($subText -ieq 'e') {
-                Invoke-WinstListEditFlow -Context $Context -Path $targetPath
+                $null = Invoke-WinstListEditFlow -Context $Context -Path $targetPath
                 if ((Get-WinstState -Name WinstQuitRequested)) { return }
                 & $pause
                 continue
@@ -107,7 +107,7 @@ function Invoke-WinstListManager {
             Write-Host ''
             Write-Host ('  这份{0}已存在，直接进入编辑: {1}' -f $kindText, $newPath) -ForegroundColor Gray
         }
-        Invoke-WinstListEditFlow -Context $Context -Path $newPath
+        $null = Invoke-WinstListEditFlow -Context $Context -Path $newPath
         if ((Get-WinstState -Name WinstQuitRequested)) { return }
         & $pause
     }

@@ -3,7 +3,7 @@
 function Compare-WinstSemVer {
     <#
     .SYNOPSIS
-        比较两条已解析的严格 SemVer；构建元数据在解析时已忽略。
+        按 SemVer 的数字核心及预发布标识规则比较结构化版本。
     #>
     param($A, $B)
 

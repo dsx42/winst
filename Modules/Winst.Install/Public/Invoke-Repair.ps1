@@ -32,7 +32,9 @@ function Invoke-Repair {
         # 只报告本次真正发生的改动与一行汇总
         [switch]$Quiet,
         # 内嵌调用时只刷新这些 id 的版本信息（已装软件传台账 id）；不传 = 刷新全部超期缓存（独立 repair 口径）
-        [string[]]$RefreshIds = $null
+        [string[]]$RefreshIds = $null,
+        # 调用方已完成本次软件源刷新，扫描直接复用解析结果。
+        [switch]$SourcesReady
     )
 
     if (-not $Quiet) { Write-Section '修复安装记录' }
@@ -40,7 +42,7 @@ function Invoke-Repair {
     $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
     $verbose = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose)
 
-    $catalog = Get-WinstRepairCatalog -Context $Context -Quiet:$Quiet -RefreshIds $RefreshIds
+    $catalog = Get-WinstRepairCatalog -Context $Context -Quiet:$Quiet -RefreshIds $RefreshIds -SourcesReady:$SourcesReady
     $planLookup = $catalog.Plan
     $sourceLookup = $catalog.Source
     $ciIdLookup = $catalog.CiId

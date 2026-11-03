@@ -17,6 +17,7 @@ function Resolve-WinstPlanVersion {
 
     $notes = @($Notes)
     $version = [string]$Plan['version']
+    $versionAlreadyNormalized = $false
     $id = [string]$Plan['id']
     $fileList = @($Plan['download']['files'])
 
@@ -59,6 +60,7 @@ function Resolve-WinstPlanVersion {
                 if ($indexRead -and -not $indexRead.Error -and $indexRead.Index.Contains($id)) {
                     $derived = ([string](Get-EntryString -Entry $indexRead.Index[$id] -Key 'version')).Trim()
                     $fromIndex = [bool]$derived
+                    $versionAlreadyNormalized = $fromIndex
                 }
             }
             if ($derived) {
@@ -78,10 +80,8 @@ function Resolve-WinstPlanVersion {
         }
     }
 
-    # 版本号写法归一：**源侧**解析出的版本（tag / 文件名 / 页面 / 接口，以及 source.versionFrom: "package"
-    # 从包内文件信息取到的那个）按 source.versionRewrite 改写后再用于比较 / 展示 / 写台账；**本机检测**出的版本
-    # 由 detect.versionRewrite 负责（编译后的规则放进 detect 块，见下方 ⑥）。{version} 占位符仍用上游原始版本
-    # 展开（下载文件名带的是上游写法），改写前的值记在 sourceVersion 里。
+    # 来源原始读数在此归一；索引已有版本不再改写。下载声明已使用来源原始版本展开，
+    # 随后的安装计划字段使用归一后的版本；本机检测由 detect.versionRewrite 独立处理。
     $sourceNode = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
     $rewrite = New-WinstVersionRewriteRules -Spec (Get-EntryValue -Entry $sourceNode -Key 'versionRewrite' -Default $null)
     if (-not $rewrite.Ok) {
@@ -89,7 +89,8 @@ function Resolve-WinstPlanVersion {
         $Plan['notes'] = $notes
         return @{ Version = $version; Notes = $notes; Error = [string]$Plan['error'] }
     }
-    if ($rewrite.Rules.Count -gt 0 -and $version) {
+    if ($rewrite.Rules.Count -gt 0) { $Plan['sourceVersionRewrite'] = @($rewrite.Rules) }
+    if ($rewrite.Rules.Count -gt 0 -and $version -and -not $versionAlreadyNormalized) {
         $rewrittenVersion = Get-WinstRewrittenVersion -Version $version -Rules $rewrite.Rules
         if (-not $rewrittenVersion) {
             $Plan['error'] = ('source.versionRewrite 改写后版本号为空（软件源里的版本是 {0}）；请检查 pattern / replace' -f $version)
@@ -97,7 +98,6 @@ function Resolve-WinstPlanVersion {
             return @{ Version = $version; Notes = $notes; Error = [string]$Plan['error'] }
         }
         $Plan['sourceVersion'] = $version
-        $Plan['sourceVersionRewrite'] = @($rewrite.Rules)
         $Plan['version'] = $rewrittenVersion
         if ($rewrittenVersion -ne $version) {
             $notes += ('版本号已统一写作 {0}（软件源里是 {1}）' -f $rewrittenVersion, $version)

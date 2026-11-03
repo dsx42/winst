@@ -34,7 +34,7 @@ function Update-WinstCheckSources {
     # RefreshIds 限定已装软件：修复内部不再把仅下载条目的版本也解析一遍
     if (-not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
         Write-Host '  正在读取安装记录 …' -ForegroundColor Gray
-        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds
+        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds -SourcesReady
     }
 
     # 修复可能新登记了之前不在台账里的软件：这些软件的版本信息若已过期则按需补刷新

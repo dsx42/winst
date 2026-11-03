@@ -23,14 +23,13 @@ function Invoke-WinstUninstallCommand {
         $text = [string]$token
         if ($text -eq '--force') { $force = $true }
         elseif ($text -eq '--kill') { $kill = $true }
-        elseif (Try-Apply-WinstCommonCliFlag -Text $text -Yes ([ref]$yes)) { }
         elseif ($text.StartsWith('-')) {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow
             Write-Host '  用法: winst uninstall <id> [<id>...] [--force] [--kill] [--yes]' -ForegroundColor Gray
             return 1
         } else {
-            if ($ids -notcontains $text) { $ids += $text }
+            if ($ids -cnotcontains $text) { $ids += $text }
         }
     }
 
@@ -105,14 +104,14 @@ function Invoke-WinstUninstallCommand {
 
     Write-Host ''
     if ($dryRun) {
-        Write-Host ('  汇总: 预览 {0} / 失败 {1}（预览模式未做任何修改）' -f $previewCount, $failCount) -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Gray' })
+        Write-Host ('  汇总: 预览 {0} / 失败 {1}（预览模式未做任何修改）' -f $previewCount, ($failCount + $paramFail)) -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Gray' })
         if ($failCount -gt 0) { return 3 }
-        if ($paramFail -gt 0 -and $previewCount -eq 0) { return 1 }
+        if ($paramFail -gt 0) { return 1 }
         return 0
     }
-    Write-Host ('  汇总: 已卸载 {0} / 跳过 {1} / 失败 {2}' -f $okCount, $skipCount, $failCount) -ForegroundColor $(if (($failCount + $paramFail) -gt 0) { 'Yellow' } else { 'Gray' })
+    Write-Host ('  汇总: 已卸载 {0} / 跳过 {1} / 失败 {2}' -f $okCount, $skipCount, ($failCount + $paramFail)) -ForegroundColor $(if (($failCount + $paramFail) -gt 0) { 'Yellow' } else { 'Gray' })
 
     if ($failCount -gt 0) { return 3 }
-    if ($paramFail -gt 0 -and $okCount -eq 0) { return 1 }
+    if ($paramFail -gt 0) { return 1 }
     return 0
 }

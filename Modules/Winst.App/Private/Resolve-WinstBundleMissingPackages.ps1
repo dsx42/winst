@@ -16,8 +16,8 @@ function Resolve-WinstBundleMissingPackages {
         $item = $entry['Item']
         if ([bool]$item['CacheHas']) { continue }
         if (-not [bool]$item['InCatalog']) { $noSource += $item; continue }
-        # 有条目但没有可用版本（清单有误 / 全部来源不可用）→ 无法补齐，直接归入「源里没有可用版本」
-        if (-not [string]$item['BestVersion']) { $noSource += $item; continue }
+        # 下载后确认版本的条目同样有可用计划，不能按空版本判不可用。
+        if (-not [bool]$item['PlanAvailable']) { $noSource += $item; continue }
         $needDownload += $item
     }
 
@@ -28,7 +28,7 @@ function Resolve-WinstBundleMissingPackages {
         foreach ($item in $needDownload) {
             Write-Host ('    - {0}（{1}）' -f [string]$item['DisplayName'], [string]$item['Id']) -NoNewline -ForegroundColor DarkYellow
             if ([string]$item['BestVersion']) { Write-Host ('    软件源里 {0}' -f [string]$item['BestVersion']) -ForegroundColor DarkGray }
-            else { Write-Host '    软件源里没有可用的版本信息' -ForegroundColor DarkGray }
+            else { Write-Host '    取包后确认版本' -ForegroundColor DarkGray }
         }
 
         $doDownload = $false
@@ -52,7 +52,7 @@ function Resolve-WinstBundleMissingPackages {
             foreach ($item in $needDownload) {
                 $chosen = Get-WinstRowBestPlanEntry -Row $item['Row']
                 if (-not $chosen) {
-                    Write-Host ('  {0}: 已跳过：软件源里没有可用的版本信息。' -f [string]$item['DisplayName']) -ForegroundColor DarkYellow
+                    Write-Host ('  {0}: 已跳过：软件源里没有可用的下载计划。' -f [string]$item['DisplayName']) -ForegroundColor DarkYellow
                     continue
                 }
                 Write-Host ''
@@ -89,7 +89,7 @@ function Resolve-WinstBundleMissingPackages {
 
     if ($noSource.Count -gt 0) {
         Write-Host ''
-        Write-Host ('  以下 {0} 个软件在软件源里没有可用版本（没有定义 / 清单有误），将跳过：' -f $noSource.Count) -ForegroundColor DarkYellow
+        Write-Host ('  以下 {0} 个软件在软件源里没有可用的下载计划（没有定义 / 清单有误），将跳过：' -f $noSource.Count) -ForegroundColor DarkYellow
         foreach ($item in $noSource) {
             Write-Host ('    - {0}（{1}）' -f [string]$item['DisplayName'], [string]$item['Id']) -ForegroundColor DarkYellow
         }

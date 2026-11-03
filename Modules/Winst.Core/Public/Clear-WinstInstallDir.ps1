@@ -8,22 +8,26 @@ function Clear-WinstInstallDir {
         `-AllowedRoot`：要求目录必须位于该根目录之下（缓存包删除这类「路径完全由 id 拼出」的场景必须传，
         id 越界时直接拒绝）。安装目录可以合法地落在 Program Files 等安装根之外，因此那里不传该参数，
         改用 Test-WinstProtectedDirectory 的前缀黑名单拦住系统目录。
+        -Strict 在路径被拒绝、枚举或删除失败时抛错；默认只提示，供临时目录尽力清理。
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Dir,
         [string[]]$Keep = @(),
-        [string]$AllowedRoot = ''
+        [string]$AllowedRoot = '',
+        [switch]$Strict
     )
 
     if (-not (Test-Path -LiteralPath $Dir -PathType Container)) { return }
 
     # $Dir 可能来自注册表 / 脏台账 / 带 .. 的 id：盘根、系统目录、用户目录一律拒绝删除，
-    # 避免一条脏记录把整盘或用户目录递归清空。这里不抛异常（多数调用点没有 try/catch），只提示并跳过。
+    # 避免一条脏记录把整盘或用户目录递归清空。默认只提示并跳过；安装前清理通过 -Strict 要求成功。
     if (Test-WinstProtectedDirectory -Path $Dir) {
+        if ($Strict) { throw ('拒绝清理受保护目录：{0}' -f $Dir) }
         Write-Host ('    提示: 拒绝清理可疑目录 {0}（不像软件安装目录），请手动确认。' -f $Dir) -ForegroundColor Yellow
         return
     }
     if (Test-WinstReparsePoint -Path $Dir) {
+        if ($Strict) { throw ('拒绝清理重解析点：{0}' -f $Dir) }
         Write-Host ('    提示: 拒绝清理重解析点（junction / 符号链接）{0}，请手动确认。' -f $Dir) -ForegroundColor Yellow
         return
     }
@@ -39,22 +43,28 @@ function Clear-WinstInstallDir {
         $pathRoot = ''
     }
     if (-not $dirFull -or -not $pathRoot -or (Test-WinstPathHasReparsePoint -Path $dirFull -Root $pathRoot)) {
+        if ($Strict) { throw ('拒绝清理经过重解析点或无法确认的目录：{0}' -f $Dir) }
         Write-Host ('    提示: 拒绝清理经过重解析点的目录 {0}，请手动确认。' -f $Dir) -ForegroundColor Yellow
         return
     }
     if ($AllowedRoot -and -not (Test-WinstPathUnderRoot -Path $Dir -Root $AllowedRoot)) {
+        if ($Strict) { throw ('拒绝清理允许根目录之外的目录：{0}' -f $Dir) }
         Write-Host ('    提示: 拒绝清理安装包位置之外的目录 {0}（应位于 {1} 之下）。' -f $Dir, $AllowedRoot) -ForegroundColor Yellow
         return
     }
 
-    foreach ($item in @(Get-ChildItem -LiteralPath $Dir -Force -ErrorAction SilentlyContinue)) {
-        Remove-WinstItemWithKeep -Item $item -Base $Dir -Keep $Keep
-    }
-    # 无 keep 时应删除根目录本身；只做非递归删除，绝不让文件系统 API 跟随嵌套重解析点。
-    if (@($Keep).Count -eq 0) {
-        $remain = @(Get-ChildItem -LiteralPath $Dir -Force -ErrorAction SilentlyContinue)
-        if ($remain.Count -eq 0) {
-            try { [IO.Directory]::Delete($Dir, $false) } catch { }
+    try {
+        foreach ($item in @(Get-ChildItem -LiteralPath $Dir -Force -ErrorAction Stop)) {
+            try { Remove-WinstItemWithKeep -Item $item -Base $Dir -Keep $Keep }
+            catch {
+                if ($Strict) { throw }
+                Write-Warning ('未能清理 {0}：{1}' -f $item.FullName, $_.Exception.Message)
+            }
         }
+        # 无 keep 时只做非递归删除，不跟随嵌套重解析点。
+        if (@($Keep).Count -eq 0) { [IO.Directory]::Delete($Dir, $false) }
+    } catch {
+        if ($Strict) { throw }
+        Write-Warning ('未能清理目录 {0}：{1}' -f $Dir, $_.Exception.Message)
     }
 }

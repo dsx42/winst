@@ -6,7 +6,7 @@ function Get-WinstManifestAppPlan {
         按 id 取得某软件的「全流程实际内容」（优先复用软件清单解析锁，未命中时实时解析）。
     .DESCRIPTION
         软件源之间互不覆盖，同一 id 可能命中多个来源：本函数返回全部命中（Matches），
-        并可用 -PreferSource 指定优先来源；供引擎引导（固定用内置源）与用户交互选择来源共用。
+        -PreferSource 指定优先来源；-RequiredSource 限定唯一允许来源，供引擎引导使用。
     .OUTPUTS
         @{ Ok; Source; Plan; Error; Matches }
     #>
@@ -14,6 +14,7 @@ function Get-WinstManifestAppPlan {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
         [string]$PreferSource = '',
+        [string]$RequiredSource = '',
         [switch]$LiveResolve
     )
 
@@ -21,6 +22,7 @@ function Get-WinstManifestAppPlan {
     if (-not $Id) { $result.Error = '缺少软件 id'; return $result }
 
     $found = @(Get-ResolvedAppsById -Context $Context -Id $Id)
+    if ($RequiredSource) { $found = @($found | Where-Object { [string]$_['Source'] -ceq $RequiredSource }) }
     $result.Matches = @($found)
 
     if (-not $LiveResolve -and $found.Count -gt 0) {
@@ -58,6 +60,7 @@ function Get-WinstManifestAppPlan {
     $fallbackSource = ''
 
     $orderedSources = @(Get-ManifestSourceList -Context $Context)
+    if ($RequiredSource) { $orderedSources = @($orderedSources | Where-Object { (Get-EntryString -Entry $_ -Key 'name') -ceq $RequiredSource }) }
     if ($PreferSource) {
         $preferred = @()
         $others = @()

@@ -36,15 +36,13 @@ function Invoke-InstallFlow {
             continue
         }
 
-        # 先按缓存搜出要展示的软件，再按需刷新这些软件的版本信息，
-        # 刷新有成果时用新数据重新搜索展示——不把软件源里所有软件都解析一遍
-        $lookup = Search-WinstRowsWithRefresh -Context $Context -Keyword $keyword
+        # 先按缓存搜出要展示的软件（**不**预先把命中项逐个联网解析）：命中可能几十条，
+        # 全部刷新会让输入关键字后又要干等；只有用户选中要安装的那几个才刷新。
+        $lookup = Search-WinstRowsWithRefresh -Context $Context -Keyword $keyword -SkipVersionRefresh
         $searched = $lookup.Searched
         $refresh = $lookup.Refresh
-        if ($refresh.Skipped) {
-            if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
-                Write-Host '  当前为离线模式，直接使用已有软件清单。' -ForegroundColor DarkGray
-            }
+        if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
+            Write-Host '  当前为离线模式，直接使用已有软件清单。' -ForegroundColor DarkGray
         }
         Write-WinstRefreshErrors -Errors $refresh.Errors
 
@@ -73,10 +71,29 @@ function Invoke-InstallFlow {
         if ($rows.Count -eq 1) {
             $selection = @(1)
         } else {
-            $selection = @(Show-WinstSearchRows -Rows $rows -State $state)
+            $selection = @(Show-WinstSearchRows -Rows $rows -State $state -Context $Context)
             if ($selection.Count -eq 0) {
                 Write-Host '  已取消。' -ForegroundColor DarkGray
                 continue
+            }
+        }
+
+        # 选中之后才刷新：只逐条解析选中的这几个 id（超过 TTL 的才解析），多选也只刷一次；
+        # 刷新后用清单缓存按 id 取回新行（只读、零网络），安装 / 详情用刷新后的来源与版本
+        $selectedRows = @()
+        foreach ($number in $selection) { $selectedRows += $rows[[int]$number - 1] }
+        $selectedIds = @($selectedRows | ForEach-Object { [string]$_['Id'] } | Where-Object { $_ })
+        if ($selectedIds.Count -gt 0) {
+            $pickedRefresh = Update-WinstDisplaySources -Context $Context -Ids $selectedIds
+            Write-WinstRefreshErrors -Errors $pickedRefresh.Errors
+            if ([int]$pickedRefresh.Refreshed -gt 0) {
+                $rowById = Get-WinstCatalogRowMap -Context $Context
+                $freshRows = @()
+                foreach ($selectedRow in $selectedRows) {
+                    $selectedId = [string]$selectedRow['Id']
+                    if ($selectedId -and $rowById.Contains($selectedId)) { $freshRows += $rowById[$selectedId] } else { $freshRows += $selectedRow }
+                }
+                $selectedRows = @($freshRows)
             }
         }
 
@@ -90,8 +107,7 @@ function Invoke-InstallFlow {
         $failureNotes = @()
         $skipNotes = @()
 
-        foreach ($number in $selection) {
-            $row = $rows[[int]$number - 1]
+        foreach ($row in $selectedRows) {
             $isDownloadRow = ((Get-WinstRowType -Row $row) -eq 'download')
             Write-Host ''
             Write-Host ('  —— {0}（{1}）——' -f [string]$row['Name'], [string]$row['Id']) -ForegroundColor Cyan

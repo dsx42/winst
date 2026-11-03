@@ -78,7 +78,7 @@ function Invoke-WinstBundleInstallRun {
 
         $one = Invoke-WinstInstallTarget -Context $Context -Row $item['Row'] -AutoPickSource -Yes:$InstallYes
         if ($one.Cancelled) {
-            if ($Presentation -eq 'Menu') { $stats['CancelCount']++ } else { $stats['FailCount']++ }
+            $stats['CancelCount']++
             continue
         }
         if (-not $one.Ok) {

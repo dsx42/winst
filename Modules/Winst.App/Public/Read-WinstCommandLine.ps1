@@ -12,9 +12,10 @@ function Read-WinstCommandLine {
     .OUTPUTS
         @{ Options; Command; Arguments; Error }
     #>
-    param([string[]]$Tokens)
+    param([string[]]$Tokens, [hashtable]$InitialOptions = $null)
 
     $options = New-WinstCliOptions
+    if ($InitialOptions) { foreach ($key in @($InitialOptions.Keys)) { $options[$key] = $InitialOptions[$key] } }
     $command = ''
     $rest = @()
     $waitingFor = ''
@@ -24,6 +25,7 @@ function Read-WinstCommandLine {
         $text = [string]$one
 
         if ($waitingFor) {
+            $text = $text.Trim()
             if (-not $text -or $text.StartsWith('-')) {
                 # 非开关 token 仍按「值优先」解释（`--pkg-dir list` 的 list 仍是路径）。
                 $name = @{ installRoot = 'install-root'; pkgDir = 'pkg-dir'; proxy = 'proxy' }[$waitingFor]

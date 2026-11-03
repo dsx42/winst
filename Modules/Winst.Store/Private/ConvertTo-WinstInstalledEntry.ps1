@@ -22,7 +22,9 @@ function ConvertTo-WinstInstalledEntry {
         appliedEnv       = @()
         appliedPath      = @()
         appliedShortcuts = @()
+        appliedFileVersions = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedFileVersions' -Default @{}))
         appliedFiles     = @()
+        appliedFileRules = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedFileRules' -Default @{}))
         oldVersions      = @()
         uninstall        = (ConvertTo-WinstUninstallSnapshot -Block $null)
     }
@@ -55,7 +57,13 @@ function ConvertTo-WinstInstalledEntry {
         }
         if (-not $name) { continue }
         if ($scope -ne 'Machine') { $scope = 'User' }
-        $result['appliedEnv'] += [ordered]@{ name = $name; scope = $scope }
+        $normalizedEnv = [ordered]@{ name = $name; scope = $scope }
+        $existed = Get-EntryValue -Entry $item -Key 'existed' -Default $null
+        if ($null -ne $existed) {
+            $normalizedEnv['existed'] = Get-EntryBool -Entry $item -Key 'existed'
+            $normalizedEnv['previous'] = Get-EntryString -Entry $item -Key 'previous'
+        }
+        $result['appliedEnv'] += $normalizedEnv
     }
 
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'appliedPath')) {

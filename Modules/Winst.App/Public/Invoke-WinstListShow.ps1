@@ -46,7 +46,7 @@ function Invoke-WinstListShow {
         }
     }
 
-    $loaded = Get-WinstListItems -Context $Context -Path $targetPath
+    $loaded = Get-WinstListItems -Context $Context -Path $targetPath -RefreshSources
     if (-not $loaded.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $loaded.Error) -ForegroundColor Red
@@ -68,11 +68,6 @@ function Invoke-WinstListShow {
         Write-Host ('  可到「高级功能 → 管理{0}」里编辑这份清单，挑选软件加入。' -f $kindText) -ForegroundColor DarkGray
         return
     }
-
-    # 清单里的软件才是要展示的：按需刷新它们的版本信息
-    $listIds = @(Get-WinstDisplayIds -Items $loaded.Items)
-    $refresh = Update-WinstDisplaySources -Context $Context -Ids $listIds -Quiet
-    Write-WinstRefreshErrors -Errors $refresh.Errors
 
 
     Write-Host ''

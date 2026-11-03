@@ -9,7 +9,8 @@ function Get-WinstListItems {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Path
+        [Parameter(Mandatory = $true)][string]$Path,
+        [switch]$RefreshSources
     )
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Path = $Path; Exists = $false
@@ -24,6 +25,12 @@ function Get-WinstListItems {
     $result.Entries = @($read.Entries)
     $result.CommentLines = @($read.CommentLines)
     $result.BadLines = @($read.BadLines)
+
+    if ($RefreshSources -and @($read.Entries).Count -gt 0) {
+        $ids = @($read.Entries | ForEach-Object { [string]$_['Id'] })
+        $refresh = Update-WinstDisplaySources -Context $Context -Ids $ids -Quiet
+        Write-WinstRefreshErrors -Errors $refresh.Errors
+    }
 
     $lookup = Get-WinstListLookups -Context $Context
     if (-not $lookup.Ok) {

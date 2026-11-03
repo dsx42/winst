@@ -24,7 +24,6 @@ function Invoke-WinstListCommand {
         $text = [string]$token
         if ($text -eq '--installed') { $onlyInstalled = $true }
         elseif ($text -eq '--cached') { $onlyCached = $true }
-        elseif (Try-Apply-WinstCommonCliFlag -Text $text) { }
         else {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow

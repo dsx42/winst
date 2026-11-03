@@ -15,11 +15,13 @@ function ConvertTo-WinstJson {
         [int]$Depth = 12
     )
 
-    $json = $InputObject | ConvertTo-Json -Depth $Depth
+    $json = ConvertTo-Json -InputObject $InputObject -Depth $Depth
     if ($null -eq $json) { return '' }
-    $json = $json -replace '\\u003c', '<'
-    $json = $json -replace '\\u003e', '>'
-    $json = $json -replace '\\u0026', '&'
-    $json = $json -replace '\\u0027', "'"
+    # 只匹配偶数个反斜杠之后的真正转义，保留字面量 \\uXXXX。
+    $json = [regex]::Replace($json, '(?<!\\)((?:\\\\)*)\\u(003c|003e|0026|0027)', {
+        param($match)
+        $character = [char][Convert]::ToInt32($match.Groups[2].Value, 16)
+        return $match.Groups[1].Value + [string]$character
+    })
     return $json
 }

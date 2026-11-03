@@ -23,7 +23,7 @@ function Resolve-WinstUpdateTargets {
     $explicit = @()
     foreach ($one in @($Ids)) {
         $text = ([string]$one).Trim()
-        if ($text -and ($explicit -notcontains $text)) { $explicit += $text }
+        if ($text -and ($explicit -cnotcontains $text)) { $explicit += $text }
     }
     $targetIds = @()
     if ($explicit.Count -gt 0 -and -not $All) {

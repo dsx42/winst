@@ -24,5 +24,8 @@ function Test-WinstRegistryEntryIsMsi {
     }
     $command = $command.Trim()
     if (-not $command) { return $false }
-    return $command.StartsWith('msiexec', [StringComparison]::OrdinalIgnoreCase)
+    $parsed = Split-WinstCommandLine -Text $command
+    if (-not $parsed.Ok) { return $false }
+    $name = [IO.Path]::GetFileName([Environment]::ExpandEnvironmentVariables([string]$parsed.Exe))
+    return ($name -ieq 'msiexec.exe' -or $name -ieq 'msiexec')
 }

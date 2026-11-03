@@ -14,10 +14,11 @@ function Invoke-WinstListEditFlow {
         [string]$Path = ''
     )
 
+    $result = @{ Ok = $false; Cancelled = $false }
     $kindText = (Get-WinstListKindText)
     Write-Section ('编辑' + $kindText)
 
-    if (-not (Assert-WinstContext $Context)) { return }
+    if (-not (Assert-WinstContext $Context)) { return $result }
 
     $refresh = Update-WinstStaleSources -Context $Context -Quiet
     Write-WinstRefreshErrors -Errors $refresh.Errors
@@ -27,17 +28,18 @@ function Invoke-WinstListEditFlow {
     if ($Path) {
         # 解析 + 报错文案在 Resolve-WinstListTargetPath 里（编辑 / 查看两页共用）
         $targetPath = Resolve-WinstListTargetPath -Context $Context -Path $Path
-        if (-not $targetPath) { return }
+        if (-not $targetPath) { return $result }
     } else {
         $picked = Select-WinstListFile -Context $Context
         if (-not $picked.Ok) {
             Write-Host ''
             if ($picked.Cancelled) {
+                $result.Cancelled = $true
                 if (-not (Get-WinstState -Name WinstQuitRequested)) { Write-Host '  已返回。' -ForegroundColor DarkGray }
-                return
+                return $result
             }
             Write-Host ('  {0}' -f $picked.Error) -ForegroundColor Red
-            return
+            return $result
         }
         $targetPath = [string]$picked.Path
     }
@@ -46,7 +48,7 @@ function Invoke-WinstListEditFlow {
     if (-not $existing.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $existing.Error) -ForegroundColor Red
-        return
+        return $result
     }
     if (@($existing.BadLines).Count -gt 0) {
         Write-Host ('  提示: 清单里有 {0} 行无法识别，保存时会丢弃这些行。' -f @($existing.BadLines).Count) -ForegroundColor DarkYellow
@@ -69,7 +71,7 @@ function Invoke-WinstListEditFlow {
         Write-Host ''
         Write-Host '  软件源里还没有任何软件，无法挑选。' -ForegroundColor Yellow
         Write-Host '  可以到「高级功能 → 管理软件源」刷新软件源后再来。' -ForegroundColor DarkGray
-        return
+        return $result
     }
 
     Write-Host ''
@@ -79,17 +81,26 @@ function Invoke-WinstListEditFlow {
         Write-Host ('  将新建: {0}' -f $targetPath) -ForegroundColor Gray
     }
 
+    $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
+    $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index
+    $rows = @($rows | ForEach-Object {
+        $view = Copy-WinstObjectShallow -InputObject $_
+        $ledger = Get-WinstInstalledApp -State $state -Id ([string]$view['Id'])
+        $view['CompanionVersionLines'] = @(Get-WinstCompanionVersionLines -Context $Context -Id ([string]$view['Id']) -Row $view -Ledger $ledger -CacheIndex $cacheIndex)
+        $view
+    })
     $filter = ''
     while ($true) {
         $pick = Show-WinstListPickRows -Rows $rows -Selected $selected -Filter $filter `
             -Title ('挑选软件加入{0}（标 * 的是已在清单里的）' -f $kindText)
         $filter = [string]$pick.Filter
 
-        if ($pick.Action -eq 'quit') { Set-WinstQuit; return }
+        if ($pick.Action -eq 'quit') { Set-WinstQuit; $result.Cancelled = $true; return $result }
         if ($pick.Action -eq 'cancel') {
+            $result.Cancelled = $true
             Write-Host ''
             Write-Host ('  已取消：{0}没有改动。' -f $kindText) -ForegroundColor DarkGray
-            return
+            return $result
         }
         if ($pick.Action -ne 'toggle') { break }
 
@@ -98,7 +109,7 @@ function Invoke-WinstListEditFlow {
             if (-not $id) { continue }
             if ($selected.Contains($id)) {
                 $selected.Remove($id)
-                $order = @($order | Where-Object { [string]$_ -ine $id })
+                $order = @($order | Where-Object { [string]$_ -cne $id })
                 Write-Host ('  已移出：{0}' -f $id) -ForegroundColor DarkGray
             } else {
                 $selected[$id] = $true
@@ -111,8 +122,9 @@ function Invoke-WinstListEditFlow {
     if (@($order).Count -eq 0) {
         Write-Host ''
         if (-not (Read-WinstConfirm -Prompt ('  {0}里一个软件都没有，仍然保存（空清单）？(y/N)' -f $kindText) -Default 'n')) {
+            $result.Cancelled = $true
             Write-Host ('  已取消：{0}没有改动。' -f $kindText) -ForegroundColor DarkGray
-            return
+            return $result
         }
     }
 
@@ -122,11 +134,13 @@ function Invoke-WinstListEditFlow {
     Write-Host ''
     if (-not $saved.Ok) {
         Write-Host ('  失败: {0}' -f $saved.Error) -ForegroundColor Red
-        return
+        return $result
     }
+    $result.Ok = $true
     if ($dryRun) {
         Write-Host ('  预览: 将把 {0} 项写入 {1}（--dry-run 不落盘）' -f [int]$saved.Count, $targetPath) -ForegroundColor DarkYellow
-        return
+        return $result
     }
     Write-Host ('  已保存: {0}（{1} 项）' -f $targetPath, [int]$saved.Count) -ForegroundColor Green
+    return $result
 }

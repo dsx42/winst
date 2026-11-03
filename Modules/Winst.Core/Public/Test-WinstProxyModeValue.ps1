@@ -10,10 +10,12 @@ function Test-WinstProxyModeValue {
 
         | 取值 | 含义 |
         |---|---|
-        | `auto` | 先直连，失败再用代理（默认） |
-        | `always` | 始终走代理 |
-        | `off` | 不使用代理 |
-        | `download-direct` | 下载先直连、失败再用代理；其它请求直接走代理 |
+        | `auto` | 先按系统默认连接，失败再用显式代理（默认） |
+        | `always` | 始终使用配置的显式代理 |
+        | `off` | 禁用显式代理，仍遵循系统代理 / PAC |
+        | `download-direct` | 下载先按系统默认连接、失败再用显式代理；其它请求直接用显式代理 |
+
+        没有配置代理地址时，各模式均使用系统默认连接。
 
         写错时**直接拒绝**而不是落一个无效值：无效值会让 Get-WinstProxyAttempts 悄悄退回 auto，
         用户以为设好了其实没生效。`config set proxyMode` 与设置菜单都走这里。

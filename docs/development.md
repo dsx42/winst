@@ -1,227 +1,103 @@
-﻿# 开发与发布
+# 开发与发布
 
-## 仓库结构
+## 运行与隔离
 
-```
-winst\
-├── winst.ps1                 入口（按模块形态导入 + 退出码映射）
-├── winst.cmd                 双击启动器
-├── manifest.json             可选：本地测试内置源时放在这里，构建会复制进 dist\winst\（不进入 winst.zip）；内置源本身由独立仓库分发
-├── install.ps1               一行安装引导脚本
-├── build.cmd                 构建入口（GBK 批处理薄壳，转交 build.ps1）
-├── build.ps1                 打包逻辑（合并模块、校验、产出 dist\）
-├── LICENSE                   GPLv3 原文（随 release 分发）
-├── README.md
-├── docs\                     技术文档
-└── Modules\
-    ├── Winst.Core\           { psd1, psm1, Public\, Private\ }
-    ├── Winst.Logging\
-    ├── Winst.Version\
-    ├── Winst.Net\
-    ├── Winst.Ui\
-    ├── Winst.System\
-    ├── Winst.Manifest\
-    ├── Winst.Store\
-    ├── Winst.Browser\
-    ├── Winst.Engine\
-    ├── Winst.Catalog\
-    ├── Winst.Install\
-    └── Winst.App\
-```
-
-`build.cmd` 是 `build.ps1` 的薄壳：切到脚本目录、转交、透传参数、回传退出码。真正的逻辑全在 `build.ps1`（UTF-8 with BOM，能正常写中文、能用 PowerShell 语法检查），批处理文件只保留 cmd.exe 必需的那几行——它必须存成 GBK，写多了只会增加编码风险。
-
-改代码前先读 [architecture.md](architecture.md)。
-
-## 从源码运行
-
-不需要安装、不需要配置 `PSModulePath`：
-
-```bat
-winst.cmd
-winst.cmd list --cached
-powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 --help
-```
-
-脚本目录下的 `manifest.json` 会自动作为本地软件源；带 `apps\` 目录即自动命中离线缓存。
-
-`winst.cmd` 用系统自带的 `conhost.exe` 拉起 PowerShell，保证双击后一定是原生控制台窗口——系统把「控制台应用程序」的默认终端设成 Windows Terminal 时也不会开在 Windows Terminal 里（那里的 `%VAR%` 不展开与重绘残留是已知问题）。`conhost.exe` 缺失时退回直接调 `powershell.exe`。
-
-`winst.ps1` 启动即申请管理员权限，因为安装软件要写系统级环境变量、静默运行安装程序、读写 HKLM 卸载记录。排障时不想弹 UAC 就设 `WINST_NO_ELEVATE=1`（只读查询不需要管理员）；`-v` / `--version` / `-h` / `--help` 自动不提权，这些会被别的 winst 进程频繁调用做版本检测。
-
-## 隔离回归验证
+目标运行时为 Windows PowerShell 5.1。开发树从 `Modules/Winst.*` 导入，release 从合并的 `Modules/Winst` 导入；无需安装模块或配置 PSModulePath。模块职责和约束见 [架构](architecture.md) 与仓库 [AGENTS.md](../AGENTS.md)。
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Tests\Regression.Tests.ps1
+$env:WINST_HOME = Join-Path $env:TEMP 'winst-dev/home'
+$env:WINST_INSTALL_ROOT = Join-Path $env:TEMP 'winst-dev/root'
+$env:WINST_PKG_DIR = Join-Path $env:TEMP 'winst-dev/pkg'
+$env:WINST_NO_ELEVATE = '1'
+powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 -v
+powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list
 ```
 
-脚本在唯一临时目录中验证文件落位、台账和离线包流程，网络、安装器与系统环境写入使用测试桩；结束时清理本次目录。可用 `-Filter '<用例名通配>'` 只运行相关用例。验证目标是 Windows PowerShell 5.1；构建自带的发布树冒烟仍需单独运行。
+实验目录应为本次独立目录。安装、更新、卸载和修复会修改台账及系统项，不能直接用真实用户数据验证删除分支。网络请求可通过 `--offline` 禁止，预览边界见 [CLI](cli.md#预览边界)。
 
-## 开发调试
+根目录 `manifest.json` 是不跟踪的本地测试副本；正式软件源由独立的 `dsx42/winst-manifest` 仓库维护。构建会把本地副本复制到 `dist/winst`，但不放进 zip。不要把本地测试改动作为正式源发布。
 
-- **改完模块要重新导入**：PowerShell 会缓存已导入的模块，设置环境变量 `WINST_DEV=1` 让入口带 `-Force` 导入
-- **单模块试验**：直接 `Import-Module .\Modules\Winst.Store\Winst.Store.psd1 -Force`；跨模块调用在运行时才解析，不必按顺序先导入别的模块
-- **详细日志**：`--verbose` 打印 HTTP、来源解析、文件匹配、版本检测细节；入口未捕获的异常也会带脚本堆栈
-- **预览试跑**：使用 `--dry-run`，联网与写入边界统一见 [CLI 预览边界](cli.md#预览边界)。
-- **隔离实验**：把数据、安装与缓存目录都指到临时目录，避免污染真实数据。**没有隔离就别说「测一下」**：安装 / 更新会真的写台账、改用户级环境变量与快捷方式
+## 调试与模块扩展
 
-临时目录示例：
-
-```powershell
-$env:WINST_HOME = Join-Path $env:TEMP 'winst-dev'
-$env:WINST_PKG_DIR = Join-Path $env:TEMP 'winst-dev\apps'
-$env:WINST_INSTALL_ROOT = Join-Path $env:TEMP 'winst-dev\root'
-$env:WINST_NO_ELEVATE = '1'          # 临时目录实验不需要管理员权限
-.\winst.cmd config list
-```
+- `WINST_DEV=1` 强制重新导入开发模块；`--verbose` 输出诊断。
+- 导入单个模块时用清单绝对路径；跨模块依赖由调用环境导入，详见各 psd1 注释，不使用 RequiredModules。
+- 新模块目录与 psd1/psm1 同名，包含 Public；加载器与其它模块保持一致。
+- 新函数放 Public 或 Private，加载器自动发现；跨模块调用只用 Public。只定义函数的约束有 `WinstState.Type.ps1` 加载 .NET 状态/捕获类型这一明确例外。
+- 新状态项在 Initialize-WinstState 声明；写入遵循 [数据文件](data-files.md) 的条目级提交与缓存失效契约。
+- 新清单字段或枚举必须同步 [清单规范](manifest.md)，示例要能通过真实读取和解析函数。
 
 ### 环境变量
 
 | 变量 | 作用 |
 |---|---|
-| `WINST_HOME` | 数据目录（默认 `%USERPROFILE%\.winst`），配置与安装清单位于其下 |
-| `WINST_PKG_DIR` | 安装包缓存、软件源列表与清单缓存的位置；优先于脚本同目录 `apps\` 和配置 |
-| `WINST_INSTALL_ROOT` | 软件安装根目录（默认 `%USERPROFILE%\winst`），`<installRoot>\state.json` 是安装台账 |
-| `WINST_DEV` | 设为 `1` 时入口用 `-Force` 重新导入模块 |
-| `WINST_NO_LOCK` | 设为 `1` 时跳过单进程锁，仅用于排障；不要用它并发执行会写数据的命令 |
-| `CI` | 构建时设为 `1` 可跳过结尾等待，与 `build.cmd -NoPause` 等价 |
+| WINST_HOME | 配置及安装清单数据根目录 |
+| WINST_INSTALL_ROOT | 软件安装根及 state.json 所在位置 |
+| WINST_PKG_DIR | 包缓存、软件源列表和解析数据位置 |
+| WINST_DEV | 为1时强制重新导入模块 |
+| WINST_NO_ELEVATE | 为1时不自动提权，适用于隔离验证或排障 |
+| WINST_NO_LOCK | 为1时跳过单进程锁；仅排障用，不能据此并发修改数据 |
+| CI | 为1时构建不等待回车 |
 
-## 编码与文件约定
+## 文件格式
 
-| 文件 | 编码 | 说明 |
-|---|---|---|
-| `*.ps1` / `*.psm1` / `*.psd1` | **UTF-8 with BOM**（`install.ps1` 例外：无 BOM、不写 `#Requires`） | Windows PowerShell 5.1 按 ANSI 读无 BOM 文件，中文会乱码；`build.ps1` 发现不合规直接报错，不会自动改写。`install.ps1` 经 `irm | iex` 执行，BOM 会变成命令名的一部分 |
-| `build.cmd` | **GBK** | cmd.exe 在 `chcp 936` 下按该代码页解析批处理 |
-| `manifest.json` / `README.md` / `docs\*.md` | UTF-8 无 BOM | |
-| 换行 | CRLF | |
+| 文件 | 编码与换行 |
+|---|---|
+| ps1/psm1/psd1 | UTF-8 BOM + CRLF |
+| install.ps1 | UTF-8无BOM + CRLF；不写 #Requires |
+| build.cmd、winst.cmd | GBK + CRLF |
+| Markdown、测试清单 | UTF-8无BOM |
+| winst写出的JSON和list | UTF-8无BOM |
 
-winst 自己写出的 JSON / `.list` 一律 UTF-8 无 BOM。
+构建检查 Modules 下脚本、winst.ps1、build.ps1 的 BOM/CRLF，并单独检查 install.ps1；批处理 GBK 需要编辑器和人工保证。构建不修复源文件格式。显式写脚本使用 UTF8Encoding(true)，写数据使用 UTF8Encoding(false)。
 
-## 代码约定
+## 验证
 
-1. **依赖单向**：`Core` 在最底，`App` 在最上，禁止下层调用上层
-2. **文件里只定义函数**：加载期不执行逻辑，依赖的函数可能还没加载
-3. **导出与否看目录**：要导出的放 `Public\`，辅助函数放 `Private\`
-4. **一个文件一个函数**，文件名与函数名保持一致
-5. **不静默兜底**：解析失败、校验失败、字段缺失一律明确报错
-6. **失败隔离**：批量操作逐项 `try/catch`，单项失败不中断其余
-7. **状态只放一次运行内的东西**：跨进程数据必须落盘
-8. **id 比较用 Ordinal**（`New-WinstOrdinalDictionary`），不能用 PowerShell 默认的不区分大小写比较
-9. **文案风格**：面向普通用户，一句话说清「下一步做什么」；技术细节只在 `--verbose` 出现
+在 Windows PowerShell 5.1 中执行模块语法检查，再执行上面的隔离入口：
 
-## 新增一个模块
-
-1. 建目录 `Modules\Winst.Foo\`，放 `Winst.Foo.psd1`（可复制现有模块改 `RootModule` / `GUID` / `Description` / 依赖注释）、`Winst.Foo.psm1`（照抄加载器）、`Public\`、`Private\`
-2. 在依赖它的模块的 `.psd1` 头部注释里补一行
-
-不用改 `winst.ps1` 或 `build.ps1`：两者都按 `Modules\` 下的目录自动发现模块。合并进单一模块的顺序就是目录名排序，因为函数文件只定义函数、加载期没有互相调用，顺序不影响正确性。
-
-## 新增一个函数
-
-直接在 `Public\` 或 `Private\` 下新建 `.ps1`，无需改加载器（`.psm1` 从 AST 自动收集 `Public\` 里的函数名）。
-
-## 打包
-
-```bat
-build.cmd                       :: 双击即可
-build.cmd -NoPause              :: 构建后不等回车
-set CI=1 && build.cmd           :: 非交互环境（不等待）
+```powershell
+Get-ChildItem Modules -Recurse -File |
+    Where-Object Extension -in '.ps1','.psm1','.psd1' |
+    ForEach-Object {
+        $e=$null
+        [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$e)
+        if($e){ "$($_.FullName): $($e[0].Message)" }
+    }
 ```
 
-**发版前先改版本号**：编辑 `Modules\Winst.Core\Public\WinstConstants.ps1` 里 `Get-WinstProductVersion` 的返回值。构建只读取它，并在输出里打印它来自哪个文件，不会写回任何东西。tag 必须与它一致（`v<版本>`）。
+`Tests/*.Regression.ps1` 是无需测试框架的断言脚本，各自在独立的 Windows PowerShell 5.1 进程运行：
 
-**每次构建先清空 `dist\`**。构建树先放在临时目录，通过冒烟与压缩包校验后才落地为本次产物：
-
-```
-winst\              可以直接运行的发布树（winst.cmd / winst.ps1 / LICENSE / Modules\Winst\）
-winst.zip           从临时构建树压缩得到，不含测试用 manifest.json
-winst.zip.sha512    sha512sums 格式：<摘要>  winst.zip
-```
-
-发布树与压缩包来自同一棵构建树。仓库根目录的 `manifest.json` 会在打包前复制到发布树、压缩时排除，所以 `dist\winst\` 可以直接测试本地清单，但它比 zip 多这个文件。测产物**不用解压**：
-
-```bat
-dist\winst\winst.cmd -v
-dist\winst\winst.cmd list --cached
+```powershell
+Get-ChildItem Tests -Filter *.Regression.ps1 | ForEach-Object {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $_.FullName
+    if ($LASTEXITCODE -ne 0) { throw ('回归失败：{0}' -f $_.Name) }
+}
 ```
 
-`dist\winst\` 是构建产物，可以随时删掉，下次构建会重建。删不掉时构建会明确报「产物可能正被占用」并退出 —— 通常是正在运行的 winst 或开着 `dist\` 里文件的编辑器。
+针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。回归脚本覆盖缓存校验、来源解析、安装生命周期和菜单分支，不能替代真实系统集成验证。
 
-`Modules\Winst\` 是把各模块合并成的单一模块（`Winst.psd1` + `Winst.psm1`），release 只需一次 `Import-Module`，冷启动明显快于开发树逐个导入。
+## 构建
 
-**改完代码只需要双击 `build.cmd`**，没有别的同步动作：
+```powershell
+$env:CI='1'
+cmd /c build.cmd
+```
 
-- 新增模块目录 → 构建自动发现，不用改 `winst.ps1` / `build.ps1`，也没有顺序清单要维护
-- 新增函数文件 → 自动进入导出名单
-- 源文件编码与换行是**开发者的责任**：缺 BOM 或用 LF 时构建直接失败并列出文件，不会替你改写（否则 5.1 读中文会静默乱码）
+交互构建可直接双击 build.cmd；`-NoPause` 与 CI=1 均跳过等待。build.cmd 负责切目录、透传参数和退出码，逻辑在 build.ps1。
 
-构建自检，任一失败即中止，产物在全部通过后才写进 `dist\`：
+构建自动发现模块并检查目录、加载器、编码、函数重名和合并语法；随后在临时发布树运行 `winst.ps1 -v`，核对版本、zip必需/禁止条目及顶层布局，最后生成：
 
-- `Modules\` 下每个子目录都要能作为模块识别（同名 `.psd1` / `.psm1` / `Public\`）
-- 各模块的 `.psm1` 加载器除模块名外逐字节一致（加载器是同一份，改一处就要全部一起改）
-- `Modules\` 下全部脚本与 `winst.ps1` 都是 UTF-8 with BOM + CRLF
-- 合并结果能通过 5.1 语法解析（报错会指回源文件）
-- 用 Windows PowerShell 5.1 在临时构建树里真跑一次 `winst.ps1 -v`，且报出的版本等于产品版本
-- 包内必需 `winst.ps1` / `winst.cmd` / `LICENSE` / `Modules/Winst/Winst.psd1` / `Winst.psm1`
-- 包内不能有 `manifest.json` / `README.md` / `docs\` / `build.*` / `install.ps1`，也不能有单一顶层目录
+- `dist/winst/`：可直接运行的发布树。
+- `dist/winst.zip`：运行时文件，没有文档、构建工具、引导脚本及测试清单。
+- `dist/winst.zip.sha512`：sha512sums格式的摘要侧车。
+
+构建开始会清空 dist；失败时不能将其中未完成的内容作为发布包。构建冒烟验证装配，不代替安装/卸载或具体缺陷回归。
 
 ## 发布
 
-1. 先改版本号：`Modules\Winst.Core\Public\WinstConstants.ps1` 的 `Get-WinstProductVersion`
-2. `build.cmd`
-3. 把 `dist\winst.zip` 与 `dist\winst.zip.sha512` 作为 release 资产上传
-4. tag 用 `v<版本>`（如 `v2026.10.20`），与第 1 步的值一致
+1. 修改唯一产品版本来源：Core/Public/WinstConstants.ps1 的 Get-WinstProductVersion。
+2. 完成验证和构建，tag 使用 `v<产品版本>`。
+3. 上传同次生成的 winst.zip 与 winst.zip.sha512，资产名不带版本。
 
-- **产物名固定、不带版本号**：`releases/latest/download/winst.zip` 指向最新 release 的同名资产，一行安装命令不随版本改动
-- 软件源里的 `winst` 条目按 GitHub release 解析实际下载地址，并用条目声明的 `hashFile` 校验安装包；发布时必须同时上传 zip 与 sha512 侧车
+正式清单的 `_manifestVersion` 独立于产品版本，仅在软件源仓库修改清单时维护。
 
-`manifest.json` 的 `_manifestVersion` 独立于产品版本：它是软件源目录自己的版本，增删改清单条目时更新。两者不一致时构建会提示，但不阻断。
-
-## 一行安装脚本（install.ps1）
-
-只做四件事：下载 `winst.zip` → 解压到临时目录拿到可运行的 `winst.ps1` → 以管理员身份运行它并等待结束 → 调用 `winst install winst --from <zip>`。提权在这一层完成，子进程里的 `winst.ps1` 已是管理员，不会再把工作交给第三个进程，因此拿到的是真实退出码，临时目录也在安装结束后才删除。安装逻辑全部在 `Install-WinstSelf` 里，脚本本身不含第二套实现。
-
-通过 `irm | iex` 执行时有一些硬约束：
-
-- 不用 `param()`：管道执行时参数传不进来
-- 不用 `$PSScriptRoot` / `$PSCommandPath`：管道执行时为空
-- 不用 `exit`：会杀掉调用者会话，失败时抛异常
-- 不依赖任何本地文件
-- `Start-Process -ArgumentList` 收到数组时只用空格拼接，不会自动加引号：`-File` 与 `--from` 的路径必须自行按 Windows 参数规则加引号，否则含空格路径会被截断
-- **本文件必须 UTF-8 无 BOM，且不能写 `#Requires`**（与仓库其它 `.ps1` 相反）。`irm` 取回的文本原样交给 `iex` 解析，前导 U+FEFF 在解析字符串时不按 BOM 剥离，会被当成命令名的一部分，报 `?#Requires : 无法将“?#Requires”项识别为 cmdlet …`；这句报错不中断后续语句，表现为「安装成功但屏幕上多一条报错」。`build.ps1` 会校验这两点。
-
-### 运行后留下的产物
-
-`irm … | iex` 跑完之后，磁盘上只有这些：
-
-| 位置 | 内容 | 说明 |
-|---|---|---|
-| `<installRoot>\` | `state.json` | 安装台账（默认 `%USERPROFILE%\winst\state.json`） |
-| `<installRoot>\winst\` | `winst.ps1`、`winst.cmd`、`LICENSE`、`Modules\Winst\` | 运行时本体 |
-| 桌面、开始菜单 | `winst.lnk` | 按 `New-WinstSelfPlan` 的 `shortcuts` 定义创建 |
-| `<数据目录>\` | 无 | 首次安装不写 `config.json`；`winst.lock` 在进程退出时释放，不残留 |
-
-`%TEMP%\winst-install-<随机>`（下载的 zip 与解压副本）在 `finally` 里删除，成功与失败都不保留。
-`--from` 指向的 zip 由调用方自己管理，winst 不删除它。
-
-
-## 自检清单
-
-改完代码至少确认（`config list` 前按需保留上面的隔离环境变量）：
-
-```powershell
-# 全部模块脚本语法（无输出即通过；用 Windows PowerShell 5.1 执行）
-powershell -NoProfile -Command 'Get-ChildItem Modules -Recurse -Filter *.ps1 | ForEach-Object { $e=$null; [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$e); if($e){ "$($_.Name): $($e[0].Message)" } }'
-
-# 从源码跑（开发树是多模块形态，不必先构建）
-powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 --version
-
-# 帮助与配置（只读命令）
-powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 help
-powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list
-
-# 打包 + 冒烟（构建自己会跑一次 -v）
-build.cmd
-```
-
-涉及安装 / 卸载的改动，在上述三个目录都已隔离的环境里跑一遍 `install` → `list` → `update --check` → `uninstall`。
+`install.ps1` 通过 `irm | iex` 下载并解压 release，再调用 `winst install winst --from <zip>`。安装逻辑集中在 Install-WinstSelf；引导层负责提权、等待、退出码、临时目录清理和恢复调用者偏好，不使用 exit、PSScriptRoot 或本地模块依赖。

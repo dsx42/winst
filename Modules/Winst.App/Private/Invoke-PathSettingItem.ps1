@@ -92,6 +92,7 @@ function Invoke-PathSettingItem {
     # 目录不存在则创建（含多级父目录），顺带暴露无写权限等问题
     if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
         try {
+            Assert-WinstSafeWritePath -Path $resolved -Directory
             $null = New-Item -ItemType Directory -Path $resolved -Force -ErrorAction Stop
             Write-Host ('  已创建目录: {0}' -f $resolved) -ForegroundColor DarkGray
         } catch {
@@ -123,18 +124,7 @@ function Invoke-PathSettingItem {
     }
 
     $configPath = Join-WinstPath $Context.DataRoot 'config.json'
-    $Context.Config[$Key] = $value
-    try {
-        Save-WinstConfig -DataRoot $Context.DataRoot -Config $Context.Config
-    } catch {
-        Write-Host ''
-        Write-Host ('  写入配置失败: {0}' -f $configPath) -ForegroundColor Red
-        Write-Host ('  原因: {0}' -f $_.Exception.Message) -ForegroundColor DarkGray
-        Write-Host '  已取消。' -ForegroundColor DarkGray
-        return
-    }
-
-    Update-WinstContext -Context $Context
+    if (-not (Set-ConfigValue -Context $Context -Key $Key -DisplayName $DisplayName -Value $value -Quiet)) { return }
 
     $cliOverride = ''
     # 选项对象可能是 hashtable 或 PSCustomObject：用键存在性读取，避免 StrictMode 下访问不存在的成员抛异常

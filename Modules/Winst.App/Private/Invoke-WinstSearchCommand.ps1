@@ -50,32 +50,14 @@ function Invoke-WinstSearchCommand {
     $index = 0
     $downloadTypeCount = 0
     $hasGrouped = [bool](@($rows | Where-Object { [string]$_['Group'] }).Count)
+    $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index
     $lastGroup = ''
     foreach ($row in $rows) {
         $index++
         $lastGroup = Write-WinstGroupHeading -Group ([string]$row['Group']) -LastGroup $lastGroup -ShowUngrouped:$hasGrouped
-        $installedVersion = ''
-        $installedDir = ''
-        $ledger = Get-WinstInstalledApp -State $state -Id ([string]$row['Id'])
-        if ($ledger) {
-            $installedVersion = Get-EntryString -Entry $ledger -Key 'version'
-            $installedDir = Get-EntryString -Entry $ledger -Key 'installDir'
-        }
-        Write-Host ('  {0}) {1}  ({2})' -f $index, [string]$row['Name'], [string]$row['Id']) -NoNewline -ForegroundColor White
-        if ($installedVersion) {
-            Write-Host ('    已安装 {0}' -f $installedVersion) -NoNewline -ForegroundColor Green
-            $upgradeHint = Get-WinstUpgradeHint -Row $row -InstalledVersion $installedVersion
-            if ($upgradeHint) { Write-Host ('  {0}' -f $upgradeHint) -ForegroundColor Green } else { Write-Host '' }
-        } else {
-            Write-Host ''
-        }
-        if ($installedDir) { Write-Host ('     安装路径: {0}' -f $installedDir) -ForegroundColor Gray }
-        if ((Get-WinstRowType -Row $row) -eq 'download') {
-            $downloadTypeCount++
-            Write-Host '     类型: 只下载软件包，不安装到电脑（下载 / 更新软件包 / 删除软件包）' -ForegroundColor DarkGray
-        }
-        Write-Host ('     来源: {0}' -f (Get-WinstRowSourceText -Row $row)) -ForegroundColor Gray
-        if ([string]$row['Description']) { Write-Host ('     说明: {0}' -f [string]$row['Description']) -ForegroundColor DarkGray }
+        $view = Get-WinstSearchRowView -Row $row -State $state -Context $Context -CacheIndex $cacheIndex
+        Write-WinstSearchRow -Item $view -Number $index
+        if ($view.Type -eq 'download') { $downloadTypeCount++ }
     }
     Write-Host ''
     $footer = ('  共 {0} 个软件。安装: winst install <id>' -f $rows.Count)

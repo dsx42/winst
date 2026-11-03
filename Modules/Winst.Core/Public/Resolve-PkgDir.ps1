@@ -13,8 +13,9 @@ function Resolve-PkgDir {
         [hashtable]$Config
     )
 
-    if ($Options -and $Options.PkgDir) {
-        return @{ Path = (Expand-WinstPath -Path $Options.PkgDir -Base $DataRoot); Source = 'param' }
+    $optionPkg = Get-EntryString -Entry $Options -Key 'PkgDir'
+    if ($optionPkg) {
+        return @{ Path = (Expand-WinstPath -Path $optionPkg -Base $DataRoot); Source = 'param' }
     }
     if ($env:WINST_PKG_DIR -and $env:WINST_PKG_DIR.Trim()) {
         return @{ Path = (Expand-WinstPath -Path $env:WINST_PKG_DIR -Base $DataRoot); Source = 'env' }

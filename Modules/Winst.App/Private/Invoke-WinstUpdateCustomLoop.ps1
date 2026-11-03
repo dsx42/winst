@@ -3,22 +3,25 @@
 function Invoke-WinstUpdateCustomLoop {
     <#
     .SYNOPSIS
-        逐条「单独选更新方式与来源」：任一步回车 / b 即按默认方式与默认来源更新这一个软件。
+        逐条「单独选更新方式与来源」：选择方式或来源时回车 / b，即按默认方式与来源更新。
     .OUTPUTS
-        @{ Updated = <int>; Failed = <int> }
+        @{ Updated = <int>; Skipped = <int>; Failed = <int> }
     #>
-    param([hashtable]$Context, [string[]]$Targets)
+    param([hashtable]$Context, [string[]]$Targets, $Items = $null)
 
-    $result = @{ Updated = 0; Failed = 0 }
+    $result = @{ Updated = 0; Skipped = 0; Failed = 0 }
 
-    $overview = Get-WinstInstalledOverview -Context $Context
-    if (-not $overview.Ok) {
-        Write-Host ''
-        Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
-        return $result
+    if ($null -eq $Items) {
+        $overview = Get-WinstInstalledOverview -Context $Context
+        if (-not $overview.Ok) {
+            Write-Host ''
+            Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
+            return $result
+        }
+        $Items = @($overview.Items)
     }
     $itemById = New-WinstOrdinalDictionary
-    foreach ($one in @($overview.Items)) {
+    foreach ($one in @($Items)) {
         $oneId = [string]$one['Id']
         if ($oneId -and -not $itemById.Contains($oneId)) { $itemById[$oneId] = $one }
     }
@@ -33,7 +36,7 @@ function Invoke-WinstUpdateCustomLoop {
             continue
         }
 
-        $customResult = @{ Cancelled = $true; Ok = $false }
+        $customResult = @{ Cancelled = $true; Ok = $false; Updated = 0; Skipped = 0; Failed = 0 }
         if ($item['Row']) {
             # 复用「已装软件 → c」的完整流程（选方式 → 选来源 → 同版本 / 低版本按强制处理 → 确认执行）
             $customResult = Invoke-WinstUpdateCustom -Context $Context -Item $item
@@ -43,11 +46,14 @@ function Invoke-WinstUpdateCustomLoop {
 
         if ((Get-WinstState -Name WinstQuitRequested)) { return $result }
         if ($customResult.Cancelled) {
-            Write-Host ('  已按默认方式更新这 1 个软件（方式: {0}；来源: 优先安装时用的软件源）。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor Gray
-            $customResult = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -AutoPickSource -Yes
+            Write-Host ('  将按默认方式更新这 1 个软件（方式: {0}；来源: 优先安装时用的软件源）。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor Gray
+            $updated = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -AutoPickSource -Yes
+            $customResult = ConvertFrom-WinstUpdateTargetsResult -Result $updated
         }
 
-        if ($customResult.Ok) { $result.Updated++ } else { $result.Failed++ }
+        $result.Updated += [int]$customResult.Updated
+        $result.Skipped += [int]$customResult.Skipped
+        $result.Failed += [int]$customResult.Failed
     }
 
     return $result

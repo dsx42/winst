@@ -7,6 +7,7 @@ function Register-WinstSelfLedger {
     .DESCRIPTION
         落盘走 Save-WinstInstalledAppEntry（重读最新台账、只覆盖这一条），
         首次安装与更新靠 `installedAt` / `updatedAt` 区分。
+        更新不重建系统项，但保留台账中的实际写入归属，供后续卸载回收。
         版本号：本次确实取到（或下载到）了清单里的包时用 `SourceVersion`，
         否则用当前运行副本的产品版本号。
     .OUTPUTS
@@ -18,6 +19,14 @@ function Register-WinstSelfLedger {
     $appliedEnv = @()
     $appliedPath = @()
     $appliedShortcuts = @()
+    if ($Updated) {
+        $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+        if ($stateRead.Error -and -not $stateRead.Reset) { throw $stateRead.Error }
+        $previous = Get-WinstInstalledApp -State $stateRead.State -Id 'winst'
+        $appliedEnv = @(Get-EntryArray -Entry $previous -Key 'appliedEnv')
+        $appliedPath = @(Get-EntryArray -Entry $previous -Key 'appliedPath')
+        $appliedShortcuts = @(Get-EntryArray -Entry $previous -Key 'appliedShortcuts')
+    }
     if ($Plan -and -not $Updated) {
         try {
             $systemItems = Set-WinstAppSystemItems -Context $Context -Plan $Plan -InstallDir $InstallDir -KeepExisting
@@ -43,9 +52,7 @@ function Register-WinstSelfLedger {
         $manifestOrigin = $SourceName
     }
 
-    # 类型按软件定义记：winst 现在是目录形态（winst.ps1 + winst.cmd + Modules\），
-    # 清单里写的是 portable。旧代码固定成 'file'，那是单文件时代的布局，会让
-    # `winst list` 把目录版报成单文件。
+    # 类型按软件定义记；完整运行树（winst.ps1 + winst.cmd + Modules\）默认是 portable。
     $type = 'portable'
     if ($Plan) {
         $planType = (Get-EntryString -Entry $Plan -Key 'type').Trim().ToLowerInvariant()

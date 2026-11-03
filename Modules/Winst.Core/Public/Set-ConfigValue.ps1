@@ -3,7 +3,7 @@
 function Set-ConfigValue {
     <#
     .SYNOPSIS
-        写入配置项：按当前值类型转换输入 → 更新内存配置 → 原子写回 config.json。
+        校验配置值、原子保存新副本，成功后更新运行上下文。
     .OUTPUTS
         [bool] 是否写入成功（输入被拒绝 / 写盘失败时为 $false，失败原因已打印）
     #>
@@ -14,11 +14,13 @@ function Set-ConfigValue {
         [Parameter(Mandatory = $true)]
         [string]$DisplayName,
         [Parameter(Mandatory = $true)]
-        [string]$Value
+        [AllowEmptyString()][string]$Value,
+        [switch]$Quiet
     )
 
     $current = Get-ConfigValue -Config $Context.Config -Key $Key
     $converted = ConvertTo-WinstConfigValue -Current $current -Text $Value
+    if ($Key -eq 'proxy' -and -not $Value.Trim()) { $converted = @{ Ok = $true; Value = ''; Error = '' } }
     if (-not $converted.Ok) {
         Write-Host ''
         Write-Host ('  输入无效：{0}，未做修改。' -f $converted.Error) -ForegroundColor Yellow
@@ -64,9 +66,14 @@ function Set-ConfigValue {
     }
 
     $configPath = Join-WinstPath $Context.DataRoot 'config.json'
-    $Context.Config[$Key] = $converted.Value
+    $nextConfig = @{}
+    foreach ($configKey in $Context.Config.Keys) { $nextConfig[$configKey] = $Context.Config[$configKey] }
+    $nextConfig[$Key] = $converted.Value
     try {
-        Save-WinstConfig -DataRoot $Context.DataRoot -Config $Context.Config
+        # 提交前构造有效上下文，避免保存后才发现路径配置不可解析。
+        $null = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $nextConfig
+        $null = Resolve-PkgDir -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $nextConfig
+        Save-WinstConfig -DataRoot $Context.DataRoot -Config $nextConfig
     } catch {
         Write-Host ''
         Write-Host ('  写入配置失败: {0}' -f $configPath) -ForegroundColor Red
@@ -75,6 +82,8 @@ function Set-ConfigValue {
         return $false
     }
     Update-WinstContext -Context $Context
+
+    if ($Quiet) { return $true }
 
     Write-Host ''
     Write-Host ('  已保存到: {0}' -f $configPath) -ForegroundColor Green

@@ -5,7 +5,7 @@ function Write-FileAtomic {
     .SYNOPSIS
         以 UTF-8 无 BOM 原子写入文本文件（临时文件 + 重命名覆盖）。
     .DESCRIPTION
-        目标目录不存在时自动创建（含多级父目录）；Replace 不被目标卷支持时退化为直接覆盖写入。
+        目标目录不存在时自动创建；提交失败时保留原文件并明确失败，不退化为非原子覆盖。
         写入或替换失败时同样清理临时文件——共享安装包位置（U 盘 / NAS）写失败时不留 *.tmp-*；
         临时文件删不掉（目录「可写不可删」/ 被占用）不覆盖调用方的错误，只在 --verbose 下提示路径。
         供 config.json / 远程清单缓存 / sidecar 元数据共用。
@@ -18,6 +18,8 @@ function Write-FileAtomic {
         [string]$Content
     )
 
+    $Path = [IO.Path]::GetFullPath($Path)
+    Assert-WinstSafeWritePath -Path $Path
     $dir = Split-Path -Parent $Path
     if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
         # 目录不存在有两种原因：真的没有（建它），或整个盘当前不可见——
@@ -37,6 +39,7 @@ function Write-FileAtomic {
 
     $tempPath = '{0}.tmp-{1}' -f $Path, ([Guid]::NewGuid().ToString('N').Substring(0, 8))
     try {
+        Assert-WinstSafeWritePath -Path $tempPath
         [IO.File]::WriteAllText($tempPath, $Content, (New-Object System.Text.UTF8Encoding($false)))
     } catch {
         # 写入临时文件失败时可能已经留下 0 字节 / 半截文件（UNC 断链、配额、ACL 拒绝）：
@@ -46,19 +49,29 @@ function Write-FileAtomic {
     }
 
     try {
+        Assert-WinstSafeWritePath -Path $Path
         if (Test-Path -LiteralPath $Path -PathType Leaf) {
-            [IO.File]::Replace($tempPath, $Path, $null)
+            try {
+                [IO.File]::Replace($tempPath, $Path, [System.Management.Automation.Language.NullString]::Value)
+            } catch {
+                $cause = $_.Exception.GetBaseException()
+                # 1175 保证两个文件仍在原位；同卷重命名覆盖避免 ReplaceFile 的删除步骤。
+                if (($cause.HResult -band 0xffff) -ne 1175) { throw }
+                Assert-WinstSafeWritePath -Path $Path
+                # 重命名使用临时文件的权限，必须先保留目标文件的访问控制。
+                [IO.File]::SetAccessControl($tempPath, [IO.File]::GetAccessControl($Path))
+                if (-not [Winst.AtomicFile]::MoveFileEx($tempPath, $Path, 1)) {
+                    $code = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                    throw (New-Object ComponentModel.Win32Exception $code)
+                }
+            }
         } else {
             [IO.File]::Move($tempPath, $Path)
         }
     } catch {
-        try {
-            # 退化路径（如目标卷不支持 Replace）：直接覆盖写入
-            Copy-Item -LiteralPath $tempPath -Destination $Path -Force -ErrorAction Stop
-        } finally {
-            # 成功 / 失败都清掉临时文件：共享安装包位置（U 盘 / NAS）写失败时不留 *.tmp-*
-            Remove-WinstAtomicTempFile -Path $tempPath
-        }
+        throw (New-Object IO.IOException (('无法原子写入 {0}：{1}。请检查文件占用、只读属性和目录的删除权限。' -f $Path, $_.Exception.GetBaseException().Message), $_.Exception))
+    } finally {
+        if ([IO.File]::Exists($tempPath)) { Remove-WinstAtomicTempFile -Path $tempPath }
     }
 
     # 写入后失效进程内解析缓存：否则同一进程内后续读取会拿到写入前的旧对象

@@ -24,6 +24,12 @@ using System.Collections.Generic;
 
 namespace Winst
 {
+    public static class AtomicFile
+    {
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+        public static extern bool MoveFileEx(string source, string destination, int flags);
+    }
+
     public static class State
     {
         private static readonly Dictionary<string, object> Values =
@@ -79,6 +85,32 @@ namespace Winst
             {
                 Values.Clear();
             }
+        }
+
+        public static async System.Threading.Tasks.Task<string> CaptureAsync(
+            System.IO.StreamReader reader, int limit, bool tail)
+        {
+            if (limit <= 0) { throw new ArgumentOutOfRangeException("limit"); }
+            var buffer = new char[4096];
+            var text = new System.Text.StringBuilder();
+            bool overflow = false;
+            int count;
+            while ((count = await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+            {
+                if (tail)
+                {
+                    text.Append(buffer, 0, count);
+                    if (text.Length > limit) { text.Remove(0, text.Length - limit); }
+                }
+                else
+                {
+                    int available = Math.Max(0, limit - text.Length);
+                    text.Append(buffer, 0, Math.Min(available, count));
+                    if (count > available) { overflow = true; }
+                }
+            }
+            if (overflow) { throw new System.IO.InvalidDataException("命令输出超过允许长度"); }
+            return text.ToString();
         }
     }
 }

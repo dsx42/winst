@@ -20,7 +20,7 @@ function Invoke-WinstBundleInstallCli {
     $target = Resolve-WinstListFileForCli -Context $Context -Text $Path
     if (-not $target.Ok) { return 1 }
 
-    $loaded = Get-WinstListItems -Context $Context -Path ([string]$target.Path)
+    $loaded = Get-WinstListItems -Context $Context -Path ([string]$target.Path) -RefreshSources
     if (-not $loaded.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $loaded.Error) -ForegroundColor Red
@@ -48,6 +48,6 @@ function Invoke-WinstBundleInstallCli {
     $okCount = [int]$stats['OkCount']
     $skipCount = [int]$stats['SkipCount']
     if ($failCount -gt 0) { return 3 }
-    if ($okCount -eq 0 -and $skipCount -eq 0) { return 1 }
+    if ($okCount -eq 0 -and $skipCount -eq 0 -and [int]$stats['CancelCount'] -eq 0) { return 1 }
     return 0
 }

@@ -17,15 +17,17 @@ function Remove-WinstOldPackages {
     # 删除入口再兜一层：id 不是单层目录名时（如 clean 传了 .. / 绝对路径）不猜、不越界删
     if (-not (Test-WinstSafePathSegment -Name $Id)) { return @() }
     $dir = Join-WinstPath $Context.PkgDir $Id
+    Assert-WinstSafeWritePath -Path $dir -Directory
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
 
-    foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue)) {
+    foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction Stop)) {
         if ($KeepFiles -contains $file.Name) { continue }
         try {
+            Assert-WinstSafeWritePath -Path $file.FullName
             Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
             $removed.Add([string]$file.Name)
         } catch {
-            # 旧包删除失败不影响本次安装
+            Write-Warning ('旧包未能清理：{0}（{1}）' -f $file.FullName, $_.Exception.Message)
         }
     }
     return @($removed.ToArray())

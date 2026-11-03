@@ -24,5 +24,5 @@ function Invoke-WinstEntry {
         Invoke-MainMenu
         return 0
     }
-    return (Invoke-WinstCommand -Command $parsed.Command -Arguments $parsed.Arguments)
+    return (Invoke-WinstCommand -Command $parsed.Command -Arguments $parsed.Arguments -Parsed)
 }

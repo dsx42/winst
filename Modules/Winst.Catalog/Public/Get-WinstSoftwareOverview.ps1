@@ -55,7 +55,7 @@ function Get-WinstSoftwareOverview {
         if ($entryByCiId.ContainsKey($id)) { $cacheVersion = Get-EntryString -Entry $entryByCiId[$id] -Key 'version' }
 
         $items.Add((New-WinstSoftwareItem -Context $Context -Id $id -Row $row -Ledger $ledger `
-            -CacheDir $cacheDir -CacheFiles $cacheFiles -CacheSizeBytes $sizeBytes -CacheVersion $cacheVersion))
+            -CacheDir $cacheDir -CacheFiles $cacheFiles -CacheSizeBytes $sizeBytes -CacheVersion $cacheVersion -CacheIndex $cacheIndex))
     }
 
     # 用 @() 包住函数调用：PowerShell 里「函数返回空数组」到调用方会变成 $null，

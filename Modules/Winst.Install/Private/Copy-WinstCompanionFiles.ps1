@@ -5,8 +5,8 @@ function Copy-WinstCompanionFiles {
     .SYNOPSIS
         把配套文件按 dest 落位到安装目录。
     .OUTPUTS
-        @{ Ok; Files; Error }——Files = 本次落位的相对路径 / 目录清单（写进安装记录 appliedFiles，
-        供「仅配套文件更新」对比出「上次落位、这次不需要」的旧文件。
+        @{ Ok; Files; Rules; UpdatedNames; Error }，Files 是所有当前声明的相对路径 / 目录，
+        Rules 记录落位规则，UpdatedNames 只列出本次实际复制或解压的附件名。
     .DESCRIPTION
         复制到 dest；声明 extract 的配套文件是压缩包，解压到 dest 目录（该文件自己的 stripTopDir）。
         dest 非法（`.` / `..` / 绝对路径）或解压 / 复制失败即报错，不做静默跳过。
@@ -15,10 +15,13 @@ function Copy-WinstCompanionFiles {
         [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Files,
         [Parameter(Mandatory = $true)][string]$PkgDir,
-        [Parameter(Mandatory = $true)][string]$InstallDir
+        [Parameter(Mandatory = $true)][string]$InstallDir,
+        [switch]$OnlyChanged,
+        [string[]]$ChangedNames = @(),
+        $PreviousRules = $null
     )
 
-    $result = @{ Ok = $true; Files = @(); Error = '' }
+    $result = @{ Ok = $true; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @(); Error = '' }
     if (-not $Files) { return $result }
     $list = @($Files)
     for ($i = 1; $i -lt $list.Count; $i++) {
@@ -50,6 +53,16 @@ function Copy-WinstCompanionFiles {
         }
         $name = Get-EntryString -Entry $file -Key 'name'
         if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $file -Key 'url') }
+        $stripValue = Get-EntryValue -Entry $file -Key 'stripTopDir' -Default $false
+        if ($null -eq $stripValue) { $stripValue = $false }
+        $signature = Get-WinstCompanionLayoutSignature -File $file
+        $result.Rules[$name] = $signature
+        $result.Files += $dest
+        $pathType = 'Leaf'
+        if ($extract) { $pathType = 'Container' }
+        if ($OnlyChanged -and $ChangedNames -notcontains $name -and
+                (Get-EntryString -Entry $PreviousRules -Key $name) -ceq $signature -and
+                (Test-Path -LiteralPath $destPath -PathType $pathType)) { continue }
         $source = Join-WinstPath $PkgDir $name
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
             # 清单要落位这个文件、而缓存里没有它（下载阶段没成功）时**报错**而不是静默跳过：
@@ -60,15 +73,13 @@ function Copy-WinstCompanionFiles {
         }
         if ($extract) {
             # 附加文件是压缩包：解压到 dest 指定的目录
-            $stripValue = Get-EntryValue -Entry $file -Key 'stripTopDir' -Default $false
-            if ($null -eq $stripValue) { $stripValue = $false }
             $expand = Expand-WinstArchiveLayout -Context $Context -ArchivePath $source -DestDir $destPath -StripTopDir $stripValue
             if (-not $expand.Ok) {
                 $result.Ok = $false
                 $result.Error = ('附加文件解压失败（{0}）：{1}' -f $dest, $expand.Error)
                 return $result
             }
-            $result.Files += $dest
+            $result.UpdatedNames += $name
             continue
         }
         $target = $destPath
@@ -87,7 +98,7 @@ function Copy-WinstCompanionFiles {
             $result.Error = ('附加文件落位失败（{0}）：{1}' -f $dest, $_.Exception.Message)
             return $result
         }
-        $result.Files += $dest
+        $result.UpdatedNames += $name
     }
     return $result
 }

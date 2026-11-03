@@ -64,6 +64,7 @@ function Show-WinstListPickRows {
                 Write-Host ('  {0}) {1}{2}' -f ($i + 1), $mark, [string]$row['Name']) -NoNewline -ForegroundColor $(if ($chosen) { 'Green' } else { 'White' })
                 if ([string]$row['Name'] -cne $id) { Write-Host ('  ({0})' -f $id) -NoNewline -ForegroundColor DarkGray }
                 Write-Host ('    软件源: {0}' -f (Get-WinstRowSourceText -Row $row)) -ForegroundColor DarkGray
+                Write-WinstCompanionVersions -Item $row
             }
         }
 

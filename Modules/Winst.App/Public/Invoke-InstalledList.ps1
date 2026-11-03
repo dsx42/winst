@@ -29,7 +29,7 @@ function Invoke-InstalledList {
     # RefreshIds 限定本页展示的已装软件：修复内部不再顺手把仅下载条目的版本也解析一遍
     if (-not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
         Write-Host '  正在读取安装记录 …' -ForegroundColor Gray
-        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds
+        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds -SourcesReady
     }
 
     $overview = Get-WinstInstalledOverview -Context $Context
@@ -111,10 +111,8 @@ function Invoke-InstalledList {
                 # 默认更新：方式按「设置 → 更新方式」，来源优先安装时选的来源（不询问；要临时换源 / 换方式用 c）
                 $null = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -AutoPickSource
             } elseif ($text -eq 'c') {
-                $custom = Invoke-WinstUpdateCustom -Context $Context -Item $item
-                if (-not $custom.Cancelled -and -not $custom.Ok) {
-                    Write-Host ('  更新失败: {0}' -f [string]$custom.Error) -ForegroundColor Red
-                }
+                $null = Invoke-WinstUpdateCustomLoop -Context $Context -Targets @($id) -Items @($item)
+                if (Get-WinstState -Name WinstQuitRequested) { return }
             } elseif ($text -eq 'd') {
                 Write-WinstUninstallResult -Result (Invoke-WinstUninstallApp -Context $Context -Id $id)
             } elseif ($text -eq 'r') {

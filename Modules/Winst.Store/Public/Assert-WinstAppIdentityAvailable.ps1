@@ -8,7 +8,11 @@ function Assert-WinstAppIdentityAvailable {
     param([hashtable]$Context, [string]$Id, $State = $null, $Index = $null)
 
     if (-not (Test-WinstSafePathSegment -Name $Id)) { throw ('软件 id 不是合法的单层目录名：{0}' -f $Id) }
-    if ($null -eq $State) { $State = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
+    if ($null -eq $State) {
+        $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+        if ($stateRead.Error -and -not $stateRead.Reset) { throw $stateRead.Error }
+        $State = $stateRead.State
+    }
     if ($null -eq $Index) { $Index = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index }
     $identities = @($Id)
     foreach ($key in @(@($State['Installed'].Keys) + @($Index.Keys))) {

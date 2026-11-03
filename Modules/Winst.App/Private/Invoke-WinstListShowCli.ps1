@@ -22,7 +22,7 @@ function Invoke-WinstListShowCli {
         return 1
     }
 
-    $loaded = Get-WinstListItems -Context $Context -Path ([string]$target.Path)
+    $loaded = Get-WinstListItems -Context $Context -Path ([string]$target.Path) -RefreshSources
     if (-not $loaded.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $loaded.Error) -ForegroundColor Red

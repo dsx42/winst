@@ -33,7 +33,7 @@ function Invoke-WinstApplySystemItems {
         $copy = Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $InstallDir
         if (-not $copy.Ok) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$copy.Error } }
 
-        # 完整性优先级：-ForceSystemItems（完整更新）> -FilesOnly（彻底只更新文件）> 「设置 → 更新方式」。
+        # 显式 FilesOnly 始终跳过系统项；否则 ForceSystemItems 覆盖配置，最后才读取更新方式配置。
         $keepExisting = $true
         if ($ForceSystemItems) {
             $keepExisting = $false

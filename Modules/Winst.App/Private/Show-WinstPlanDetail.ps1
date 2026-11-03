@@ -19,6 +19,7 @@ function Show-WinstPlanDetail {
     if ($env:APPDATA) { $startMenuDir = Join-WinstPath $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
 
     # 本机已装版本与安装路径：用于在详情里突出「将更新到 x.y ↑」，并说明当前装在哪
+    $state = $null
     $installedVersion = ''
     $installedDir = ''
     $id = Get-EntryString -Entry $Plan -Key 'id'
@@ -34,5 +35,5 @@ function Show-WinstPlanDetail {
     Show-ResolvedAppPlan -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
         -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
         -DesktopDir $desktopDir -StartMenuDir $startMenuDir `
-        -InstalledVersion $installedVersion -InstalledDir $installedDir -Context $Context
+        -InstalledVersion $installedVersion -InstalledDir $installedDir -Context $Context -State $state
 }

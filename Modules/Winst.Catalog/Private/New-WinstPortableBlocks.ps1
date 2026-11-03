@@ -49,7 +49,7 @@ function New-WinstPortableBlocks {
             if (-not [bool]$rule['move']) { continue }
             $fromRule = ([string]$rule['from']).Trim()
             if ($primaryName -and $fromRule -ieq $primaryName) {
-                $mainExe = Get-FileNameFromUrl -Url ([string]$rule['to'])
+                $mainExe = [string]$rule['to']
                 break
             }
         }

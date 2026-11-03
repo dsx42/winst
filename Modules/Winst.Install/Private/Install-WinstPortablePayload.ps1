@@ -32,7 +32,8 @@ function Install-WinstPortablePayload {
     }
 
     if ($portableMode -eq 'clean') {
-        Clear-WinstInstallDir -Dir $InstallDir -Keep $keepList
+        try { Clear-WinstInstallDir -Dir $InstallDir -Keep $keepList -Strict }
+        catch { return @{ Ok = $false; Error = ('清理安装目录失败：{0}' -f $_.Exception.Message) } }
     }
     if (-not (Test-Path -LiteralPath $InstallDir -PathType Container)) {
         $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction SilentlyContinue

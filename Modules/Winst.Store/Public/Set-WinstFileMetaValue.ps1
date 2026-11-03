@@ -35,7 +35,9 @@ function Set-WinstFileMetaValue {
         -ChecksumFingerprint $existing.ChecksumFingerprint
 
     if ($PSBoundParameters.ContainsKey('Url') -and $Url) { $merged['url'] = $Url }
-    if ($PSBoundParameters.ContainsKey('SourceVersion') -and $SourceVersion) { $merged['sourceVersion'] = $SourceVersion }
+    # sourceVersion 记录的是「这个文件自己的版本」：跟随主包版本的附加文件要能显式写空，
+    # 否则旧索引里继承的主包版本会一直留着（判定虽已不看它，但记录会误导排查）
+    if ($PSBoundParameters.ContainsKey('SourceVersion')) { $merged['sourceVersion'] = [string]$SourceVersion }
     if ($PSBoundParameters.ContainsKey('ETag') -and $ETag) { $merged['etag'] = $ETag }
     if ($PSBoundParameters.ContainsKey('LastModified') -and $LastModified) { $merged['lastModified'] = $LastModified }
     if ($PSBoundParameters.ContainsKey('Size') -and $null -ne $Size) { $merged['size'] = $Size }

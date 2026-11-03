@@ -17,7 +17,10 @@ function Get-WinstExpectedHash {
         [switch]$Offline,
         $CachedMeta = $null,
         [string]$FileUrl = '',
-        [string]$SourceVersion = ''
+        # 这个文件自己的版本（指纹的版本维度）；跟随主包版本的附加文件传空
+        [string]$FileVersion = '',
+        # files[].compare 含 checksum 时用：不吃「指纹命中复用已有远端摘要」，强制重取校验文件
+        [switch]$IgnoreCachedHash
     )
 
     $result = @{
@@ -42,11 +45,11 @@ function Get-WinstExpectedHash {
     $result.HashFile = $hashFile
     $result.HashFrom = $hashFrom
     $result.Fingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $FileName -FileDecl $FileDecl `
-        -FileUrl $FileUrl -SourceVersion $SourceVersion
+        -FileUrl $FileUrl -FileVersion $FileVersion
 
     # 已确认过的远端摘要同时供联网和离线安装复用，声明指纹绑定文件名、地址、版本与解析规则。
-    # 这里只信任索引记录；缓存文件的实测摘要由调用方从 hashes / manifestHashes 读取。
-    if ($CachedMeta) {
+    # 此处只取得期望值；规划可读历史摘要，实际消费前由 Confirm-WinstCachedFilePlan 重算文件摘要。
+    if ($CachedMeta -and -not $IgnoreCachedHash) {
         $cachedHash = ([string]$CachedMeta.ExpectedHash).Trim()
         $cachedFingerprint = ([string]$CachedMeta.ChecksumFingerprint).Trim()
         $cachedHashFile = ([string]$CachedMeta.ChecksumHashFile).Trim()

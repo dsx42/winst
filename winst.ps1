@@ -192,6 +192,7 @@ if (Test-WinstNeedsElevation -Arguments $script:WinstArguments) {
     # 同一算法：这里必须自包含（模块还没加载），改算法时三处一起改。
     $winstArgText = (($winstElevateArgs | ForEach-Object {
                 $winstArgValue = [string]$_
+                if ($winstArgValue -eq '') { return '""' }
                 if ($winstArgValue -notmatch '[\s"]') { return $winstArgValue }
                 $winstArgBuilder = New-Object System.Text.StringBuilder
                 $null = $winstArgBuilder.Append('"')

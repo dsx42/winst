@@ -18,7 +18,7 @@ function Set-WinstUncCredential {
 
         密码以 `/pass:<密码>` 传给 cmdkey（cmdkey 没有从标准输入读密码的写法），
         因此可能出现在该进程的命令行里；进程以隐藏窗口启动、输出被重定向，
-        报错信息在返回前会把 `/pass:` 后面的内容遮蔽掉。
+        错误仅返回操作阶段和退出码，不返回带敏感参数的底层命令行。
     .OUTPUTS
         @{ Ok; Error }
     #>
@@ -39,6 +39,10 @@ function Set-WinstUncCredential {
     }
     $netExe = ''
     try { $netExe = Join-WinstPath $env:SystemRoot 'System32\net.exe' } catch { $netExe = '' }
+    if (-not $netExe -or -not (Test-Path -LiteralPath $netExe -PathType Leaf)) {
+        $result.Error = '找不到系统命令 net.exe，无法验证网络共享凭据'
+        return $result
+    }
 
     # —— ① 先验证：用显式凭据连 IPC$，不写凭据库 —
     if ($netExe -and (Test-Path -LiteralPath $netExe -PathType Leaf)) {
@@ -68,11 +72,10 @@ function Set-WinstUncCredential {
         (Format-WinstCommandArgument -Value $User), `
         (Format-WinstCommandArgument -Value $Password)
     $add = Invoke-WinstCapturedCommand -FilePath $cmdkey -Arguments $addArgs -TimeoutMs 15000
-    if (-not $add.Ok) {
-        # 捕获结果里的 Error 可能含完整命令行（超时分支会拼 $Arguments），
-        # 而这里带着 /pass:<密码>：报给用户前先把密码遮蔽掉
-        $safeError = ([string]$add.Error) -replace '(/pass:)\S+', '$1***'
-        $result.Error = ('保存凭据失败：{0}' -f $safeError)
+    if (-not $add.Ok -or $null -eq $add.ExitCode -or $add.ExitCode -ne 0) {
+        if ($add.TimedOut) { $result.Error = '保存凭据超时，未确认写入成功' }
+        elseif (-not $add.Ok -or $null -eq $add.ExitCode) { $result.Error = '无法完成凭据保存命令，未确认写入成功' }
+        else { $result.Error = ('保存凭据失败（退出码 {0}）' -f [int]$add.ExitCode) }
         return $result
     }
 

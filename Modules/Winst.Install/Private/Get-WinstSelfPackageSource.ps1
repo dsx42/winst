@@ -111,8 +111,9 @@ function Get-WinstSelfPackageSource {
                 $prevEntry = $null
                 if ($cacheRead.Index.Contains($selfId)) { $prevEntry = $cacheRead.Index[$selfId] }
                 $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId `
-                    -Files @($files[0]) -CheckValidators -SourceVersion $sourceVersion)
+                    -Files @($files[0]) -CheckValidators)
                 $filePlan = $packagePlans[0]
+                Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan
                 if ($filePlan['ValidationError']) {
                     $result.Error = [string]$filePlan['ValidationError']
                     return $result
@@ -132,7 +133,7 @@ function Get-WinstSelfPackageSource {
                 $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $archivePath
                 if ($dl.Ok) {
                     $check = Test-WinstFileIntegrity -Context $Context -FilePath $archivePath -FileDecl $files[0] `
-                        -FileUrl $url -SourceVersion $sourceVersion
+                        -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
                     if (-not $check.Ok) {
                         Remove-Item -LiteralPath $archivePath -Force -ErrorAction SilentlyContinue
                         $result.Error = ('{0} 校验失败：{1}' -f $archiveName, $check.Error)

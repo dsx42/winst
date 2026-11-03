@@ -20,7 +20,7 @@ winst [全局参数] <命令> [命令参数]
 | `--yes` / `-y` | 非交互确认 |
 | `--verbose` | 输出详细日志（HTTP、来源解析、文件匹配等） |
 
-`install` / `download` 的 `--source`、`--from`、`--keep` 同样拒绝行尾缺值、后接开关和等号空值；`--keep` 至少指定一个保留路径。带值参数必须紧跟非空值；路径含空格时按 shell 规则加引号。配置优先级为命令行参数 > `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 环境变量 > `config.json` > 默认值；`pkgDir` 另有一个优先于配置文件的规则：脚本同目录存在 `apps\` 时自动使用该目录。
+`install` / `download` 的 `--source`、`--from`、`--keep` 以及 `update` 的 `--source` 同样拒绝行尾缺值、后接开关和等号空值；`--keep` 至少指定一个保留路径。带值参数必须紧跟非空值；路径含空格时按 shell 规则加引号。配置优先级为命令行参数 > `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 环境变量 > `config.json` > 默认值；`pkgDir` 另有一个优先于配置文件的规则：脚本同目录存在 `apps\` 时自动使用该目录。
 
 ## 预览边界
 
@@ -28,7 +28,7 @@ winst [全局参数] <命令> [命令参数]
 
 普通展示和安装预览不自动刷新软件源；显式 `manifest add` / `manifest update` 可联网获取清单并解析条目，但不保存本次预览的清单正文、sidecar 或新增源配置。需要完全离线时加 `--offline`。
 
-预览不等于文件系统只读：日志、锁、配置 / 内置源初始化或自愈、损坏台账的安全备份仍可能写盘；同版本检测时仍可能补 `external` 登记或同步 installer 的实际安装路径。`repair --dry-run` 不保存修复后的台账和缓存索引。
+预览不等于文件系统只读：日志、锁、配置 / 内置源初始化或自愈、损坏台账的安全备份仍可能写盘；同版本检测时仍可能补 `external` 登记或同步 installer 的实际安装路径。`repair --dry-run` 不保存修复后的台账和缓存索引。配置命令（`config set` / `config reset`）与设置菜单是显式配置操作，仍保存配置；修改路径时也可能创建目录。
 
 ## 单进程限制
 
@@ -62,7 +62,7 @@ winst [全局参数] <命令> [命令参数]
 | `winst repair` | 扫描本机，重建安装台账 |
 | `winst manifest add\|list\|update\|remove` | 管理在线软件源 |
 | `winst bundle list\|edit\|install\|pack` | 安装清单与 U 盘套装 |
-| `winst config get\|set\|list` | 配置管理 |
+| `winst config get\|set\|reset\|list` | 配置管理 |
 | `winst help [<命令>]` | 帮助 |
 | `winst --version` / `-v` | 版本号 |
 
@@ -75,7 +75,7 @@ winst search jdk21 jdk25
 
 匹配范围是 `id` / `name` / `description`，不区分大小写。多个关键字先用整串匹配，未命中再分别搜索并按 id 合并（OR）。
 
-搜索只覆盖已解析（解析锁）的条目；零命中时会再按各源清单正文找一遍，命中就按需解析（远程源此时会重新取清单）后重搜，`--offline` / `--dry-run` 跳过这一步。最终仍无结果时统一提示「没有找到」——正文里没有、命中的条目解析失败，都是这一句（见 `docs\troubleshooting.md` 的「软件源里没有这个软件」）。
+搜索只覆盖已解析（解析锁）的条目；零命中时会再按各源清单正文找一遍，命中就按需解析（远程源此时会重新取清单）后重搜，`--offline` / `--dry-run` 跳过这一步。最终仍无结果时统一提示「没有找到」——正文里没有、命中的条目解析失败，都是这一句（见[软件源排障](troubleshooting.md#软件源与清单)）。
 
 ### info
 
@@ -184,7 +184,7 @@ winst bundle install [<file>] [--skip-existing]
 winst bundle pack <清单> <目标目录> [--skip-missing]
 ```
 
-不带文件参数时默认使用 `<数据目录>\lists\setup.list`。文件名按该目录解析并自动补 `.list` 后缀；显式路径也必须位于此目录内。
+`bundle install` 不带文件参数时默认使用 `<数据目录>\lists\setup.list`；`bundle list` 不带文件列出全部清单，`bundle edit` 不带文件时交互选择清单。文件名按该目录解析并自动补 `.list` 后缀；显式路径也必须位于此目录内。
 
 - `bundle list` 不带文件时列出全部清单，带文件时显示内容与状态
 - `bundle edit` 进入交互式编辑
@@ -197,9 +197,10 @@ winst bundle pack <清单> <目标目录> [--skip-missing]
 winst config list
 winst config get <key>
 winst config set <key> <value>
+winst config reset proxy
 ```
 
-不带子命令等价于 `config list`。`set` 会校验并转换布尔、数字等配置值，写入 `<数据目录>\config.json`。配置项见 [data-files.md](data-files.md#configjson)。
+不带子命令等价于 `config list`。`set` 会校验并转换布尔、数字等配置值，写入 `<数据目录>\config.json`。`reset proxy` 清除 winst 显式代理；设置菜单的代理项输入 `-` 执行相同操作，回车仍为取消。HTTP 默认请求继承系统代理/PAC，`proxyMode=off` 不强制禁用系统代理。配置项见 [data-files.md](data-files.md#configjson)。
 
 ## 退出码
 
@@ -210,6 +211,8 @@ winst config set <key> <value>
 | `2` | 网络失败（`install` / `update` / `manifest update`；`manifest add` 拉取清单失败按 `1` 返回） |
 | `3` | 安装 / 卸载 / 校验失败 |
 | `4` | `update --check` 检测到可更新项（未执行更新） |
+
+批量卸载分别统计参数失败、执行失败和取消：有执行失败返回 `3`，否则有参数失败返回 `1`；全部成功或取消返回 `0`。`bundle edit` 保存失败返回 `1`；`bundle install` 的正常取消单独统计，不作为安装失败。
 
 ## 交互菜单
 
@@ -234,5 +237,9 @@ winst config set <key> <value>
 - 管理软件源：编号进入详情，`r` 刷新、`d` 删除（内置源与本地清单不可删）；直接输入 GitHub 仓库或清单地址可添加，`c` 从剪贴板读取地址，`a` 刷新全部
 - 管理安装清单：编号查看后可编辑或删除；直接输入文件名可新建或编辑
 - 设置：安装位置、安装包位置、代理、代理模式、下载后清理旧包、软件源刷新间隔、更新方式
-- 列表类页面支持多选（`1 3 5`），`b` 返回，`q` 退出；输入关键字可过滤
+- 卸载匹配页与安装清单编辑支持多选；已装软件、缓存和软件列表默认单选。支持多选的页面可输入 `1 3 5`；`b` 返回，`q` 退出；支持关键字过滤的页面会显示提示
 - 菜单与命令行执行同一套业务逻辑；唯一只在菜单里提供的是「已装软件」详情里的 `o` 清理本机并存的旧版本
+
+软件列表、搜索结果、列表详情与安装确认详情分别显示「已下载附件」与「已安装附件」。有独立版本时显示版本号，并按附件 compare 展示已有的 ETag、修改时间、字节大小或校验摘要；没有记录的项不显示。下载信息取自缓存索引，安装信息取自落位快照。
+
+高级功能和设置菜单支持按回车或 b 返回上一层；q 退出。

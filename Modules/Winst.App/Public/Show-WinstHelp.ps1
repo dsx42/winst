@@ -55,7 +55,7 @@ function Show-WinstHelp {
             'manifest'  { Show-ManifestCliHelp }
             'bundle'    { Show-BundleCliHelp }
             'config'    {
-                Write-Host '  用法: winst config get|set|list [<key> [<value>]]' -ForegroundColor Yellow
+                Write-Host '  用法: winst config get|set|reset|list [<key> [<value>]]' -ForegroundColor Yellow
                 Write-Host '    list 列出全部配置项、当前值与来源；get 读某一项；set 写某一项。' -ForegroundColor Gray
             }
             default     {
@@ -85,11 +85,11 @@ function Show-WinstHelp {
     Write-Host '    repair                     修复安装记录' -ForegroundColor Gray
     Write-Host '    manifest add|list|update|remove   管理软件源' -ForegroundColor Gray
     Write-Host '    bundle list|edit|install|pack     安装清单' -ForegroundColor Gray
-    Write-Host '    config get|set|list        配置管理' -ForegroundColor Gray
+    Write-Host '    config get|set|reset|list        配置管理' -ForegroundColor Gray
     Write-Host '    help [<命令>]              显示帮助' -ForegroundColor Gray
     Write-Host '    --version | -v             显示版本号' -ForegroundColor Gray
     Write-Host ''
-    Write-Host '  全局参数（写在命令之前）:' -ForegroundColor White
+    Write-Host '  全局参数（写在命令前后均可）:' -ForegroundColor White
     Write-Host '    --pkg-dir <路径>           安装包位置' -ForegroundColor Gray
     Write-Host '    --install-root <路径>      软件安装位置' -ForegroundColor Gray
     Write-Host '    --proxy <地址>             代理地址' -ForegroundColor Gray

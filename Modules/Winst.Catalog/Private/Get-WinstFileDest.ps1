@@ -5,8 +5,7 @@ function Get-WinstFileDest {
     .SYNOPSIS
         取 files[] 条目的落位路径（dest）；主包的 dest 无意义，统一忽略并记一条提示。
     .DESCRIPTION
-        六个来源解析器（direct / github / listing / page / json / magnet）原本各自复制这段判断，
-        现集中到一处：规则调整（提示文案、是否允许主包 dest）只改这里。
+        来源解析器共用此规则：主包按类型安装，dest 仅用于附加文件。
     .OUTPUTS
         [string] 实际生效的 dest（主包或未声明时为空串）
     #>

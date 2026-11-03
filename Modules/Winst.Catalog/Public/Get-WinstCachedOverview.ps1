@@ -54,7 +54,7 @@ function Get-WinstCachedOverview {
 
         $items.Add((New-WinstCachedItem -Context $Context -Id $idText -CacheDir ([string]$cacheInfo['Path']) `
             -CacheFiles @($cacheInfo['Files']) -CacheSizeBytes ([long]$cacheInfo['SizeBytes']) `
-            -CacheVersion $cacheVersion -Ledger $ledger -Row $row))
+            -CacheVersion $cacheVersion -Ledger $ledger -Row $row -CacheIndex $cacheIndex))
     }
 
     # 用 @() 包住函数调用：PowerShell 里「函数返回空数组」到调用方会变成 $null，

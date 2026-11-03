@@ -14,8 +14,9 @@ function Resolve-InstallRoot {
     )
 
     $value = '%USERPROFILE%\winst'
-    if ($Options -and $Options.InstallRoot) {
-        $value = [string]$Options.InstallRoot
+    $optionRoot = Get-EntryString -Entry $Options -Key 'InstallRoot'
+    if ($optionRoot) {
+        $value = $optionRoot
     } elseif ($env:WINST_INSTALL_ROOT -and $env:WINST_INSTALL_ROOT.Trim()) {
         $value = $env:WINST_INSTALL_ROOT
     } else {

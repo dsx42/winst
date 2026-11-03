@@ -5,12 +5,13 @@ function New-WinstInstalledItem {
     .SYNOPSIS
         由安装记录条目 + 软件清单行生成「已装软件」的展示视图对象。
     .OUTPUTS
-        [ordered]@{ Id; DisplayName; Group; Version; RawVersion; VersionUnknown; Type; TypeText; InstallDir;
+        [ordered]@{ CompanionVersionLines; Id; DisplayName; Group; Version; RawVersion; Type; TypeText; InstallDir;
                     InstalledAt; UpdatedAt; ManifestOrigin; SourceText; Managed; ManagedText; InCatalog;
                     LatestVersion; LatestSource; HasUpdate; UpdateHint; UpdateState; OtherSourcesText;
                     OldVersions; OldVersionsText; HasOldVersions;
                     CacheDir; CacheVersion; CacheHas; CacheDirMissing; CacheFiles;
-                    DirMissing; DirOnly; ExternalPortable; Row; Ledger }
+                    DirMissing; Row; Ledger; InstalledVersion; InstalledVersionText; InstalledDirMissing;
+                    InstalledUpdateState; InstalledUpdateHint; BestVersion; BestSource }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -41,7 +42,7 @@ function New-WinstInstalledItem {
     $updateState = [string]$installedFacet.UpdateState
     $otherSourcesText = ''
     if ($inCatalog) {
-        # 与原分支结构保持一致：远端新鲜度已下结论（changed / unknown）时原本不计算 OtherSourcesText
+        # package 来源尚无确定远端版本时，不再列出其它来源的版本比较。
         $freshBranch = [bool]($facts.VersionFromPackage -and $latest -and ([string]$facts.RemoteFresh) -ine 'unchanged')
         if ($latest -and -not $freshBranch) {
             # 其它来源的版本（版本行里已经体现了最高版本与它的来源，这里只列出剩下的，避免重复展示）
@@ -59,10 +60,6 @@ function New-WinstInstalledItem {
             $otherSourcesText = ($others -join '、')
         }
     }
-
-    # 非 winst 安装（external）的免安装版 / 单文件程序：更新只报告、不覆盖
-    $externalPortable = $false
-    if ($managed -ne 'winst' -and $type -and $type -ne 'installer') { $externalPortable = $true }
 
     $versionText = '未知'
     if ($rawVersion) { $versionText = $rawVersion }
@@ -117,6 +114,7 @@ function New-WinstInstalledItem {
     }
 
     return [ordered]@{
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Row $Row -Ledger $Entry -CacheIndex $CacheIndex)
         Id               = $Id
         DisplayName      = $displayName
         Group            = $group
@@ -149,9 +147,7 @@ function New-WinstInstalledItem {
         DirMissing       = $dirMissing
         Row              = $Row
         Ledger           = $Entry
-        # —— 标准键别名（P1-2）：与 New-WinstCachedItem / New-WinstSoftwareItem 的命名对齐，
-        #    让消费点可以用统一的键名读同一语义，不必记「这个工厂叫 Version、那个叫 InstalledVersion」。
-        #    旧键保留（下面这些是镜像），消费点迁移完成后再删。
+        # 通用视图字段，与缓存和软件列表的同义字段保持一致。
         InstalledVersion      = $versionText
         InstalledVersionText  = $versionText
         InstalledDirMissing   = $dirMissing

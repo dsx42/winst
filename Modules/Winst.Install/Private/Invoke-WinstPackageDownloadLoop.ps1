@@ -3,7 +3,7 @@
 function Invoke-WinstPackageDownloadLoop {
     <#
     .SYNOPSIS
-        逐个文件取包：命中缓存直接跳过；缺失 / 需重取则下载（含离线特例、引擎引导、失效地址重试、完整性校验）。
+        逐个文件取包：缓存通过实际校验后复用；缺失 / 需重取则下载（含离线特例、引擎引导、失效地址重试）。
     .OUTPUTS
         @{ Ok; Error; Network; Downloaded; Names; Any }
     #>
@@ -32,6 +32,7 @@ function Invoke-WinstPackageDownloadLoop {
             Write-Host ('    提示: {0}' -f [string]$filePlan['Hint']) -ForegroundColor DarkYellow
         }
 
+        Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan -Offline:$Offline
         if ($filePlan['ValidationError']) {
             return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); Network = [bool]$filePlan['ValidationNetwork']; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
         }
@@ -75,7 +76,7 @@ function Invoke-WinstPackageDownloadLoop {
             # 引导下载引擎时可能已把本包一并取下（引擎引导包与目标包常是同一个文件），避免重复下载
             if (Test-Path -LiteralPath $target -PathType Leaf) {
                 $recheck = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl'] `
-                    -FileUrl $url -SourceVersion $Version
+                    -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
                 if ($recheck.Ok) {
                     Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $recheck
                     $downloaded += $target
@@ -147,11 +148,11 @@ function Invoke-WinstPackageDownloadLoop {
             Write-Host '    多段并发下载失败，已改用单连接重试并成功。' -ForegroundColor DarkYellow
         }
         $check = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl'] `
-            -FileUrl $url -SourceVersion $Version
+            -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
         if (-not $check.Ok) {
             # 刚下载的包校验不通过：删掉坏包并报错（软件源里的包本身有问题）
             Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
-            return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+            return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); Network = [bool]$check.Network; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
         }
         Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
         $downloaded += $target

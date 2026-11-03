@@ -11,12 +11,13 @@ function New-WinstSoftwareItem {
           ③ 下载状态：未下载 / 已下载包 a.b（大小、文件数，含安装包能否更新）。
         结论文案与「已装软件」「已下载包」共用一处定义（Get-WinstVersionConclusion），不另写一套。
     .OUTPUTS
-        [ordered]@{ Id; DisplayName; Group; Description; Type; TypeText; Row;
+        [ordered]@{ CompanionVersionLines; Id; DisplayName; Group; Description; Type; TypeText; Row;
                     SourceText; BestVersion; BestSource;
                     Installed; InstalledVersion; InstalledVersionText; InstalledDirMissing;
                     InstalledUpdateState; InstalledUpdateHint;
                     CacheHas; CacheVersion; CacheVersionText; CacheDir; CacheFiles; CacheFileCount;
-                    CacheSizeBytes; CacheSizeText; PackageUpdateState; PackageUpdateHint; HasPackageUpdate }
+                    CacheSizeText; PackageUpdateState; PackageUpdateHint; HasPackageUpdate; Ledger;
+                    LatestVersion; LatestSource; HasUpdate; UpdateHint; UpdateState; DirMissing; Version }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -26,7 +27,8 @@ function New-WinstSoftwareItem {
         [string]$CacheDir = '',
         [string[]]$CacheFiles = @(),
         [long]$CacheSizeBytes = 0,
-        [string]$CacheVersion = ''
+        [string]$CacheVersion = '',
+        $CacheIndex = $null
     )
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
@@ -35,6 +37,7 @@ function New-WinstSoftwareItem {
     $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -CacheFiles $CacheFiles -Evaluate:$cacheHas
 
     return [ordered]@{
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Row $Row -Ledger $Ledger -CacheIndex $CacheIndex)
         Id                   = $Id
         DisplayName          = [string]$facts.DisplayName
         Group                = [string]$facts.Group
@@ -62,7 +65,7 @@ function New-WinstSoftwareItem {
         PackageUpdateHint    = [string]$packageFacet.Hint
         HasPackageUpdate     = [bool]$packageFacet.HasUpdate
         Ledger               = $Ledger
-        # —— 标准键别名（P1-2）：见 New-WinstInstalledItem 的说明 ——
+        # 通用视图字段，与已安装列表的同义字段保持一致。
         LatestVersion        = [string]$facts.BestVersion
         LatestSource         = [string]$facts.BestSource
         HasUpdate            = [bool]$installedFacet.HasUpdate

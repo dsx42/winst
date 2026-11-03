@@ -18,9 +18,7 @@ function Get-WinstFilePlan {
         [switch]$DryRun,
         [switch]$CanCheckRemote,
         [switch]$FreshMain,
-        [string]$FreshMainReason = '',
-        [switch]$DownloadOnly,
-        [string]$SourceVersion = ''
+        [string]$FreshMainReason = ''
     )
 
     $url = Get-EntryString -Entry $File -Key 'url'
@@ -32,13 +30,14 @@ function Get-WinstFilePlan {
     $name = ([string]$name).Trim()
     if ($name -and -not (Test-WinstSafePathSegment -Name $name)) { $name = '' }
 
-    $plan = New-WinstFilePlanEntry -File $File -Url $url -Name $name
+    $plan = New-WinstFilePlanEntry -File $File -Url $url -Name $name -FileIndex $FileIndex
 
     if (-not $name -or -not $url) {
         $plan['Reason'] = '下载信息不完整（文件名不合法或地址为空）'
         return $plan
     }
     $target = Join-WinstPath $Dir $name
+    Assert-WinstSafeWritePath -Path $target
     $plan['Target'] = $target
 
     $refresh = Get-WinstFileRefreshMode -FileDecl $File
@@ -47,6 +46,9 @@ function Get-WinstFilePlan {
     if ($refresh.Invalid) {
         $plan['Notice'] = ('软件源里的 refresh 取值「{0}」无法识别，已按 auto 处理' -f $refresh.Raw)
     }
+    if (@(Get-EntryArray -Entry $File -Key 'compareInvalid').Count -gt 0) {
+        $plan['Notice'] = ('软件源里的 compare 取值「{0}」无法识别，已按 auto 处理' -f ((Get-EntryArray -Entry $File -Key 'compareInvalid') -join '、'))
+    }
 
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
         Set-WinstFileMissingPlan -Plan $plan -Context $Context -Uri $url -CanCheckRemote:$CanCheckRemote
@@ -54,6 +56,7 @@ function Get-WinstFilePlan {
     }
 
     $meta = Get-WinstFileMeta -Entry $Entry -FileName $name
+    $plan['CachedMeta'] = $meta
     $plan['MetaUrl'] = [string]$meta.Url
     $plan['ValidatorETag'] = [string]$meta.ETag
     $plan['ValidatorLastModified'] = [string]$meta.LastModified
@@ -64,12 +67,21 @@ function Get-WinstFilePlan {
         $plan['ManifestHash'] = Get-WinstManifestHash -Entry $Entry -FileName $name -Algorithm $meta.ExpectedAlgorithm
     }
 
-    # 离线同样比对缓存里的期望摘要与实测摘要，不重复读取远端或计算文件摘要。
+    # 离线规划使用已记录摘要，不请求远端；实际消费前另行重算当前文件摘要。
     $declaredHash = (Get-EntryString -Entry $File -Key 'hash').Trim()
     $declaredHashFile = (Get-EntryString -Entry $File -Key 'hashFile').Trim()
+
+    # compare 显式含 checksum：强制重取远端校验文件（不复用索引里的指纹缓存）。
+    # 地址固定的 hashFile（不随版本变化）只靠指纹永远判不出远端换了文件，需要清单显式开启这一次请求。
+    $compareInfo = Get-WinstFileCompareCriteria -Text ([string]$plan['Compare'])
+    $wantChecksum = (@($compareInfo.Criteria) -contains 'checksum')
+    $ignoreCachedHash = [bool]($wantChecksum -and ($declaredHash -or $declaredHashFile))
+    if ($wantChecksum -and -not $ignoreCachedHash) {
+        $plan['Notice'] = ('软件源里的 compare 含 checksum，但这个文件没有声明 hash / hashFile，已按其余判据（{0}）处理' -f [string]$plan['Compare'])
+    }
     if ($Offline -and ($declaredHash -or $declaredHashFile)) {
         $offlineExpected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline `
-            -CachedMeta $meta -FileUrl $url -SourceVersion $SourceVersion
+            -CachedMeta $meta -FileUrl $url -FileVersion ([string]$plan['FileVersion'])
         if (-not $offlineExpected.Ok) {
             $plan['NeedDownload'] = $true
             $plan['Reason'] = '离线缓存缺少可验证的校验信息'
@@ -96,12 +108,12 @@ function Get-WinstFilePlan {
             -not [string]$meta.ChecksumHashFile -and -not [string]$meta.ChecksumFingerprint)
     } elseif ($declaredHashFile) {
         $currentFingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $name -FileDecl $File `
-            -FileUrl $url -SourceVersion $SourceVersion
+            -FileUrl $url -FileVersion ([string]$plan['FileVersion'])
         $hasCurrentChecksumProvenance = ([string]$meta.ChecksumFingerprint -and
             ([string]$meta.ChecksumFingerprint -ieq $currentFingerprint))
     }
-    if ($hasCurrentChecksumProvenance) {
-        if (Test-WinstFileVersionPriorBranch -Plan $plan -File $File -Meta $meta -FileIndex $FileIndex `
+    if ($hasCurrentChecksumProvenance -and $compareInfo.IsDefault -and -not $ignoreCachedHash) {
+        if (Test-WinstFileVersionPriorBranch -Plan $plan -Meta $meta -FileIndex $FileIndex `
                 -FreshMain:$FreshMain -RefreshRaw ([string]$refresh.Raw)) {
             return $plan
         }
@@ -113,8 +125,10 @@ function Get-WinstFilePlan {
         return $plan
     }
 
-    $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline:$Offline `
-        -CachedMeta $meta -FileUrl $url -SourceVersion $SourceVersion
+    # 只读视图和预览只使用匹配的缓存摘要，不触发校验文件网络请求。
+    $localOnly = [bool]($Offline -or -not $CanCheckRemote)
+    $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline:$localOnly `
+        -CachedMeta $meta -FileUrl $url -FileVersion ([string]$plan['FileVersion']) -IgnoreCachedHash:($ignoreCachedHash -and $CanCheckRemote)
     if (-not $expected.Ok) {
         if ($Offline) {
             $plan['NeedDownload'] = $true
@@ -132,12 +146,18 @@ function Get-WinstFilePlan {
     }
     if ($expected.Skipped) {
         # ④ 未声明校验 → 按 files[].refresh 档位判定
-        Set-WinstFileRefreshDecision -Plan $plan -Context $Context -File $File -Meta $meta -Refresh $refresh `
-            -FileIndex $FileIndex -Name $name -Target $target -Offline:$Offline -DryRun:$DryRun -CanCheckRemote:$CanCheckRemote
+        Set-WinstFileRefreshDecision -Plan $plan -Context $Context -Meta $meta -Refresh $refresh `
+            -Name $name -Target $target -Offline:$Offline -DryRun:$DryRun -CanCheckRemote:$CanCheckRemote
         return $plan
     }
 
     # ③ 已声明校验 → 比对校验码
     Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
+    if (-not $plan['NeedDownload'] -and $CanCheckRemote -and -not $compareInfo.IsDefault -and
+            @($compareInfo.Criteria | Where-Object { $_ -ne 'checksum' }).Count -gt 0) {
+        $refreshForComparison = @{ Mode = $refresh.Mode; MaxAgeHours = $refresh.MaxAgeHours }
+        Set-WinstFileValidatorDecision -Plan $plan -Context $Context -Meta $meta -Refresh $refreshForComparison `
+            -Name $name -Target $target -HasLastChecked:$false -AgeHours 0 -ChecksumVerified
+    }
     return $plan
 }

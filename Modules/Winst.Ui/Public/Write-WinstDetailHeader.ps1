@@ -17,4 +17,5 @@ function Write-WinstDetailHeader {
     Write-Host ('  {0}' -f [string]$Item['DisplayName']) -ForegroundColor Cyan
     Write-Host ('  {0}' -f ('-' * 40)) -ForegroundColor DarkGray
     Write-WinstDetailField -Label 'id       ' -Value ([string]$Item['Id'])
+    Write-WinstCompanionVersions -Item $Item
 }

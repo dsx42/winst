@@ -102,8 +102,8 @@ function New-WinstDevToolsSession {
         $result.ProcessId = $process.Id
         $result.Process = $process
         # 立刻抽干两路输出：管道写满会把浏览器卡在半路
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $stdoutTask = [Winst.State]::CaptureAsync($process.StandardOutput, 65536, $true)
+        $stderrTask = [Winst.State]::CaptureAsync($process.StandardError, 65536, $true)
         $result.StdoutTask = $stdoutTask
         $result.StderrTask = $stderrTask
     } catch {

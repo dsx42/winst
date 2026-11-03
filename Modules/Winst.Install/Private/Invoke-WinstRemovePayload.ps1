@@ -25,8 +25,7 @@ function Invoke-WinstRemovePayload {
             return @{ Abort = $false; Error = '' }
         }
         default {
-            Invoke-WinstUninstallPortablePayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState -Quiet:$Quiet
-            return @{ Abort = $false; Error = '' }
+            return (Invoke-WinstUninstallPortablePayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState -Quiet:$Quiet)
         }
     }
 }

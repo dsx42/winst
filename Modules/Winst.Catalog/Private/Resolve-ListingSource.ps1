@@ -160,8 +160,11 @@ function Resolve-ListingSource {
             if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
             foreach ($listedNote in @($fileVersion.Notes)) { $result.Notes += [string]$listedNote }
         }
+        # 主包（第 1 项）的版本就是它自己的；配套文件只有独立取版（versionListUrl）时才算自己的版本
+        $ownVersion = [bool]($index -eq 1)
+        if (-not $ownVersion) { $ownVersion = [bool]$fileVersion.Own }
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
-            -Url (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version)
+            -OwnVersion $ownVersion -Url (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version)
     }
 
     $result.Ok = $true

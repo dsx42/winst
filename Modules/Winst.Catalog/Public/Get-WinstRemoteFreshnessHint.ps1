@@ -3,127 +3,104 @@
 function Get-WinstRemoteFreshnessHint {
     <#
     .SYNOPSIS
-        发一次 HEAD 比对「远端文件」与「缓存索引里上次下载的记账」（ETag / Last-Modified / 长度），
-        返回「有没有新包」的提示文本。
+        按文件声明的 compare 判据确认 package 来源的远端新鲜度。
     .DESCRIPTION
-        仅用于「无法获取最新版本号」的条目（source.versionFrom: "package"）：版本号只能取包后从文件信息
-        得到，每次都会重新取包，用户无从判断这次取包值不值——用 HEAD 对比给一个参考：
-          远端未变化 → 提示可以放心取消本次下载；远端已变化 → 提示有新包、建议更新；
-          没有可比对的记录 / HEAD 失败 → 如实说无法判断，不猜测。
-        **只提示、不影响下载流程**：取包照旧进行，下不下由用户在确认环节自己决定；
-        --offline / --dry-run / 非 versionFromPackage 条目一律返回空文本（不发请求、不提示）。
-        对比基线（fileMeta）是上次下载完成时写下的，正好对应「缓存里那份文件」——直到下次下载才更新。
-        地址与上次不同也照比（地址常带会话性跟踪参数）；Last-Modified / 大小为主判据、ETag 兜底。
+        与下载计划共用判据解析和校验器比较。没有可比较信息时返回 unknown；
+        离线、预览和非 package 来源不联网。地址变化本身不代表文件内容变化。
     .OUTPUTS
-        @{ State; Text }   State: unchanged / changed / unknown；Text 为空表示无需提示
+        @{ State; Text }，State 为 unchanged / changed / unknown。
     #>
-    param(
-        [hashtable]$Context,
-        [string]$PkgDir,
-        [string]$Id,
-        $Plan
-    )
+    param([hashtable]$Context, [string]$PkgDir, [string]$Id, $Plan)
 
     $result = @{ State = 'unknown'; Text = '' }
-    if (-not $Plan) { return $result }
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { return $result }
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { return $result }
+    $options = Get-WinstState -Name WinstOptions
+    if (-not $Plan -or ($options -and ($options.Offline -or $options.DryRun))) { return $result }
     if (-not (Get-EntryBool -Entry $Plan -Key 'versionFromPackage')) { return $result }
-    if (-not $Id) { $Id = ([string](Get-EntryString -Entry $Plan -Key 'id')).Trim() }
+    if (-not $Id) { $Id = Get-EntryString -Entry $Plan -Key 'id' }
     if (-not $Id) { return $result }
-
-    $download = Get-EntryValue -Entry $Plan -Key 'download' -Default $null
-    $files = @(Get-EntryArray -Entry $download -Key 'files')
+    $files = @(Get-EntryArray -Entry (Get-EntryValue -Entry $Plan -Key 'download') -Key 'files')
     if ($files.Count -eq 0) { return $result }
-    $url = (Get-EntryString -Entry $files[0] -Key 'url').Trim()
-    $name = (Get-EntryString -Entry $files[0] -Key 'name').Trim()
+    $file = $files[0]
+    $url = Get-EntryString -Entry $file -Key 'url'
+    $name = Get-EntryString -Entry $file -Key 'name'
     if (-not $name) { $name = Get-FileNameFromUrl -Url $url }
-    if (-not $url -or -not $name) { return $result }
-
-    # files[].compare: "size" = 只比大小——dl.google.com 这类 Last-Modified 阶段性漂移的主机用
-    $sizeOnly = ((Get-EntryString -Entry $files[0] -Key 'compare').Trim().ToLowerInvariant() -ieq 'size')
-
+    if (-not $url -or -not (Test-WinstSafePathSegment -Name $name) -or -not (Test-WinstSafePathSegment -Name $Id)) { return $result }
     $target = Join-WinstPath (Join-WinstPath $PkgDir $Id) $name
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
-        $result.Text = '远端是否有新包无法判断（本地还没下载过这个文件，本次下载后即可对比）'
+        $result.Text = '远端是否有新包无法判断（本地还没有这个文件）'
         return $result
     }
 
-    $header = Get-EntryString -Entry $files[0] -Key 'hashHeader'
-    if ($header) {
-        try {
-            $hash = Get-WinstRemoteHeader -Context $Context -Uri $url -Name $header
-            $algorithm = ''
-            switch ($hash.Length) { 32 { $algorithm = 'MD5' }; 40 { $algorithm = 'SHA1' }; 64 { $algorithm = 'SHA256' }; 128 { $algorithm = 'SHA512' } }
-            if (-not $algorithm -or $hash -notmatch '^[0-9a-fA-F]+$') { throw '远端摘要格式无效' }
-            $actual = (Get-FileHash -LiteralPath $target -Algorithm $algorithm -ErrorAction Stop).Hash
-            if ($actual -ieq $hash) {
-                $result.State = 'unchanged'
-                $result.Text = '远端摘要与本地安装包一致，无需下载'
-            } else {
-                $result.State = 'changed'
-                $result.Text = '远端摘要与本地安装包不一致，有新包，建议更新'
-            }
-        } catch { $result.Text = ('无法确认远端是否有新包（{0}）' -f $_.Exception.Message) }
-        return $result
-    }
-
-    # 缓存索引里的记账 = 上次下载完成时写下的校验器基线
     $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir
     $entry = $null
     if ($indexRead.Index.Contains($Id)) { $entry = $indexRead.Index[$Id] }
     $meta = Get-WinstFileMeta -Entry $entry -FileName $name
-    if (-not $meta.Exists -or -not $meta.Url) {
-        $result.Text = '远端是否有新包无法判断（没有可比对的下载记录，本次下载后将建立基线）'
-        return $result
-    }
-    # 地址与上次不同**不直接放弃**：versionFromPackage 条目的地址常带每次会话都变化的跟踪参数
-    # （如 dl.google.com /tag/s/ 链接里的 iid），同一份文件两次解析出的地址也会不同——「同一份文件」
-    # 的判据是校验器而非地址
-    if (-not $meta.ETag -and -not $meta.LastModified -and $null -eq $meta.Size) {
-        $result.Text = '远端是否有新包无法判断（上次下载时服务器没有给出可比对的校验信息）'
-        return $result
-    }
-
-    $validators = Get-WinstRemoteValidators -Context $Context -Uri $url
-    if (-not $validators.Ok) {
-        $result.Text = ('无法确认远端是否有新包（{0}）' -f [string]$validators.Error)
-        return $result
-    }
-
-    # 校验器比对按可信度分级取用：Last-Modified 与大小是稳定判据——部分 CDN
-    # （如 dl.google.com）同一份文件的 ETag / Last-Modified 也会阶段性漂移（可能数小时内整体更换、
-    # 与版本无关），这类主机可能阶段性误报「远端已变化」，重新下载一次（基线随之重建）即恢复，
-    # 或在该文件上声明 compare: "size" 只比大小；两边有任一判据可比即可下结论，什么都比不了时
-    # 如实说无法判断、不猜测
+    $compareInfo = Get-WinstFileCompareCriteria -Text (Get-EntryString -Entry $file -Key 'compare')
+    $criteria = @($compareInfo.Criteria)
+    $compared = 0
     $changed = $false
-    $compared = $false
-    if (-not $sizeOnly -and $validators.LastModified -and $meta.LastModified) {
-        $compared = $true
-        if ([string]$validators.LastModified -ine [string]$meta.LastModified) { $changed = $true }
-    }
-    $localSize = $null
-    try { $localSize = (Get-Item -LiteralPath $target -Force).Length } catch { $localSize = $null }
-    if ($null -eq $localSize -and $null -ne $meta.Size) { $localSize = $meta.Size }
-    if ($null -ne $validators.Size -and $null -ne $localSize) {
-        $compared = $true
-        if ([long]$validators.Size -ne [long]$localSize) { $changed = $true }
-    }
-    if (-not $compared -and -not $sizeOnly -and $validators.ETag -and $meta.ETag) {
-        $compared = $true
-        if ([string]$validators.ETag -ine [string]$meta.ETag) { $changed = $true }
-    }
-    if (-not $compared) {
-        $result.Text = '远端是否有新包无法判断（远端没有给出可比对的校验信息）'
-        return $result
+    $errors = @()
+    $checksumUnavailable = $false
+    $header = Get-EntryString -Entry $file -Key 'hashHeader'
+    $hasDeclaredChecksum = [bool]((Get-EntryString -Entry $file -Key 'hash').Trim() -or
+        (Get-EntryString -Entry $file -Key 'hashFile').Trim())
+
+    if ($header -or $hasDeclaredChecksum) {
+        try {
+            $expectedHash = ''
+            if ($header) {
+                $expectedHash = Get-WinstRemoteHeader -Context $Context -Uri $url -Name $header
+            } else {
+                $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $file -CachedMeta $meta `
+                    -FileUrl $url -FileVersion (Get-EntryString -Entry $file -Key 'version') `
+                    -IgnoreCachedHash:($criteria -contains 'checksum')
+                if (-not $expected.Ok -or $expected.Skipped) { throw '没有可用于比较的远端摘要' }
+                $expectedHash = [string]$expected.Hash
+            }
+            $algorithm = Get-HashAlgorithmFromDigestLength -Length $expectedHash.Length
+            if (-not $algorithm -or $expectedHash -notmatch '^[0-9a-fA-F]+$') { throw '远端摘要格式无效' }
+            $actual = ''
+            if (-not $header) {
+                if ($algorithm -eq 'SHA256') { $actual = Get-WinstRecordedHash -Entry $entry -FileName $name }
+                else { $actual = Get-WinstManifestHash -Entry $entry -FileName $name -Algorithm $algorithm }
+            }
+            if (-not $actual) { $actual = Get-WinstFileHash -Path $target -Algorithm $algorithm }
+            if (-not $actual) { throw '无法读取本地安装包摘要' }
+            $compared++
+            if ($actual -ine $expectedHash) { $changed = $true }
+        } catch { $errors += $_.Exception.Message; $checksumUnavailable = $true }
     }
 
+    # 完整摘要默认直接判定内容；显式 HTTP 判据仍与声明摘要组合比较。
+    # hashFile 默认复用匹配声明指纹的期望摘要，显式 checksum 才强制重新请求。
+    $httpCriteria = @($criteria | Where-Object { $_ -ne 'checksum' })
+    $evaluateHttp = (-not $header -and (-not $compareInfo.IsDefault -or -not $hasDeclaredChecksum))
+    if ($evaluateHttp -and $httpCriteria.Count -gt 0 -and $meta.Exists) {
+        $validators = Get-WinstRemoteValidators -Context $Context -Uri $url
+        if ($validators.Ok) {
+            $localSize = $null
+            try { $localSize = (Get-Item -LiteralPath $target -Force -ErrorAction Stop).Length } catch { }
+            # 缺少旧实体标识不能证明远端变化；提示层只比较已有基线，下载层可选择重取建基线。
+            $comparableCriteria = @($httpCriteria | Where-Object {
+                $_ -eq 'size' -or ($_ -eq 'etag' -and $meta.ETag) -or ($_ -eq 'lastmodified' -and $meta.LastModified)
+            })
+            $comparison = Compare-WinstFileValidators -Criteria $comparableCriteria -Meta $meta -Validators $validators -LocalSize $localSize
+            $compared += [int]$comparison.Compared
+            if ($comparison.Changed) { $changed = $true }
+        } else { $errors += [string]$validators.Error }
+    }
+    if ($compared -eq 0 -or ($checksumUnavailable -and -not $changed)) {
+        $reason = '没有可比对的校验信息'
+        if ($errors.Count -gt 0) { $reason = $errors -join '；' }
+        $result.Text = ('远端是否有新包无法判断（{0}）' -f $reason)
+        return $result
+    }
     if ($changed) {
         $result.State = 'changed'
         $result.Text = '远端文件已变化（有新包），建议更新'
     } else {
         $result.State = 'unchanged'
-        $result.Text = '远端文件未变化（与上次下载一致），本次不下载也不影响使用'
+        $result.Text = '远端文件未变化（与上次下载一致）'
     }
     return $result
 }

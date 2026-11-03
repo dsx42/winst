@@ -1,4 +1,4 @@
-﻿﻿# 数据文件
+# 数据文件
 
 ## 位置总览
 
@@ -30,7 +30,7 @@
   共享需要认证时，在「设置 → 安装包位置」里先输入 UNC 路径，再按提示单独输入账号与密码（密码不回显；两者都可以直接回车跳过）。winst 调用系统凭据管理器（cmdkey）认证，**认证成功才保存路径**，账号密码本身不写进 `config.json`、也不由 winst 保存。路径里不要写账号密码。
 - `installRoot` 只允许本地路径，拒绝 UNC 和网络映射盘；配置、环境变量和命令行覆盖都遵循此限制，只有 `pkgDir` 可以使用 UNC 共享。更改 `installRoot` 只对此后的安装生效：已装软件留在旧位置继续可用，改完会列出旧位置里已有的软件目录。安装记录跟着安装位置存放，新位置暂时是空的。
 - 新位置没有台账时，`winst repair` 会扫描安装目录、注册表和 Appx 记录来重建，进入「已装软件」也会执行修复扫描。
-- winst 写出的 JSON、`.list` 和生成的文本文件使用 UTF-8 无 BOM。`Write-FileAtomic` 先写临时文件再替换；目标卷不支持原子替换时会退化为直接覆盖。写入或替换失败同样会清理临时文件；共享目录「可写不可删」或临时文件被其它进程占用导致删不掉时，`--verbose` 会给出路径（清理失败不影响写入结果，也不掩盖原始错误）。
+- winst 写出的 JSON、`.list` 和生成的文本文件使用 UTF-8 无 BOM。`Write-FileAtomic` 检查目标路径链后先写临时文件，再进行原子替换；替换失败保留原文件并明确失败，不退化为直接覆盖。写入或替换失败同样会清理临时文件；共享目录「可写不可删」或临时文件被其它进程占用导致删不掉时，`--verbose` 会给出路径（清理失败不影响写入结果，也不掩盖原始错误）。
 - 同一数据目录用 `winst.lock` 的独占句柄防止并发写入。句柄决定占用状态，进程强杀后由系统释放；锁文件本身可能保留。只读的版本/帮助调用不抢锁。
 
 ## config.json
@@ -42,7 +42,7 @@
 | `pruneOldPackages` | bool | `true` | 新版本下载成功后删除同 id 目录中不在本次保留列表里的旧文件 |
 | `manifestTTLHours` | int | `24` | 软件源及逐条版本信息的缓存有效期（小时）；不大于 0 时逐条信息视为总过期 |
 | `proxy` | string | 空 | 代理地址 |
-| `proxyMode` | string | `auto` | `auto` 直连失败再试代理；`always` 始终走代理；`off` 不走代理；`download-direct` 下载先直连、失败再用代理，其它请求直接走代理 |
+| `proxyMode` | string | `auto` | `auto` 系统默认连接失败再试配置的代理；`always` 使用配置的代理；`off` 只用系统默认连接（可能使用系统代理/PAC）；`download-direct` 下载先用系统默认连接、失败再用配置的代理，其它请求用配置的代理。未配置代理地址时均使用系统默认连接 |
 | `updateFilesOnly` | bool | `true` | 更新已登记软件时只替换文件，不改环境变量和 PATH；已存在的快捷方式仍会校验并修正指向错误 |
 
 - 路径支持 `%VAR%`，写入时保留原文，读取时展开；相对路径以数据目录为基准归一化。
@@ -76,10 +76,11 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
       "updatedAt": "2026-09-07T10:00:00",
       "manifestOrigin": "dsx42/winst-manifest",
       "managed": "winst",
-      "appliedEnv": [ { "name": "JAVA_HOME", "scope": "Machine" } ],
+      "appliedEnv": [ { "name": "JAVA_HOME", "scope": "Machine", "existed": true, "previous": "D:\\LegacyJdk" } ],
       "appliedPath": [ { "path": "D:\\Apps\\jdk21\\bin", "scope": "Machine" } ],
       "appliedShortcuts": [ "C:\\Users\\me\\Desktop\\Eclipse Temurin JDK 21.lnk" ],
       "appliedFiles": [ "colors\\Alabaster.icls" ],
+      "appliedFileRules": {},
       "oldVersions": [ { "version": "21.0.4", "detail": "系统安装记录: Microsoft Windows Desktop Runtime 21.0.4 (x64)", "recordKey": "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\...\\Uninstall\\{...}" } ],
       "uninstall": {
         "method": "portable-dir",
@@ -100,10 +101,12 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
 - `schemaVersion` 当前为 `2`。读取时一律归一化（与 `schemaVersion` 取值无关）：字符串形式的 `appliedEnv` / `appliedPath` 转为带 `scope` 的对象，字符串项按 `User` 处理；需要保存时由后续流程落盘。高于当前版本则拒绝继续，提示升级 winst。
 - JSON 无法解析时，先备份为 `state.json.bak-<时间戳>`，再在内存中重建空台账。备份失败会返回错误并停止写入，避免覆盖唯一副本；成功备份后的重建由后续保存落盘。
 - `installedAt` 是首次安装时间，`updatedAt` 是最近一次通过条目级接口写入该记录的时间。修复扫描的整份合并保存不经过该接口，不会统一重写这两个时间戳。
-- `applied*` 记录 winst 管理的系统项与配套文件位置，供更新和卸载回收；`managed` 为 `winst` 或 `external`。外部登记的 `applied*` 与卸载快照为空，卸载时仍可能使用当前清单的定义。
+- `appliedEnv` 的 `name` / `scope` 标识实际写入项；`existed` 记录接管前变量是否存在，`previous` 保存当时原始值。再次完整更新保留同名称与作用域的首次恢复信息。旧记录缺少恢复字段时不猜测原值，卸载保留该变量并提示。`appliedPath` / `appliedShortcuts` 同样只登记实际写入项。卸载时仍有其它软件使用的环境变量 / PATH，其清理登记移交给剩余软件；环境变量的已有共享登记沿用最早已知登记的恢复值。移交通过条目级写入保存，失败时保留原软件记录。repair 新扫描的条目不根据清单推导这些登记。
+- appliedFileVersions 保存实际落位附件的元数据快照（文件名到版本、ETag、修改时间、大小、校验摘要及 compare 的字典），只在附件成功落位后更新。仅下载不会更新安装快照；旧台账没有快照时不推测已安装附件的版本。该字段由 winst 写入，不是清单字段。
+- `appliedFiles` 记录附加文件落位路径；`appliedFileRules` 是内部文件名到落位规则 JSON 文本的字典，规则包含 `dest` / `extract` / `stripTopDir`。只更新附件时，有规则基线、目标存在且包未重新下载的附件不重复落位；旧记录缺少基线时重新落位一次。该字段不属于第三方清单。`managed` 为 `winst` 或 `external`，外部登记的实际写入项为空；卸载程序仍可按当前清单定位，环境变量、PATH、快捷方式以实际登记为准。
 - `uninstall` 保存安装时的卸载操作；源条目删除或修改后，已登记软件仍可使用快照。`nameRule` 可以是字符串或字符串数组。
-- `oldVersions` 记录本机与 `version` 并存的低版本：条目为 `{ version; detail; recordKey }`，`recordKey` 是该版本在系统安装记录里的卸载键路径，挑的是**卸载器当前可用**的那条（同一版本常同时有外层引导包与内层 MSI 两条记录）。只有能区分多个版本的检测方式（`registry` / `fileVersion` / `markerFile` / `jsonFile`）才可能产生条目，且只收「同一产品」的旧版本（`appx` 只取最高版本，不把运行时家族的其它包记为旧版本）。每次修复扫描或安装后的版本检测都会重写这个字段，清掉已经不存在的版本。
-- `installed` 的 id 使用 Ordinal 比较。写入会移除与目标 id 仅大小写不同的旧键，避免产生 PowerShell 无法解析的重复 JSON 属性。
+- `oldVersions` 记录与当前版本并存的同产品低版本，结构为 `{ version; detail; recordKey }`；卸载入口选择与各检测方式的行为见 [安装流程](install-flows.md#版本检测)。有效检测命中时更新并清退消失版本，检测未完成或版本未知时保留已有记录。
+- `installed` 的 id 使用 Ordinal 比较；写入拒绝仅大小写不同的冲突身份，避免共享 Windows 目录或产生不可解析的 JSON 属性。
 - `download` 类型不写安装台账。
 
 ### 条目级写入与读缓存
@@ -131,7 +134,7 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
     "fileMeta": {
       "Alabaster.icls": {
         "url": "https://raw.githubusercontent.com/...",
-        "sourceVersion": "2026.2.3",
+        "sourceVersion": "",   // 跟随主包版本的附件为空；声明 versionListUrl 时才是该文件自己的版本
         "etag": "\"9a1f3c\"",
         "lastModified": "Tue, 02 Sep 2026 03:11:07 GMT",
         "size": 18234,
@@ -149,14 +152,15 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
 ```
 
 - `hashes` 保存各文件从本地安装包计算得到的 sha256；`manifestHashes` 保存本地安装包按软件源声明算法计算得到的摘要（非 SHA256 时单独记录）。这两项是本地实测值，远端期望值另存于 `fileMeta.expectedHash`；新下载的包必须实算并比对，通过后同时写入索引。
+- 索引 `version` 保存已按 `source.versionRewrite` 规范化的版本，展示或从索引回退时不再次改写。规则变更不自动迁移已保存版本，需要重新取包确认；`sourceVersion` 仅记录真实上游读数，不从索引反推原值。
 - 条目级 `downloadedAt` 取当前文件级记录中最新的下载时间；没有文件级下载时间时保留已有条目时间，新条目没有可用记录时留空。复用缓存安装、检查新鲜度或复制离线套件不会将它更新为当前时间；显式指定时间时使用指定值。
-- `fileMeta` 记录实际 URL、文件自身版本、HTTP 校验器、大小、下载与检查时间，以及 `expectedHash`（远端期望摘要）、`expectedAlgorithm`（摘要算法）和校验文件声明。它同时用于新鲜度判断、声明变更检测和离线校验；切换 `hash` / `hashFile` 时来源字段必须成组更新。
-- 文件名、下载地址、软件版本、`hashFile` 地址与 `hashFrom` 规则形成声明指纹，匹配时在线与离线安装都复用已保存的远端期望摘要，并直接比对已记录的本地实测摘要，不再请求远端校验文件或重算安装包摘要。旧索引缺少本地摘要时补算一次；缺少匹配的远端期望摘要时需联网补取，离线则明确报错。声明变更仍重新确认，未声明摘要的包仍按新鲜度规则判断。
-- **安全取舍：缓存索引不是防篡改凭据。** 为减少网络请求和大文件的本地计算，winst 信任 `winst.json` 中的期望值与实测值，不在每次安装前重新读取安装包字节校验。因此下载后被篡改的安装包可能继续安装，安装包和索引一起被篡改也不能被可靠发现。这是明确接受的安全风险；需要重新校验时，应删除对应缓存条目和安装包后重新下载，不能把缓存命中视为本次已验证文件完整性。
-- 索引在进程内按文件戳缓存，命中后仍逐 id 检查目录是否存在。`Save-WinstCacheIndex` 保存前比较磁盘内容：字段与值相同时直接返回，不改文件内容、修改时间或 JSON 缓存，对象键顺序与 JSON 排版不影响比较；数据变化时才经 `Write-FileAtomic` 整份写入并失效 JSON 缓存。索引还保存摘要、校验器和检查时间，这些记录变化时即使没有下载也需要保存；包索引由 `Update-WinstPackageCacheIndex` 写回前先重读，只替换当前 id，保留嵌套流程写入的其它条目。
+- `fileMeta` 记录实际 URL、文件自身版本（`sourceVersion`）、HTTP 校验器（`etag` / `lastModified`）、大小、下载与检查时间，以及 `expectedHash`（远端期望摘要）、`expectedAlgorithm`（摘要算法）和校验文件声明。`sourceVersion` 只在这个文件有自己的版本时才有值：主包恒有；配套文件仅当声明 `files[].versionListUrl` 并独立解析出版本时才有，跟随主包版本的配套文件写空（旧索引里继承的主包版本会在下次写回时清空，判定也不看它）。它同时用于新鲜度判断、声明变更检测和离线校验；切换 `hash` / `hashFile` 时来源字段必须成组更新。
+- 文件名、下载地址、该文件自身版本、`hashFile` 地址与 `hashFrom` 规则形成声明指纹，匹配时在线与离线安装都可复用已保存的远端期望摘要。列表与更新检查可以使用历史实测摘要；实际消费缓存包前，普通安装、引擎引导和自更新会重算当前文件摘要并比对，不能仅凭历史记录通过。在线发现不一致则重取，离线保留文件并报错；缺少匹配的期望摘要时需联网补取，离线明确报错。未声明摘要的包按新鲜度规则判断。配套文件的指纹只使用文件自身版本；地址固定的 `hashFile` 需要重新确认远端内容时，在该文件上声明 `compare` 含 `checksum`。
+- 缓存索引不是独立的可信凭据：消费前重算可以发现文件与期望摘要不一致，但同时篡改文件和索引中的期望值仍可能伪造一致的结果。未声明摘要的包没有此项完整性保证。
+- 索引在进程内按文件戳缓存，命中后仍检查目录是否存在。`Save-WinstCacheIndex -Update` 在持有包目录下的 `winst.json.lock` 时重新读取索引，再执行修改块；修改块只改本次涉及的条目，不回写旧快照。字段与值相同时不重写索引，数据变化时经 `Write-FileAtomic` 原子写入并失效 JSON 缓存。安装、清理、修复和套件制作共用此入口。
 - 整份索引缺失或损坏时按目录重建：版本和摘要留空，`downloadedAt` 取文件时间；已存在的损坏文件先尝试备份为 `winst.json.bak`。单条记录无法归一化时只重建该条且不立即整份回写，避免误伤原文中的其它记录。
 - 索引中目录已不存在的条目会从内存结果剔除，`Changed` 为真时由修复或后续写入落盘。`winst repair` 会校对并保存必要的索引修复，但不删除安装包。
-- 原子替换不解决多机同时整份写入的丢更新问题；同时写同一索引时后完成者覆盖。日常运行由数据目录单进程锁约束，多机共享仍需避免并发写。
+- `winst.json.lock` 使用独占写句柄协调同一包目录的索引写入，本地与 UNC 共享采用同一规则。锁占用时最多等待 10 秒，超时或权限错误明确失败；进程结束自动释放句柄，锁文件保留。此锁只保护索引读改写，不覆盖安装包下载、删除或软件源刷新。
 
 ## 清单文件（.list）
 
@@ -236,7 +240,7 @@ vscode==1.96.0
   "addToPath": [ "{installDir}\\bin" ],
   "shortcuts": { "desktop": false, "startMenu": false },
   "postInstall": [],
-  "detect": { "method": "fileVersion", "file": "bin\\java.exe" },
+  "detect": { "method": "fileVersion", "pathGlob": "{installDir}\\bin\\java.exe" },
   "uninstall": { "method": "portable-dir", "removeEnv": [], "removePaths": [] }
 }
 ```

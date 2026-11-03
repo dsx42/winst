@@ -19,7 +19,6 @@ function New-WinstJsonResolvedFiles {
         if ($locator.Error) { return @{ Error = [string]$locator.Error; Files = $files } }
 
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $Result
-        $nameOverride = Get-EntryString -Entry $item -Key 'name'
 
         if ($index -eq 1) {
             $hash = ''
@@ -53,7 +52,7 @@ function New-WinstJsonResolvedFiles {
             if (-not $urlProbe.Ok) { return @{ Error = [string]$urlProbe.Error; Files = $files } }
             if ($urlProbe.Note) { $Result.Notes += [string]$urlProbe.Note }
 
-            $files += New-ResolvedFileFromDeclaration -Item $item -Url $DownloadUrl -Version $Version -Name $nameOverride `
+            $files += New-ResolvedFileFromDeclaration -Item $item -Url $DownloadUrl -Version $Version `
                 -HashOverride $hash -HashFileOverride $hashFile -HashFromOverride $hashFrom -MainFile
             continue
         }
@@ -64,7 +63,8 @@ function New-WinstJsonResolvedFiles {
         $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $Source -MainVersion $Version
         if (-not $fileVersion.Ok) { return @{ Error = [string]$fileVersion.Error; Files = $files } }
         foreach ($listedNote in @($fileVersion.Notes)) { $Result.Notes += [string]$listedNote }
-        $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Name $nameOverride -Dest $dest `
+        $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
+            -OwnVersion ([bool]$fileVersion.Own) `
             -Url (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version)
     }
 

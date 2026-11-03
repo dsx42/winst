@@ -6,7 +6,7 @@ function Get-WinstRewrittenVersion {
         按 versionRewrite 规则改写版本号写法；没有规则时原样返回。
     .DESCRIPTION
         规则按声明顺序依次应用；替换串沿用 .NET 正则替换语法（`$1` / `${name}` 引用捕获组）。
-        单条规则匹配不上就保持原值（幂等）——因此同一组规则照抄到 source / detect 两侧也不会互相干扰。
+        单条规则匹配不上就保持原值；改写不保证幂等，调用方应只对原始读数应用一次。
     #>
     param([string]$Version, $Rules)
 

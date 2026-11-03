@@ -25,6 +25,7 @@ function Invoke-SettingItem {
     }
     Write-Host ''
 
+    if ($Key -eq 'proxy') { Write-Host '  输入 - 清除 winst 显式代理；直接回车仍为取消。' -ForegroundColor DarkGray }
     $raw = Read-Host '  请输入新值（直接回车取消）'
     if ($null -eq $raw -or -not ([string]$raw).Trim()) {
         Write-Host '  已取消。' -ForegroundColor DarkGray
@@ -32,7 +33,8 @@ function Invoke-SettingItem {
     }
 
     $value = ([string]$raw).Trim()
-    if ($Validator) {
+    if ($Key -eq 'proxy' -and $value -eq '-') { $value = '' }
+    if ($Validator -and $value) {
         $ok = $false
         try { $ok = [bool](& $Validator $value) } catch { $ok = $false }
         if (-not $ok) {

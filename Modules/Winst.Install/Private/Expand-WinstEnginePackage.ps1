@@ -16,7 +16,8 @@ function Expand-WinstEnginePackage {
     }
 
     if (Test-Path -LiteralPath $InstallDir -PathType Container) {
-        Clear-WinstInstallDir -Dir $InstallDir
+        try { Clear-WinstInstallDir -Dir $InstallDir -Strict }
+        catch { return @{ Ok = $false; Error = ('清理引擎目录失败：{0}' -f $_.Exception.Message) } }
     }
     $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction SilentlyContinue
 

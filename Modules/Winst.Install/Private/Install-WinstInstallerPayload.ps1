@@ -10,13 +10,22 @@ function Install-WinstInstallerPayload {
     param([hashtable]$Context, $Plan, $Install, [string]$InstallDir, [string]$PrimaryPath, $Ledger, [string]$Id, [switch]$Quiet)
 
     $work = $PrimaryPath
+    $localDir = ''
+    $unpackDir = ''
+    try {
     if ($work.StartsWith('\\')) {
-        $local = Join-WinstPath ([IO.Path]::GetTempPath()) (Split-Path -Leaf $work)
-        try { Copy-Item -LiteralPath $work -Destination $local -Force -ErrorAction Stop; $work = $local } catch { }
+        $localDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-inst-local-' + [Guid]::NewGuid().ToString('N'))
+        try {
+            Assert-WinstSafeWritePath -Path $localDir -Directory
+            $null = New-Item -ItemType Directory -Path $localDir -ErrorAction Stop
+            $local = Join-WinstPath $localDir (Split-Path -Leaf $work)
+            Assert-WinstSafeWritePath -Path $local
+            Copy-Item -LiteralPath $work -Destination $local -ErrorAction Stop
+            $work = $local
+        } catch { return @{ Ok = $false; Error = ('暂存网络安装包失败：{0}' -f $_.Exception.Message); InstallDir = $InstallDir } }
     }
 
     # 主包是压缩包（如 Chocolatey 的 .nupkg）：声明 installerExe 时先解压，再运行包内的安装程序
-    $unpackDir = ''
     $installerExeRel = (Get-EntryString -Entry $Install -Key 'installerExe').Trim()
     if ($installerExeRel) {
         $null = Confirm-WinstExtractEngine -Context $Context -Quiet:$Quiet
@@ -149,4 +158,9 @@ function Install-WinstInstallerPayload {
 
     return (Update-WinstInstallDirAfterInstall -Context $Context -Plan $Plan -InstallDir $InstallDir -Ledger $Ledger `
             -Id $Id -InstallArgs $argsText -Quiet:$Quiet)
+    } finally {
+        foreach ($temporaryDir in @($unpackDir, $localDir)) {
+            if ($temporaryDir -and (Test-Path -LiteralPath $temporaryDir)) { Clear-WinstInstallDir -Dir $temporaryDir }
+        }
+    }
 }

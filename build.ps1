@@ -19,8 +19,8 @@
     为什么打成一个模块
     ------------------
     Windows PowerShell 5.1 每次 Import-Module 都要建一次会话状态、读一次清单，
-    再逐个点源函数文件。开发树是 13 个模块、近 700 个 .ps1，冷启动约 10 秒。
-    合并成一个 .psm1 后 release 只需一次 Import-Module，冷启动降到 4 秒量级。
+    再逐个点源函数文件。开发树逐模块导入、逐文件加载，冷启动存在额外开销。
+    release 合并为一个 .psm1，只需一次 Import-Module，省去重复扫描与导出解析。
 
     模块来源与顺序
     --------------
@@ -312,7 +312,7 @@ function New-BundleText {
     $builder = New-Object System.Text.StringBuilder
     $lineMap = New-Object 'System.Collections.Generic.List[object]'
     $publicNames = New-Object 'System.Collections.Generic.List[string]'
-    $ownerByFunction = New-Object 'System.Collections.Generic.Dictionary[string, string]' ([StringComparer]::Ordinal)
+    $ownerByFunction = New-Object 'System.Collections.Generic.Dictionary[string, string]' ([StringComparer]::OrdinalIgnoreCase)
     $duplicates = New-Object 'System.Collections.Generic.List[string]'
     $line = 0
 
@@ -535,7 +535,7 @@ try {
 
     # ------------------------------------------------------- 源文件编码与换行
     # 只校验、不修正：源文件格式由开发者保证，不合规就拦住构建。
-    $sourceFiles = @(Get-SourceScriptFile -Root $modulesDir -AdditionalFile (Join-Path $repo 'winst.ps1'))
+    $sourceFiles = @(Get-SourceScriptFile -Root $modulesDir -AdditionalFile @((Join-Path $repo 'winst.ps1'), (Join-Path $repo 'build.ps1')))
     Write-Host ('  源文件     : Modules\ 与入口共 {0} 个脚本（BOM / CRLF 校验通过）' -f $sourceFiles.Count) -ForegroundColor Gray
 
     # ------------------------------------------- 一行安装脚本：必须无 BOM、无 #Requires

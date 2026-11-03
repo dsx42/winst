@@ -15,7 +15,9 @@ function Get-WinstCompanionFileVersion {
         解析出的版本只作用于本文件的地址展开，不影响主包版本与其它文件。
         只支持 url 模板定位的文件（github 的 file / json 的 urlKey 地址不由模板拼出，不适用）。
     .OUTPUTS
-        @{ Ok; Version; Error; Notes }
+        @{ Ok; Version; Own; Error; Notes }
+        Own = 版本是否由本文件独立解析（$true 仅当声明了 versionListUrl 并解析成功）；
+              走「跟随主包版本」时为 $false，此时 Version 只是主包版本，不能当这个文件自己的版本记录 / 比较。
     #>
     param(
         [hashtable]$Context,
@@ -24,15 +26,13 @@ function Get-WinstCompanionFileVersion {
         [string]$MainVersion
     )
 
-    $notes = @()
-
     $listTemplate = (Get-EntryString -Entry $Item -Key 'versionListUrl').Trim()
     if (-not $listTemplate) {
         $fallback = Get-SourceFileVersion -Item $Item -Version $MainVersion
-        return @{ Ok = [bool]$fallback.Ok; Version = [string]$fallback.Version; Error = [string]$fallback.Error; Notes = $notes }
+        return @{ Ok = [bool]$fallback.Ok; Version = [string]$fallback.Version; Own = $false; Error = [string]$fallback.Error; Notes = @() }
     }
 
-    $result = @{ Ok = $false; Version = ''; Error = ''; Notes = $notes }
+    $result = @{ Ok = $false; Version = ''; Own = $true; Error = ''; Notes = @() }
 
     $locator = Get-SourceFileLocator -Item $Item
     if ($locator.Error) { $result.Error = $locator.Error; return $result }
@@ -122,14 +122,14 @@ function Get-WinstCompanionFileVersion {
         # 返回 200 HTML——校验最终地址仍带着本候选的版本段，才能可靠地退到下一个候选
         $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context -FinalUriMustContain $fileVersion.Version
         if ($null -eq $probe) {
-            $notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本采用。' -f $fileVersion.Version)
+            $result.Notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本采用。' -f $fileVersion.Version)
             $result.Ok = $true
             $result.Version = $fileVersion.Version
             return $result
         }
         if ($probe) {
             if ($ordered[0] -ine $fileVersion.Version) {
-                $notes += ('版本列表页上最新的 {0} 还没有可用的安装包，已改用 {1}。' -f $ordered[0], $fileVersion.Version)
+                $result.Notes += ('版本列表页上最新的 {0} 还没有可用的安装包，已改用 {1}。' -f $ordered[0], $fileVersion.Version)
             }
             $result.Ok = $true
             $result.Version = $fileVersion.Version

@@ -56,14 +56,7 @@ function Get-WinstRemoteFileProbe {
         $attemptState = 'unknown'
         $attemptDetail = ''
         try {
-            $params = @{
-                Uri             = $Uri
-                Method          = 'Head'
-                UseBasicParsing = $true
-                TimeoutSec      = $TimeoutSec
-            }
-            if ($currentProxy) { $params['Proxy'] = $currentProxy }
-            if ($Headers -and $Headers.Count -gt 0) { $params['Headers'] = $Headers }
+            $params = New-WinstHttpRequestParameters -Uri $Uri -Method 'Head' -TimeoutSec $TimeoutSec -Headers $Headers -Proxy $currentProxy
             $resp = Invoke-WebRequest @params
             $attemptState = 'ok'
             # 200 ≠ 存在：SourceForge 的 /download 对不存在的文件 302 回项目文件根目录（200 的 HTML

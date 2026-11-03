@@ -21,7 +21,7 @@ function Get-WinstRowCompanionInfo {
           · 检查侧：只标 Action/Message 供展示；
           · 执行侧：`-Force` 时必须故意跳过这条分支（用户明确要求重装），检查侧没有这个语义。
     .OUTPUTS
-        Get-WinstCompanionUpdateInfo 的结果（@{ Checked; CompanionsOnly; ChangedCount; Names; Error }）；
+        Get-WinstCompanionUpdateInfo 的结果（含 RequiresLanding）；
         取不到计划条目时返回 $null。
     #>
     param(

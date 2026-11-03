@@ -83,7 +83,9 @@ function Resolve-DirectSource {
         }
 
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $result
-        $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Dest $dest
+        # 固定地址来源不提供逐文件版本：只有主包（第 1 项）的版本是它自己的，其余跟随主包版本
+        $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Dest $dest `
+            -OwnVersion ([bool]($index -eq 1))
     }
 
     # 主包地址由清单的版本号 + 地址模板拼出，探测一次即可发现清单里写错的版本号或模板

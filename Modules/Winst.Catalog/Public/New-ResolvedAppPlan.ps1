@@ -31,21 +31,30 @@ function New-ResolvedAppPlan {
     $displayName = [string]$plan['name']
     $fileList = @($plan['download']['files'])
 
-    # ③ 复制 / 改名 ④ 环境变量 / PATH / 快捷方式 ⑤ 安装后命令 ⑥ 版本检测
-    # 先按通用口径算出来；installer / download 分支随后按类型覆盖（与拆分前的顺序一致）
-    $copyResult = New-WinstPlanCopyBlock -Entry $Entry -Version $version
-    if ($copyResult.Error) { $plan['error'] = $copyResult.Error; return $plan }
-    $copyList = @($copyResult.Items)
-    $system = New-WinstPlanSystemBlock -Entry $Entry -Version $version
-    $postList = @(New-WinstPlanPostInstallBlock -Entry $Entry -Version $version)
-    $detectResult = New-WinstPlanDetectBlock -Entry $Entry -Version $version -Type $type -DisplayName $displayName
-    if ($detectResult.Error) { $plan['error'] = $detectResult.Error; return $plan }
-    $detectBlock = $detectResult.Block
-
-    $envMap = $system.Env
-    $pathList = $system.Path
-    $desktop = [bool]$system.Desktop
-    $startMenu = [bool]$system.StartMenu
+    # 只解析当前类型适用的阶段；被忽略字段不进入业务校验。
+    $copyList = @()
+    $postList = @()
+    $envMap = [ordered]@{}
+    $pathList = @()
+    $desktop = $false
+    $startMenu = $false
+    $detectBlock = [ordered]@{ method = 'none' }
+    if ($type -ne 'installer' -and $type -ne 'download') {
+        $copyResult = New-WinstPlanCopyBlock -Entry $Entry -Version $version
+        if ($copyResult.Error) { $plan['error'] = $copyResult.Error; return $plan }
+        $copyList = @($copyResult.Items)
+        $system = New-WinstPlanSystemBlock -Entry $Entry -Version $version
+        $envMap = $system.Env
+        $pathList = $system.Path
+        $desktop = [bool]$system.Desktop
+        $startMenu = [bool]$system.StartMenu
+        $postList = @(New-WinstPlanPostInstallBlock -Entry $Entry -Version $version)
+    }
+    if ($type -ne 'download') {
+        $detectResult = New-WinstPlanDetectBlock -Entry $Entry -Version $version -Type $type -DisplayName $displayName
+        if ($detectResult.Error) { $plan['error'] = $detectResult.Error; return $plan }
+        $detectBlock = $detectResult.Block
+    }
     $shortcutName = ''
 
     # ② 解压 / 安装 与 ⑦ 卸载
@@ -55,23 +64,10 @@ function New-ResolvedAppPlan {
         $installBlock = $blocks.Install
         $uninstallBlock = $blocks.Uninstall
         foreach ($note in @($blocks.Notes)) { $notes += $note }
-        # 安装版软件的系统项由安装程序自己管理：清空 ③④⑤ 的结果（与拆分前一致）
-        $envMap = [ordered]@{}
-        $pathList = @()
-        $copyList = @()
-        $postList = @()
-        $desktop = $false
-        $startMenu = $false
     } elseif ($type -eq 'download') {
+        $plan['processes'] = @()
         $installBlock = [ordered]@{ method = 'download' }
         $uninstallBlock = [ordered]@{ method = 'clean-cache' }
-        $detectBlock = [ordered]@{ method = 'none' }
-        $envMap = [ordered]@{}
-        $pathList = @()
-        $copyList = @()
-        $postList = @()
-        $desktop = $false
-        $startMenu = $false
         # 「只下载软件包、不安装到电脑」不写进 notes：计划详情里已有「类型 + ② 安装 不适用」的
         # 固定说明（见 Show-WinstPlanDetail），再写一条纯重复
     } else {
@@ -100,10 +96,9 @@ function New-ResolvedAppPlan {
     $plan['uninstall'] = $uninstallBlock
     $plan['notes'] = $notes
 
-    # 无法获取最新版本号的条目：解析时顺手发一次 HEAD，
-    # 比对「远端文件」与「缓存索引里上次下载的记账」（ETag / Last-Modified / 长度），结论存进解析锁
+    # package 来源按 compare 比较远端与缓存文件，结论存入解析锁；可能读取 HTTP 校验器或摘要。
     # （remoteFresh：changed / unchanged / unknown）——各列表 / 详情据此提示「远端有新包」，
-    # 展示时读锁即可、零网络请求；HEAD 失败 / 没有基线时如实记 unknown，不猜测
+    # 展示时只读锁；判据不可比时记 unknown。
     if ([bool]$plan['versionFromPackage']) {
         Set-WinstPlanRemoteFresh -Plan $plan -PkgDir $PkgDir -Context $Context
     }

@@ -7,9 +7,10 @@ function New-WinstListItem {
     .DESCRIPTION
         结论口径与「已装软件 / 已下载包 / 软件列表」共用同一批判定函数（Get-WinstRowBestEntry /
         Get-WinstRowSourceText / Compare-WinstVersion），不另写一套版本结论。
+        PlanAvailable 表示可执行的下载计划；VersionPending 表示计划可用、版本需取包后确认。
         PinMismatch：清单里写了 `id==版本`，而软件源里最高可用版本不是它（由调用方提示，不悄悄忽略）。
     .OUTPUTS
-        [ordered]@{ Id; DisplayName; PinnedVersion; PinMismatch; PinUnknown; InCatalog; SourceText;
+        [ordered]@{ Id; DisplayName; PinnedVersion; PinMismatch; PinUnknown; InCatalog; PlanAvailable; VersionPending; SourceText;
                     BestVersion; BestSource; Row; Installed; InstalledVersion; InstalledVersionText;
                     InstalledDirMissing; UpdateState; CacheHas; CacheVersion; CacheVersionText;
                     CacheFiles; CacheDir; CacheSizeText; CacheFileCount; HasPackageUpdate;
@@ -28,6 +29,7 @@ function New-WinstListItem {
     $ledger = $null
     if ($Lookup.State) { $ledger = Get-WinstInstalledApp -State $Lookup.State -Id $Id }
     $facts = Get-WinstRowViewFacts -Id $Id -Row $row -Ledger $ledger
+    $planAvailable = [bool]($row -and (Get-WinstRowBestPlanEntry -Row $row))
     $installedFacet = Get-WinstInstalledFacet -Ledger $ledger -Facts $facts
 
     $cacheInfo = $null
@@ -57,6 +59,7 @@ function New-WinstListItem {
     if ($row) { $typeText = Get-WinstRowType -Row $row }
 
     return [ordered]@{
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Row $row -Ledger $ledger -CacheIndex $Lookup.CacheIndex)
         Id                   = $Id
         DisplayName          = [string]$facts.DisplayName
         Type                 = $typeText
@@ -64,6 +67,8 @@ function New-WinstListItem {
         PinMismatch          = $pinMismatch
         PinUnknown           = $pinUnknown
         InCatalog            = [bool]$facts.InCatalog
+        PlanAvailable        = $planAvailable
+        VersionPending       = [bool]($planAvailable -and -not $facts.BestVersion)
         SourceText           = [string]$facts.SourceText
         BestVersion          = [string]$facts.BestVersion
         BestSource           = [string]$facts.BestSource

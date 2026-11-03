@@ -47,7 +47,7 @@ function Update-WinstPackageCacheIndex {
             # 包内派生版本可能在下载校验后才确定，来源指纹必须绑定最终写入解析锁的版本。
             if ($filePlan['ChecksumHashFile']) {
                 $filePlan['ChecksumFingerprint'] = Get-WinstChecksumDeclarationFingerprint -FileName $name `
-                    -FileDecl $filePlan['Decl'] -FileUrl ([string]$filePlan['Url']) -SourceVersion $Version
+                    -FileDecl $filePlan['Decl'] -FileUrl ([string]$filePlan['Url']) -FileVersion ([string]$filePlan['FileVersion'])
             }
             $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
                 -ExpectedHash ([string]$filePlan['ExpectedHash']) -ExpectedAlgorithm ([string]$filePlan['ExpectedAlgorithm']) `
@@ -59,11 +59,8 @@ function Update-WinstPackageCacheIndex {
     foreach ($metaKey in @($indexFileMeta.Keys)) {
         if ($indexNames -notcontains [string]$metaKey) { $indexFileMeta.Remove($metaKey) }
     }
-    # 写回前重读最新索引：引擎引导（Confirm-* → Update-WinstEngineIfOutdated → Install-WinstEngine）
-    # 引擎自动更新可能在流程中途写过索引，而 $index 还是流程开始时的快照：
-    # 直接整表写回会抹掉中途新增 / 更新的条目。重读后只合并本条目的记账，其它条目以最新为准
-    $freshIndexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
-    $freshIndex = $freshIndexRead.Index
-    Set-WinstCacheIndexEntry -Index $freshIndex -Id $Id -Version $Version -Files $indexNames -Hashes $indexHashes -ManifestHashes $indexManifestHashes -FileMeta $indexFileMeta
-    Save-WinstCacheIndex -PkgDir $Context.PkgDir -Index $freshIndex
+    Save-WinstCacheIndex -PkgDir $Context.PkgDir -Update {
+        param($index)
+        Set-WinstCacheIndexEntry -Index $index -Id $Id -Version $Version -Files $indexNames -Hashes $indexHashes -ManifestHashes $indexManifestHashes -FileMeta $indexFileMeta
+    }
 }

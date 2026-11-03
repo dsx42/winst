@@ -21,6 +21,12 @@ function Remove-WinstEnvironmentVariableEx {
         throw ('需要管理员权限才能删除系统级环境变量（{0}）。请以管理员身份运行 winst 后重试。' -f $Name)
     }
 
+    $oldPersistentPath = @()
+    foreach ($pathScope in @('Machine', 'User')) {
+        $rawPath = Get-WinstEnvironmentValue -Name 'Path' -Scope $pathScope
+        $oldPersistentPath += @(Get-WinstPathSegments -Value ([Environment]::ExpandEnvironmentVariables([string]$rawPath)))
+    }
+    $sessionPath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Process)
     $instances = @(Get-WinstEnvironmentInstance -Name $Name -Scope $Scope)
     foreach ($instance in $instances) {
         try {
@@ -30,8 +36,15 @@ function Remove-WinstEnvironmentVariableEx {
         }
     }
 
-    try { [Environment]::SetEnvironmentVariable($Name, [NullString]::Value, [System.EnvironmentVariableTarget]::Process) } catch { }
     $null = Set-WinstState -Name WinstEnvironmentCache -Value ($null)
+    if ($Name -ine 'Path') {
+        $remaining = Get-WinstEnvironmentValue -Name $Name -Scope 'User'
+        if ($null -eq $remaining) { $remaining = Get-WinstEnvironmentValue -Name $Name -Scope 'Machine' }
+        $value = [NullString]::Value
+        if ($null -ne $remaining) { $value = [Environment]::ExpandEnvironmentVariables([string]$remaining) }
+        [Environment]::SetEnvironmentVariable($Name, $value, [System.EnvironmentVariableTarget]::Process)
+    }
+    Sync-WinstProcessPath -OldPersistent $oldPersistentPath -SessionPath $sessionPath
     Send-WinstSettingChange
     return ($instances.Count -gt 0)
 }

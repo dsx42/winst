@@ -34,14 +34,7 @@ function Invoke-WinstHttpRequest {
     $lastError = $null
     foreach ($currentProxy in $attempts) {
         try {
-            $params = @{
-                Uri             = $Uri
-                UseBasicParsing = $true
-                TimeoutSec      = $TimeoutSec
-            }
-            if ($currentProxy) { $params['Proxy'] = $currentProxy }
-            if ($Headers -and $Headers.Count -gt 0) { $params['Headers'] = $Headers }
-            if ($Method -and $Method -ine 'Get') { $params['Method'] = $Method }
+            $params = New-WinstHttpRequestParameters -Uri $Uri -TimeoutSec $TimeoutSec -Method $Method -Headers $Headers -Proxy $currentProxy
 
             if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
                 $headerNote = ''

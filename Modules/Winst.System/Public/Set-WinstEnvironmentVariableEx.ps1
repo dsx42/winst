@@ -30,6 +30,12 @@ function Set-WinstEnvironmentVariableEx {
         return
     }
 
+    $oldPersistentPath = @()
+    foreach ($pathScope in @('Machine', 'User')) {
+        $rawPath = Get-WinstEnvironmentValue -Name 'Path' -Scope $pathScope
+        $oldPersistentPath += @(Get-WinstPathSegments -Value ([Environment]::ExpandEnvironmentVariables([string]$rawPath)))
+    }
+    $sessionPath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Process)
     try {
         $instances = @(Get-WinstEnvironmentInstance -Name $Name -Scope $Scope)
         if ($instances.Count -gt 0) {
@@ -45,8 +51,9 @@ function Set-WinstEnvironmentVariableEx {
 
     # 当前会话生效（%VAR% 按当前进程环境展开）
     $sessionValue = [Environment]::ExpandEnvironmentVariables($Value)
-    try { [Environment]::SetEnvironmentVariable($Name, $sessionValue, [System.EnvironmentVariableTarget]::Process) } catch { }
+    if ($Name -ine 'Path') { [Environment]::SetEnvironmentVariable($Name, $sessionValue, [System.EnvironmentVariableTarget]::Process) }
     # 库里的值已变：清掉 Win32_Environment 快照，后续读取必须看到新值（TTL 只是外部修改的兜底）
     $null = Set-WinstState -Name WinstEnvironmentCache -Value ($null)
+    Sync-WinstProcessPath -OldPersistent $oldPersistentPath -SessionPath $sessionPath
     Send-WinstSettingChange
 }

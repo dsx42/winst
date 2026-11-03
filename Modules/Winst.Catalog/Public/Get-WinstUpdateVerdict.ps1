@@ -3,11 +3,9 @@
 function Get-WinstUpdateVerdict {
     <#
     .SYNOPSIS
-        版本结论判定：已装软件 / 已下载包 / 软件列表 / 清单预览四处共用。
+        已装软件、已下载包、软件列表和清单预览共用的版本结论。
     .DESCRIPTION
-        四个视图构造函数共用「remoteFresh → 比较版本 → update / latest / newer」的判定矩阵
-        （同一句提示文案出现 5 次），其中 New-WinstListItem 漏了 versionFromPackage 的 remoteFresh 分支，
-        同一条目在「软件列表」与「已装软件」里会给出不同结论。统一到这里。
+        先应用 package 来源的远端新鲜度，再比较可用版本；返回统一状态与提示。
     .OUTPUTS
         @{ State; Hint; HasUpdate }
     #>
@@ -21,8 +19,8 @@ function Get-WinstUpdateVerdict {
         [string]$MissingCurrentState = 'unknown'
     )
 
-    $freshChanged = '↑ 远端有新包（HEAD 检测），建议重新下载'
-    $freshUnknown = '↑ 无法判断远端是否有新包（HEAD 检测未得出结论）'
+    $freshChanged = '↑ 远端有新包（文件比较），建议重新下载'
+    $freshUnknown = '↑ 无法判断远端是否有新包（文件比较未得出结论）'
 
     if ($ForPackage) {
         # 安装包结论：三条新鲜度分支都要求「缓存里有版本」

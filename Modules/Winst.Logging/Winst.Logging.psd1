@@ -5,7 +5,7 @@
     Author               = 'winst'
     CompanyName          = 'winst'
     Copyright            = '(c) winst'
-    Description          = '统一输出：分级消息、段落标题、缩进、颜色。业务模块不再直接 Write-Host。'
+    Description          = '显示区块标题及其分隔线。'
     PowerShellVersion    = '5.1'
     CompatiblePSEditions = @('Desktop')
 

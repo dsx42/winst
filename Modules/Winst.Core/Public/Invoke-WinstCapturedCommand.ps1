@@ -5,17 +5,9 @@ function Invoke-WinstCapturedCommand {
     .SYNOPSIS
         在「不接触当前控制台」的隐藏进程里执行命令并捕获输出。
     .DESCRIPTION
-        为什么必须这样起进程：版本检测要运行目标软件自己，而「GUI + 控制台」混合型的程序（如 Rufus：
-        `rufus.exe --help` 由它内置的控制台入口输出帮助）会把内容**直接写进控制台设备**，绕过 stdout 重定向。
-        子进程与 winst 共用同一个控制台时，这段帮助文本就会打在 winst 的界面上，还会和随后的输入提示
-        抢同一个控制台（例如 Rufus 装完后的 `Usage: rufus …` 与之后「请输入软件名称或关键字」里多出来的
-        那一串内容都来自这里）。改用 CreateNoWindow（子进程**不继承当前控制台**）＋ 三路重定向后：
-          · 输出只走管道，不会再打到 winst 的界面上；
-          · stdin 立刻关闭（EOF），子进程读不到键盘、不会卡在等输入；
-          · 它再启动的下级进程同样拿不到 winst 的控制台。
-        代价：**只把版本写到标准输出 / 标准错误的程序才拿得到内容**——像 Rufus 那样直接写控制台的程序
-        （没有控制台时什么都不输出）拿不到，检测判为未命中、台账回退本次安装的目标版本；这类条目应在
-        软件源里改用不运行程序的检测方式（`fileVersion` / `markerFile` 等）。
+        CreateNoWindow 隔离控制台；立即关闭 stdin，两路异步排空。
+        标准输出默认保留完整文本，超过 MaxOutputChars 明确失败；TailOutput 只保留诊断尾部。
+        标准错误保留有界尾部。NoTimeout 用于下载等需要持续运行的任务。
     .OUTPUTS
         @{ Ok; TimedOut; ExitCode; Text; ErrText; Error }
     #>
@@ -23,7 +15,9 @@ function Invoke-WinstCapturedCommand {
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string]$Arguments = '',
         [int]$TimeoutMs = 10000,
-        [switch]$NoTimeout
+        [switch]$NoTimeout,
+        [ValidateRange(1, 2147483647)][int]$MaxOutputChars = 16777216,
+        [switch]$TailOutput
     )
 
     $result = @{ Ok = $false; TimedOut = $false; ExitCode = -1; Text = ''; ErrText = ''; Error = '' }
@@ -53,8 +47,8 @@ function Invoke-WinstCapturedCommand {
 
     try {
         # 两路输出都异步读走（任一路管道写满都会让子进程卡住），随后立刻关掉 stdin 给它一个 EOF
-        $outTask = $p.StandardOutput.ReadToEndAsync()
-        $errTask = $p.StandardError.ReadToEndAsync()
+        $outTask = [Winst.State]::CaptureAsync($p.StandardOutput, $MaxOutputChars, [bool]$TailOutput)
+        $errTask = [Winst.State]::CaptureAsync($p.StandardError, 65536, $true)
         try { $p.StandardInput.Close() } catch { }
 
         $finished = $false
@@ -76,7 +70,13 @@ function Invoke-WinstCapturedCommand {
 
         $result.ExitCode = $p.ExitCode
         $result.Ok = $true
-        try { if ($outTask.Wait(2000)) { $result.Text = [string]$outTask.Result } } catch { $result.Text = '' }
+        try {
+            if (-not $outTask.Wait(2000)) { throw '命令结束后输出流未关闭' }
+            $result.Text = [string]$outTask.Result
+        } catch {
+            $result.Ok = $false
+            $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.Message)
+        }
         try { if ($errTask.Wait(2000)) { $result.ErrText = [string]$errTask.Result } } catch { $result.ErrText = '' }
     } finally {
         try { $p.Dispose() } catch { }

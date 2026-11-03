@@ -31,7 +31,7 @@ function Invoke-MenuLoop {
         Clear-ScreenSafe
         & $Render $Context
 
-        $choice = (Read-MenuChoice -Valid $Choices).ToLowerInvariant()
+        $choice = (Read-MenuChoice -Valid $Choices -EmptyAsBack:$CanGoBack).ToLowerInvariant()
 
         if ((Test-WinstQuitKey -Text $choice)) { return 'quit' }
         if ($choice -eq 'b') {

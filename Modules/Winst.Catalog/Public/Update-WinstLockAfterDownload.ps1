@@ -24,20 +24,28 @@ function Update-WinstLockAfterDownload {
     if (-not $meta -or -not $meta.HasApps) { return }
 
     $changed = $false
+    $apps = @()
     foreach ($app in @($meta.Apps)) {
-        $p = $app.PSObject.Properties['id']
-        if (-not $p -or (([string]$p.Value).Trim() -ine $Id)) { continue }
-
-        $rf = $app.PSObject.Properties['remoteFresh']
-        if ($rf) { $rf.Value = 'unchanged' } else { $app | Add-Member -NotePropertyName remoteFresh -NotePropertyValue 'unchanged' }
-        $vp = $app.PSObject.Properties['version']
-        if ($vp) { $vp.Value = [string]$Version } else { $app | Add-Member -NotePropertyName version -NotePropertyValue ([string]$Version) }
-        $vc = $app.PSObject.Properties['versionFromCache']
-        if ($vc) { $vc.Value = $false } else { $app | Add-Member -NotePropertyName versionFromCache -NotePropertyValue $false }
+        if ((Get-EntryString -Entry $app -Key 'id') -cne $Id) { $apps += $app; continue }
+        $copy = Copy-WinstObjectShallow -InputObject $app
+        $null = Set-EntryValue -Entry $copy -Key 'remoteFresh' -Value 'unchanged'
+        $null = Set-EntryValue -Entry $copy -Key 'version' -Value ([string]$Version)
+        $null = Set-EntryValue -Entry $copy -Key 'versionFromCache' -Value $false
+        $apps += $copy
         $changed = $true
     }
     if (-not $changed) { return }
 
-    Write-ManifestMeta -PkgDir $Context.PkgDir -Name $SourceName -Url $meta.Url -Version $meta.Version `
-        -FetchedAt $meta.FetchedAt -ResolvedAt $meta.ResolvedAt -Apps $meta.Apps
+    try {
+        Write-ManifestMeta -PkgDir $Context.PkgDir -Name $SourceName -Url $meta.Url -Version $meta.Version `
+            -FetchedAt $meta.FetchedAt -ResolvedAt $meta.ResolvedAt -Apps $apps
+    } catch {
+        $path = Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $SourceName
+        $copy = Copy-WinstObjectShallow -InputObject $meta
+        $copy['Apps'] = $apps
+        (Get-WinstState -Name WinstManifestSessionMeta)[$path] = $copy
+        (Get-WinstState -Name WinstManifestPersistUnavailable)[$path] = $true
+        Reset-WinstCatalogCache
+        Write-Host ('    提示: 下载后的解析锁未能写盘，本次更新仅在当前会话生效：{0}' -f $_.Exception.Message) -ForegroundColor Yellow
+    }
 }

@@ -3,7 +3,7 @@
 function Add-WinstLedgerEntryFromScan {
     <#
     .SYNOPSIS
-        为扫描到但台账里没有的软件新建一条记录（含按当前清单推导 applied* 登记）。
+        为扫描发现的软件新建记录；扫描不能证明系统项由 winst 写入，不认领 applied*。
     #>
     param([hashtable]$Context, $State, [string]$Id, $Info, $Plan, [string]$Now, [hashtable]$Counters)
 
@@ -12,22 +12,6 @@ function Add-WinstLedgerEntryFromScan {
     $appliedEnv = @()
     $appliedPath = @()
     $appliedShortcuts = @()
-    if ($app -and [string]$Info['Managed'] -eq 'winst') {
-        # 按当前生效清单声明推导登记值
-        $scope = Get-WinstInstallScope -InstallDir ([string]$Info['InstallDir'])
-        foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $app -Key 'env' -Default $null))) {
-            $name = [string]$pair['Key']
-            if ($name) { $appliedEnv += [ordered]@{ name = $name; scope = $scope } }
-        }
-        foreach ($item in @(Get-EntryArray -Entry $app -Key 'addToPath')) {
-            $text = [string]$item
-            if (-not $text) { continue }
-            if ($text -ieq 'true' -or $text -ieq '{installDir}') { $text = [string]$Info['InstallDir'] }
-            else { $text = Expand-PlanPlaceholders -Value $text -InstallDir ([string]$Info['InstallDir']) -InstallRoot $Context.InstallRoot }
-            if ($text) { $appliedPath += [ordered]@{ path = $text; scope = $scope } }
-        }
-        foreach ($link in @(Get-WinstShortcutPaths -Plan $app)) { $appliedShortcuts += $link }
-    }
 
     Set-WinstInstalledApp -State $State -Id $Id -Entry ([ordered]@{
         version          = [string]$Info['Version']

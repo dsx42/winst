@@ -99,10 +99,15 @@ function Invoke-WinstUninstallApp {
     }
 
     # —— ② 回收 winst 写入的系统项 ——
-    Remove-WinstAppliedSystemItems -Context $Context -State $state -Id $Id -Targets $targets -RunState $runState -Quiet:$Quiet
+    try {
+        Remove-WinstAppliedSystemItems -Context $Context -State $state -Id $Id -Targets $targets -RunState $runState -Quiet:$Quiet
+    } catch {
+        $result.Error = ('移交共享系统项登记失败，已保留安装记录：{0}' -f $_.Exception.Message)
+        return $result
+    }
 
     # —— ③ 移除安装记录 ——
-    $ledgerResult = Remove-WinstUninstallLedgerEntry -Context $Context -State $state -Id $Id
+    $ledgerResult = Remove-WinstUninstallLedgerEntry -Context $Context -Id $Id
     if ($ledgerResult.Error) {
         $result.Error = [string]$ledgerResult.Error
         return $result

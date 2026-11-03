@@ -55,7 +55,7 @@ function Get-WinstInstalledDeclaredItems {
             if ($envSeen.ContainsKey($key)) {
                 # 同名的已登记项补上「软件源声明的值」，卸载时据此恢复
                 for ($i = 0; $i -lt $envItems.Count; $i++) {
-                    if (([string]$envItems[$i]['name']) -ceq $name -and ([string]$envItems[$i]['scope']) -ceq $scope) {
+                    if (([string]$envItems[$i]['name']) -ieq $name -and ([string]$envItems[$i]['scope']) -ieq $scope) {
                         $envItems[$i]['value'] = $value
                         break
                     }

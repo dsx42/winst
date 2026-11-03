@@ -28,7 +28,6 @@ function New-WinstGithubResolvedFiles {
         if ($locator.Error) { return @{ Error = [string]$locator.Error; Files = $files; MissingFile = $false } }
 
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $Result
-        $nameOverride = Get-EntryString -Entry $item -Key 'name'
 
         # ② 文件名匹配规则（file，通配写法）：抓取该发布的文件列表后匹配
         if ($locator.File) {
@@ -75,7 +74,8 @@ function New-WinstGithubResolvedFiles {
 
             $assetName = $matched[0]
             $url = Expand-GitHubFileUrl -Repo $Repo -Tag $ChosenTag -FileName $assetName
-            $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Name $assetName -Dest $dest
+            $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Name $assetName -Dest $dest `
+                -OwnVersion ([bool]($index -eq 1) -or [bool]$fileVersion.Own)
             continue
         }
 
@@ -108,7 +108,8 @@ function New-WinstGithubResolvedFiles {
         }
         if ($urlProbe.Note) { $Result.Notes += [string]$urlProbe.Note }
 
-        $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Name $nameOverride -Dest $dest
+        $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Dest $dest `
+            -OwnVersion ([bool]($index -eq 1))
     }
 
     return @{ Error = ''; Files = $files; MissingFile = $false }

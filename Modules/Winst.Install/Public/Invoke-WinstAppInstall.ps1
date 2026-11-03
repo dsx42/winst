@@ -89,9 +89,7 @@ function Invoke-WinstAppInstall {
         return $result
     }
 
-    # --dry-run 一律在这里收口：预览不下载、不落盘、不写台账。
-    # 之前只挡住「需要下载」的情况，主包命中缓存时（例如「只更新附加文件」或包早就下好）
-    # needDownload=false，于是继续往下真的下载 / 解压 / 覆盖安装。
+    # 预览在取包与落位之前结束；前置识别可能登记已存在的外部安装，边界见 CLI 文档。
     if ($dryRun) {
         $result.Ok = $true
         $result.Preview = $true
@@ -226,11 +224,13 @@ function Invoke-WinstAppInstall {
         }
     }
 
-    # —— 配套文件按 dest 落位 + 删除上次落位、这次不需要的旧文件（installer 的配套文件仅缓存）——
+    # —— 配套文件按 dest 落位（覆盖写入）+ 完整安装时删除上次落位、这次不需要的旧文件 ——
+    # 仅配套文件更新只覆盖这次变化的附件，不删除安装目录里的任何其它文件
     $landing = Add-WinstCompanionFiles -Context $Context -Files $files -PkgDir $pkgDir -InstallDir $installDir `
-        -Ledger $ledger -Method $method -Quiet:$Quiet
+        -Ledger $ledger -Method $method -CompanionOnly:$companionOnlyUpdate -Quiet:$Quiet -ChangedNames $downloadedNames
     if ($landing.Error) { $result.Error = [string]$landing.Error; return $result }
     $appliedFiles = @($landing.Files)
+    $appliedFileVersions = Get-WinstAppliedFileVersions -Context $Context -Id $id -Files $files -Ledger $ledger -Landing $landing -CompanionOnly:$companionOnlyUpdate
     $staleRemoved = @($landing.Removed)
     $staleDirs = @($landing.KeptDirs)
 
@@ -240,19 +240,16 @@ function Invoke-WinstAppInstall {
         if ($ledger) {
             # appliedFiles 用流程开始时的条目做浅拷贝；落盘由 Save-WinstInstalledAppEntry 重读后只覆盖这一条
             $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot `
-                -Id $id -Entry $ledger -Fields @{ appliedFiles = $appliedFiles }
+                -Id $id -Entry $ledger -Fields @{ appliedFiles = $appliedFiles; appliedFileRules = $landing.Rules; appliedFileVersions = $appliedFileVersions }
         }
-        $updatedNames = @()
-        foreach ($filePlan in $plans) {
-            if ($filePlan['NeedDownload']) { $updatedNames += [string]$filePlan['Name'] }
-        }
+        $updatedNames = @($landing.UpdatedNames)
+        # 仅配套文件更新不删任何文件，这两项恒为空；保留判断是为了完整安装路径复用同一段消息
         $removedNote = ''
         if ($staleRemoved.Count -gt 0) { $removedNote = ('，删除 {0} 个旧文件（{1}）' -f $staleRemoved.Count, ($staleRemoved -join '、')) }
         if ($staleDirs.Count -gt 0) { $removedNote += ('，保留旧目录（{0}）' -f ($staleDirs -join '、')) }
         $result.Ok = $true
         $result.InstallDir = $installDir
         $result.Message = ('{0} {1}：主包无变化；已更新 {2} 个附加文件（{3}）{4}' -f $displayName, $detected, $updatedNames.Count, ($updatedNames -join '、'), $removedNote)
-        if (-not $Quiet) { Write-Host ('  ' + $result.Message) -ForegroundColor Green }
         return $result
     }
 
@@ -265,7 +262,7 @@ function Invoke-WinstAppInstall {
         try {
             Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
                 -InstallDir $installDir -Version $version -SourceName $SourceName `
-                -SystemItems $system.Items -AppliedFiles $appliedFiles -OldVersions @()
+                -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions -OldVersions @()
         } catch {
             $result.Error = ('{0}（且写入安装台账失败：{1}）' -f [string]$system.Error, $_.Exception.Message)
             return $result
@@ -283,7 +280,7 @@ function Invoke-WinstAppInstall {
     try {
         Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
             -InstallDir $installDir -Version $finalVersion -SourceName $SourceName `
-            -SystemItems $system.Items -AppliedFiles $appliedFiles -OldVersions @($final.OldVersions)
+            -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions -OldVersions @($final.OldVersions)
     } catch {
         $result.Error = ('{0} 的文件已落位，但写入安装台账失败：{1}' -f $displayName, $_.Exception.Message)
         return $result

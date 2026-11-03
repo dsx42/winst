@@ -34,7 +34,8 @@ function New-WinstPageResolvedFiles {
             return @{ Error = ('配套文件的下载地址里的版本号无法替换: {0}' -f $extraLocator.Url); Files = $resolvedFiles }
         }
         $extraDest = Get-EntryString -Entry $extra -Key 'dest'
-        $resolvedFiles += New-ResolvedFileFromDeclaration -Item $extra -Url $extraUrl -Version $extraVersion.Version -Dest $extraDest
+        $resolvedFiles += New-ResolvedFileFromDeclaration -Item $extra -Url $extraUrl -Version $extraVersion.Version `
+            -Dest $extraDest -OwnVersion ([bool]$extraVersion.Own)
     }
 
     return @{ Error = ''; Files = $resolvedFiles }

@@ -31,7 +31,7 @@ function Invoke-BundleInstall {
         return
     }
 
-    $loaded = Get-WinstListItems -Context $Context -Path ([string]$picked.Path)
+    $loaded = Get-WinstListItems -Context $Context -Path ([string]$picked.Path) -RefreshSources
     if (-not $loaded.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $loaded.Error) -ForegroundColor Red
@@ -46,11 +46,6 @@ function Invoke-BundleInstall {
         Write-Host '  请先到「高级功能 → 管理安装清单」里新建或编辑清单，挑选软件。' -ForegroundColor DarkGray
         return
     }
-
-    # 清单里的软件才是要展示 / 安装的：按需刷新它们的版本信息
-    $bundleIds = @(Get-WinstDisplayIds -Items $loaded.Items)
-    $refresh = Update-WinstDisplaySources -Context $Context -Ids $bundleIds -Quiet
-    Write-WinstRefreshErrors -Errors $refresh.Errors
 
 
     Write-Host ''

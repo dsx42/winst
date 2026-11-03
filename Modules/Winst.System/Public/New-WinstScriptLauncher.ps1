@@ -3,7 +3,7 @@
 function New-WinstScriptLauncher {
     <#
     .SYNOPSIS
-        为主程序是 PowerShell 脚本（.ps1）的条目生成同名 .cmd 启动器，返回 .cmd 的完整路径。
+        为 PowerShell 脚本生成 .cmd 启动器；批处理元字符文件名使用稳定安全名。
     .DESCRIPTION
         .lnk 不能直接指向 .ps1：双击时由 shell 按文件关联「打开」脚本（记事本打开 / 被执行策略拦下），不会执行。
         因此在脚本旁边写一个同名 .cmd（winst.ps1 → winst.cmd），内容为
@@ -20,7 +20,13 @@ function New-WinstScriptLauncher {
     try { $scriptFull = [IO.Path]::GetFullPath($ScriptPath) } catch { $scriptFull = $ScriptPath }
     $scriptName = [IO.Path]::GetFileName($scriptFull)
     $launcherPath = [IO.Path]::ChangeExtension($scriptFull, '.cmd')
-    $content = ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0{0}" %*' -f $scriptName)
+    if ($scriptName -match '[%!]') {
+        $hash = [Security.Cryptography.SHA256]::Create()
+        try { $suffix = ([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($scriptName)))).Replace('-', '').ToLowerInvariant() }
+        finally { $hash.Dispose() }
+        $launcherPath = Join-WinstPath (Split-Path -Parent $scriptFull) ('winst-launch-' + $suffix + '.cmd')
+    }
+    $content = ('@echo off' + "`r`n" + 'setlocal DisableDelayedExpansion' + "`r`n" + 'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0{0}" %*' -f $scriptName.Replace('%', '%%'))
 
     if (Test-Path -LiteralPath $launcherPath -PathType Leaf) {
         $existing = ''
@@ -35,6 +41,9 @@ function New-WinstScriptLauncher {
     # .cmd 由 cmd.exe 按控制台代码页（OEM）读取，带非 ASCII 文件名时用 OEM 代码页落盘才不会乱码
     $encoding = $null
     try { $encoding = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage) } catch { $encoding = [Text.Encoding]::Default }
+    $encoded = $encoding.GetBytes($content)
+    if ($encoding.GetString($encoded) -cne $content) { throw '脚本文件名无法用当前批处理代码页表示，无法生成启动器' }
+    Assert-WinstSafeWritePath -Path $launcherPath
     [IO.File]::WriteAllText($launcherPath, ($content + "`r`n"), $encoding)
     return $launcherPath
 }

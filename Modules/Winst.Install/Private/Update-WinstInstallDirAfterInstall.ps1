@@ -14,8 +14,9 @@ function Update-WinstInstallDirAfterInstall {
     $assumedDir = $InstallDir
     $actual = @{ Dir = ''; FromRegistry = $false }
     for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Reset-WinstSystemCache
         $actual = Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $assumedDir
-        if ($actual.Dir -or $attempt -ge 3) { break }
+        if ($actual.FromRegistry -or $attempt -ge 3) { break }
         Start-Sleep -Milliseconds 1200
     }
     if ($actual.Dir) {

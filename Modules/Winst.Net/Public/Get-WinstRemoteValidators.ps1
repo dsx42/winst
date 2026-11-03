@@ -36,14 +36,7 @@ function Get-WinstRemoteValidators {
     $lastError = ''
     foreach ($currentProxy in $attempts) {
         try {
-            $params = @{
-                Uri             = $Uri
-                Method          = 'Head'
-                UseBasicParsing = $true
-                TimeoutSec      = $TimeoutSec
-                Headers         = (Get-WinstBrowserHeaders)
-            }
-            if ($currentProxy) { $params['Proxy'] = $currentProxy }
+            $params = New-WinstHttpRequestParameters -Uri $Uri -Method 'Head' -TimeoutSec $TimeoutSec -Headers (Get-WinstBrowserHeaders) -Proxy $currentProxy
             $response = Invoke-WebRequest @params
 
             $etag = ''

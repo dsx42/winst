@@ -26,46 +26,12 @@ function Show-WinstInstalledRows {
     $items = @($Items)
     if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1 } }
 
-    $updatableCount = 0
-    foreach ($one in $items) { if ([bool]$one['HasUpdate']) { $updatableCount++ } }
+    $summary = Get-WinstInstalledSummary -Items $items -ItemNoun $ItemNoun
+    $updatableCount = $summary.UpdateCount
+    $summaryText = $summary.Text
+    $summaryColor = $summary.Color
 
-    $summaryText = ('共 {0} 个{1}    都是最新版本' -f $items.Count, $ItemNoun)
-    $summaryColor = 'DarkGray'
-    if ($updatableCount -gt 0) {
-        $summaryText = ('共 {0} 个{1}    {2} 个可以更新' -f $items.Count, $ItemNoun, $updatableCount)
-        $summaryColor = 'Green'
-    }
-
-    $renderRow = {
-        param($item, $number)
-            Write-WinstListItemIdentity -Item $item -Number $number
-            Write-Host ('    版本 {0}' -f [string]$item['Version']) -NoNewline -ForegroundColor Gray
-            if ([bool]$item['HasUpdate']) {
-                Write-Host ('  {0}' -f [string]$item['UpdateHint']) -NoNewline -ForegroundColor Green
-            }
-            if ([bool]$item['DirMissing']) {
-                Write-Host '  [安装目录不存在]' -NoNewline -ForegroundColor Yellow
-            }
-            Write-Host ''
-            # 本机并存的旧版本：列表里就要能看见，用户才知道可以进去清理（详情页提供卸载选项）
-            if ([bool]$item['HasOldVersions']) {
-                Write-Host ('     还并存旧版本 {0}  [进详情可清理]' -f [string]$item['OldVersionsText']) -ForegroundColor DarkYellow
-            }
-            if ([string]$item['InstallDir']) {
-                Write-Host ('     安装位置: {0}' -f [string]$item['InstallDir']) -ForegroundColor Gray
-            } else {
-                Write-Host '     安装位置: （未记录）' -ForegroundColor DarkGray
-            }
-            # 已装软件的来源（安装时用的是哪个软件源；可更新时 UpdateHint 里也标出更新来自哪个源）
-            $noteParts = @([string]$item['ManagedText'])
-            if ([string]$item['ManifestOrigin']) {
-                $noteParts += ('来自软件源: {0}' -f [string]$item['ManifestOrigin'])
-            } else {
-                $noteParts += '来自软件源: （未记录）'
-            }
-            if (-not [bool]$item['InCatalog']) { $noteParts += '软件源里没有这个软件' }
-            Write-Host ('     {0}' -f ($noteParts -join ' · ')) -ForegroundColor DarkGray
-    }
+    $renderRow = { param($item, $number) Write-WinstInstalledRow -Item $item -Number $number }
     $renderFooter = {
         if ($AllowUpdateAll -and $updatableCount -gt 0) {
             Write-Host ('  u) 全部更新（一次性把这 {0} 个软件更新到最新版）' -f $updatableCount) -ForegroundColor White

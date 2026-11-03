@@ -47,12 +47,10 @@ function Get-WinstUninstallTargets {
     $sources = @($methodInfo.Sources)
 
     # ④ 合并要回收的系统项（去重）
-    $defaultScope = Get-WinstInstallScope -InstallDir $installDir
-    $merged = Merge-WinstUninstallEnvItems -Entry $Entry -RecordSnapshot $recordSnapshot -ManifestSnapshot $manifestSnapshot `
-        -DefaultScope $defaultScope -InstallDir $installDir -InstallRoot $Context.InstallRoot
+    $merged = Merge-WinstUninstallEnvItems -Entry $Entry
     $envList = @($merged.Env)
     $pathList = @($merged.Path)
-    $shortcuts = @(Merge-WinstUninstallShortcuts -Entry $Entry -ManifestPlan $manifestPlan)
+    $shortcuts = @(Merge-WinstUninstallShortcuts -Entry $Entry)
     $commands = @(Merge-WinstUninstallCommands -RecordSnapshot $recordSnapshot -ManifestSnapshot $manifestSnapshot)
     $cleanupItems = @(New-WinstUninstallCleanupItems -Env $envList -PathItems $pathList -Shortcuts $shortcuts)
 

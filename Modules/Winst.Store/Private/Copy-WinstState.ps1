@@ -43,7 +43,9 @@ function Copy-WinstState {
                 appliedEnv       = $entry['appliedEnv']
                 appliedPath      = $entry['appliedPath']
                 appliedShortcuts = $entry['appliedShortcuts']
+                appliedFileVersions = $entry['appliedFileVersions']
                 appliedFiles     = $entry['appliedFiles']
+                appliedFileRules = $entry['appliedFileRules']
                 oldVersions      = $entry['oldVersions']
                 uninstall        = $entry['uninstall']
             }

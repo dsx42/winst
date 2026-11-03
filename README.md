@@ -11,7 +11,7 @@ Windows 软件包管理器（Windows PowerShell 5.1）：下载、安装、更�
 - **离线优先**：取包前先查本地缓存，未命中且允许联网才下载
 - **多种下载来源**：固定直链、GitHub Releases、版本列表页、详情页、JSON 接口、磁力链接
 - **多种条目类型**：绿色版（解压）、安装版（静默安装）、单文件、仅下载
-- **不覆盖别人的安装**：非 winst 安装的软件默认只检测、登记、报告
+- **识别已有安装**：检测并登记外部软件；更新和卸载的具体动作按实际计划确认，见 [CLI](docs/cli.md#uninstall)
 - **可修复的台账**：`state.json` 损坏或丢失可扫描重建；批量操作单条失败不影响其余
 
 ## 环境要求
@@ -80,14 +80,9 @@ winst help                         :: 全部命令
 
 `winst config list` 查看，`winst config set <key> <value>` 写入 `%USERPROFILE%\.winst\config.json`：
 
-| 键 | 默认值 | 说明 |
-|---|---|---|
-| `installRoot` | `%USERPROFILE%\winst` | 软件安装根目录（台账 `state.json` 也在这里） |
-| `pkgDir` | `<数据目录>\apps` | 安装包缓存位置，可指向 U 盘或 NAS 共享路径 |
-| `pruneOldPackages` | `true` | 新包下载成功后、安装落位前删除同 id 的旧包 |
-| `manifestTTLHours` | `24` | 软件源缓存有效期（小时） |
-| `proxy` / `proxyMode` | 空 / `auto` | 代理地址与模式（`auto` / `always` / `off`） |
-| `updateFilesOnly` | `true` | 更新 / 重装已登记软件时不动环境变量与 PATH；已存在的快捷方式仍会校验并修正指向，首次安装照常补齐缺失项 |
+配置项的默认值和完整说明见 [数据文件：config.json](docs/data-files.md#configjson)。代理模式支持 `auto`、`always`、`off`、`download-direct`；清除 winst 显式代理使用 `winst config reset proxy`，设置菜单也可输入 `-` 清除。
+
+HTTP 默认请求继承系统代理与 PAC；`off` 只禁用 winst 配置的显式代理，不强制绕过系统代理。
 
 命令行参数优先于同名配置；目录还可用环境变量 `WINST_INSTALL_ROOT`、`WINST_PKG_DIR` 覆盖。软件源列表和清单位于实际使用的 `pkgDir\manifests\` 下，更换缓存目录时需注意。
 

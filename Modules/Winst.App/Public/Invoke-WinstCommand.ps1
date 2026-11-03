@@ -5,13 +5,25 @@ function Invoke-WinstCommand {
     .SYNOPSIS
         CLI 分发：按命令名调用对应处理函数，返回退出码。
     .DESCRIPTION
+        直接调用时统一解析全局开关并保留已有 Options；入口已解析时传 -Parsed，避免重复解析。
+        子命令处理函数只接收移除全局开关后的参数，按 WinstOptions 读取通用选项。
         未实现的命令会明确报错并给出帮助入口，不静默失败。
     #>
     param(
         [string]$Command = '',
         [string[]]$Arguments = @(),
-        [hashtable]$Context = $null
+        [hashtable]$Context = $null,
+        [switch]$Parsed
     )
+
+    if (-not $Parsed) {
+        $parsedCommand = Read-WinstCommandLine -Tokens (@($Command) + @($Arguments)) -InitialOptions (Get-WinstState -Name WinstOptions)
+        if ($parsedCommand.Error) { Write-Host ('  {0}' -f $parsedCommand.Error) -ForegroundColor Yellow; return 1 }
+        $null = Set-WinstState -Name WinstOptions -Value $parsedCommand.Options
+        $Command = $parsedCommand.Command
+        $Arguments = @($parsedCommand.Arguments)
+        if ($Context -and ($parsedCommand.Options.InstallRoot -or $parsedCommand.Options.PkgDir)) { Update-WinstContext -Context $Context }
+    }
 
     $name = ''
     if ($null -ne $Command) { $name = ([string]$Command).Trim().ToLowerInvariant() }

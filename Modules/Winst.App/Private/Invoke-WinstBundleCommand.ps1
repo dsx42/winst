@@ -41,8 +41,9 @@ function Invoke-WinstBundleCommand {
         'list'    { return (Invoke-WinstListShowCli -Context $Context -Path $file) }
         'edit'    {
             # 编辑是交互流程（选清单 → 挑选软件 → 保存 / 放弃），走菜单同一实现
-            Invoke-WinstListEditFlow -Context $Context -Path $file
-            return 0
+            $edited = Invoke-WinstListEditFlow -Context $Context -Path $file
+            if ($edited.Ok -or $edited.Cancelled) { return 0 }
+            return 1
         }
         'install' { return (Invoke-WinstBundleInstallCli -Context $Context -Path $file -SkipExisting:$skipExisting) }
         'pack'    { return (Invoke-WinstBundlePackCli -Context $Context -ListText $file -DirText $dir -SkipMissing:$skipMissing) }
