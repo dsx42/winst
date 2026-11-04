@@ -5,16 +5,16 @@ function Get-WinstPageLinkUrl {
     .SYNOPSIS
         link 取址：抓下载页 → 按 link 规则匹配锚点（必要时跟随 iframe）→ 可选 thenClick / thenLink 两跳。
     .OUTPUTS
-        @{ Ok; Error; Url; Html }
+        @{ Ok; Error; Url; Html; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Result)
+    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Item, $Result)
 
     # 抓页面：缺省走 IWR + 浏览器式请求头（部分站点按 UA 拒绝自动化请求）；声明 fetchWith: browser 时
     # 改用系统自带的 Microsoft Edge 抓取——IWR / curl 在客户端特征层面被整体拒绝的站点只能用这条路，
     # 但页面给出的地址（如 filezilla CDN 带签名的 zip 链接）下载引擎照常能下
     $page = Get-SourcePageHtml -Context $Context -Source $Source -PageUrl $PageUrl -Label '下载页'
     if (-not $page.Ok) {
-        return @{ Ok = $false; Error = [string]$page.Error; Url = ''; Html = '' }
+        return @{ Ok = $false; Error = [string]$page.Error; Url = ''; Html = ''; PageHash = '' }
     }
     $html = [string]$page.Html
     $anchors = @($page.Anchors)
@@ -34,7 +34,7 @@ function Get-WinstPageLinkUrl {
         $matchedAnchors = @($iframe.Matched)
     }
     if ($matchedAnchors.Count -eq 0) {
-        return @{ Ok = $false; Error = ('在下载页 {1} 上没有找到符合条件（{0}）的下载按钮；可能是页面结构变更，需要更新软件源' -f (Format-LinkSpec -Spec $LinkSpec), $PageUrl); Url = ''; Html = $html }
+        return @{ Ok = $false; Error = ('在下载页 {1} 上没有找到符合条件（{0}）的下载按钮；可能是页面结构变更，需要更新软件源' -f (Format-LinkSpec -Spec $LinkSpec), $PageUrl); Url = ''; Html = $html; PageHash = '' }
     }
 
     $absoluteUrls = @()
@@ -51,31 +51,33 @@ function Get-WinstPageLinkUrl {
     if ($FileRule) {
         $absoluteUrls = @(Select-WinstUrlByFileRule -Urls $absoluteUrls -FileRule $FileRule)
         if ($absoluteUrls.Count -eq 0) {
-            return @{ Ok = $false; Error = ('下载页 {1} 上的链接都不符合「{0}」' -f $FileRule.Source, $PageUrl); Url = ''; Html = $html }
+            return @{ Ok = $false; Error = ('下载页 {1} 上的链接都不符合「{0}」' -f $FileRule.Source, $PageUrl); Url = ''; Html = $html; PageHash = '' }
         }
     }
     if ($absoluteUrls.Count -eq 0) {
-        return @{ Ok = $false; Error = ('在下载页 {1} 上没有提取到下载地址；可能是页面结构变更，需要更新软件源' -f '', $PageUrl); Url = ''; Html = $html }
+        return @{ Ok = $false; Error = ('在下载页 {1} 上没有提取到下载地址；可能是页面结构变更，需要更新软件源' -f '', $PageUrl); Url = ''; Html = $html; PageHash = '' }
     }
     if ($absoluteUrls.Count -gt 1) {
         $Result.Notes += ('页面上一共找到 {0} 个下载链接，已取第一个' -f $absoluteUrls.Count)
     }
 
     $downloadUrl = [string]$absoluteUrls[0]
+    $pageHash = ''
 
     if ($null -ne $ThenClickSpec) {
         $thenClick = Get-WinstThenClickUrl -Context $Context -Source $Source -PageUrl $PageUrl -IntermediateUrl $downloadUrl `
-            -FileRule $FileRule -Result $Result
-        if (-not $thenClick.Ok) { return @{ Ok = $false; Error = [string]$thenClick.Error; Url = ''; Html = $html } }
+            -FileRule $FileRule -Item $Item -Result $Result
+        if (-not $thenClick.Ok) { return @{ Ok = $false; Error = [string]$thenClick.Error; Url = ''; Html = $html; PageHash = '' } }
         $downloadUrl = [string]$thenClick.Url
+        $pageHash = [string]$thenClick.PageHash
     }
 
     if ($null -ne $ThenLinkSpec) {
         $thenLink = Get-WinstThenLinkUrl -Context $Context -Source $Source -TransitUrl $downloadUrl -ThenLinkSpec $ThenLinkSpec `
             -FileRule $FileRule -Result $Result
-        if (-not $thenLink.Ok) { return @{ Ok = $false; Error = [string]$thenLink.Error; Url = ''; Html = $html } }
+        if (-not $thenLink.Ok) { return @{ Ok = $false; Error = [string]$thenLink.Error; Url = ''; Html = $html; PageHash = '' } }
         $downloadUrl = [string]$thenLink.Url
     }
 
-    return @{ Ok = $true; Error = ''; Url = $downloadUrl; Html = $html }
+    return @{ Ok = $true; Error = ''; Url = $downloadUrl; Html = $html; PageHash = $pageHash }
 }

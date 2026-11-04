@@ -16,7 +16,8 @@ function Resolve-PageSource {
         指定的位置识别，默认从下载地址识别）→ 回退条目里的 version；声明 versionFrom: "package" 时以上都不做
         。
         files[] 第一条 = 主包：用于在多个候选链接里挑出要下载的文件（file 通配），并可声明校验信息；
-        校验值随版本更新的站点可声明 files[0].hashFrom: "page"（优先按文件名就近提取；click + browser 时还可读 MD5 弹层）；
+        校验值随版本更新的站点可声明 files[0].hashFrom: "page"（优先按文件名就近提取；就近失败且声明了
+        source.hashClick 时，在 click / thenClick 会话里再按 hashClick 点控件读可见摘要）；
         第 2 条起 = 配套文件：写成带 {version} 的完整地址（url）+ dest，与其它来源一致。
         本函数只做编排，校验 / 取址 / 版本 / 落位各由独立函数承担。
     #>
@@ -38,7 +39,7 @@ function Resolve-PageSource {
     if ($versionOption.Error) { $result.Error = $versionOption.Error; return $result }
     $versionFrom = $versionOption.VersionFrom
 
-    # files[] / link / click / thenClick / thenLink 的写法校验
+    # files[] / link / click / thenClick / thenLink / hashClick 的写法校验
     $spec = Get-WinstPageAddressSpec -Source $source -Result $result
     if ($spec.Error) { $result.Error = $spec.Error; return $result }
     $item = $spec.Item
@@ -59,10 +60,11 @@ function Resolve-PageSource {
         $browserPageHash = [string]$click.PageHash
     } else {
         $link = Get-WinstPageLinkUrl -Context $Context -Source $source -PageUrl $pageUrl -LinkSpec $spec.LinkSpec `
-            -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Result $result
+            -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Item $item -Result $result
         if (-not $link.Ok) { $result.Error = $link.Error; return $result }
         $html = [string]$link.Html
         $downloadUrl = [string]$link.Url
+        $browserPageHash = [string]$link.PageHash
     }
 
     $pageHash = Get-WinstPageHashFromPage -Item $item -Html $html -Url $downloadUrl -PageUrl $pageUrl -Result $result `

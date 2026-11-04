@@ -9,11 +9,11 @@ function Test-WinstTechnicalNote {
         SHA-256 从页面哪个位置提取等）——写进解析锁备查，但普通展示里没有参考价值：用户关心的是
         「下载什么、存到哪、怎么校验」，不是解析器怎么算出地址的。这些备注只在 --verbose 下展示；
         排查问题的口径（口径变化时这里要同步）：
-          ① 页面上一共找到 N 个下载链接，已取第一个           —— page 源 link 多候选
-          ② 点击后浏览器发起了 N 个下载，已取第一个           —— page 源 click 多下载
-          ③ 点击中间页后浏览器发起了 N 个下载，已取第一个     —— page 源 thenClick 多下载
-          ④ 下载地址由系统浏览器（…）点击页面按钮取得。       —— click / thenClick 取址方式
-          ⑤ 已按文件名 / MD5 弹层从下载页提取主包摘要（…）   —— files[].hashFrom: "page"
+          · 页面上一共找到 N 个下载链接，已取第一个           —— page 源 link 多候选
+          · 点击后浏览器发起了 N 个下载，已取第一个           —— page 源 click 多下载
+          · 点击中间页后浏览器发起了 N 个下载，已取第一个     —— page 源 thenClick 多下载
+          · 下载地址由系统浏览器……点击页面按钮取得。         —— click / thenClick 取址方式
+          · 已按文件名 / 点击后的文案从下载页提取主包的……   —— files[].hashFrom: "page"
     #>
     param([string]$Note)
 
@@ -24,7 +24,7 @@ function Test-WinstTechnicalNote {
         '点击中间页后浏览器发起了 ',
         '下载地址由系统浏览器',
         '已按文件名从下载页提取主包的 ',
-        '已从下载页 MD5 弹层提取主包的 '
+        '已从下载页点击后的文案提取主包的 '
     )
     foreach ($prefix in $technicalPrefixes) {
         if ($Note.StartsWith($prefix)) { return $true }

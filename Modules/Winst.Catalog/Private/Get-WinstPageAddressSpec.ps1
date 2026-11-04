@@ -3,7 +3,7 @@
 function Get-WinstPageAddressSpec {
     <#
     .SYNOPSIS
-        校验 page 源的 files[] 声明与 link / click / thenClick / thenLink 组合，返回取址规格。
+        校验 page 源的 files[] 声明与 link / click / thenClick / thenLink / hashClick 组合，返回取址规格。
     .OUTPUTS
         @{ Error; Item; Declared; FileRule; LinkSpec; ClickSpec; ThenClickSpec; ThenLinkSpec }
     #>
@@ -81,6 +81,19 @@ function Get-WinstPageAddressSpec {
     if ($stepError) { return @{ Error = $stepError } }
     $clickStepError = Test-WinstClickSteps -Steps (Get-EntryArray -Entry $Source -Key 'click') -SpecName 'source.click'
     if ($clickStepError) { return @{ Error = $clickStepError } }
+    $hashClickSteps = @(Get-EntryArray -Entry $Source -Key 'hashClick')
+    $hashClickStepError = Test-WinstClickSteps -Steps $hashClickSteps -SpecName 'source.hashClick'
+    if ($hashClickStepError) { return @{ Error = $hashClickStepError } }
+    if ($hashClickSteps.Count -gt 0) {
+        if ($null -eq $clickSpec -and $null -eq $thenClickSpec) {
+            return @{ Error = 'source.hashClick 要和 source.click 或 source.thenClick 搭配：取址会话里按 hashClick 点控件后再读页面文案中的摘要' }
+        }
+        $hashFrom = ''
+        if ($null -ne $item) { $hashFrom = (Get-EntryString -Entry $item -Key 'hashFrom').Trim() }
+        if ($hashFrom -ine 'page') {
+            return @{ Error = 'source.hashClick 只配合 files[0].hashFrom: "page"：先按文件名就近刮取，失败时再按 hashClick 点控件读摘要' }
+        }
+    }
 
     if ($null -ne $linkSpec -and (Get-EntryString -Entry $linkSpec -Key 'href').Trim()) {
         $hrefRule = New-MatchRule -Rule (Get-EntryString -Entry $linkSpec -Key 'href') -Kind '链接地址'

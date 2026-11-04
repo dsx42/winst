@@ -5,8 +5,8 @@ function Test-WinstClickSteps {
     .SYNOPSIS
         校验点击序列的每一步（至少一个条件；href 能编译成匹配规则），返回错误文案或空串。
     .DESCRIPTION
-        source.click 与 source.thenClick 共用这套校验（SpecName 只影响文案）。
-        未声明该键时 Get-EntryArray 返回 $null，@($null) 会迭代一次空步骤——必须先判空。
+        source.click、source.thenClick 与 source.hashClick 共用这套校验（SpecName 只影响文案）。
+        未声明该键时 Get-EntryArray 返回空数组；调用方不要把 $null 当单步传入。
     #>
     param($Steps, [string]$SpecName)
 

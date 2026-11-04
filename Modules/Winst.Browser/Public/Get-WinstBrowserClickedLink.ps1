@@ -10,6 +10,8 @@ function Get-WinstBrowserClickedLink {
         监听浏览器上报的下载事件拿到地址；地址到手后**不执行后续点击**，下载照旧交给 FluxDown。
         每步可以带一点容错：这一步没找到可点的元素就跳过并在 --verbose / 备注里说明——真正判定成败的是
         「最后有没有拿到下载地址」，拿不到就报明原因，并列出点击期间观察到的「像安装包」的请求地址便于排查。
+        若调用方传入 HashClickSpecs（软件源 source.hashClick）且 WantPageHash，取址成功后再按该序列点控件，
+        从可见文案读唯一十六进制摘要（见 Get-WinstBrowserPageHash）。
     .OUTPUTS
         @{ Ok; DownloadUrls; Html; PageHash; Error; Engine; Notes }
     #>
@@ -19,6 +21,7 @@ function Get-WinstBrowserClickedLink {
         [Parameter(Mandatory = $true)]$ClickSpecs,
         [switch]$WantHtml,
         [switch]$WantPageHash,
+        $HashClickSpecs = @(),
         [int]$TimeoutSec = 90
     )
 
@@ -104,9 +107,9 @@ function Get-WinstBrowserClickedLink {
                 continue
             }
 
-            # hashFrom: "page" 且摘要不在文件名旁时（如飞牛 MD5 弹层）：取址成功后再点 MD5 / 读弹层
+            # hashFrom: "page" 且声明了 source.hashClick：取址成功后再按清单点控件 / 读可见摘要
             if ($WantPageHash -and -not $result.PageHash) {
-                $pageHash = Get-WinstBrowserPageHash -Session $session
+                $pageHash = Get-WinstBrowserPageHash -Session $session -HashClickSpecs $HashClickSpecs
                 if ($pageHash) {
                     $result.PageHash = [string]$pageHash
                     if ($WantHtml) {

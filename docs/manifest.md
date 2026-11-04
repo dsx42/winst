@@ -305,8 +305,9 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `click` | 下载地址由点击时的页面脚本生成时用；写法为步骤数组 | 必须配 `fetchWith: "browser"`；每一步至少要一个条件 |
 | `thenLink` | `link` 命中的是网页（中转页）时，再抓一层定位真实地址 | 必须搭配 `link`；不能与 `thenClick` 同用；需要 `thenLink.link`（中转页上的定位规则，至少写一个条件）或 `files[0].file`；显式写了空的 `thenLink.link` 时即使有 `files[0].file` 也会被拒绝 |
 | `thenClick` | `link` 命中中转页后还要在浏览器里点按钮取址 | 必须搭配 `link`；不能与 `click` 同用；步骤数组每一步至少要一个条件 |
+| `hashClick` | `files[0].hashFrom: "page"` 就近刮取失败时，在同一无头会话里再点控件读可见摘要 | 必须搭配 `click` 或 `thenClick`，且主包 `hashFrom` 必须是 `page`；步骤写法与 `click` 相同；未声明时不做额外点击 |
 
-`link` / `thenLink.link` / `click` / `thenClick` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 使用[通用匹配规则](#通用匹配规则)；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；`thenClick` 不必再单独声明 `fetchWith: "browser"`，但该值仍决定初始下载页和中转页的抓取方式。
+`link` / `thenLink.link` / `click` / `thenClick` / `hashClick` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 使用[通用匹配规则](#通用匹配规则)；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` / `hashClick` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；`thenClick` 不必再单独声明 `fetchWith: "browser"`，但该值仍决定初始下载页和中转页的抓取方式。`hashClick` 在取址成功拿到下载地址**之后**执行，不参与下载事件捕获——下载步骤仍写在 `click` / `thenClick` 里。
 
 `link` 在下载页无命中时会检查 iframe；候选项经过 `files[0].file` 过滤后取第一个。使用 `thenLink` 时，若声明 `thenLink.link`，最终地址只由它筛选，`files[0].file` 不再参与第二次筛选；未声明 `thenLink.link` 时才用 `files[0].file` 过滤中转页全部链接并取第一个。
 
@@ -320,7 +321,29 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `source.pageUrl` 必填。`files[0]` 是主包（只用于「挑哪一个」与校验）；第 2 条起是配套文件，写成带 `{version}` 的 `url` + `dest`。主包不能写 `url`（地址由页面提取），只能写 `file` 匹配规则（见[通用匹配规则](#通用匹配规则)）；主包 `dest` 忽略并提示。`skipExistsCheck` 默认 `false`，控制最终下载地址探测。
 
-主包校验可用 `files[0].hashFrom: "page"`：默认按文件名在页面条目内就近刮取摘要（与 `digest` 相同边界）。若摘要只出现在需点击后的 MD5 弹层里（渲染 DOM 旁无安装包文件名，例如飞牛 fnOS 下载页），在原有 `fetchWith: "browser"` + `click` 取址流程里顺带读取弹层即可，无需改清单字段。
+主包校验可用 `files[0].hashFrom: "page"`：默认按文件名在页面条目内就近刮取摘要（与 `digest` 相同边界）。若摘要只出现在需额外点击后的文案 / 弹层里（渲染 DOM 旁无安装包文件名），在 `click` / `thenClick` 之外再声明 `source.hashClick`（步骤写法与 `click` 相同）；取址成功后同一无头会话按 `hashClick` 点控件，再从可见文本中读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。未声明 `hashClick` 时不做任何额外点击，行为与「仅就近刮取」一致。
+
+飞牛 fnOS 示例（下载点「直接下载」，摘要在「MD5」控件弹出的文案里）：
+
+```jsonc
+"source": {
+  "kind": "page",
+  "pageUrl": "https://fnnas.com/download",
+  "fetchWith": "browser",
+  "click": [
+    { "text": "飞牛 fnOS" },
+    { "text": "X86" },
+    { "text": "直接下载" }
+  ],
+  "hashClick": [
+    { "text": "MD5" }
+  ],
+  "versionKind": "semver",
+  "files": [
+    { "file": "fnos_*.iso", "hashFrom": "page" }
+  ]
+}
+```
 
 ### json 源
 
@@ -505,7 +528,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `md5` | 同上，MD5 |
 | `digest` | 按完整文件名字段或链接路径中的文件名匹配，在同一文本行或 HTML 条目内取后面最近的摘要；不接受其它文件名的前后缀命中。表格按整行处理，遇到另一安装包文件名停止。长度 32 / 40 / 64 / 128 分别为 MD5 / SHA-1 / SHA-256 / SHA-512；没有摘要或同一文件对应多个不同摘要时报错 |
 | `re:<正则>` | 自定义正则提取，命名组 `h` 或第 1 捕获组 |
-| `page` | 仅 `page` 源、仅主包：优先按 `digest` 相同的条目边界就近提取摘要；`click` + `fetchWith: "browser"` 时若页面上摘要不在文件名旁（例如要点 **MD5** 按钮才弹出「MD5 哈希值：…」），取址会话会顺带点开该控件并读取弹层文案。不能与 `hash` 同写 |
+| `page` | 仅 `page` 源、仅主包：优先按 `digest` 相同的条目边界就近提取摘要；就近失败且声明了 `source.hashClick`（须搭配 `click` 或 `thenClick`）时，取址会话再按 `hashClick` 点控件，并从可见文案读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。未声明 `hashClick` 时不额外点击。不能与 `hash` 同写 |
 
 未显式声明 `refresh` 或非默认 `compare` 时，安装与仅下载操作均优先比较远端版本和该文件缓存记录的 `sourceVersion`：版本相同复用，版本不同重取，不受地址或 HTTP 校验器漂移影响。只有**这个文件自己的版本**参与该判定：主包恒有；配套文件仅当声明 `versionListUrl` 并独立解析出版本时才有，其余跟随主包版本的配套文件不记录也不比较版本。两侧任一版本缺失、或版本仅来自尚未确认新鲜度的缓存包时，继续按地址、摘要与新鲜度规则判定。声明的摘要仍须满足校验规则；显式比较项不会被同版本快捷命中绕过。
 
@@ -738,6 +761,8 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `versionFrom: file 但没有写 versionKind / versionBetween` | github 的 `file` 必须给出识别方式 |
 | `写了 versionKind 但没声明 versionFrom: file` | github 默认用 tag 当版本，要取文件名里的版本必须显式声明 |
 | `source.link 与 source.click 只能写一个` | 两者互斥 |
+| `source.hashClick 要和 source.click 或 source.thenClick 搭配` | `hashClick` 需要无头取址会话；不能单独写在只有 `link` / `thenLink` 的条目上 |
+| `source.hashClick 只配合 files[0].hashFrom: "page"` | 声明了 `hashClick` 但主包没有 `hashFrom: "page"` |
 | `source.link 至少要写一个条件` | `source.link` 是空规则；`source.thenLink.link` 为空时也有对应的明确报错 |
 | `urlKey 只能用在 JSON 接口源里` | `urlKey` 是 json 专属 |
 | `同一个文件不能同时填写 url 和 file` | `url` / `urlKey` / `file` 的互斥组合写错；json 主包允许 `urlKey` + `file` |
