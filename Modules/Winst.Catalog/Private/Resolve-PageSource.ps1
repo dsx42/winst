@@ -16,7 +16,7 @@ function Resolve-PageSource {
         指定的位置识别，默认从下载地址识别）→ 回退条目里的 version；声明 versionFrom: "package" 时以上都不做
         。
         files[] 第一条 = 主包：用于在多个候选链接里挑出要下载的文件（file 通配），并可声明校验信息；
-        校验值随版本更新的站点可声明 files[0].hashFrom: "page"（按文件名在页面上就近提取 SHA-256，见上）；
+        校验值随版本更新的站点可声明 files[0].hashFrom: "page"（优先按文件名就近提取；click + browser 时还可读 MD5 弹层）；
         第 2 条起 = 配套文件：写成带 {version} 的完整地址（url）+ dest，与其它来源一致。
         本函数只做编排，校验 / 取址 / 版本 / 落位各由独立函数承担。
     #>
@@ -49,12 +49,14 @@ function Resolve-PageSource {
     $html = ''
     $downloadUrl = ''
 
+    $browserPageHash = ''
     if ($null -ne $spec.ClickSpec) {
         $click = Get-WinstPageClickedUrl -Context $Context -Source $source -PageUrl $pageUrl -ClickSpec $spec.ClickSpec `
             -FileRule $fileRule -Item $item -Result $result
         if (-not $click.Ok) { $result.Error = $click.Error; return $result }
         $html = [string]$click.Html
         $downloadUrl = [string]$click.Url
+        $browserPageHash = [string]$click.PageHash
     } else {
         $link = Get-WinstPageLinkUrl -Context $Context -Source $source -PageUrl $pageUrl -LinkSpec $spec.LinkSpec `
             -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Result $result
@@ -63,7 +65,8 @@ function Resolve-PageSource {
         $downloadUrl = [string]$link.Url
     }
 
-    $pageHash = Get-WinstPageHashFromPage -Item $item -Html $html -Url $downloadUrl -PageUrl $pageUrl -Result $result
+    $pageHash = Get-WinstPageHashFromPage -Item $item -Html $html -Url $downloadUrl -PageUrl $pageUrl -Result $result `
+        -BrowserPageHash $browserPageHash
     if ($result.Error) { return $result }
 
     $versionResult = Resolve-WinstPageVersion -Entry $Entry -Source $source -Html $html -DownloadUrl $downloadUrl `

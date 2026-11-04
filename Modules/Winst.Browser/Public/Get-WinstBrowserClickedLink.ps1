@@ -11,17 +11,18 @@ function Get-WinstBrowserClickedLink {
         每步可以带一点容错：这一步没找到可点的元素就跳过并在 --verbose / 备注里说明——真正判定成败的是
         「最后有没有拿到下载地址」，拿不到就报明原因，并列出点击期间观察到的「像安装包」的请求地址便于排查。
     .OUTPUTS
-        @{ Ok; DownloadUrls; Html; Error; Engine; Notes }
+        @{ Ok; DownloadUrls; Html; PageHash; Error; Engine; Notes }
     #>
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)]$ClickSpecs,
         [switch]$WantHtml,
+        [switch]$WantPageHash,
         [int]$TimeoutSec = 90
     )
 
-    $result = @{ Ok = $false; DownloadUrls = @(); Html = ''; Error = ''; Engine = ''; Notes = @() }
+    $result = @{ Ok = $false; DownloadUrls = @(); Html = ''; PageHash = ''; Error = ''; Engine = ''; Notes = @() }
     $steps = @($ClickSpecs)
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
@@ -101,6 +102,18 @@ function Get-WinstBrowserClickedLink {
                     $lastError += ('；点击期间观察到的候选地址：{0}' -f ($shown -join '、'))
                 }
                 continue
+            }
+
+            # hashFrom: "page" 且摘要不在文件名旁时（如飞牛 MD5 弹层）：取址成功后再点 MD5 / 读弹层
+            if ($WantPageHash -and -not $result.PageHash) {
+                $pageHash = Get-WinstBrowserPageHash -Session $session
+                if ($pageHash) {
+                    $result.PageHash = [string]$pageHash
+                    if ($WantHtml) {
+                        $html = Get-WinstDevToolsValue -Session $session -Expression 'document.documentElement.outerHTML'
+                        if ($html) { $result.Html = [string]$html }
+                    }
+                }
             }
 
             $result.DownloadUrls = @(Get-DistinctValues -Values @($session.Downloads))
