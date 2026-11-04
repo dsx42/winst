@@ -92,6 +92,7 @@ function Get-WinstBrowserClickedLink {
                 Wait-WinstDevToolsMessages -Session $session -Milliseconds 500
             }
 
+            # 版本与就近摘要使用取址后的快照，hashClick 可能切换页面或替换内容。
             if ($WantHtml) {
                 $html = Get-WinstDevToolsValue -Session $session -Expression 'document.documentElement.outerHTML'
                 if ($html) { $result.Html = [string]$html }
@@ -109,14 +110,8 @@ function Get-WinstBrowserClickedLink {
 
             # hashFrom: "page" 且声明了 source.hashClick：取址成功后再按清单点控件 / 读可见摘要
             if ($WantPageHash -and -not $result.PageHash) {
-                $pageHash = Get-WinstBrowserPageHash -Session $session -HashClickSpecs $HashClickSpecs
-                if ($pageHash) {
-                    $result.PageHash = [string]$pageHash
-                    if ($WantHtml) {
-                        $html = Get-WinstDevToolsValue -Session $session -Expression 'document.documentElement.outerHTML'
-                        if ($html) { $result.Html = [string]$html }
-                    }
-                }
+                $pageHash = Get-WinstBrowserPageHash -Session $session -HashClickSpecs $HashClickSpecs -Deadline $overallDeadline
+                if ($pageHash) { $result.PageHash = [string]$pageHash }
             }
 
             $result.DownloadUrls = @(Get-DistinctValues -Values @($session.Downloads))

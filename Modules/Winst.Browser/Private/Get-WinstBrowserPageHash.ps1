@@ -8,13 +8,14 @@ function Get-WinstBrowserPageHash {
         给 files[0].hashFrom: "page" 且摘要不在文件名旁、需要额外点击才出现的站点用。
         点哪些控件由 source.hashClick 声明（写法与 click 相同）；本函数不做产品特判。
         点击后在可见文本里找长度 32 / 40 / 64 / 128 的十六进制串；恰好一个唯一值才返回，
-        多个不同值或一个都没有则返回空，由调用方回退就近刮取或报错。
+        没有唯一摘要时限时重试，受会话截止时间约束；超时返回空，由调用方回退就近刮取或报错。
     .OUTPUTS
         [string] 小写十六进制摘要；取不到时为空串
     #>
     param(
         $Session,
-        $HashClickSpecs
+        $HashClickSpecs,
+        [DateTime]$Deadline = [DateTime]::MaxValue
     )
 
     if ($null -eq $Session) { return '' }
@@ -57,20 +58,16 @@ function Get-WinstBrowserPageHash {
 })()
 '@
 
-    $raw = Get-WinstDevToolsValue -Session $Session -Expression $readExpression
-    $fromPage = ([string]$raw).Trim().ToLowerInvariant()
-    if ($fromPage -match '^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$|^[0-9a-f]{128}$') {
-        # 尽量关掉弹层，避免挡住后续 outerHTML / 其它操作
-        $null = Get-WinstDevToolsValue -Session $Session -Expression @'
-(() => {
-  try {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
-  } catch (e) { }
-  return true;
-})()
-'@
-        Wait-WinstDevToolsMessages -Session $Session -Milliseconds 300
-        return $fromPage
+    $readDeadline = [DateTime]::Now.AddSeconds(10)
+    if ($Deadline -lt $readDeadline) { $readDeadline = $Deadline }
+    while ([DateTime]::Now -lt $readDeadline) {
+        $raw = Get-WinstDevToolsValue -Session $Session -Expression $readExpression
+        $fromPage = ([string]$raw).Trim().ToLowerInvariant()
+        if ($fromPage -match '^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$|^[0-9a-f]{128}$') { return $fromPage }
+        $remaining = [int]($readDeadline - [DateTime]::Now).TotalMilliseconds
+        if ($remaining -gt 0) {
+            Wait-WinstDevToolsMessages -Session $Session -Milliseconds ([Math]::Min(500, $remaining))
+        }
     }
     return ''
 }
