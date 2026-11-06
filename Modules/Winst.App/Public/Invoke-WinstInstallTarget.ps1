@@ -37,7 +37,23 @@ function Invoke-WinstInstallTarget {
         FailureShown = $false
     }
 
-    $chosen = Select-WinstRowSource -Row $Row -AutoPick:$AutoPickSource
+    # 批量队列可能持有刷新前的行；取当前定义，同时保留调用方限定的来源范围与顺序。
+    $rowId = [string]$Row['Id']
+    $currentRows = (Get-WinstDependencyIndex -Context $Context)['Rows']
+    if ($currentRows.Contains($rowId)) {
+        $freshRow = Copy-WinstObjectShallow -InputObject $currentRows[$rowId]
+        $freshRow['Sources'] = @(
+            foreach ($source in @($Row['Sources'])) {
+                foreach ($candidate in @($currentRows[$rowId]['Sources'])) {
+                    if ([string]$candidate['Source'] -ieq [string]$source['Source']) { $candidate; break }
+                }
+            }
+        )
+        $Row = $freshRow
+        $chosen = Select-WinstRowSource -Row $Row -AutoPick:$AutoPickSource
+    } else {
+        $chosen = @{ Ok = $false; Cancelled = $false; Error = ('软件源里没有找到「{0}」这个软件，请返回列表重新选择。' -f $rowId) }
+    }
     if ($chosen.Cancelled) { $result.Cancelled = $true; return $result }
     if (-not $chosen.Ok) {
         $result.Error = [string]$chosen.Error
