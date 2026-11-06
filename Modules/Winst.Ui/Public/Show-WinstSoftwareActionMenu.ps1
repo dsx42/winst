@@ -3,7 +3,7 @@
 function Show-WinstSoftwareActionMenu {
     <#
     .SYNOPSIS
-        按软件状态渲染可选动作（i / p / u / d / x），仅展示当前可用的项。
+        按软件状态渲染可选动作（i / p / u / d / x / s），仅展示当前可用的项。
     #>
     param($Item)
 
@@ -16,7 +16,7 @@ function Show-WinstSoftwareActionMenu {
 
     Write-Host ''
     if ($isDownloadType) {
-        # 仅下载类型的软件只有三个操作：下载软件包 / 更新软件包 / 删除软件包
+        # 仅下载类型的软件提供下载、更新与删除软件包的操作
         if (-not $cacheHas) {
             Write-Host '  i) 下载软件包（只下载到安装包位置，不安装到电脑）' -ForegroundColor White
         }
@@ -41,5 +41,6 @@ function Show-WinstSoftwareActionMenu {
             Write-Host ('  x) 删除已下载的安装包（{0} 个文件）' -f [int]$Item['CacheFileCount']) -ForegroundColor White
         }
     }
+    Write-Host '  s) 刷新这个软件条目的软件源' -ForegroundColor White
     Write-Host '  b) 返回列表    q) 退出' -ForegroundColor DarkGray
 }

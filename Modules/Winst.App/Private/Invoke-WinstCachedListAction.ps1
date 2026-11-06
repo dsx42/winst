@@ -3,7 +3,7 @@
 function Invoke-WinstCachedListAction {
     <#
     .SYNOPSIS
-        执行「已下载包」里的一个动作（i / u / x / d）。
+        执行「已下载包」里的一个动作（i / u / x / d / s）。
     .OUTPUTS
         [bool] 是否执行了动作（需要重新载入列表）
     #>
@@ -50,6 +50,11 @@ function Invoke-WinstCachedListAction {
     if ($Text -eq 'd') {
         # 与「软件列表 → x」共用同一套删除流程（展示内容 → 确认 → 删除）
         Remove-WinstSoftwareCachedPackage -Context $Context -Item $Item
+        return $true
+    }
+
+    if ($Text -eq 's') {
+        $null = Invoke-WinstSoftwareSourceRefresh -Context $Context -Id ([string]$Item['Id'])
         return $true
     }
 

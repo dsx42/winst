@@ -3,7 +3,7 @@
 function Invoke-WinstSoftwareListAction {
     <#
     .SYNOPSIS
-        执行软件列表里的一个动作（i / p / u / d / x）。
+        执行软件列表里的一个动作（i / p / u / d / x / s）。
     .OUTPUTS
         [bool] 是否执行了动作（需要重新载入列表）
     #>
@@ -67,6 +67,11 @@ function Invoke-WinstSoftwareListAction {
 
     if ($Text -eq 'x') {
         Remove-WinstSoftwareCachedPackage -Context $Context -Item $Item
+        return $true
+    }
+
+    if ($Text -eq 's') {
+        $null = Invoke-WinstSoftwareSourceRefresh -Context $Context -Id $id
         return $true
     }
 

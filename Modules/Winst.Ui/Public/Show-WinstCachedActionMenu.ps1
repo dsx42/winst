@@ -3,7 +3,7 @@
 function Show-WinstCachedActionMenu {
     <#
     .SYNOPSIS
-        按条目状态渲染可选动作（i / u / x / d），仅展示当前可用的项。
+        按条目状态渲染可选动作（i / u / x / d / s），仅展示当前可用的项。
     #>
     param($Item)
 
@@ -14,9 +14,9 @@ function Show-WinstCachedActionMenu {
 
     Write-Host ''
     if ($isDownloadType) {
-        # 仅下载类型：已下载的软件包只有「更新软件包」与「删除软件包」两件事
+        # 仅下载类型：已下载的软件包提供更新与删除操作
         if (-not $inCatalog) {
-            Write-Host '  软件源里没有这个软件，只能删除已下载的软件包。' -ForegroundColor DarkYellow
+            Write-Host '  软件源里没有这个软件，可刷新软件源或删除已下载的软件包。' -ForegroundColor DarkYellow
         } elseif ($canDownloadPackage) {
             Write-Host ('  x) 更新软件包到 {0}（现在是 {1}）' -f [string]$Item['BestVersion'], [string]$Item['CacheVersionText']) -ForegroundColor White
         } else {
@@ -27,7 +27,7 @@ function Show-WinstCachedActionMenu {
         if ($inCatalog) {
             Write-Host '  i) 安装（缓存里有这个包就直接用，不再重复下载）' -ForegroundColor White
         } else {
-            Write-Host '  软件源里没有这个软件，只能删除已下载的安装包。' -ForegroundColor DarkYellow
+            Write-Host '  软件源里没有这个软件，可刷新软件源或删除已下载的安装包。' -ForegroundColor DarkYellow
         }
         if ($canUpgradeInstalled) {
             Write-Host ('  u) 更新已安装的软件（{0}  →  {1}）' -f [string]$Item['InstalledVersionText'], [string]$Item['BestVersion']) -ForegroundColor White
@@ -37,5 +37,6 @@ function Show-WinstCachedActionMenu {
         }
         Write-Host ('  d) 删除已下载的安装包（{0} 个文件）' -f [int]$Item['CacheFileCount']) -ForegroundColor White
     }
+    Write-Host '  s) 刷新这个软件条目的软件源' -ForegroundColor White
     Write-Host '  b) 返回列表    q) 退出' -ForegroundColor DarkGray
 }

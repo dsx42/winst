@@ -3,9 +3,9 @@
 function Show-WinstInstallTargetConfirm {
     <#
     .SYNOPSIS
-        确认菜单（只问「装 / 不装」；强制重装由跳过后的二次询问提供）。
+        确认安装或刷新当前软件的来源信息；强制重装由跳过后的二次询问提供。
     .OUTPUTS
-        @{ Proceed }
+        @{ Proceed; Refresh }
     #>
     param($Row, [string]$ActionText, [string]$PlanVersion, [string]$InstalledVersion, [bool]$IsUpgrade,
         [bool]$CompanionOnlyPrompt, $CompanionInfo, [switch]$FilesOnly)
@@ -22,12 +22,14 @@ function Show-WinstInstallTargetConfirm {
     } else {
         Write-Host ('  y) {0}「{1}」{2}' -f $ActionText, ([string]$Row['Name']), $(if ($FilesOnly) { '（仅更新文件）' } else { '' })) -ForegroundColor White
     }
+    Write-Host '  s) 刷新这个软件条目的软件源' -ForegroundColor White
     Write-Host '  回车 / 其它任意输入 = 取消' -ForegroundColor DarkGray
-    $text = Read-WinstAnswerText -Prompt '  请输入（y = 继续）'
+    $text = Read-WinstAnswerText -Prompt '  请输入（y = 继续，s = 刷新软件源）'
 
+    if ($text -ieq 's') { return @{ Proceed = $false; Refresh = $true } }
     if ($text -notmatch '^(?i)y(es)?$') {
         Write-Host '  已取消。' -ForegroundColor DarkGray
-        return @{ Proceed = $false }
+        return @{ Proceed = $false; Refresh = $false }
     }
-    return @{ Proceed = $true }
+    return @{ Proceed = $true; Refresh = $false }
 }

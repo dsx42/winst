@@ -4,7 +4,7 @@ function Invoke-InstalledList {
     <#
     .SYNOPSIS
         菜单「已装软件」：列出安装记录里的全部软件 → 选中即自动打印详情，随后可选
-        u 按默认方式更新 / c 单独选更新方式与软件源 / o 清理旧版本 / d 卸载 / r 重新检测；回车返回列表。
+        u 按默认方式更新 / c 单独选更新方式与软件源 / o 清理旧版本 / d 卸载 / r 重新检测 / s 刷新当前条目的软件源；回车返回列表。
     .DESCRIPTION
         列表展示名称、版本、安装位置，软件源里有更新版本时用绿色标出；非 winst 安装（仅登记）
         与安装目录缺失分别标注。
@@ -91,6 +91,7 @@ function Invoke-InstalledList {
             if ($hasOldVersions) {
                 Write-Host ('  o) 清理旧版本（{0}）' -f [string]$item['OldVersionsText']) -ForegroundColor White
             }
+            Write-Host '  s) 刷新这个软件条目的软件源' -ForegroundColor White
             Write-Host '  d) 卸载    r) 重新检测版本    b) 返回    q) 退出' -ForegroundColor DarkGray
             $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
 
@@ -105,6 +106,8 @@ function Invoke-InstalledList {
                     continue
                 }
                 $null = Invoke-WinstOldVersionCleanup -Context $Context -Item $item
+            } elseif ($text -eq 's') {
+                $null = Invoke-WinstSoftwareSourceRefresh -Context $Context -Id $id
             } elseif ($text -ne 'u' -and $text -ne 'c' -and $text -ne 'd' -and $text -ne 'r') {
                 continue   # 回车 / 其它 = 返回列表
             } elseif ($text -eq 'u') {
@@ -127,7 +130,7 @@ function Invoke-InstalledList {
             }
         }
 
-        # 升级 / 更新 / 卸载后重新载入列表，反映最新状态
+        # 操作后重新载入列表，反映最新状态
         $overview = Get-WinstInstalledOverview -Context $Context
         if (-not $overview.Ok) {
             Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
