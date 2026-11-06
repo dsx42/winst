@@ -40,6 +40,17 @@ function Read-WinstCommandLine {
             }
         }
 
+        # 先检查命令参数的相邻取值，防止摘除全局开关后把后面的普通参数补成取值。
+        if ($rest.Count -gt 0) {
+            $previous = [string]$rest[-1]
+            $needsValue = (($command -in @('install', 'download')) -and ($previous -in @('--source', '--from', '--keep'))) -or
+                (($command -eq 'update') -and ($previous -eq '--source'))
+            if ($needsValue -and (-not $text.Trim() -or $text.StartsWith('-'))) {
+                $error = ('{0} 缺少取值，请写成 {0} <值> 或 {0}=<值>。' -f $previous)
+                break
+            }
+        }
+
         # —— 全局参数：写在命令之前或之后都识别（`winst --pkg-dir x list` = `winst list --pkg-dir x`）——
         if ($text -ieq '--install-root') { $waitingFor = 'installRoot'; continue }
         if ($text -ieq '--pkg-dir') { $waitingFor = 'pkgDir'; continue }

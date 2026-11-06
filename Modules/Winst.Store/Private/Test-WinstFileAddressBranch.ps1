@@ -9,7 +9,7 @@ function Test-WinstFileAddressBranch {
     #>
     param($Plan, $Meta, [string]$Url)
 
-    if (-not $Meta.Exists -or -not $Meta.Url -or ($Meta.Url -ieq $Url)) { return $false }
+    if (-not $Meta.Exists -or -not $Meta.Url -or ($Meta.Url -ceq $Url)) { return $false }
     # 显式写 NeedDownload，不依赖 New-WinstFilePlanEntry 的默认 $true：
     # 上游一旦插入把 NeedDownload 置假的判定，就会出现「提示要重新下载、实际沿用旧缓存」。
     $Plan['NeedDownload'] = $true

@@ -3,7 +3,7 @@
 function Get-WinstListFiles {
     <#
     .SYNOPSIS
-        列出 <数据根>\lists\ 下的全部清单文件（名称 / 路径 / 项数 / 修改时间）。
+        列出当前清单目录下的全部清单文件（名称 / 路径 / 项数 / 修改时间）。
     .OUTPUTS
         @( [ordered]@{ Name; Path; Count; Modified } )；目录不存在时返回空数组
     #>

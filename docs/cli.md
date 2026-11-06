@@ -20,7 +20,7 @@ winst [全局参数] <命令> [命令参数]
 | `--yes` / `-y` | 非交互确认 |
 | `--verbose` | 输出详细日志（HTTP、来源解析、文件匹配等） |
 
-`install` / `download` 的 `--source`、`--from`、`--keep` 以及 `update` 的 `--source` 同样拒绝行尾缺值、后接开关和等号空值；`--keep` 至少指定一个保留路径。带值参数必须紧跟非空值；路径含空格时按 shell 规则加引号。配置优先级为命令行参数 > `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 环境变量 > `config.json` > 默认值；`pkgDir` 另有一个优先于配置文件的规则：脚本同目录存在 `apps\` 时自动使用该目录。
+`install` / `download` 的 `--source`、`--from`、`--keep` 以及 `update` 的 `--source` 同样拒绝行尾缺值、后接开关和等号空值；`--keep` 至少指定一个保留路径。带值参数必须紧跟非空值，全局开关也不能插在参数与取值之间（如 `install sample --keep --yes settings.json` 会报参数错误）；路径含空格时按 shell 规则加引号。配置优先级为命令行参数 > `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 环境变量 > `config.json` > 默认值；`pkgDir` 另有一个优先于配置文件的规则：脚本同目录存在 `apps\` 时自动使用该目录。
 
 ## 预览边界
 
@@ -184,7 +184,7 @@ winst bundle install [<file>] [--skip-existing]
 winst bundle pack <清单> <目标目录> [--skip-missing]
 ```
 
-`bundle install` 不带文件参数时默认使用 `<数据目录>\lists\setup.list`；`bundle list` 不带文件列出全部清单，`bundle edit` 不带文件时交互选择清单。文件名按该目录解析并自动补 `.list` 后缀；显式路径也必须位于此目录内。
+清单目录优先使用脚本同目录下已有的 `lists\`，否则使用 `<数据目录>\lists\`。`bundle install` 不带文件参数时默认使用该目录下的 `setup.list`；`bundle list` 不带文件列出全部清单，`bundle edit` 不带文件时交互选择清单。文件名按该目录解析并自动补 `.list` 后缀；显式路径也必须位于此目录内。套件中的清单名不是 `setup.list` 时，用 `bundle install <清单名>` 或在菜单中选择该清单。
 
 - `bundle list` 不带文件时列出全部清单，带文件时显示内容与状态
 - `bundle edit` 进入交互式编辑

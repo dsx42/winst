@@ -5,7 +5,7 @@ function Resolve-WinstListPath {
     .SYNOPSIS
         把用户输入归一化为清单文件绝对路径。
     .DESCRIPTION
-        含路径分隔符或盘符时按「绝对路径 / 相对当前目录」解析；否则按 <数据根>\lists\<文件名> 解析，
+        含路径分隔符或盘符时按「绝对路径 / 相对当前目录」解析；否则按当前清单目录下的文件名解析，
         并统一强制 .list 后缀。
     .OUTPUTS
         @{ Ok; Error; Path }
@@ -21,7 +21,7 @@ function Resolve-WinstListPath {
 
     $listsDir = Get-WinstListsDir -Context $Context
     if ($raw -match '[\\/]' -or $raw -match '^[A-Za-z]:') {
-        # 显式路径：归一化后必须落在 <数据根>\lists 之下。跳过文件名校验的话，
+        # 显式路径：归一化后必须落在当前清单目录之下。跳过文件名校验的话，
         # `..\..\Windows\System32\x`、`%APPDATA%\...\Startup\x` 都会被接受并交给 Save-WinstList
         # （Write-FileAtomic 会自动建目录 + 覆盖写），等于任意位置写文件。
         $full = $raw
