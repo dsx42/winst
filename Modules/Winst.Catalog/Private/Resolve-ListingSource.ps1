@@ -13,7 +13,7 @@ function Resolve-ListingSource {
 
     $result = New-SourceResolveResult -Kind 'listing'
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
-    # indexUrl 可以写一条，也可以写成多条（如 Maven 的 maven-3/ 与 maven-4/ 两个大版本目录），
+    # indexUrl 支持固定地址或末段目录通配符，也可写多条，
     # 各页收集到的候选版本合并后统一过滤 / 排序 / 逐个探测
     $indexUrls = @()
     foreach ($item in @(Get-EntryValue -Entry $source -Key 'indexUrl' -Default $null)) {
@@ -36,15 +36,44 @@ function Resolve-ListingSource {
 
     $candidates = @()
     $failedPages = @()
+    $visitedPages = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
     foreach ($indexUrl in $indexUrls) {
         try {
-            $html = Invoke-WinstHttpGet -Uri $indexUrl -Context $Context
+            $pageUrls = @(Expand-WinstListingIndexUrl -Context $Context -IndexUrl $indexUrl)
         } catch {
             $failedPages += ('{0}（{1}）' -f $indexUrl, $_.Exception.Message)
             continue
         }
-        foreach ($candidate in @(Get-VersionCandidates -Text $html -Kind $versionKind)) {
-            if ($candidates -notcontains $candidate) { $candidates += $candidate }
+        foreach ($pageUrl in $pageUrls) {
+            if (-not $visitedPages.Add($pageUrl)) { continue }
+            try {
+                $html = Invoke-WinstHttpGet -Uri $pageUrl -Context $Context
+            } catch {
+                $failedPages += ('{0}（{1}）' -f $pageUrl, $_.Exception.Message)
+                continue
+            }
+            $pageCandidates = @()
+            if ($versionKind -ieq 'semver') {
+                $baseUri = [Uri]::new([Uri]$pageUrl, '.')
+                foreach ($anchor in @(Get-HtmlAnchorList -Html $html)) {
+                    $childUri = $null
+                    if (-not [Uri]::TryCreate($baseUri, [string]$anchor.Href, [ref]$childUri)) { continue }
+                    if ($childUri.Authority -cne $baseUri.Authority -or $childUri.Scheme -cne $baseUri.Scheme -or
+                            $childUri.Query -or $childUri.Fragment -or -not $childUri.AbsolutePath.EndsWith('/')) { continue }
+                    if ([Uri]::new($childUri, '..').AbsoluteUri -cne $baseUri.AbsoluteUri) { continue }
+                    $name = [Uri]::UnescapeDataString($childUri.Segments[-1].TrimEnd('/'))
+                    if ($name -match '\A[vV]?[0-9]+(?:\.[0-9]+){1,3}(?![0-9.])') {
+                        $pageCandidates += Get-NormalizedVersionString -Value $name
+                    }
+                }
+            }
+            # 有版本目录时保留完整后缀再过滤，避免把预发布目录截成正式版本。
+            if ($pageCandidates.Count -eq 0) {
+                $pageCandidates = @(Get-VersionCandidates -Text $html -Kind $versionKind)
+            }
+            foreach ($candidate in $pageCandidates) {
+                if ($candidates -notcontains $candidate) { $candidates += $candidate }
+            }
         }
     }
     if ($candidates.Count -eq 0 -and $failedPages.Count -gt 0) {

@@ -30,7 +30,7 @@ function New-WinstPageResolvedFiles {
         if (-not $extraVersion.Ok) { return @{ Error = [string]$extraVersion.Error; Files = $resolvedFiles } }
         foreach ($listedNote in @($extraVersion.Notes)) { $Result.Notes += [string]$listedNote }
         $extraUrl = Expand-VersionPlaceholder -Text $extraLocator.Url -Version $extraVersion.Version
-        if ($extraUrl -match '\{version(Major)?\}') {
+        if ($extraUrl -match '\{version(Major|Minor)?\}') {
             return @{ Error = ('配套文件的下载地址里的版本号无法替换: {0}' -f $extraLocator.Url); Files = $resolvedFiles }
         }
         $extraDest = Get-EntryString -Entry $extra -Key 'dest'

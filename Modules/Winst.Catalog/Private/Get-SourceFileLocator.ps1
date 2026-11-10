@@ -3,25 +3,31 @@
 function Get-SourceFileLocator {
     <#
     .SYNOPSIS
-        读取 files[] 条目的定位方式：url（下载地址 / 地址模板）、file（文件名匹配规则）或 urlKey（接口字段）。
+        读取 files[] 条目的定位方式：url、file、接口的 urlKey 或 XML 的 urlXPath。
     .OUTPUTS
-        @{ Url; File; UrlKey; Error }
+        @{ Url; File; UrlKey; UrlXPath; Error }
     .DESCRIPTION
-        三种写法二选一，避免「地址与文件对不上」：
-          url    —— 完整地址或地址模板（支持 {version} / {versionMajor} / {tag}）；github 源上也可以只写文件名；
+        定位方式互斥；json 源的 urlKey 可与 file 组合：
+          url    —— 完整地址或地址模板（支持 {version} / {versionMajor} / {versionMinor} / {tag}）；github 源上也可以只写文件名；
           file   —— 文件名匹配规则，用于文件名不能由版本推出的项目；
-          urlKey —— json 源专属：接口条目里存放下载地址的字段名（如 url / downloads.windowsZip.link），
+          urlKey —— json / xml 源专属：接口条目里存放下载地址的字段名（如 url / downloads.windowsZip.link），
                     可与 file 组合——用文件名规则在多个候选条目里挑出要下载的那一个。
+          urlXPath —— xml 源专属：相对于选中记录读取下载地址。
     #>
     param($Item, [string]$Kind = '')
 
     $url = (Get-EntryString -Entry $Item -Key 'url').Trim()
     $pattern = (Get-EntryString -Entry $Item -Key 'file').Trim()
     $urlKey = (Get-EntryString -Entry $Item -Key 'urlKey').Trim()
+    $urlXPath = (Get-EntryString -Entry $Item -Key 'urlXPath').Trim()
     $kindText = ''
     if ($Kind) { $kindText = ([string]$Kind).Trim().ToLowerInvariant() }
 
-    $result = @{ Url = $url; File = $pattern; UrlKey = $urlKey; Error = '' }
+    $result = @{ Url = $url; File = $pattern; UrlKey = $urlKey; UrlXPath = $urlXPath; Error = '' }
+    if ($urlXPath -and ($kindText -ne 'xml' -or $url -or $urlKey -or $pattern)) {
+        $result.Error = 'urlXPath 只用于 XML 源，且不能与 url / urlKey / file 同时配置'
+        return $result
+    }
     if ($url -and $urlKey) {
         $result.Url = ''
         $result.File = ''
@@ -36,11 +42,15 @@ function Get-SourceFileLocator {
         $result.Error = '同一个文件不能同时填写 url（下载地址）和 file（文件名匹配规则），请二选一'
         return $result
     }
-    if ($urlKey -and $kindText -ne 'json') {
+    if ($urlKey -and @('json', 'xml') -notcontains $kindText) {
         $result.Url = ''
         $result.File = ''
         $result.UrlKey = ''
-        $result.Error = 'urlKey（接口字段）只能用在 JSON 接口源（source.kind: json）里；其它来源请写 url 或 file'
+        $result.Error = 'urlKey（接口字段）只能用在 JSON / XML 接口源（source.kind: json / xml）里；其它来源请写 url 或 file'
+        return $result
+    }
+    if ($kindText -eq 'xml' -and $urlKey -and $pattern) {
+        $result.Error = 'XML 来源的 urlKey 不能与 file 同时配置，请用 itemsKey / match 选择文件'
         return $result
     }
     if ($kindText -eq 'json' -and $pattern -and -not $urlKey) {

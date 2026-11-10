@@ -25,15 +25,16 @@ function New-WinstAppxUninstallNameRules {
         $name = $rawName.Trim()
         $isRegex = Test-RegexRuleText -Rule $name
         $isProduct = (-not $isRegex -and $name.TrimStart() -match '^(?i)product:')
+        $isPreset = (-not $isRegex -and $name.TrimStart() -match '^(?i)preset:')
         # 正则的数字量词、Unicode 属性和转义花括号保持原义；版本模板拼写错误必须明确报错。
         foreach ($token in [regex]::Matches($name, '(?<!\\)\{([A-Za-z][A-Za-z0-9]*)\}')) {
             $tokenName = $token.Groups[1].Value
-            if (@('version', 'versionMajor') -cnotcontains $tokenName -and (-not $isRegex -or $tokenName -match '^(?i)version')) {
-                $result.Error = ('uninstall.name 含有不支持的占位符：{0}；只支持 {{version}} / {{versionMajor}}' -f $token.Value)
+            if (@('version', 'versionMajor', 'versionMinor') -cnotcontains $tokenName -and (-not $isRegex -or $tokenName -match '^(?i)version')) {
+                $result.Error = ('uninstall.name 含有不支持的占位符：{0}；只支持 {{version}} / {{versionMajor}} / {{versionMinor}}' -f $token.Value)
                 return $result
             }
         }
-        $versionPattern = '(?<!\\)\{version(Major)?\}'
+        $versionPattern = '(?<!\\)\{version(Major|Minor)?\}'
         if ([regex]::IsMatch($name, $versionPattern)) {
             $versionText = ([string]$Version).Trim()
             if (-not $versionText) {
@@ -41,10 +42,16 @@ function New-WinstAppxUninstallNameRules {
                 return $result
             }
             $majorText = ($versionText -split '\.')[0]
+            $minorText = ''
+            if ([regex]::IsMatch($name, '(?<!\\)\{versionMinor\}')) {
+                try { $minorText = Expand-VersionPlaceholder -Text '{versionMinor}' -Version $versionText }
+                catch { $result.Error = ('uninstall.name 的次版本号无法展开：' + $_.Exception.Message); return $result }
+            }
             # 版本值始终按字面量插入；正则的点号、通配的星号不能扩大卸载范围。
             if ($isRegex) {
                 $versionText = [regex]::Escape($versionText)
                 $majorText = [regex]::Escape($majorText)
+                $minorText = [regex]::Escape($minorText)
             } elseif ($isProduct) {
                 if ($versionText.Contains('|')) {
                     $result.Error = 'uninstall.name 的 product: 版本占位符不能包含别名分隔符 |'
@@ -53,9 +60,11 @@ function New-WinstAppxUninstallNameRules {
             } else {
                 $versionText = ConvertTo-WildcardLiteral -Text $versionText
                 $majorText = ConvertTo-WildcardLiteral -Text $majorText
+                $minorText = ConvertTo-WildcardLiteral -Text $minorText
             }
             $name = [regex]::Replace($name, $versionPattern, [Text.RegularExpressions.MatchEvaluator]{
                     param($match)
+                    if ($match.Groups[1].Value -ceq 'Minor') { return $minorText }
                     if ($match.Groups[1].Success) { return $majorText }
                     return $versionText
                 })
@@ -63,7 +72,8 @@ function New-WinstAppxUninstallNameRules {
         # 模板值不能把普通通配规则变成另一种处理器，否则原本的字面值可能获得正则语义。
         $expandedIsRegex = Test-RegexRuleText -Rule $name
         $expandedIsProduct = (-not $expandedIsRegex -and $name.TrimStart() -match '^(?i)product:')
-        if ($expandedIsRegex -ne $isRegex -or $expandedIsProduct -ne $isProduct) {
+        $expandedIsPreset = (-not $expandedIsRegex -and $name.TrimStart() -match '^(?i)preset:')
+        if ($expandedIsRegex -ne $isRegex -or $expandedIsProduct -ne $isProduct -or $expandedIsPreset -ne $isPreset) {
             $result.Error = 'uninstall.name 的版本占位符不能改变匹配规则类型'
             return $result
         }

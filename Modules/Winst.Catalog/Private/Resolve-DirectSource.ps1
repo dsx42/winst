@@ -77,7 +77,7 @@ function Resolve-DirectSource {
 
         $rawUrl = $locator.Url
         $url = Expand-VersionPlaceholder -Text $rawUrl -Version $fileVersion.Version
-        if ($url -match '\{version(Major)?(_)?\}') {
+        if ($url -match '\{version(Major|Minor)?(_)?\}') {
             $result.Error = ('下载地址里的版本号无法替换: {0}' -f $rawUrl)
             return $result
         }

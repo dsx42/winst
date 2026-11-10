@@ -30,6 +30,7 @@ function Resolve-AppSource {
             'listing' { $result = Resolve-ListingSource -Context $Context -Entry $Entry }
             'page' { $result = Resolve-PageSource -Context $Context -Entry $Entry }
             'json' { $result = Resolve-JsonSource -Context $Context -Entry $Entry }
+            'xml' { $result = Resolve-XmlSource -Context $Context -Entry $Entry }
             'magnet' { $result = Resolve-MagnetSource -Context $Context -Entry $Entry }
             default {
                 $result = New-SourceResolveResult -Kind $kind

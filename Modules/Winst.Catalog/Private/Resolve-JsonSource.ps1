@@ -13,7 +13,7 @@ function Resolve-JsonSource {
                                versionBetween 从下载地址里识别；
           files[0].urlKey   —— 主包下载地址的字段名（如 url / downloads.windowsZip.link），
                                可配 files[0].file（通配）在多个候选条目里挑出要下载的那一个；
-          files[0].hashKey / files[0].hashFileKey —— sha256 摘要字段 / 校验文件地址字段。
+          files[0].hashKey / hashFileKey / hashFileMatch —— 摘要字段 / 校验文件地址字段 / 同级校验文件规则。
         配套文件与其它来源一致：写完整地址（url，支持 {version}）+ dest。
         规格校验 / 取条目 / 选主包 / 定版本 / 落位各由独立函数承担。
     #>
@@ -26,21 +26,25 @@ function Resolve-JsonSource {
     $source = $spec.Source
     $declared = @($spec.Declared)
 
-    $itemsResult = Get-WinstJsonItems -Context $Context -Source $source -ApiUrl $spec.ApiUrl
+    $itemsResult = Get-WinstJsonItems -Context $Context -Source $source -ApiUrl $spec.ApiUrl -Follow $spec.Follow -FollowSelection $spec.FollowSelection
     if ($itemsResult.Error) { $result.Error = $itemsResult.Error; return $result }
-    $items = @($itemsResult.Items)
+    $apiUrl = $itemsResult.ApiUrl
+    $selection = Select-WinstJsonVersionItems -Items $itemsResult.Items -Selection $spec.Selection -Label ('JSON 接口 ' + $apiUrl)
+    if ($selection.Error) { $result.Error = $selection.Error; return $result }
+    $items = @($selection.Items)
 
     $pick = Select-WinstJsonMainItem -Items $items -Declared $declared -MainLocator $spec.MainLocator `
-        -FileRule $spec.FileRule -ApiUrl $spec.ApiUrl -Result $result
+        -FileRule $spec.FileRule -ApiUrl $apiUrl -Result $result
     if ($pick.Error) { $result.Error = $pick.Error; return $result }
 
-    $version = Resolve-WinstJsonVersion -Source $source -Entry $Entry -Chosen $pick.Item -ApiUrl $spec.ApiUrl `
+    $version = Resolve-WinstJsonVersion -Source $source -Entry $Entry -Chosen $pick.Item -ApiUrl $apiUrl `
         -VersionKind $spec.VersionKind -VersionBetween $spec.VersionBetween -DownloadUrl $pick.Url -Result $result
     if ($result.Error) { return $result }
     $result.Version = $version
 
     $filesResult = New-WinstJsonResolvedFiles -Context $Context -Source $source -Entry $Entry -Declared $declared `
-        -Chosen $pick.Item -DownloadUrl $pick.Url -Version $version -ApiUrl $spec.ApiUrl -Result $result
+        -Chosen $pick.FileItem -FileItems $pick.FileItems -HashFileRule $spec.HashFileRule `
+        -DownloadUrl $pick.Url -Version $version -ApiUrl $apiUrl -Result $result
     if ($filesResult.Error) { $result.Error = $filesResult.Error; return $result }
 
     $result.Ok = $true

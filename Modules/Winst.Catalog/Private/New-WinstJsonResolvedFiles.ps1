@@ -3,12 +3,12 @@
 function New-WinstJsonResolvedFiles {
     <#
     .SYNOPSIS
-        ⑤ 落地：主包（含接口里的 hash / hashFileKey）+ 第 2 条起的配套文件。
+        ⑤ 落地：主包（含接口里的摘要 / 校验文件地址）+ 第 2 条起的配套文件。
     .OUTPUTS
         @{ Error; Files }
     #>
     param([hashtable]$Context, $Source, $Entry, $Declared, $Chosen, [string]$DownloadUrl, [string]$Version,
-        [string]$ApiUrl, $Result)
+        [string]$ApiUrl, $Result, $FileItems, $HashFileRule)
 
     $skipCheck = Get-EntryBool -Entry $Source -Key 'skipExistsCheck'
     $files = @()
@@ -47,6 +47,26 @@ function New-WinstJsonResolvedFiles {
                 if (-not $hashFrom) { $hashFrom = 'sha256sums' }
             }
 
+            if ($HashFileRule) {
+                foreach ($fileItem in @($FileItems)) {
+                    $found = Get-JsonNodeValue -Node $fileItem -Key $locator.UrlKey
+                    if (-not $found.Ok -or -not $found.Text) { continue }
+                    $candidate = ([string]$found.Text).Trim()
+                    if (-not (Test-FileRuleMatchesLink -Rule $HashFileRule -Text $candidate)) { continue }
+                    if ($hashFile) {
+                        return @{ Error = 'JSON 主包的 hashFileMatch 匹配到多个校验文件'; Files = $files }
+                    }
+                    $hashUri = $null
+                    if (-not [Uri]::TryCreate($candidate, [UriKind]::Absolute, [ref]$hashUri) -or
+                            @('http', 'https') -notcontains $hashUri.Scheme) {
+                        return @{ Error = ('JSON 校验文件地址必须是绝对 HTTP(S) 地址：' + $candidate); Files = $files }
+                    }
+                    $hashFile = $candidate
+                }
+                if (-not $hashFile) {
+                    return @{ Error = ('JSON 主包的 hashFileMatch 没有匹配到校验文件：' + $HashFileRule.Source); Files = $files }
+                }
+            }
             $urlProbe = Test-WinstManifestUrlOrNote -Context $Context -Url $DownloadUrl -Skip $skipCheck `
                 -MissingError ('JSON 接口给出的地址不存在（HTTP 404）: {0}；可能是接口里的地址已失效' -f $DownloadUrl)
             if (-not $urlProbe.Ok) { return @{ Error = [string]$urlProbe.Error; Files = $files } }

@@ -52,15 +52,16 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 ## 通用匹配规则
 
-`source.files[].file`、`source.versionFilter`、`source.files[].versionFilter`、页面链接条件中的 `href`、`detect.name` 和 `uninstall.name` 使用同一套匹配规则。它们接受以下全部写法：
+`source.files[].file`、`source.files[0].hashFileMatch`、`source.versionFilter`、`source.follow.versionFilter`、`source.files[].versionFilter`、页面链接条件中的 `href`、`detect.name` 和 `uninstall.name` 使用同一套匹配规则。它们接受以下全部写法：
 
 | 写法 | 匹配方式 |
 |---|---|
 | 普通文本或通配 | 默认写法，整串匹配且区分大小写；`*` 匹配任意多个字符，`?` 匹配单个字符，反斜杠转义下一个字符，其余字符按字面量处理 |
 | `re:<正则>` | 直接使用自定义正则，默认区分大小写；需要完整匹配时自行写出首尾边界，需要忽略大小写时使用正则选项 `(?i)`；正则无法编译时规则报错 |
 | `product:<产品名列表>` | 预置的完整产品名称匹配器；接受列出的任一产品名，以及产品名后可选的空白和数字点分版本后缀；产品名按字面量处理且区分大小写，不把 `*`、`?` 或正则元字符当成特殊语法 |
+| `preset:stable` | 预置的正式版本格式匹配器；完整文本必须恰好是三个由点分隔的 ASCII 数字段，例如 `10.0.1`；不接受 `v10.0.1`、`10.0`、`10.0.1.2`、预发布后缀、首尾空白或换行 |
 
-`re:` 和 `product:` 前缀不区分大小写，前面可以有空白；未使用这两个前缀时按通配处理。页面条件的 `class` / `id` / `text`、文件系统路径通配、`hashFrom` 和 `versionKind` 分别使用各自的规则，不使用此匹配器。
+`re:`、`product:` 和 `preset:` 前缀不区分大小写，前面可以有空白；未使用这些前缀时按通配处理。`preset:` 后的名称去掉首尾空白后只接受 `stable`，名称不区分大小写；其它名称报「不认识的预置匹配规则」。`preset:stable` 只检查文本格式，不查询发布状态，适用于上述所有使用通用匹配规则的位置。页面条件的 `class` / `id` / `text`、文件系统路径通配、`hashFrom` 和 `versionKind` 分别使用各自的规则，不使用此匹配器。
 
 `product:` 后用 `|` 分隔产品别名，每个别名会去掉首尾空白。示例 `product:微信|WeChat|Weixin` 接受「微信」「WeChat」「Weixin」「微信 4.2.0」，不接受「企业微信」「WeChat Work」「微信测试版」。版本后缀是至少一个空白字符，后接一个或多个以点分隔的数字段，如 `4`、`4.2.0`；版本前后不能额外夹带其它文字。`product:` 后没有名称、连续 `||`、末尾 `|` 或仅含空白的别名，均报「product: 预置规则的产品名不能为空」。`|` 只作分隔，名称自身含此字符时应使用 `re:` 自定义规则。
 
@@ -85,7 +86,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
   "dependencies": [ "jdk25" ],          // 依赖的软件 id
 
   "source": {
-    "kind": "github",                   // direct | github | listing | page | json | magnet
+    "kind": "github",                   // direct | github | listing | page | json | xml | magnet
     "repo": "adoptium/temurin21-binaries",
     "files": [
       { "file": "OpenJDK21U-jdk_x64_windows_hotspot_*.zip" }
@@ -127,8 +128,8 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `type` | 必填 | 见下方「条目类型」 |
 | `group` | 空 | 展示分组，列表里同组聚拢并打分组标题；不参与版本比较与安装流程 |
 | `dependencies` | `[]` | 依赖 id 列表；安装 / 更新前先处理「未装 / 可更新」的依赖；卸载时提示但不拦截；`download` 条目不参与 |
-| `version` | 空 | 来源取不到版本时的兜底；也供 `{version}` / `{versionMajor}` 展开。各来源何时必填见「六种下载来源」 |
-| `source` | 必填 | 下载来源定义，见「六种下载来源」 |
+| `version` | 空 | 来源取不到版本时的兜底；也供 `{version}` / `{versionMajor}` / `{versionMinor}` 展开。各来源何时必填见「下载来源」 |
+| `source` | 必填 | 下载来源定义，见「下载来源」 |
 | `stripTopDir` | `true` | `portable` 的主包解压规则，或 `installer` 声明 `installerExe` 时的外层包解压规则。`true` 剥掉唯一顶层目录；`false` 原样解压；字符串 = 只取包内该路径（目录取内容、文件取自身；该文件本身是压缩包则再解压一层）；路径不存在即报错 |
 | `extractFiles` | `[]` | 仅 `portable`：只取包内这几个路径；声明后不再看 `stripTopDir`；任一不存在即报错 |
 | `portableMode` | `clean` | 仅 `portable`：`clean` 先删后解压（保留 `keep`），`overwrite` 直接覆盖；空值及无法识别的值按 `clean` |
@@ -174,9 +175,9 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `exe` 与 `file` 同义；读取时统一归一化为 `file`。
 
-## 六种下载来源
+## 下载来源
 
-`source.kind` 必填，大小写不敏感。`source.files[]` 第一项是主包，后续项是配套文件；每项可写对象，或写字符串作为 `url` 简写。也可省略 `files`，直接写 `source.url` 表示唯一主包；`files` 非空时忽略 `source.url`。page 源不能靠 `source.url` 提供主包地址，因为它只接受页面提取；json 源不能用字符串简写替代主包 `urlKey`。`skipExistsCheck` 默认 `false`，对 direct / github / listing / page / json 有效；magnet 不做 HTTP 地址探测。
+`source.kind` 必填，大小写不敏感。`source.files[]` 第一项是主包，后续项是配套文件；每项可写对象，或写字符串作为 `url` 简写。也可省略 `files`，直接写 `source.url` 表示唯一主包；`files` 非空时忽略 `source.url`。page 源不能靠 `source.url` 提供主包地址，因为它只接受页面提取；json 主包必须写 `urlKey`，xml 主包必须写 `urlKey` 或 `urlXPath`，两者都不能用字符串简写或 `source.url` 替代。`skipExistsCheck` 默认 `false`，对 direct / github / listing / page / json / xml 有效；magnet 不做 HTTP 地址探测。
 
 | kind | 用途 | `versionFrom` 可用值 |
 |---|---|---|
@@ -185,6 +186,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `listing` | 版本 / 目录列表页 | 不读 `versionFrom`——版本由列表页候选 + `versionKind` 决定 |
 | `page` | 下载详情页，按元素定位下载按钮 | `url`（默认，从下载地址识别）、`page`（从页面内容识别）、`package`、`header`、`json` |
 | `json` | 下载信息只在接口里的站点 | 不读 `versionFrom`——用 `versionKey`，或 `versionKind` / `versionBetween` 从下载地址识别 |
+| `xml` | 从 XML 文档按字段路径和条件读取版本、下载地址与摘要 | 不读 `versionFrom`——用 `itemsKey` / `match` 筛选父记录，再按 `versionKey` 读取版本；特殊结构可用 XPath |
 | `magnet` | 磁力链接（BitTorrent），交给 `FluxDown-CLI` 取包 | 不读 `versionFrom`——用 `versionKind` / `versionBetween` 从文件名 `dn` 识别 |
 
 `versionFrom` 写错取值会直接报错并列出可用值，不会静默回落。
@@ -209,7 +211,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 - 条目 `version` 非空时直接使用，不再读取 `versionFrom` / `pageUrl`；为空时，`versionFrom: "page"` 从页面取版本，`"package"` 等取包，`"header"` / `"json"` 从独立版本地址取值（见下文），未写 `versionFrom` 会报缺少版本号。
 - `versionFrom` 只接受 `page` / `package` / `header` / `json`；写别的值会报错。`page` 必须配 `pageUrl` 以及 `versionKind` / `versionBetween` 至少一项，无法识别即报错；`fetchWith` 可选 `iwr`（默认）/ `browser`。
 - `source.packageVersion` 只能配合 `versionFrom: "package"`，写法见「包内版本派生」。
-- 每个文件都必须写完整地址 `url`；只写文件名通配 `file` 无法定位。地址中的 `{version}` / `{versionMajor}` 无法展开为版本时即报错。
+- 每个文件都必须写完整地址 `url`；只写文件名通配 `file` 无法定位。地址中的 `{version}` / `{versionMajor}` / `{versionMinor}` 无法展开为版本时即报错。
 - 刷新时会探测主包地址一次；`404` / `410` 判为条目解析失败。
 
 ### github 源
@@ -268,18 +270,37 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 ```jsonc
 "source": {
   "kind": "listing",
-  "indexUrl": [ "https://dlcdn.apache.org/maven/maven-3/" ],   // 可为数组，多个页面的候选合并
-  "versionKind": "semver",             // 必填：semver | date | digits
-  "versionFilter": "3.*",              // 可选：候选版本过滤（见通用匹配规则）
-  "sort": "semver",                    // 可选：semver（默认）| text
-  "skipExistsCheck": false,            // 可选：不逐个探测地址可用性
+  "indexUrl": "https://dlcdn.apache.org/maven/maven-*",
+  "versionKind": "semver",
+  "versionFilter": "preset:stable",
+  "sort": "semver",                    // 可选：默认按版本从高到低排序
+  "skipExistsCheck": false,            // 可选：默认逐个探测地址可用性
   "files": [
-    { "url": "https://dlcdn.apache.org/maven/maven-3/{version}/binaries/apache-maven-{version}-bin.zip" }
+    {
+      "url": "https://dlcdn.apache.org/maven/maven-{versionMajor}/{version}/binaries/apache-maven-{version}-bin.zip",
+      "hashFile": "https://dlcdn.apache.org/maven/maven-{versionMajor}/{version}/binaries/apache-maven-{version}-bin.zip.sha512",
+      "hashFrom": "sha512"
+    }
   ]
 }
 ```
 
-`source.indexUrl` 必填，可写字符串或字符串数组；`versionKind` 必填。取列表页 → 收集全部版本候选 → `versionFilter` 过滤 → `sort` 排序 → **从高到低逐个探测地址可用性**（上限 8 个候选），第一个非 404 的即采用；探测失败会记提示并采用该候选。`sort: "text"` 使用序号字符串比较，其它取值按 `semver`。只接受 `url` 地址模板，主包模板必须能展开出版本。
+| source 字段 | 默认 | 约束 |
+|---|---|---|
+| `indexUrl` | 无 | 必填，可写字符串或字符串数组；多个列表页的版本候选合并后统一过滤与排序，目录通配规则见下文 |
+| `versionKind` | 无 | 必填，只接受 `semver` / `date` / `digits` |
+| `versionFilter` | 不过滤 | 按[通用匹配规则](#通用匹配规则)过滤候选版本；`preset:stable` 只接受完整的三段纯数字版本 |
+| `sort` | `semver` | `text` 按序号字符串从高到低排序，其它取值按版本比较规则从高到低排序 |
+| `skipExistsCheck` | `false` | `true` 时不探测候选主包地址，直接采用排序后的首个候选 |
+| `files` | 无 | 至少一项，只接受 `url` 地址模板；主包模板必须能展开出版本 |
+
+`indexUrl` 没有 `*` 时按原地址读取。有 `*` 时必须为绝对 HTTP(S) 地址，只允许最后一个路径段包含 `*`，末尾 `/` 可省略；主机名、父目录中含 `*`，或同时带查询串、片段的通配地址会报错。例如 `https://dlcdn.apache.org/maven/maven-*` 会先读取 `https://dlcdn.apache.org/maven/`，再匹配该层的 `maven-*` 子目录，不递归展开下一层通配。
+
+目录发现接受相对或绝对链接，只保留同协议、主机与端口的直接子目录，链接必须以 `/` 结尾且没有查询串或片段；上级目录、跨站链接、深层路径和普通文件均跳过。匹配出的具体目录按完整 URL 区分大小写去重并保留首次出现顺序。没有匹配目录或父目录请求失败时，该索引地址记为失败；其它列表页仍有候选时会提示部分失败并继续，没有候选时解析失败并指出地址与原因。
+
+`semver` 优先从列表页的直接子目录链接读取完整版本目录名，去掉单个 `v` / `V` 前缀，保留预发布和构建后缀，例如 `4.0.0-rc-7`；再执行 `versionFilter`。已取得目录候选但过滤后为空时直接报错，不再次从整页文本提取数字。没有版本目录候选时按版本识别器扫描整页文本；这类数字扫描不保留预发布后缀，因此 `preset:stable` 只对完整版本目录候选提供严格的正式版筛选。`date` / `digits` 均按原识别器扫描整页文本。
+
+候选经过滤与排序后，**从高到低逐个探测主包地址可用性**（上限 8 个候选），第一个非 404 的即采用；探测结果未知时会记提示并采用该候选。Maven 示例通过完整目录候选和 `preset:stable` 排除预发布，再用 `{versionMajor}` 同时展开安装包与 SHA512 地址，使正式版本不受固定主版本目录限制。
 
 ### page 源
 
@@ -347,32 +368,174 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 ### json 源
 
-```jsonc
-"source": {
+接口可以直接返回文件信息，也可以先返回目录索引，再读取选定的详情接口。`follow` 最多增加一次 GET；不声明时直接从 `apiUrl` 的响应解析发布与文件。
+
+| source 字段 | 默认 | 约束 |
+|---|---|---|
+| `apiUrl` | 无 | 必填，初始 JSON 接口的固定地址；不支持 `{version}` / `{versionMajor}` / `{versionMinor}` / `{tag}` 占位符，写入会报错 |
+| `follow` | 不跟随 | 可选对象，先从初始响应选择唯一索引项并读取下一接口；只接受下表列出的字段，所有字段值必须为字符串，不接受数组、JSON `null` 或嵌套 `follow` |
+| `itemsKey` | 整个响应 | 发布对象或发布数组所在字段；相对于跟随后接口的响应，未声明 `follow` 时相对于初始响应；单对象作为一个候选 |
+| `versionKey` | 空 | 字符串，发布版本字段，相对于父发布对象；非空的 `versionFilter` / `sort` 均要求它非空。未配置时按 `versionBetween` / `versionKind` 从最终主包 URL 识别版本 |
+| `versionFilter` | 不过滤 | 字符串，非空时对 `versionKey` 取出的原始完整字符串应用[通用匹配规则](#通用匹配规则)，匹配前不去空白、不提取或规范化版本；必须配合非空 `versionKey` |
+| `sort` | 保留接口顺序 | 字符串，非空时只接受 `semver`，按版本比较规则选择最高版本的父发布，最高版本并列时报歧义；必须配合非空 `versionKey`。排序接受完整单行版本形状，不执行严格 SemVer 格式校验 |
+| `versionBetween` | 空 | 未声明 `versionKey` 时，从最终主包 URL 按标记截取版本；与 `versionKind` 同写时优先使用本字段 |
+| `versionKind` | 空 | 未声明 `versionKey` / `versionBetween` 时，从最终主包 URL 按识别器取版本，取值见「版本标识器」 |
+| `skipExistsCheck` | `false` | 是否跳过最终主包 URL 的存在性探测，不影响接口 GET |
+
+`follow` 只从初始响应选择索引项，不使用主包的 `files[].match` / `file` 条件：
+
+| follow 字段 | 默认 | 约束 |
+|---|---|---|
+| `itemsKey` | 整个初始响应 | 索引对象或索引数组所在字段；单对象作为一个候选 |
+| `versionKey` | 空 | 索引项的版本字段；非空的 `versionFilter` / `sort` 及 `apiUrl` 中的版本占位符均要求它非空。用于索引选择与跟随地址模板，不作为软件最终版本 |
+| `versionFilter` | 不过滤 | 非空时按通用匹配规则过滤索引版本的原始完整字符串，匹配前不去空白或规范化；必须配合非空 `versionKey` |
+| `sort` | 不排序 | 非空时只接受 `semver`，选择最高版本的索引项，版本校验与 `source.sort` 相同；未配置时过滤后的候选必须恰好一个；最高版本并列同样报歧义 |
+| `apiUrl` | 无 | 与 `urlKey` 必须二选一；完整详情接口地址，可使用 `{version}` / `{versionMajor}` / `{versionMinor}`，不接受 `{tag}` 或其它占位符。使用版本占位符时必须配合非空 `versionKey` |
+| `urlKey` | 无 | 与 `apiUrl` 必须二选一；相对于选中的索引项读取完整详情接口地址，不对该字段值展开占位符 |
+
+`follow.apiUrl` 和 `follow.urlKey` 取得的地址都允许跨域，必须为绝对 `http://` 或 `https://` URL；相对地址、本地路径、UNC 路径、其它协议和非法 URL 均报错。两字段必须只声明一个，同时声明即使其中一个为空也报错；声明值必须为非空字符串，不能写数字、数组、对象或 JSON `null`。
+
+`follow.apiUrl` 中的 `{version}` 取首响应选中索引项的 `follow.versionKey`，先去首尾空白及单个 `v` / `V` 前缀；`{versionMajor}` / `{versionMinor}` 分别取该规范化版本按 `.` 切分的第一段 / 第二段；使用 `{versionMinor}` 时版本必须至少有两段，否则报错。字段缺失、值为空或无法作为完整版本使用时明确报错。跟随地址的版本与第二响应的 `source.versionKey` 相互独立：前者决定请求哪个详情接口，后者决定最终软件版本。
+
+所有字段路径支持点分嵌套与数字数组下标，例如 `products.0.url`。键名自身含点时用单引号包住该段：对象的单个键 `releases.json` 应写为 `"'releases.json'"`，嵌套文件名可写为 `files.'x.zip'.url`。本写法不支持数组条件表达式或通配查询。
+
+`versionKey`、`versionFilter`、`sort` 和主包 `itemsKey` / `hashFileMatch` 配置值的首尾空白会去掉，空字符串按未配置处理；声明时必须为字符串，不能写数字、数组、对象或 JSON `null`。`follow` 的所有字段也必须为字符串，其中所选地址字段 `apiUrl` 或 `urlKey` 不能为空。
+
+主包 `files[0]` 的选择与版本归属：
+
+- `urlKey` 必填；只写 `file` 无法定位地址，`url` 与 `urlKey` 互斥。`urlKey` 可配 `file`，按下载 URL 的文件名匹配候选。
+- `files[0].itemsKey` 未配置时，父发布本身也是文件项。非空时从每个父发布的该字段取子文件数组或单个子文件；`match`、`file`、`urlKey`、`hashKey`、`hashFileKey` 均相对于子文件，而 `source.versionKey` 始终相对于父发布。
+- 未声明 `sort`、`versionFilter`、主包 `itemsKey` 时，按接口顺序采用第一个满足 `match` / `file` 且能读到 URL 的父项；只声明 `versionFilter` 时先过滤父项，再按相同方式选文件。
+- 声明 `sort: "semver"` 时先选唯一最高父发布，再选文件；该发布缺少目标文件、字段或有效下载地址即报错，不尝试较低版本。
+- 配置非空主包 `itemsKey` 时必须先确定唯一父发布，再要求 `match` / `file` 恰好匹配一个子文件；没有排序且父发布不唯一，或子文件多匹配，均报歧义。
+- `match` 是字段路径到期望文本的对象，所有条件都要满足，文本比较不区分大小写；它不使用通用匹配规则。`file` 使用通用匹配规则。
+- 版本优先取父发布的 `versionKey`；未写它时，按 `versionBetween`、`versionKind` 的优先级从最终主包 URL 识别，失败记提示并回退条目 `version`。
+- `hashKey` / `hashFileKey` 只在主包读取；摘要字段必须为 32～128 位十六进制，算法由摘要长度决定。第 2 项起的配套文件必须填写完整地址 `url`，不能使用 `urlKey` 或 `itemsKey`。
+- `hashFileMatch` 只支持 `json` 主包，非空时必须配合非空 `files[0].itemsKey`，并与非空 `hashFile` / `hashFileKey` 互斥。它在选中父发布的同一子文件集合中，用主包的 `urlKey` 读取每个子文件的地址，再按地址文件名应用通用匹配规则；必须恰好匹配一个校验文件，缺少匹配或匹配多个都报错；匹配出的地址必须为绝对 HTTP(S) 地址，否则报错。主包的 `match` / `file` 条件不参与校验文件筛选。
+- `hashFileMatch` 取得的校验文件地址可配 `hashFrom`，默认 `sha256sums`；`hashKey` 仍覆盖清单的 `hash`，最终摘要优先于校验文件。接口只提供校验文件链接时，取得摘要需要额外 GET 校验文件。
+
+启用版本过滤或排序时，缺少版本字段、版本为 JSON `null` 或空字符串的候选会被排除，排除后没有候选才报错；其余候选参与原文过滤与版本比较。没有启用过滤或排序但配置了非空 `source.versionKey` 时，选中的发布缺少该字段或字段为空仍会报错。请求失败、响应不是合法 JSON、集合字段缺失、排序版本不是完整单行版本形状、跟随地址非法或候选歧义，也会使条目解析失败并指出步骤或字段。`follow` 不会把返回的 JSON 当成下一份 source 配置，也不会再次读取其中的跟随指令；请求使用现有 HTTP 代理和进程内缓存。
+
+下面的完整 `source` 从微软发布索引选择最高正式版本，用其主版本展开详情接口地址，再按第二响应中的 `windowsdesktop.version` 选择最高正式发布的 Windows Desktop Runtime x64 安装器及官方摘要。索引与发布分别过滤，不使用固定数组下标；`preset:stable` 会排除 `preview` / `rc` 版本。
+
+```json
+{
   "kind": "json",
-  "apiUrl": "https://data.services.jetbrains.com/products/releases?code=IIU&latest=true&type=release",
-  "itemsKey": "IIU",                   // 可选：条目（或条目数组）所在字段；缺省 = 整个响应就是一个条目
-  "versionKey": "version",              // 可选：版本字段名
-  "versionKind": "semver",              // 可选：未写 versionKey 时从下载地址识别
-  "versionBetween": [ "v", "-" ],
+  "apiUrl": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json",
+  "follow": {
+    "itemsKey": "releases-index",
+    "versionKey": "latest-release",
+    "versionFilter": "preset:stable",
+    "sort": "semver",
+    "apiUrl": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/{versionMajor}.0/releases.json"
+  },
+  "itemsKey": "releases",
+  "versionKey": "windowsdesktop.version",
+  "versionFilter": "preset:stable",
+  "sort": "semver",
   "files": [
     {
-      "urlKey": "downloads.windowsZip.link",       // 必填：下载地址的字段名
-      "file": "*.win.zip",                          // 可选：在多个候选条目里按文件名挑
-      "hashKey": "downloads.windowsZip.checksum",   // 可选：sha256 摘要字段
-      "hashFileKey": "downloads.windowsZip.checksumLink",  // 可选：校验文件地址字段
-      "match": { "distribution": "opencode" }       // 可选：在候选条目里按字段值挑
+      "itemsKey": "windowsdesktop.files",
+      "match": { "rid": "win-x64" },
+      "file": "windowsdesktop-runtime-*-win-x64.exe",
+      "urlKey": "url",
+      "hashKey": "hash"
     }
   ]
 }
 ```
 
-- `apiUrl` 必填且固定，**不支持占位符**（含 `{version}` / `{versionMajor}` / `{tag}` 会报错）
-- `itemsKey` / `versionKey` / `urlKey` / `hashKey` / `hashFileKey` / `match` 的键都支持点分嵌套与数组下标（如 `products.0.url`），含特殊字符的键用引号（`files.'x.zip'.url`）
-- 主包必须写 `urlKey`；只写 `file` 无法定位安装包（会报错）。`urlKey` 与 `file` 可以搭配：`file` 用于在候选条目里按文件名挑选。
-- 第 2 项起是配套文件，必须写完整地址 `url`，不能用 `urlKey`；`hashKey` / `hashFileKey` 只在主包读取。
-- 版本优先取 `versionKey`；未写它时，`versionBetween` 优先于 `versionKind` 从下载地址识别，失败记提示并回退条目 `version`。
-- `skipExistsCheck` 默认 `false`，控制接口给出的主包地址探测。
+Graphviz 的 GitLab 最新发布接口同时提供版本和资产链接。主包与校验文件在同一 `assets.links` 集合中分别筛选，只选择 Windows Release 版 ZIP，排除 Debug 和 MSYS2 包；摘要从匹配的 `.sha256` 文件取得。
+
+```json
+{
+  "kind": "json",
+  "apiUrl": "https://gitlab.com/api/v4/projects/graphviz%2Fgraphviz/releases/permalink/latest",
+  "versionKey": "tag_name",
+  "files": [
+    {
+      "itemsKey": "assets.links",
+      "urlKey": "url",
+      "file": "windows_*_cmake_Release_Graphviz-*-win64.zip",
+      "hashFileMatch": "windows_*_cmake_Release_Graphviz-*-win64.zip.sha256"
+    }
+  ]
+}
+```
+
+### xml 源
+
+XML 源使用普通字段路径定位元素和属性，再用 `match` 筛选记录。下面的 `source` 先选 `platform-tools` 的正式频道包，再从包内选 Windows 归档；版本从父包读取，下载地址和摘要从归档读取：
+
+```json
+{
+  "kind": "xml",
+  "apiUrl": "https://dl.google.com/android/repository/repository2-1.xml",
+  "itemsKey": "remotePackage",
+  "match": {
+    "@path": "platform-tools",
+    "channelRef.@ref": "channel-0"
+  },
+  "versionKey": [ "revision.major", "revision.minor", "revision.micro" ],
+  "baseUrl": "https://dl.google.com/android/repository/",
+  "files": [
+    {
+      "itemsKey": "archives.archive",
+      "match": { "host-os": "windows" },
+      "urlKey": "complete.url",
+      "hashKey": "complete.checksum"
+    }
+  ]
+}
+```
+
+`@path` 表示 `path` 属性，`channelRef.@ref` 表示 `channelRef` 子元素的 `ref` 属性。`versionKey` 数组按填写顺序读取各段，再用 `.` 连接；也可写单个字段路径，直接读取完整版本。每段都必须存在且唯一，缺段不会补零。
+
+| source 字段 | 默认 | 约束 |
+|---|---|---|
+| `apiUrl` | 无 | 必填字符串，读取 XML 文档的固定绝对 HTTP(S) 地址；不支持 `{version}` / `{versionMajor}` / `{versionMinor}` / `{tag}` 占位符 |
+| `itemsKey` | 无 | 与 `itemsXPath` 必须二选一；从 XML 根元素出发，按普通字段路径读取父记录候选，再按 `match` 筛选；结果必须唯一 |
+| `match` | 不过滤 | 对象，键为候选父记录中的普通字段路径，值为期望字符串；只配合 `itemsKey` 使用，所有条件都必须满足 |
+| `versionKey` | 无 | 与 `versionXPath` 必须二选一；相对于选中的父记录，写非空字段路径字符串，或非空字符串数组；数组中每个路径必须读取到唯一非空文本，再用 `.` 连接 |
+| `itemsXPath` | 无 | 高级写法，相对于 XML 文档选择唯一父记录；与非空 `itemsKey` 互斥，不能搭配 `source.match` |
+| `versionXPath` | 无 | 高级写法，相对于父记录读取完整版本；与 `versionKey` 互斥，可写节点路径或返回字符串的 XPath 表达式 |
+| `baseUrl` | 空 = 未配置 | 解析相对下载地址时必填；非空时必须为末尾带 `/`、无查询串和片段的绝对 HTTP(S) 目录地址；XML 返回绝对 HTTP(S) 地址时直接采用 |
+| `skipExistsCheck` | `false` | 是否跳过最终主包地址的存在性探测，不影响 XML 文档 GET |
+| `files` | 无 | 至少一项；主包必须为含 `urlKey` 或 `urlXPath` 的对象；配套文件还可写字面地址或模板 `url`，支持通用文件属性 |
+
+普通字段路径用 `.` 逐层读取子元素，不递归搜索；属性必须写成最后一段的 `@属性名`。`source.itemsKey` 从 XML 根元素起算，因此示例不需要在路径中写 `sdk-repository`；`files[].itemsKey` 从选中的父记录起算。元素和属性均按 `LocalName` 匹配，忽略命名空间前缀及默认命名空间，名称区分大小写。同名节点即使属于不同命名空间，也会一起参与匹配，最终仍须满足唯一性要求。
+
+普通路径不接受空段、前后点、数组下标、`..`、引号段或 XPath 表达式，也不能填写命名空间前缀。路径名包含 `.` 或需要其它 XML 查询时，使用下方的 XPath 写法。
+
+`source.match` 和 `files[].match` 都必须为对象，值必须为字符串。期望值与节点文本去首尾空白后按区分大小写的完整文本比较，不使用通配或正则规则；值只作为文本比较，不拼接进 XPath。条件字段缺失时排除该候选，字段匹配多个节点时直接报错；筛选结束后必须恰好保留一个候选，不按顺序取第一条、不挑最高版本，也不回退到其它频道或平台。
+
+文件级取值范围与搭配：
+
+- `files[].itemsKey` 可选，未配置时以父记录本身作为文件记录；配置后按该路径读取文件候选，再按本项 `match` 筛选唯一文件记录。它适用于主包和配套文件。
+- `source.versionKey` / `versionXPath` 始终相对于父记录；`files[].urlKey` / `urlXPath` / `hashKey` / `hashXPath` 相对于本项选中的文件记录。示例中的 `revision` 属于父包，`complete` 属于 Windows 归档。
+- 主包的 `urlKey` 与 `urlXPath` 必须二选一，配套文件也可用字面 `url`；`url`、`urlKey`、`urlXPath`、`file` 的定位方式互斥。XML 的 `urlKey` 不能配 `file`；JSON 主包的 `urlKey` + `file` 组合不受此限制。
+- `hashKey` 与 `hashXPath` 可选，非空时互斥；配置后必须读取到唯一非空的十六进制摘要，长度只接受 32 / 40 / 64 / 128，分别按 MD5 / SHA1 / SHA256 / SHA512 校验。不读取 XML 中的算法属性，也不需要 `hashFrom`。取得的摘要覆盖固定 `hash`，并优先于 `hashFile`；不能与 `hashHeader` 同时使用。Android 示例的 `checksum` 按摘要长度识别为 SHA1。
+- XML 返回相对下载地址时按 `baseUrl` 拼接，缺少基址即报错；最终地址必须为绝对 HTTP(S) 地址，本地文件、UNC 路径或其它协议均不接受。配套文件的字面 `url` 也可配 `baseUrl` 写相对地址，版本占位符按本文件版本展开，还可配 `versionListUrl` 独立取版；`urlKey` / `urlXPath` 文件不能配置 `versionListUrl`。
+
+`apiUrl`、`itemsKey`、`itemsXPath`、`versionXPath`、`baseUrl`、文件项中的 `itemsKey` / `urlKey` / `urlXPath` / `hashKey` / `hashXPath` 声明时必须为字符串；`versionKey` 只接受字符串或非空字符串数组，数组每项均须非空字符串。数字、对象和 JSON `null` 不能代替这些字段。配置路径与 XPath 的首尾空白会去掉；必填项为空时报错，可选的文件 `itemsKey` / `hashKey` / `hashXPath` 和 `baseUrl` 为空时按未配置处理。
+
+版本文本去首尾空白与单个 `v` / `V` 前缀后必须为有效完整版本，不接受首尾点或连续点；读取失败不回退条目 `version`。普通路径读取版本的每个字段都要求唯一，避免组合版本时悄悄使用重复字段中的第一项。
+
+特殊 XML 结构可直接使用 XPath。下面的配置片段使用同一 Android 仓库：保留上例的 `kind` / `apiUrl` / `baseUrl`，移除 `source.itemsKey` / `match` / `versionKey`，改用这些高级字段：
+
+```json
+{
+  "itemsXPath": "//remotePackage[@path='platform-tools' and channelRef/@ref='channel-0']/archives/archive[host-os='windows']",
+  "versionXPath": "concat(../../revision/major, '.', ../../revision/minor, '.', ../../revision/micro)",
+  "files": [ { "urlXPath": "complete/url", "hashXPath": "complete/checksum" } ]
+}
+```
+
+XPath 使用 .NET 的 XPath 1.0 规则，不使用通用匹配规则，也不展开版本占位符。`itemsXPath` 必须返回唯一节点；值表达式返回节点集时必须恰好包含一个节点，返回字符串时直接取值，数字和布尔结果不接受。值会去首尾空白，缺失、空值、多匹配或非法表达式均报错。字符串表达式内部的参数按 XPath 规则取值，不检查每个参数路径是否唯一。未绑定自定义命名空间前缀；需要显式处理命名空间时可用 `local-name()`，例如 `*[local-name()='complete']/*[local-name()='url']`。
+
+普通路径与 XPath 可以按字段组合，但同一用途的两种写法不能同时配置：`itemsKey` / `itemsXPath`、`versionKey` / `versionXPath`、`urlKey` / `urlXPath`、`hashKey` / `hashXPath` 分别互斥。使用 `itemsXPath` 时不能再配 `source.match`；文件筛选仍可使用普通 `itemsKey` / `match`。
+
+XML 请求使用现有 HTTP 代理与进程内缓存。XML 格式非法、文档含 DTD 或外部实体、筛选不唯一、字段缺失、版本或摘要无效、地址非法，都会明确报错。主包地址探测的 `404` / `410` 与网络结果未知处理沿用通用规则。
 
 ### magnet 源
 
@@ -385,7 +548,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 }
 ```
 
-- `source.files` 至少一项；地址必须是完整磁力链接（`magnet:` 开头）；不接受 `{version}` / `{versionMajor}` / `{tag}` 占位符
+- `source.files` 至少一项；地址必须是完整磁力链接（`magnet:` 开头）；不接受 `{version}` / `{versionMajor}` / `{versionMinor}` / `{tag}` 占位符
 - 只有声明 `versionKind` 或 `versionBetween` 时才从文件名（`dn` 参数）识别；两者同写时只用 `versionBetween`。识别不出或都没声明时回退条目 `version`
 - 文件大小从 `xl` 参数取；`files[].name` 可覆盖文件名，未写时用 `dn`
 - 交给 `FluxDown-CLI`（下载引擎）以 BitTorrent 任务取包
@@ -394,15 +557,41 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 ### 独立版本地址（direct / page）
 
-`source.versionFrom` 在 `direct` / `page` 中额外支持 `header` / `json`，将版本获取与下载地址解析分开。direct 的条目 `version` 非空时仍优先使用条目版本。
+`source.versionFrom` 在 `direct` / `page` 中支持 `header` / `json`，将版本获取与下载地址解析分开。direct 的条目 `version` 非空时仍优先使用条目版本。
 
-| 字段 | 默认 | 约束 |
+| source 字段 | 默认 | 约束 |
 |---|---|---|
-| `versionUrl` | 无 | 两种方式都必填，完整版本地址；不支持 `{version}` / `{versionMajor}` 占位符 |
+| `versionUrl` | 无 | 两种方式都必填，完整版本地址；不支持 `{version}` / `{versionMajor}` / `{versionMinor}` 占位符 |
 | `versionHeader` | 无 | `header` 必填；向 `versionUrl` 发 HEAD，按不区分大小写的响应头名取值 |
-| `versionKey` | 无 | `json` 必填；向 `versionUrl` 发 GET，将响应解析为 JSON，按字段路径取版本；支持点分路径和数组下标，如 `0.version` |
+| `versionKey` | 无 | `json` 必填字符串；向 `versionUrl` 发 GET，将响应解析为 JSON，按字段路径读取一个版本值或版本数组；支持点分路径和数组下标，如 `0.version`；数组项本身就是版本值，不需要另写字段名 |
+| `versionFilter` | 不过滤 | 仅 `json` 读取；非空字符串时，对版本值的原始完整字符串应用[通用匹配规则](#通用匹配规则)，过滤前不去空白、不提取或规范化版本；必须配合非空 `versionKey` |
+| `sort` | 不排序 | 仅 `json` 读取；非空时只接受字符串 `semver`，按版本比较规则选择唯一最高版本；必须配合非空 `versionKey` |
 
-请求失败、JSON 非法、字段或响应头缺失、空值或值不是版本号时条目解析失败并明确报错。独立版本请求使用 HTTP 通道的代理和进程内缓存；page 的 `fetchWith` 仍只控制下载页面抓取。无需声明 `versionKind` / `versionBetween`；这两种方式直接使用头或字段的完整版本值。`source.packageVersion` 只允许配合 `versionFrom: "package"`。
+JSON 取值可为单个版本，也可为版本数组。候选先按 `versionFilter` 过滤，再按 `sort` 排序；最终必须恰好剩下一个版本。多个候选没有配置排序或过滤后仍有多个时会报错；排序的最高版本对应多个候选也会报歧义，不取首项、不按数组顺序猜最新版本。排序前要求版本是完整单行版本形状，不执行严格 SemVer 格式校验。
+
+`versionKey`、`versionFilter` 和 `sort` 配置必须为字符串，不能写数字、数组、对象或 JSON `null`；配置值会去首尾空白，空的 `versionFilter` / `sort` 按未配置处理。过滤作用于接口返回的原始完整版本字符串，之后才去版本首尾空白与单个 `v` / `V` 前缀。启用过滤或排序时，数组内为 JSON `null` 或空字符串的候选会被排除；没有可用候选时明确报错。
+
+请求失败、JSON 非法、字段或响应头缺失、最终版本为空或无效，以及筛选没有唯一结果时，条目解析失败，不回退其它来源版本。`header` 不读取 `versionFilter` / `sort`。独立版本请求使用 HTTP 通道的代理和进程内缓存；page 的 `fetchWith` 仍只控制下载页面抓取。无需声明 `versionKind` / `versionBetween`；这两种方式直接使用头或字段的完整版本值。`source.packageVersion` 只允许配合 `versionFrom: "package"`。
+
+下面的 `source` 从 NuGet 的版本数组中选出最高正式版，再按主次版本与完整版本展开安装器地址。`preset:stable` 排除 `preview` / `experimental`，只接受三段纯数字版本；例如 `2.6.5` 展开为 `2.6/2.6.5`：
+
+```json
+{
+  "kind": "direct",
+  "versionFrom": "json",
+  "versionUrl": "https://nuget.azure.cn/v3-flatcontainer/microsoft.windowsappsdk/index.json",
+  "versionKey": "versions",
+  "versionFilter": "preset:stable",
+  "sort": "semver",
+  "files": [
+    {
+      "url": "https://aka.ms/windowsappsdk/{versionMajor}.{versionMinor}/{version}/windowsappruntimeinstall-x64.exe"
+    }
+  ]
+}
+```
+
+响应头取版使用 `versionHeader`：
 
 ```json
 {
@@ -420,14 +609,15 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 | 占位符 | 展开为 | 可用位置 |
 |---|---|---|
-| `{version}` | 本次解析出的版本 | `files[].url` / `file` / `name` / `hash` / `hashFile` / `versionListUrl`、`postInstallCopy.from` / `to`、`postInstall` / `uninstall.commands` 的 `exe` / `args`、`installArgs` / `uninstallArgs` / `installerExe`、`uninstall.name`、`mainExe`、`keep`、`env` 的值、`addToPath`、`detect.name` / `versionKind` / `pathGlob` / `jsonKey` / `versionArgs` / `exe` |
+| `{version}` | 本次解析出的版本；`source.follow.apiUrl` 使用首响应选中项的版本 | `source.follow.apiUrl`、`files[].url` / `file` / `name` / `hash` / `hashFile` / `versionListUrl`、`postInstallCopy.from` / `to`、`postInstall` / `uninstall.commands` 的 `exe` / `args`、`installArgs` / `uninstallArgs` / `installerExe`、`uninstall.name`、`mainExe`、`keep`、`env` 的值、`addToPath`、`detect.name` / `versionKind` / `pathGlob` / `jsonKey` / `versionArgs` / `exe` |
 | `{versionMajor}` | 版本号按 `.` 切分的第一段（`2.57.1` → `2`） | 同上 |
+| `{versionMinor}` | 版本号按 `.` 切分的第二段（`2.6.5` → `6`）；版本不足两段时报错，不补零 | 同上 |
 | `{tag}` | GitHub release tag（按 URL 路径段转义） | github 源的 `files[].url` / `file` |
 | `{urlQuery:参数名}` | 本文件下载地址查询串里该参数的值 | `files[].hashFile` |
 | `{installDir}` / `{installRoot}` | 实际路径 | `installArgs`、`env`、`addToPath`、`postInstall`、`uninstall.commands`、`detect.pathGlob` / `detect.exe`；`postInstallCopy` 只按安装目录内的相对路径使用 |
 | `%VAR%` | `env` / `addToPath` 中原样写入；执行命令前展开 | `env` / `addToPath` / `postInstall` / `uninstall.commands` |
 
-`files[].file` 中的版本占位符只适用于已取得版本的 github 源；page / json 在识别主包版本前就需要匹配文件，因此主包 `file` 应使用固定文字和通配符。正则规则中的版本值按字面量转义，`{versionMajor}` 与 `{version}` 遵循相同规则。
+`files[].file` 中的版本占位符只适用于已取得版本的 github 源；page / json 在识别主包版本前就需要匹配文件，因此主包 `file` 应使用固定文字和通配符。正则规则中的版本值按字面量转义，`{versionMajor}` / `{versionMinor}` 与 `{version}` 遵循相同规则。
 
 `{installDir}` 与 `%VAR%` 的区别很重要：前者是 winst 自己的路径，后者是对其它环境变量的引用（如 `%JAVA_HOME%\bin`），在 `env` / `addToPath` 中保留下来才能在用户切换版本时自动跟随。
 
@@ -490,18 +680,22 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 |---|---|---|
 | `url` | — | 下载地址或地址模板 |
 | `file` | — | 文件名匹配规则，见[通用匹配规则](#通用匹配规则) |
-| `urlKey` | — | 仅 `json` 源：接口里存放下载地址的字段名 |
+| `urlKey` | — | `json` 主包或 `xml` 文件：存放下载地址的字段路径；XML 相对于本项选中的文件记录，结果必须唯一非空；与 `urlXPath` 互斥 |
+| `urlXPath` | 空 = 未配置 | 仅 `xml`：相对于本项文件记录读取下载地址的 XPath，与 `urlKey` 互斥；主包必须选择其一，配套文件还可写 `url`；结果须唯一非空，相对地址必须配 `source.baseUrl`，详见「xml 源」 |
+| `itemsKey` | 父记录本身 | 字符串；`json` 仅主包可用，相对于父发布取子文件数组或对象；`xml` 主包和配套文件均可用，相对于父记录取子文件节点，再按本项 `match` 筛选；父记录与最终匹配文件均须唯一，详见对应来源 |
 | `dest` | 空 = 仅缓存，不落位 | 配套文件的相对落位路径（不能为绝对路径、`.` 或含 `..`）；普通文件填写目标文件名（如 `config.ini`），`extract: true` 时必须填写解压目标目录，否则安装时报错；主包上的 `dest` 忽略并提示 |
 | `extract` | `false` | 该文件是压缩包，安装时解压到 `dest`（仅配套文件） |
 | `stripTopDir` | `false` | `extract` 时该压缩包自己的剥壳设置 |
 | `name` | 空 = 从地址或来源推导 | 下载产物文件名（地址里带不出文件名时用；magnet 源也可覆盖 `dn`）；github 的 `file` 使用实际资产名。同一条目的全部下载产物必须使用不重复的文件名（Windows 不区分大小写），否则报「下载文件名重复」。下载引擎按单层文件名使用它：不能含 `\` / `/`、`.` / `..`、保留设备名或超过 100 字符，写错会报「下载文件名不合法」 |
 | `hashHeader` | 空 = 不读取响应头 | HTTP 来源可用，magnet 不支持。对最终下载地址发 HEAD，以指定响应头作为摘要；与 `hash` / `hashFile` / `hashFrom` 互斥。响应头必须是非空十六进制摘要，长度只接受 32（MD5）/ 40（SHA1）/ 64（SHA256）/ 128（SHA512）；请求失败、缺头或格式非法时条目解析失败。解析结果保存为 `hash`，下载后按该摘要校验；package 来源用此摘要与本地包实际摘要判断远端有无新包，本地缺包时无法比较。已存在包按摘要一致复用、不一致重取，不因地址变化强制重取 |
 | `hash` | 空 = 不校验 | 固定摘要。算法由长度推断：32 → MD5，40 → SHA1，64 → SHA256，128 → SHA512；其它长度按 SHA256 计算。`hash` 优先于 `hashFile` |
-| `hashFile` | 空 | 外部校验文件的地址；与 `hashFrom` 搭配；只有 `hashFrom` 而没有 `hashFile` 不会触发校验 |
-| `hashFrom` | 有 `hashFile` 时 = `sha256sums`，否则不生效 | 校验值的提取方式，见下方枚举 |
-| `hashKey` | 空 | 仅 `json` 主包：接口里摘要的字段名；字段缺失或内容不是 32～128 位十六进制即报错，实际算法仍由摘要长度决定 |
-| `hashFileKey` | 空 | 仅 `json` 主包：接口里校验文件地址的字段名；字段缺失即报错，可配 `hashFrom` |
-| `match` | 空 | 仅 `json` 主包：对象，键为字段路径、值为期望文本；在多个候选条目里筛选，所有条件都满足才命中，比较不区分大小写 |
+| `hashFile` | 空 | 外部校验文件的地址；与 `hashFrom` 搭配；没有校验文件地址时，仅写 `hashFrom` 不会触发校验 |
+| `hashFrom` | 有校验文件地址时 = `sha256sums`，否则不生效 | 校验值的提取方式，见下方枚举；`hashFileKey` / `hashFileMatch` 取得的地址同样适用 |
+| `hashKey` | 空 | `json` 主包或 `xml` 文件的摘要字段路径；相对于选中的文件项。JSON 要求 32～128 位十六进制；XML 必须唯一非空，长度只接受 32 / 40 / 64 / 128，并与 `hashXPath` 互斥；实际算法由摘要长度决定 |
+| `hashXPath` | 空 = 不读取 | 仅 `xml`：相对于本项文件记录读取摘要的 XPath，与 `hashKey` 互斥；结果须唯一非空，必须为 32 / 40 / 64 / 128 位十六进制，分别对应 MD5 / SHA1 / SHA256 / SHA512；覆盖固定 `hash`，不能与 `hashHeader` 同写 |
+| `hashFileKey` | 空 | 仅 `json` 主包：文件项里校验文件地址的字段名；声明 `itemsKey` 时相对于子文件，字段缺失即报错，可配 `hashFrom` |
+| `hashFileMatch` | 空 = 未配置 | 仅 `json` 主包：字符串，去首尾空白后非空时必须配非空 `itemsKey`，与非空 `hashFile` / `hashFileKey` 互斥；在选中父发布的同一子文件集合中，用本项 `urlKey` 取得地址并按通用文件名规则选择唯一校验文件；无匹配或多匹配报错。可配 `hashFrom`，默认 `sha256sums`；不改变 `hashKey` / `hash` 的摘要优先级 |
+| `match` | 不过滤 | 对象，按文件项字段路径比较期望文本，所有条件都必须满足，不使用通用匹配规则。JSON 仅主包可用，比较不区分大小写；XML 主包与配套文件均可用，键为普通字段路径、值必须为字符串，去首尾空白后区分大小写比较，缺字段排除候选，多节点报错 |
 | `refresh` | `auto` | 新鲜度判定，见下方枚举 |
 | `maxAgeHours` | `168` | `ttl` / `auto` 的 TTL 兜底；非正数回退 168 |
 | `compare` | `auto`（无摘要时比较最后修改时间 + 大小） | 远端文件的比对判据，见下方枚举；空值及无法识别的值按 `auto` |
@@ -510,9 +704,9 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | `versionFilter` | 空 | `versionListUrl` 的候选过滤，见[通用匹配规则](#通用匹配规则) |
 | `versionRewrite` | 空 | 只作用于该文件的地址模板展开与文件版本记录，不影响主包和其它文件 |
 
-`url`、`urlKey` 分别与 `file` 互斥；`url` 与 `urlKey` 也互斥，同时写会报错。**例外是 json 主包的 `urlKey` + `file`，这是允许且常用的组合**：前者定位接口字段，后者筛选候选条目。`urlKey` 只能用于 `json` 源。page 主包不能写 `url`，只能写 `file`；各来源具体必填组合见前文。
+`url`、`urlKey` 分别与 `file` 互斥；`url` 与 `urlKey` 也互斥，同时写会报错。**例外是 json 主包的 `urlKey` + `file`，这是允许且常用的组合**：前者定位接口字段，后者筛选候选条目。`urlKey` 只用于 `json` / `xml` 源；`urlXPath` 只用于 `xml` 源，并与同一文件的 `url` / `urlKey` / `file` 互斥。XML 的 `urlKey` 不能搭配 `file`。page 主包不能写 `url`，只能写 `file`；xml 主包必须写 `urlKey` 或 `urlXPath`；各来源具体必填组合见前文。
 
-`versionListUrl` 的列表页地址可用主包版本展开 `{version}` / `{versionMajor}`；候选经 `versionFilter` 后按版本从高到低探测最终文件地址，上限 8 个，第一个非 404 的采用，`source.skipExistsCheck` 可关闭探测。它只适用于 listing / page / json 第 2 项起的 `url` 配套文件；direct 不读取它，主包和 json 的 `urlKey` 地址不能使用。github 的 `url` 项不读取它，`file` 项虽会进入独立列表解析，但随后仍因定位不是 `url` 而报错，所以 github 条目不要使用 `versionListUrl`。
+`versionListUrl` 的列表页地址可用主包版本展开 `{version}` / `{versionMajor}` / `{versionMinor}`；候选经 `versionFilter` 后按版本从高到低探测最终文件地址，上限 8 个，第一个非 404 的采用，`source.skipExistsCheck` 可关闭探测。它只适用于 listing / page / json / xml 第 2 项起的 `url` 配套文件；direct 不读取它，主包、json 的 `urlKey` 地址和 xml 的 `urlKey` / `urlXPath` 地址不能使用。xml 中 `urlKey` 或 `urlXPath` 与 `versionListUrl` 同时配置会报错。github 的 `url` 项不读取它，`file` 项虽会进入独立列表解析，但随后仍因定位不是 `url` 而报错，所以 github 条目不要使用 `versionListUrl`。
 
 `hashFrom` 的全部取值：
 
@@ -636,12 +830,12 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `commands` | `[]` | 卸载命令（结构同「命令条目」）；在删目录 / 跑官方卸载器之前执行，失败即中止，`--force` 跳过 |
-| `name` | 未写时 = `detect.name` | `appx` 卸载时的包名规则，见[通用匹配规则](#通用匹配规则)；可为字符串或字符串数组，逐条展开 `{version}` / `{versionMajor}` 后编译，命中任意一条即纳入卸载范围；仅卸载应用包时读取 |
+| `name` | 未写时 = `detect.name` | `appx` 卸载时的包名规则，见[通用匹配规则](#通用匹配规则)；可为字符串或字符串数组，逐条展开 `{version}` / `{versionMajor}` / `{versionMinor}` 后编译，命中任意一条即纳入卸载范围；仅卸载应用包时读取 |
 | `uninstallArgs` | 不支持 | 卸载参数必须写条目级 `uninstallArgs`；写在这里不会生效，应用包卸载也不使用它 |
 
 `uninstall` 只读 `commands` 与 `name`：删目录要回收哪些环境变量 / PATH 项由 `env` / `addToPath` 自动推导，不从这里读取。
 
-`uninstall.name` 中的版本占位符取当前解析出的软件版本，展开结果写入解析锁和安装台账卸载快照；`re:` 规则里的版本值按正则字面量插入。声明版本占位符但没有可用版本时，条目解析报错，不会把占位符替换为空串后继续匹配。展开前后必须保持同一种匹配器，版本值不能把普通通配改成 `re:` 或 `product:`，发生变化时报「uninstall.name 的版本占位符不能改变匹配规则类型」。
+`uninstall.name` 中的版本占位符取当前解析出的软件版本，展开结果写入解析锁和安装台账卸载快照；`re:` 规则里的版本值按正则字面量插入。声明版本占位符但没有可用版本时，条目解析报错，不会把占位符替换为空串后继续匹配。展开前后必须保持同一种匹配器，版本值不能把普通通配改成 `re:`、`product:` 或 `preset:`，发生变化时报「uninstall.name 的版本占位符不能改变匹配规则类型」。
 
 应用包条目必须能从 `uninstall.name` 或默认的 `detect.name` 得到至少一条非空规则：空数组报「uninstall.name 至少需要一条名称规则」，空白项、非字符串项和无法编译的规则都会使条目解析失败。版本占位符区分大小写；非 `re:` 规则中的未知字母占位符会报不支持，`re:` 中拼错的 `{version...}` 模板也会报错，合法正则量词和 Unicode 属性不受影响。`product:` 规则不允许版本占位符的值包含 `|`，否则报错，避免把版本内容解释为新的产品别名。
 
@@ -729,7 +923,7 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 - 单条解析失败不影响其它条目：记为 `ok: false` + `error`，刷新整体仍算成功
 - 「下载地址 HEAD 可用性校验」在刷新阶段做：`404` / `410` 判为条目解析失败（提示清单地址失效），网络错误 / `405` 不判失败；`skipExistsCheck: true` 可关掉
 - 例外：响应带 `Cf-Mitigated: challenge`（Cloudflare 人机校验页）时不判失败，按「未能确认」记一条备注。这类 CDN 对 .NET / PowerShell 客户端一律回 404（JetBrains 的中国 CDN 就是如此），文件其实存在、下载引擎也下得动，按 404 报错只会冤枉清单；代价是这类站点上「真的写错了地址」同样只能等到安装时才暴露
-- 同一进程内对「方法 + URL」的响应做 TTL 10 分钟缓存（GitHub 网页通道、`listing` / `page` 页面、`json` 接口、校验文件、HEAD 探测），进程退出即失效
+- 同一进程内对「方法 + URL」的响应做 TTL 10 分钟缓存（GitHub 网页通道、`listing` / `page` 页面、`json` / `xml` 接口、校验文件、HEAD 探测），进程退出即失效
 
 ## 依赖与分组
 
@@ -757,14 +951,16 @@ direct / page 的版本文本识别先按 `versionBetween` 截取，再按 `vers
 
 | 现象 | 原因 |
 |---|---|
-| `不认识的版本来源「x」（source.versionFrom）` | 该 kind 不支持这个取值，见「六种下载来源」表 |
+| `不认识的版本来源「x」（source.versionFrom）` | 该 kind 不支持这个取值，见「下载来源」表 |
 | `versionFrom: file 但没有写 versionKind / versionBetween` | github 的 `file` 必须给出识别方式 |
 | `写了 versionKind 但没声明 versionFrom: file` | github 默认用 tag 当版本，要取文件名里的版本必须显式声明 |
 | `source.link 与 source.click 只能写一个` | 两者互斥 |
 | `source.hashClick 要和 source.click 或 source.thenClick 搭配` | `hashClick` 需要无头取址会话；不能单独写在只有 `link` / `thenLink` 的条目上 |
 | `source.hashClick 只配合 files[0].hashFrom: "page"` | 声明了 `hashClick` 但主包没有 `hashFrom: "page"` |
 | `source.link 至少要写一个条件` | `source.link` 是空规则；`source.thenLink.link` 为空时也有对应的明确报错 |
-| `urlKey 只能用在 JSON 接口源里` | `urlKey` 是 json 专属 |
+| `urlKey（接口字段）只能用在 JSON / XML 接口源` | `urlKey` 只用于 json / xml 源 |
+| `urlXPath 只用于 XML 源，且不能与 url / urlKey / file 同时配置` | `urlXPath` 是 xml 专属，且与同一文件的其它定位字段互斥 |
+| XML 的字段路径或 XPath 没有匹配或匹配多个节点 | 父记录与文件记录筛选结果必须唯一；取值字段也必须唯一，不自动挑选记录 |
 | `同一个文件不能同时填写 url 和 file` | `url` / `urlKey` / `file` 的互斥组合写错；json 主包允许 `urlKey` + `file` |
 | `source.packageVersion 只配合 versionFrom: "package"` | 派生规格必须与 package 版本来源搭配 |
 | `detect.exe 只对 cliVersion 有效` | 别的检测方式要用 `pathGlob` |

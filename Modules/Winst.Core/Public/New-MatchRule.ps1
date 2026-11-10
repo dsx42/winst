@@ -3,7 +3,7 @@
 function New-MatchRule {
     <#
     .SYNOPSIS
-        把清单里的匹配规则编译为可复用的对象（通配、re: 正则或 product: 产品名预置规则）。
+        把清单里的匹配规则编译为可复用的对象（通配、re: 正则、preset: 版本预置规则或 product: 产品名预置规则）。
     .OUTPUTS
         @{ Ok; IsRegex; Pattern; Source; Error; Kind }
     #>
@@ -18,6 +18,13 @@ function New-MatchRule {
     if (Test-RegexRuleText -Rule $text) {
         $result.IsRegex = $true
         $result.Pattern = Get-RegexRuleText -Rule $text
+    } elseif ($text.TrimStart() -match '^(?i)preset:') {
+        $preset = $text.Substring($text.IndexOf(':') + 1).Trim()
+        if ($preset -ine 'stable') {
+            $result.Error = ('不认识的预置匹配规则「{0}」；可用 stable' -f $preset)
+            return $result
+        }
+        $result.Pattern = '\A[0-9]+\.[0-9]+\.[0-9]+\z'
     } elseif ($text.TrimStart() -match '^(?i)product:') {
         # 产品别名按字面量编译，只允许完整名称及可选的数字版本后缀，避免命中名称相近的其它产品。
         $names = @()

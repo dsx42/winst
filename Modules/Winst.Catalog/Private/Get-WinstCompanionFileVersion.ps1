@@ -43,7 +43,7 @@ function Get-WinstCompanionFileVersion {
 
     # 列表页地址里的占位符按主包版本展开（如 {versionMajor} 跟随主包所在的大版本目录）
     $listUrl = Expand-VersionPlaceholder -Text $listTemplate -Version $MainVersion
-    if ($listUrl -match '\{(versionMajor|version)\}') {
+    if ($listUrl -match '\{(versionMajor|versionMinor|version)\}') {
         $result.Error = ('versionListUrl 里的版本占位符无法展开: {0}' -f $listTemplate)
         return $result
     }

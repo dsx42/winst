@@ -5,11 +5,11 @@ function New-ResolvedFileFromDeclaration {
     .SYNOPSIS
         按 files[] 条目的通用字段（name / dest / extract / stripTopDir / hash / hashFile / hashFrom / size）构造解析结果中的文件条目。
     .DESCRIPTION
-        各来源解析器共用，使 files[] 的字段语义在 direct / github / listing / page / json / magnet 之间完全一致：
+        各来源解析器共用，使 files[] 的字段语义在 各来源 之间完全一致：
         先由解析器算出真实地址（或文件名），再统一挂上落位与校验信息。主包（第一条）不落 dest。
         校验文件未声明 hashFrom 时按 sha256sums 处理（即自动解析 SHA256SUMS 这类官方校验文件）。
-        Hash / HashFile / HashFrom 三个 Override 供 json 源使用：这些值在清单里写不出具体内容，
-        而是从接口字段（hashKey / hashFileKey）里取出来的，取到后覆盖清单声明。
+        Hash / HashFile / HashFrom 三个 Override 供接口来源使用：这些值在清单里写不出具体内容，
+        而是从接口字段或 XPath 里取出来的，取到后覆盖清单声明。
     #>
     param(
         $Item,

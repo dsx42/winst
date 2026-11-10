@@ -3,17 +3,17 @@
 function Test-WinstManifestUrlOrNote {
     <#
     .SYNOPSIS
-        校验清单里解析出的下载地址，并按结果「报错」或「记一条提示」——四个解析器的统一收口。
+        校验清单里解析出的下载地址，并按结果「报错」或「记一条提示」——HTTP 来源解析器的统一收口。
     .DESCRIPTION
-        direct / github / page / json 四个来源都要做同一件事：
+        使用本函数的 HTTP 来源都要做同一件事：
 
             $check = Test-DownloadUrlForManifestCheck ...
             if ($check -eq 'missing') { 报错并中止 }
             if ($check -eq 'unknown') { 追加一条「未能确认」的提示，继续 }
             if ($check -eq 'blocked') { 追加一条「被人机校验拦下」的提示，继续 }
 
-        四个来源只有「404 的错误文案」不同（direct 提示检查版本号或模板；github 附带该发布实际包含的
-        文件名；page 指向页面链接已失效；json 指向接口地址失效）。
+        各来源只有「404 的错误文案」不同（direct 提示检查版本号或模板；github 附带该发布实际包含的
+        文件名；page 指向页面链接已失效；json / xml 指向接口地址失效）。
 
         **只有 missing 文案是真正的差异**，其余（blocked / unknown 的提示语、skip 语义、探测口径）必须一致 ——
         否则改一处提示、另一处容易漏改。

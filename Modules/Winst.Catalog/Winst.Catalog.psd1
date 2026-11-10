@@ -5,7 +5,7 @@
     Author               = 'winst'
     CompanyName          = 'winst'
     Copyright            = '(c) winst'
-    Description          = '软件目录领域：六种来源解析、全流程计划构建、软件源刷新、搜索聚合、依赖图、列表视图事实。'
+    Description          = '软件目录领域：下载来源解析、全流程计划构建、软件源刷新、搜索聚合、依赖图、列表视图事实。'
     PowerShellVersion    = '5.1'
     CompatiblePSEditions = @('Desktop')
 

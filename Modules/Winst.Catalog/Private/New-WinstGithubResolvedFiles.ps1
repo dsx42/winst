@@ -87,7 +87,7 @@ function New-WinstGithubResolvedFiles {
         if (-not $fileVersion.Ok) { return @{ Error = [string]$fileVersion.Error; Files = $files; MissingFile = $false } }
 
         $url = Expand-ReleaseTagPlaceholder -Text (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version) -Tag $ChosenTag
-        if ($url -match '\{(versionMajor|version|tag)\}') {
+        if ($url -match '\{(versionMajor|versionMinor|version|tag)\}') {
             return @{ Error = ('下载地址里的占位符无法替换: {0}' -f $locator.Url); Files = $files; MissingFile = $false }
         }
         if (-not (Test-UrlText -Text $url)) {
