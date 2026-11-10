@@ -133,7 +133,7 @@ function Resolve-XmlSource {
         }
         $fileVersion = Get-SourceFileVersion -Item $item -Version $version
         if (-not $fromXml -and $i -gt 0) {
-            $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $source -MainVersion $version
+            $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $source -MainVersion $version -BaseUri $baseUri
             foreach ($note in @($fileVersion.Notes)) { $result.Notes += $note }
         }
         if (-not $fileVersion.Ok) { throw $fileVersion.Error }

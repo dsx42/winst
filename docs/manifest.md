@@ -515,7 +515,7 @@ XML 源使用普通字段路径定位元素和属性，再用 `match` 筛选记�
 - `source.versionKey` / `versionXPath` 始终相对于父记录；`files[].urlKey` / `urlXPath` / `hashKey` / `hashXPath` 相对于本项选中的文件记录。示例中的 `revision` 属于父包，`complete` 属于 Windows 归档。
 - 主包的 `urlKey` 与 `urlXPath` 必须二选一，配套文件也可用字面 `url`；`url`、`urlKey`、`urlXPath`、`file` 的定位方式互斥。XML 的 `urlKey` 不能配 `file`；JSON 主包的 `urlKey` + `file` 组合不受此限制。
 - `hashKey` 与 `hashXPath` 可选，非空时互斥；配置后必须读取到唯一非空的十六进制摘要，长度只接受 32 / 40 / 64 / 128，分别按 MD5 / SHA1 / SHA256 / SHA512 校验。不读取 XML 中的算法属性，也不需要 `hashFrom`。取得的摘要覆盖固定 `hash`，并优先于 `hashFile`；不能与 `hashHeader` 同时使用。Android 示例的 `checksum` 按摘要长度识别为 SHA1。
-- XML 返回相对下载地址时按 `baseUrl` 拼接，缺少基址即报错；最终地址必须为绝对 HTTP(S) 地址，本地文件、UNC 路径或其它协议均不接受。配套文件的字面 `url` 也可配 `baseUrl` 写相对地址，版本占位符按本文件版本展开，还可配 `versionListUrl` 独立取版；`urlKey` / `urlXPath` 文件不能配置 `versionListUrl`。
+- XML 返回相对下载地址时按 `baseUrl` 拼接，缺少基址即报错；最终地址必须为绝对 HTTP(S) 地址，本地文件、UNC 路径或其它协议均不接受。配套文件的字面 `url` 也可配 `baseUrl` 写相对地址，版本占位符按本文件版本展开，还可配 `versionListUrl` 独立取版，候选下载地址在展开版本并按 `baseUrl` 补全后探测；`urlKey` / `urlXPath` 文件不能配置 `versionListUrl`。
 
 `apiUrl`、`itemsKey`、`itemsXPath`、`versionXPath`、`baseUrl`、文件项中的 `itemsKey` / `urlKey` / `urlXPath` / `hashKey` / `hashXPath` 声明时必须为字符串；`versionKey` 只接受字符串或非空字符串数组，数组每项均须非空字符串。数字、对象和 JSON `null` 不能代替这些字段。配置路径与 XPath 的首尾空白会去掉；必填项为空时报错，可选的文件 `itemsKey` / `hashKey` / `hashXPath` 和 `baseUrl` 为空时按未配置处理。
 

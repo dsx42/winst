@@ -23,7 +23,8 @@ function Get-WinstCompanionFileVersion {
         [hashtable]$Context,
         $Item,
         $Source,
-        [string]$MainVersion
+        [string]$MainVersion,
+        [Uri]$BaseUri
     )
 
     $listTemplate = (Get-EntryString -Entry $Item -Key 'versionListUrl').Trim()
@@ -118,6 +119,7 @@ function Get-WinstCompanionFileVersion {
             return $result
         }
         $probeUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
+        if ($BaseUri) { $probeUrl = ([Uri]::new($BaseUri, $probeUrl)).AbsoluteUri }
         # FinalUriMustContain：SourceForge 这类站点对不存在的文件不回 404，而是重定向回文件根目录
         # 返回 200 HTML——校验最终地址仍带着本候选的版本段，才能可靠地退到下一个候选
         $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context -FinalUriMustContain $fileVersion.Version
