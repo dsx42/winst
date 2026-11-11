@@ -19,6 +19,7 @@ function New-ResolvedFileItem {
 
     $fileName = $Name
     if (-not $fileName) { $fileName = Get-FileNameFromUrl -Url $Url }
+    $fileName = ([string]$fileName).Trim()
 
     $item = [ordered]@{
         url      = [string]$Url

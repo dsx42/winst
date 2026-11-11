@@ -14,7 +14,7 @@ function Get-WinstListItems {
     )
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Path = $Path; Exists = $false
-                 Entries = @(); CommentLines = @(); BadLines = @(); Items = @(); Lookup = $null }
+                 Entries = @(); CommentLines = @(); BadLines = @(); Items = @(); Lookup = $null; Refresh = $null }
 
     $read = Read-WinstList -Path $Path
     if (-not $read.Ok) {
@@ -29,6 +29,7 @@ function Get-WinstListItems {
     if ($RefreshSources -and @($read.Entries).Count -gt 0) {
         $ids = @($read.Entries | ForEach-Object { [string]$_['Id'] })
         $refresh = Update-WinstDisplaySources -Context $Context -Ids $ids -Quiet
+        $result.Refresh = $refresh
         Write-WinstRefreshErrors -Errors $refresh.Errors
     }
 

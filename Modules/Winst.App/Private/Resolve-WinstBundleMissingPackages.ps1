@@ -14,6 +14,7 @@ function Resolve-WinstBundleMissingPackages {
     $noSource = @()
     foreach ($entry in @($Plan)) {
         $item = $entry['Item']
+        Update-WinstBundleItemCache -Context $Context -Item $item -Lookup $Lookup
         if ([bool]$item['CacheHas']) { continue }
         if (-not [bool]$item['InCatalog']) { $noSource += $item; continue }
         # 下载后确认版本的条目同样有可用计划，不能按空版本判不可用。
@@ -22,6 +23,7 @@ function Resolve-WinstBundleMissingPackages {
     }
 
     $downloaded = 0
+    $attempted = $false
     if ($needDownload.Count -gt 0) {
         Write-Host ''
         Write-Host ('  以下 {0} 个软件本地还没有已下载的安装包：' -f $needDownload.Count) -ForegroundColor Yellow
@@ -47,6 +49,7 @@ function Resolve-WinstBundleMissingPackages {
         }
 
         if ($doDownload) {
+            $attempted = $true
             Write-Host ''
             Write-Host '  正在下载补齐（每个软件的动作会逐条打印）…' -ForegroundColor Gray
             foreach ($item in $needDownload) {
@@ -57,7 +60,11 @@ function Resolve-WinstBundleMissingPackages {
                 }
                 Write-Host ''
                 Write-Host ('  —— {0} 下载 {1}（来自 {2}）——' -f [string]$item['DisplayName'], [string]$chosen['Version'], [string]$chosen['Source']) -ForegroundColor Cyan
-                $one = Invoke-WinstAppInstall -Context $Context -Plan $chosen['Plan'] -SourceName ([string]$chosen['Source']) -DownloadOnly -Quiet
+                try {
+                    $one = Invoke-WinstAppInstall -Context $Context -Plan $chosen['Plan'] -SourceName ([string]$chosen['Source']) -DownloadOnly -Quiet
+                } catch {
+                    $one = @{ Ok = $false; Error = $_.Exception.Message; Message = '' }
+                }
                 if ($one.Ok) {
                     $downloaded++
                     if ($one.Message) { Write-Host ('  {0}' -f $one.Message) -ForegroundColor Green }
@@ -73,9 +80,10 @@ function Resolve-WinstBundleMissingPackages {
             $Lookup = $freshLookup
             $stillMissing = @()
             foreach ($item in $needDownload) {
-                if ([bool]$item['CacheHas']) { continue }
                 $recheck = New-WinstListItem -Context $Context -Id ([string]$item['Id']) -PinnedVersion ([string]$item['PinnedVersion']) -Lookup $Lookup
-                if ([bool]$recheck['CacheHas']) { continue }
+                $item['Row'] = $recheck['Row']
+                Update-WinstBundleItemCache -Context $Context -Item $item -Lookup $Lookup
+                if ([bool]$item['CacheHas']) { continue }
                 $stillMissing += $item
             }
             $needDownload = @($stillMissing)
@@ -87,6 +95,10 @@ function Resolve-WinstBundleMissingPackages {
         }
     }
 
+    foreach ($item in @($needDownload) + @($noSource)) {
+        Write-Host ('  缺包 {0}: {1}' -f $item['Id'], $item['CacheError']) -ForegroundColor DarkYellow
+    }
+
     if ($noSource.Count -gt 0) {
         Write-Host ''
         Write-Host ('  以下 {0} 个软件在软件源里没有可用的下载计划（没有定义 / 清单有误），将跳过：' -f $noSource.Count) -ForegroundColor DarkYellow
@@ -95,5 +107,5 @@ function Resolve-WinstBundleMissingPackages {
         }
     }
 
-    return @{ NeedDownload = $needDownload; NoSource = $noSource; Downloaded = $downloaded }
+    return @{ NeedDownload = $needDownload; NoSource = $noSource; Downloaded = $downloaded; Attempted = $attempted }
 }

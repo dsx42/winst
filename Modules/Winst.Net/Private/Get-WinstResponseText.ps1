@@ -13,6 +13,12 @@ function Get-WinstResponseText {
 
     $content = $Response.Content
     if ($content -is [byte[]]) {
+        if ($content.Length -ge 4 -and $content[0] -eq 0xFF -and $content[1] -eq 0xFE -and $content[2] -eq 0 -and $content[3] -eq 0) {
+            return [Text.Encoding]::UTF32.GetString($content, 4, $content.Length - 4)
+        }
+        if ($content.Length -ge 4 -and $content[0] -eq 0 -and $content[1] -eq 0 -and $content[2] -eq 0xFE -and $content[3] -eq 0xFF) {
+            return (New-Object Text.UTF32Encoding($true, $true)).GetString($content, 4, $content.Length - 4)
+        }
         if ($content.Length -ge 2 -and $content[0] -eq 0xFF -and $content[1] -eq 0xFE) {
             return [Text.Encoding]::Unicode.GetString($content, 2, $content.Length - 2)
         }

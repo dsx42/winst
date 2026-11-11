@@ -43,7 +43,11 @@ function Get-VersionFromSourceText {
         $value = [string]$found
     }
 
-    $result.Ok = $true
     $result.Version = Get-NormalizedVersionString -Value $value
+    if (-not $result.Version) {
+        $result.Error = ('{0}里的版本识别结果为空' -f $Where)
+        return $result
+    }
+    $result.Ok = $true
     return $result
 }

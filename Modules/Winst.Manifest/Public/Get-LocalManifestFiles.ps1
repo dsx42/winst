@@ -30,6 +30,8 @@ function Get-LocalManifestFiles {
         $scriptManifestDir = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'manifests'
         if (Test-Path -LiteralPath $scriptManifestDir -PathType Container) {
             foreach ($item in @(Get-ChildItem -LiteralPath $scriptManifestDir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
+                if ($item.Name -like '*.meta.json') { continue }
+                if ($item.Name -ieq (Get-WinstManifestSourcesFileName)) { continue }
                 $files.Add([string]$item.FullName)
             }
         }

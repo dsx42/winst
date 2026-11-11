@@ -81,6 +81,12 @@ function Resolve-DirectSource {
             $result.Error = ('下载地址里的版本号无法替换: {0}' -f $rawUrl)
             return $result
         }
+        $uri = $null
+        if ($url.Contains('{tag}') -or -not [Uri]::TryCreate($url, [UriKind]::Absolute, [ref]$uri) -or
+                @('http', 'https') -notcontains $uri.Scheme) {
+            $result.Error = ('下载地址必须是绝对 HTTP(S) 地址，direct 来源不支持 tag 占位符：{0}' -f $rawUrl)
+            return $result
+        }
 
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $result
         # 固定地址来源不提供逐文件版本：只有主包（第 1 项）的版本是它自己的，其余跟随主包版本

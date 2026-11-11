@@ -79,7 +79,7 @@ function Invoke-WinstUpdateSelection {
     }
 
     $loop = Invoke-WinstUpdateCustomLoop -Context $Context -Targets $targets
-    $result.Executed = $true
+    $result.Executed = [bool]$loop.Executed
     $result.Updated = [int]$loop.Updated
     $result.Failed = [int]$loop.Failed
     return $result

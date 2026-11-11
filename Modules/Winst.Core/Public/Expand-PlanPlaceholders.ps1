@@ -14,8 +14,10 @@ function Expand-PlanPlaceholders {
     )
 
     if ($null -eq $Value) { return '' }
-    $text = [string]$Value
-    if ($InstallDir) { $text = $text.Replace('{installDir}', $InstallDir) }
-    if ($InstallRoot) { $text = $text.Replace('{installRoot}', $InstallRoot) }
-    return $text
+    return [regex]::Replace($Value, '\{installDir\}|\{installRoot\}', [System.Text.RegularExpressions.MatchEvaluator]{
+        param($match)
+        if ($match.Value -ceq '{installDir}' -and $InstallDir) { return $InstallDir }
+        if ($match.Value -ceq '{installRoot}' -and $InstallRoot) { return $InstallRoot }
+        return $match.Value
+    })
 }

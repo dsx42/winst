@@ -3,11 +3,11 @@
 function Resolve-WinstJsonVersion {
     <#
     .SYNOPSIS
-        ④ 版本：versionKey 优先，其次 versionBetween / versionKind 从下载地址识别，最后回退条目 version。
+        ④ 版本：versionKey 优先，否则组合 versionBetween / versionKind；没有识别规则时采用条目 version。
     .OUTPUTS
         [string]
     #>
-    param($Source, $Entry, $Chosen, [string]$ApiUrl, [string]$VersionKind, $VersionBetween, [string]$DownloadUrl, $Result)
+    param($Source, $Entry, $Chosen, [string]$ApiUrl, [string]$DownloadUrl, $Result)
 
     $versionKey = (Get-EntryString -Entry $Source -Key 'versionKey').Trim()
     $version = ''
@@ -19,23 +19,16 @@ function Resolve-WinstJsonVersion {
             return ''
         }
         $version = Get-NormalizedVersionString -Value $found.Text
-    } elseif (@($VersionBetween).Count -gt 0) {
-        $between = Get-VersionBetween -Spec $VersionBetween -Text $DownloadUrl
-        if ($between.Ok) {
-            $version = Get-NormalizedVersionString -Value $between.Value
+    } else {
+        $found = Get-VersionFromSourceText -Source $Source -Text $DownloadUrl -Where '下载地址'
+        if ($found.Missing) {
+            $version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
+        } elseif (-not $found.Ok) {
+            $Result.Error = [string]$found.Error
+            return ''
         } else {
-            $Result.Notes += ('未能从下载地址里取出 {0} 之间的内容作为版本号' -f ($VersionBetween -join ' … '))
+            $version = [string]$found.Version
         }
-    } elseif ($VersionKind) {
-        $found = Get-VersionValue -Text $DownloadUrl -Kind $VersionKind
-        if ($found) {
-            $version = Get-NormalizedVersionString -Value $found
-        } else {
-            $Result.Notes += ('未能从下载地址里识别出版本号（versionKind {0}）' -f $VersionKind)
-        }
-    }
-    if (-not $version) {
-        $version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
     }
     return $version
 }

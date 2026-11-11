@@ -36,17 +36,7 @@ function Show-WinstSearchRows {
         Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
         Write-Host '  输入编号选择（可多选，如 1 3 5）；回车 = 取消' -ForegroundColor DarkGray
 
-        $text = Read-WinstAnswerText -Prompt '  请选择'
-
-        if (-not $text) { return @() }
-
-        $selection = @(Read-WinstSelectionFrom -Text $text -Count $rows.Count)
-        if ($selection.Count -gt 0) { return @($selection) }
-        # 越界 / 非数字说清原因再问一次
-        if ($text -match '^\d+$') {
-            Write-Host ('  没有这个编号（可选 1 - {0}），请重新输入。' -f $rows.Count) -ForegroundColor Yellow
-        } else {
-            Write-Host ('  「{0}」不是编号，请输入 1 - {1} 之间的数字（回车 = 取消）。' -f $text, $rows.Count) -ForegroundColor Yellow
-        }
+        $selection = Read-WinstIndexSelection -Prompt '  请选择' -Count $rows.Count -AllowEmpty -AllowMultiple
+        return @($selection.Indexes | ForEach-Object { [int]$_ + 1 })
     }
 }

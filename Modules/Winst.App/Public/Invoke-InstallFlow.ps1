@@ -108,7 +108,6 @@ function Invoke-InstallFlow {
         $skipNotes = @()
 
         foreach ($row in $selectedRows) {
-            $isDownloadRow = ((Get-WinstRowType -Row $row) -eq 'download')
             Write-Host ''
             Write-Host ('  —— {0}（{1}）——' -f [string]$row['Name'], [string]$row['Id']) -ForegroundColor Cyan
 
@@ -132,7 +131,7 @@ function Invoke-InstallFlow {
                 continue
             }
             # 仅下载类型不写台账，汇总里单列「已下载软件包」，不混进「已安装」
-            if ($isDownloadRow) { $downloadOkCount++ } else { $okCount++ }
+            if ((Get-WinstRowType -Row $row -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $downloadOkCount++ } else { $okCount++ }
             # 安装后重读台账，后续展示能反映最新状态
             $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
         }

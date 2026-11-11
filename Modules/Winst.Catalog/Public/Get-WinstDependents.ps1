@@ -17,10 +17,6 @@ function Get-WinstDependents {
 
     $result = @{ Ok = $false; Items = @(); Error = '' }
     $index = Get-WinstDependencyIndex -Context $Context
-    if (-not $index['Deps'].Contains($Id)) {
-        $result.Error = ('软件源里没有找到「{0}」。' -f $Id)
-        return $result
-    }
 
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($stateRead.Error -and -not $stateRead.Reset) {

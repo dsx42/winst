@@ -8,7 +8,7 @@ function Resolve-PageSource {
         取地址有两条路，二选一（同时写会报错）：
         ① source.link —— 页面上的链接就是下载地址（含 fetchWith: browser 抓渲染后的 DOM）；
         ② source.click —— 地址不写在页面里、点了按钮才生成：用无头 Edge 按点击序列点按钮，
-           从浏览器上报的下载事件里取地址（fetchWith 必须是 browser，见 Get-WinstBrowserClickedLink）。
+           从浏览器上报的下载事件里取地址（fetchWith 可省略，显式声明时只能为 browser）。
         link 还可以搭配 source.thenClick 做两跳取址：link 命中的是「中间页」地址（如 NTriver 的镜像页：
         列表页只有文件名 + SHA-256 + 镜像页链接，真正的下载地址要在镜像页上点 Download 按钮才生成），
         此时用无头浏览器打开命中地址、执行 thenClick 的点击序列取真正的下载地址（与 click 同一套机制）。

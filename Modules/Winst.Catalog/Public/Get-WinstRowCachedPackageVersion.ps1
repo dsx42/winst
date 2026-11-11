@@ -16,8 +16,7 @@ function Get-WinstRowCachedPackageVersion {
 
     $chosen = Get-WinstRowBestPlanEntry -Row $Row
     if ($chosen -and $chosen['Plan']) {
-        if ((Get-EntryBool -Entry $chosen['Plan'] -Key 'versionFromPackage') -and
-            (Get-EntryBool -Entry $chosen['Plan'] -Key 'versionFromCache')) {
+        if (Get-EntryBool -Entry $chosen['Plan'] -Key 'versionFromPackage') {
             $version = ([string](Get-EntryString -Entry $chosen['Plan'] -Key 'version')).Trim()
             if ($version) { return $version }
         }
@@ -27,5 +26,14 @@ function Get-WinstRowCachedPackageVersion {
     if (-not $id) { return '' }
     $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir
     if (-not $indexRead -or [string]$indexRead.Error -or -not $indexRead.Index.Contains($id)) { return '' }
-    return ([string](Get-EntryString -Entry $indexRead.Index[$id] -Key 'version')).Trim()
+    if (-not $chosen -or -not (Get-EntryBool -Entry $chosen['Plan'] -Key 'versionFromPackage')) { return '' }
+    $download = Get-EntryValue -Entry $chosen['Plan'] -Key 'download' -Default $null
+    $files = @(Get-EntryArray -Entry $download -Key 'files')
+    if ($files.Count -eq 0) { return '' }
+    $name = Get-EntryString -Entry $files[0] -Key 'name'
+    if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $files[0] -Key 'url') }
+    $cached = $indexRead.Index[$id]
+    $meta = Get-WinstFileMeta -Entry $cached -FileName $name
+    if (-not $meta.Url -or $meta.Url -cne (Get-EntryString -Entry $files[0] -Key 'url')) { return '' }
+    return ([string](Get-EntryString -Entry $cached -Key 'version')).Trim()
 }

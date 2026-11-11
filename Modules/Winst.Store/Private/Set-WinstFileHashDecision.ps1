@@ -14,7 +14,7 @@ function Set-WinstFileHashDecision {
     $Plan['ExpectedHash'] = $wanted
 
     $wantedAlgorithm = Get-HashAlgorithmFromDigestLength -Length $wanted.Length
-    if (-not $wantedAlgorithm) { $wantedAlgorithm = 'SHA256' }
+    if (-not $wantedAlgorithm) { throw '期望摘要长度无效，无法判断校验算法' }
     $Plan['ExpectedAlgorithm'] = $wantedAlgorithm
     $Plan['ChecksumHashFile'] = [string]$Expected.HashFile
     $Plan['ChecksumHashFrom'] = [string]$Expected.HashFrom

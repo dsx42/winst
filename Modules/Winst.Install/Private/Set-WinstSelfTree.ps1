@@ -1,41 +1,5 @@
 ﻿#Requires -Version 5.1
-<#
-    Set-WinstSelfTree.ps1  (Winst.Install / Private)
 
-    按 release 压缩包的内容铺开 winst 目录。
-
-    release 包结构
-    --------------
-    release 是一个 zip，内含：
-        winst.ps1
-        winst.cmd
-        LICENSE
-        Modules\Winst\（单一模块：Winst.psd1 + Winst.psm1）
-
-    也接受多模块布局（Modules\Winst.*\），校验只要求 Modules\ 下至少有一个模块清单。
-
-    winst.cmd 随包提供，绝不能再生成一遍——重新生成会与随包版本悄悄分叉。
-
-    为什么先暂存再合并
-    ------------------
-    安装目录常常正是 winst 当前运行的目录。就地删除后重新解压会干掉
-    正在运行的脚本及其已加载的模块。因此：
-
-        1. 把 zip 解压到临时暂存目录
-        2. 校验暂存树确实是 winst release
-        3. 删掉目标目录里的过期条目（用户数据与 release 提供的条目除外）
-        4. 把暂存树复制覆盖到目标
-
-    第 3 步保证升级干净：新版本已移除的模块不会永久留在磁盘上被再次导入。
-
-    保留的用户数据
-    --------------
-    安装目录下的 lists\ 与 *.list。这些是用户自己写的安装清单，
-    从不属于 release。
-
-    .OUTPUTS
-        @{ Ok; Error; Extracted }
-#>
 function Set-WinstSelfTree {
     <#
     .SYNOPSIS
@@ -69,7 +33,7 @@ function Set-WinstSelfTree {
 
     $result = @{ Ok = $false; Error = ''; Extracted = $false }
 
-    $staging = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-self-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $staging = ''
 
     # 树从哪来，仅用于报错文案。调用方传的是已解压的 SourceDir 时
     # ArchivePath 可能为空。
@@ -78,11 +42,11 @@ function Set-WinstSelfTree {
     if (-not $sourceLabel) { $sourceLabel = $FallbackSourcePath }
 
     try {
+        $InstallDir = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\', '/')
         Assert-WinstSafeWritePath -Path $InstallDir -Directory
-        if (-not (Test-Path -LiteralPath $InstallDir -PathType Container)) {
-            $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction Stop
-        }
-
+        $parent = Split-Path -Parent $InstallDir
+        $staging = Join-WinstPath $parent ('winst-self-' + [Guid]::NewGuid().ToString('N'))
+        Assert-WinstSafeWritePath -Path $staging -Directory
         $null = New-Item -ItemType Directory -Path $staging -Force -ErrorAction Stop
 
         # ---------------------------------------------------------- 取得树
@@ -145,97 +109,41 @@ function Set-WinstSelfTree {
             }
         }
 
-        # release 的 Modules 必须整棵替换，不能合并出嵌套目录或留下旧模块。
-        if ($result.Extracted) {
-            $targetModules = Join-WinstPath $InstallDir 'Modules'
-            if (Test-Path -LiteralPath $targetModules) {
-                Clear-WinstInstallDir -Dir $targetModules
-                if (Test-Path -LiteralPath $targetModules) {
-                    $result.Error = ('无法安全替换 Modules 目录: {0}' -f $targetModules)
-                    return $result
+        foreach ($required in @('winst.cmd', 'LICENSE')) {
+            if (-not (Test-Path -LiteralPath (Join-WinstPath $staging $required) -PathType Leaf)) {
+                throw ('winst 安装包缺少 ' + $required)
+            }
+        }
+        $moduleDirs = @(Get-ChildItem -LiteralPath $stagedModules -Directory -ErrorAction Stop)
+        if ($moduleDirs.Count -eq 0) { throw 'winst 安装包没有模块目录' }
+        foreach ($moduleDir in $moduleDirs) {
+            $manifestPath = Join-WinstPath $moduleDir.FullName ($moduleDir.Name + '.psd1')
+            $modulePath = Join-WinstPath $moduleDir.FullName ($moduleDir.Name + '.psm1')
+            if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
+                -not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+                throw ('winst 模块目录缺少同名清单或加载器：' + $moduleDir.FullName)
+            }
+            $null = Test-ModuleManifest -Path $manifestPath -ErrorAction Stop
+        }
+        foreach ($scriptFile in @($stagedScript) + @(Get-ChildItem -LiteralPath $stagedModules -Recurse -File -ErrorAction Stop |
+                Where-Object { $_.Extension -in @('.ps1', '.psm1', '.psd1') } | ForEach-Object { $_.FullName })) {
+            $parseErrors = $null
+            $null = [Management.Automation.Language.Parser]::ParseFile($scriptFile, [ref]$null, [ref]$parseErrors)
+            if ($parseErrors) { throw ('安装包脚本语法错误（{0}）：{1}' -f $scriptFile, $parseErrors[0].Message) }
+        }
+        if (Test-Path -LiteralPath $InstallDir -PathType Container) {
+            foreach ($item in @(Get-ChildItem -LiteralPath $InstallDir -Force -ErrorAction Stop)) {
+                if ($item.Name -ine 'lists' -and ($item.PSIsContainer -or $item.Extension -ine '.list')) { continue }
+                Assert-WinstTreeWithoutReparsePoint -Path $item.FullName
+                $destination = Join-WinstPath $staging $item.Name
+                if ($item.PSIsContainer -and (Test-Path -LiteralPath $destination)) {
+                    Clear-WinstInstallDir -Dir $destination -Strict
                 }
+                Copy-Item -LiteralPath $item.FullName -Destination $destination -Recurse -Force -ErrorAction Stop
             }
         }
-
-        # ------------------------------------------- 清理目标目录的过期条目
-        $userDataNames = @('lists')
-
-        foreach ($item in @(Get-ChildItem -LiteralPath $InstallDir -Force -ErrorAction SilentlyContinue)) {
-            $name = $item.Name
-
-            # 保留用户数据。
-            if ($userDataNames -contains $name) { continue }
-            if ($item.PSIsContainer -eq $false -and $item.Extension -ieq '.list') { continue }
-
-            # 保留 release 即将提供的条目（下面的合并会覆盖它们）。
-            $stagedChild = Join-WinstPath $staging $name
-            if (Test-Path -LiteralPath $stagedChild) { continue }
-
-            if ($item.PSIsContainer) {
-                Clear-WinstInstallDir -Dir $item.FullName
-            } else {
-                Remove-Item -LiteralPath $item.FullName -Force -ErrorAction SilentlyContinue
-            }
-        }
-
-        # ------------------------------------------------------------- 合并
-        foreach ($item in @(Get-ChildItem -LiteralPath $staging -Force -ErrorAction SilentlyContinue)) {
-            $target = Join-WinstPath $InstallDir $item.Name
-
-            if ($item.PSIsContainer) {
-                Copy-Item -LiteralPath $item.FullName -Destination $target -Recurse -Force -ErrorAction Stop
-                continue
-            }
-
-            Copy-Item -LiteralPath $item.FullName -Destination $target -Force -ErrorAction Stop
-        }
-
-        # ---------------------------------------------------- 启动器兜底
-        # 完整运行树自带 winst.cmd；显式传入的本地包缺少时可生成启动器。
-        $launcherPath = Join-WinstPath $InstallDir 'winst.cmd'
-        if (-not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
-            $null = New-WinstScriptLauncher -ScriptPath (Join-WinstPath $InstallDir 'winst.ps1')
-        }
-
-        # ------------------------------------------------------------ 校验
-        if (-not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
-            $result.Error = ('安装后没有找到启动器: {0}' -f $launcherPath)
-            return $result
-        }
-
-        $installedScript = Join-WinstPath $InstallDir 'winst.ps1'
-        if (-not (Test-Path -LiteralPath $installedScript -PathType Leaf)) {
-            $result.Error = ('安装后没有找到 winst.ps1: {0}' -f $installedScript)
-            return $result
-        }
-
-        if ($result.Extracted) {
-            $installedModules = Join-WinstPath $InstallDir 'Modules'
-            $stagedItems = @(Get-ChildItem -LiteralPath $stagedModules -Recurse -Force -ErrorAction Stop)
-            $installedItems = @(Get-ChildItem -LiteralPath $installedModules -Recurse -Force -ErrorAction Stop)
-            $stagedNames = @($stagedItems | ForEach-Object {
-                    ($_.FullName.Substring($stagedModules.Length).TrimStart('\', '/') + $(if ($_.PSIsContainer) { '\' } else { '' }))
-                } | Sort-Object)
-            $installedNames = @($installedItems | ForEach-Object {
-                    ($_.FullName.Substring($installedModules.Length).TrimStart('\', '/') + $(if ($_.PSIsContainer) { '\' } else { '' }))
-                } | Sort-Object)
-            if (($stagedNames -join "`n") -cne ($installedNames -join "`n")) {
-                $result.Error = ('安装后的 Modules 目录与安装包不一致: {0}' -f $installedModules)
-                return $result
-            }
-            foreach ($item in @($stagedItems | Where-Object { -not $_.PSIsContainer })) {
-                $relative = $item.FullName.Substring($stagedModules.Length).TrimStart('\', '/')
-                $installedItem = Join-WinstPath $installedModules $relative
-                $stagedHash = Get-WinstFileHash -Path $item.FullName -Algorithm SHA256
-                $installedHash = Get-WinstFileHash -Path $installedItem -Algorithm SHA256
-                if ($item.Length -ne (Get-Item -LiteralPath $installedItem -Force -ErrorAction Stop).Length -or
-                    -not $stagedHash -or $stagedHash -cne $installedHash) {
-                    $result.Error = ('安装后的模块文件与安装包不一致: {0}' -f $installedItem)
-                    return $result
-                }
-            }
-        }
-
+        $move = Move-WinstStagedInstall -StageDir $staging -InstallDir $InstallDir -Clean
+        if (-not $move.Ok) { throw $move.Error }
         $result.Ok = $true
         return $result
     } catch {
@@ -243,7 +151,7 @@ function Set-WinstSelfTree {
         return $result
     } finally {
         try {
-            if (Test-Path -LiteralPath $staging) { Clear-WinstInstallDir -Dir $staging }
+            if ($staging -and (Test-Path -LiteralPath $staging)) { Clear-WinstInstallDir -Dir $staging }
         } catch { }
     }
 }

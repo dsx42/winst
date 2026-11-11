@@ -43,7 +43,7 @@ function Update-WinstLedgerFromScan {
                 continue
             }
 
-            $versionChanged = ($existingVersion -ne $detected)
+            $versionChanged = ($existingVersion -cne $detected)
             $detectedDir = Get-EntryString -Entry $info -Key 'InstallDir'
             $verifiedInstaller = [bool]((Get-EntryString -Entry $info -Key 'Type') -eq 'installer' -and (Get-EntryBool -Entry $info -Key 'VerifiedIdentity'))
             $dirChanged = [bool]($verifiedInstaller -and $detectedDir -and $detectedDir -ine (Get-EntryString -Entry $existing -Key 'installDir'))
@@ -95,14 +95,16 @@ function Update-WinstLedgerFromScan {
                 if (-not $Quiet) { Write-Host ('    [~] 按系统记录确认 {0} 的产品身份并同步卸载名称规则' -f $id) -ForegroundColor Gray }
             }
             $Counters.Changed = $true
+            if ($versionChanged) {
+                if ($existingVersion -eq 'unknown') { $Counters.Filled++ }
+                else { $Counters.Updated++ }
+            }
             if (-not $Quiet) {
                 if (-not $versionChanged -and $oldChanged) {
                     Write-Host ('    [~] 更新 {0} 的旧版本登记：{1}  目录 {2}' -f $id, (Format-WinstOldVersionText -OldVersions $oldVersions), $recordDir) -ForegroundColor Gray
                 } elseif ($versionChanged -and $existingVersion -eq 'unknown') {
-                    $Counters.Filled++
                     Write-Host ('    [~] 补全版本 {0} → {1}  目录 {2}' -f $id, $detected, $recordDir) -ForegroundColor Gray
                 } elseif ($versionChanged) {
-                    $Counters.Updated++
                     Write-Host ('    [~] 更正版本 {0}：{1} → {2}  目录 {3}' -f $id, $existingVersion, $detected, $recordDir) -ForegroundColor Gray
                 }
                 if ($versionChanged -and $oldVersions.Count -gt 0) {

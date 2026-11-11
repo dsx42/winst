@@ -9,12 +9,14 @@ function Write-WinstPlanCommandStage {
 
     $commandLines = @()
     foreach ($command in @(Get-EntryArray -Entry $Plan -Key 'postInstall')) {
-        $exeText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'exe') -InstallDir $View.InstallDir -InstallRoot $View.InstallRoot))
+        $exeText = Expand-PlanPlaceholders -Value ([Environment]::ExpandEnvironmentVariables((Get-EntryString -Entry $command -Key 'exe'))) -InstallDir $View.InstallDir -InstallRoot $View.InstallRoot
         if ($View.InstallDir -and $exeText -and -not [IO.Path]::IsPathRooted($exeText)) { $exeText = Join-WinstPath $View.InstallDir $exeText }
-        $argText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'args') -InstallDir $View.InstallDir -InstallRoot $View.InstallRoot))
+        $argText = Expand-PlanPlaceholders -Value ([Environment]::ExpandEnvironmentVariables((Get-EntryString -Entry $command -Key 'args'))) -InstallDir $View.InstallDir -InstallRoot $View.InstallRoot
         $line = $exeText
         if ($argText) { $line += ' ' + $argText }
-        $line += ('    最长等待 {0} 秒' -f (Get-EntryInt -Entry $command -Key 'timeoutSec' -Default 600))
+        $timeoutSec = Get-EntryInt -Entry $command -Key 'timeoutSec' -Default 600
+        if ($timeoutSec -le 0) { $timeoutSec = 600 }
+        $line += ('    最长等待 {0} 秒' -f $timeoutSec)
         $commandLines += $line
     }
     Write-ResolvedStage -Marker '⑤' -Label '命令' -Lines $commandLines

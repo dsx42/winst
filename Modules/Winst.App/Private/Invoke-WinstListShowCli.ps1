@@ -29,6 +29,7 @@ function Invoke-WinstListShowCli {
         return 1
     }
     if ($loaded.Warning) { Write-Host ('  提示: {0}' -f $loaded.Warning) -ForegroundColor DarkYellow }
+    foreach ($line in @($loaded.BadLines)) { Write-Host ('  无法解析的清单行: {0}' -f $line) -ForegroundColor DarkYellow }
 
     Write-Host ''
     Write-Host ('  {0}' -f [string]$target.Path) -ForegroundColor Gray

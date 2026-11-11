@@ -27,6 +27,7 @@ function Show-WinstListPickRows {
 
     $filterText = ''
     if ($null -ne $Filter) { $filterText = ([string]$Filter).Trim() }
+    if (Test-WinstInputRedirected) { return @{ Action = 'cancel'; Ids = @(); Filter = $filterText } }
 
     while ($true) {
         $visible = @()
@@ -77,30 +78,20 @@ function Show-WinstListPickRows {
 
         $text = Read-WinstAnswerText -Prompt '  请输入'
 
+        if ($null -eq $text) { return @{ Action = 'cancel'; Ids = @(); Filter = $filterText } }
         if (-not $text) { return @{ Action = 'save'; Ids = @(); Filter = $filterText } }
         if ($text -ieq 'c') { return @{ Action = 'cancel'; Ids = @(); Filter = $filterText } }
         if ((Test-WinstQuitKey -Text $text)) { return @{ Action = 'quit'; Ids = @(); Filter = $filterText } }
         if ($filterText -and $text -ieq 'f') { $filterText = ''; continue }
 
-        $numbers = @()
-        $allNumeric = $true
-        $outOfRange = $false
-        foreach ($token in @($text -split '[\s,，、]+')) {
-            $one = ([string]$token).Trim()
-            if (-not $one) { continue }
-            $value = 0
-            if (-not [int]::TryParse($one, [ref]$value)) { $allNumeric = $false; break }
-            if ($value -lt 1 -or $value -gt $visible.Count) { $outOfRange = $true; break }
-            if ($numbers -notcontains $value) { $numbers += $value }
-        }
-
-        # 纯数字但越界：说清可用范围再问一次
-        if ($allNumeric -and $outOfRange) {
-            Write-Host ('  没有这个编号（可选 1 - {0}），请重新输入。' -f $visible.Count) -ForegroundColor Yellow
+        $resolved = Resolve-WinstSelectionText -Text $text -Count $visible.Count
+        $numbers = @($resolved.Numbers)
+        if ($resolved.OutOfRange) {
+            Write-Host (Get-WinstSelectionErrorText -Resolved $resolved -Count $visible.Count) -ForegroundColor Yellow
             continue
         }
 
-        if ($allNumeric -and $numbers.Count -gt 0) {
+        if ($resolved.Ok) {
             $ids = @()
             foreach ($number in $numbers) {
                 $id = [string]$visible[[int]$number - 1]['Id']

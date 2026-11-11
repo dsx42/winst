@@ -129,16 +129,27 @@ function Get-WinstArgumentScan {
 
     $readOnly = $false
     $waitingForValue = $false
+    $invalid = $false
     foreach ($one in @($Arguments)) {
         $text = ([string]$one).Trim()
-        if (-not $text) { continue }
+        if (-not $text) {
+            if ($waitingForValue) { $invalid = $true; $waitingForValue = $false }
+            continue
+        }
 
-        if ($waitingForValue) { $waitingForValue = $false; continue }
+        if ($waitingForValue) {
+            if ($text.StartsWith('-')) { $invalid = $true }
+            $waitingForValue = $false
+            continue
+        }
         if ($text -ieq '--install-root' -or $text -ieq '--pkg-dir' -or $text -ieq '--proxy') {
             $waitingForValue = $true
             continue
         }
-        if ($text -like '--install-root=*' -or $text -like '--pkg-dir=*' -or $text -like '--proxy=*') { continue }
+        if ($text -match '^--(install-root|pkg-dir|proxy)=(.*)$') {
+            if (-not $Matches[2].Trim()) { $invalid = $true }
+            continue
+        }
         if ($text -ieq '--offline' -or $text -ieq '--dry-run' -or $text -ieq '--yes' -or
             $text -ieq '-y' -or $text -ieq '--verbose') { continue }
 
@@ -147,6 +158,8 @@ function Get-WinstArgumentScan {
             if ($text -ieq '-v' -or $text -ieq '--version' -or $text -ieq '-h' -or
                 $text -ieq '--help' -or $text -ieq '-?') {
                 $readOnly = $true
+            } else {
+                $invalid = $true
             }
             continue
         }
@@ -155,7 +168,7 @@ function Get-WinstArgumentScan {
         if ($text -ieq 'version' -or $text -ieq 'help' -or $text -ieq '?') { $readOnly = $true }
         return @{ ReadOnly = $readOnly; Interactive = $false }
     }
-    return @{ ReadOnly = $readOnly; Interactive = $true }
+    return @{ ReadOnly = $readOnly; Interactive = (-not $invalid -and -not $waitingForValue -and -not $readOnly) }
 }
 
 function Test-WinstNeedsElevation {

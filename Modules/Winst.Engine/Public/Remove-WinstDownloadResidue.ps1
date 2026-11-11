@@ -26,8 +26,7 @@ function Remove-WinstDownloadResidue {
 
     $base = [IO.Path]::GetFileNameWithoutExtension($Name)
     $ext = [IO.Path]::GetExtension($Name)
-    $renamePattern = ''
-    if ($ext) { $renamePattern = '^' + [regex]::Escape($base) + ' \(\d+\)' + [regex]::Escape($ext) + '(\.fdownloading)?$' }
+    $renamePattern = '^' + [regex]::Escape($base) + ' \(\d+\)' + [regex]::Escape($ext) + '(\.fdownloading)?$'
 
     foreach ($file in @(Get-ChildItem -LiteralPath $Dir -File -Force -ErrorAction SilentlyContinue)) {
         $n = [string]$file.Name

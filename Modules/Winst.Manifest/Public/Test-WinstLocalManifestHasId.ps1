@@ -17,14 +17,13 @@ function Test-WinstLocalManifestHasId {
     $pkgDir = ''
     if ($Context) { $pkgDir = [string]$Context['PkgDir'] }
     foreach ($path in @(Get-LocalManifestFiles -PkgDir $pkgDir)) {
-        $obj = $null
         try {
-            $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8
-            if ($raw) { $obj = $raw | ConvertFrom-Json }
+            $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
+            if (-not $raw.Trim()) { throw '清单内容为空' }
+            $obj = ConvertFrom-Json -InputObject $raw -ErrorAction Stop
         } catch {
-            continue
+            throw ('读取本地清单失败（{0}）：{1}' -f $path, $_.Exception.Message)
         }
-        if ($null -eq $obj) { continue }
         foreach ($entry in @(Get-ManifestEntries -Manifest $obj)) {
             # id 一律 Ordinal：与台账 / 缓存索引的 New-WinstOrdinalDictionary 保持同一口径
             if ((Get-EntryString -Entry $entry -Key 'id') -ceq $Id) { return $true }

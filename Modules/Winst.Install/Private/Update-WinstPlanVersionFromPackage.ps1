@@ -7,7 +7,8 @@ function Update-WinstPlanVersionFromPackage {
     .OUTPUTS
         [string] 更新后的版本号
     #>
-    param([hashtable]$Context, $Plan, $Plans, [string]$PkgDir, [string]$Version, [bool]$VersionFromCachedPackage, [switch]$Quiet)
+    param([hashtable]$Context, $Plan, $Plans, [string]$PkgDir, [string]$Version, [bool]$VersionFromCachedPackage,
+        [switch]$MainDownloaded, [switch]$Quiet)
 
     if (($Version -and -not $VersionFromCachedPackage) -or -not (Get-EntryBool -Entry $Plan -Key 'versionFromPackage')) {
         return $Version
@@ -33,8 +34,6 @@ function Update-WinstPlanVersionFromPackage {
         }
         return $derived
     }
-    if (-not $Quiet) {
-        Write-Host ('    提示: 按 packageVersion 读包内版本失败（{0}），版本号沿用既有记录' -f [string]$derivedResult.Error) -ForegroundColor DarkYellow
-    }
-    return $Version
+    if (-not $MainDownloaded -and $VersionFromCachedPackage -and $Version) { return $Version }
+    throw ('无法读取主包版本，未更新缓存索引或执行安装：{0}' -f [string]$derivedResult.Error)
 }

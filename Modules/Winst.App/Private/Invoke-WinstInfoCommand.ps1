@@ -18,8 +18,11 @@ function Invoke-WinstInfoCommand {
         $text = ([string]$one).Trim()
         if (-not $text) { continue }
         if ($text -ieq '--force') { $force = $true; continue }
-        if ($text.StartsWith('-')) { continue }
-        if (-not $id) { $id = $text }
+        if ($text.StartsWith('-') -or $id) {
+            Write-Host ('  未知或多余参数: {0}' -f $text) -ForegroundColor Yellow
+            return 1
+        }
+        $id = $text
     }
     if (-not $id) {
         Write-Host ''
@@ -36,7 +39,8 @@ function Invoke-WinstInfoCommand {
         $refresh = Update-WinstStaleSources -Context $Context -Force -OnlyIds @($id)
         Write-WinstRefreshErrors -Errors $refresh.Errors
     } else {
-        $null = Update-WinstDisplaySources -Context $Context -Ids @($id) -Quiet
+        $refresh = Update-WinstDisplaySources -Context $Context -Ids @($id) -Quiet
+        Write-WinstRefreshErrors -Errors $refresh.Errors
     }
     $overview = Get-WinstSoftwareOverview -Context $Context
     if (-not $overview.Ok) {

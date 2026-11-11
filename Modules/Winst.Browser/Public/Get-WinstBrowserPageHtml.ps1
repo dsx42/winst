@@ -38,6 +38,7 @@ function Get-WinstBrowserPageHtml {
     )
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
+    $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
     $exe = Get-WinstSystemBrowserExe
     if (-not $exe) {
         $result.Error = '系统里没有找到 Microsoft Edge（Windows 自带的浏览器内核，无头抓取只用它）'
@@ -53,7 +54,7 @@ function Get-WinstBrowserPageHtml {
     } catch { $isElevated = $false }
 
     if ($isElevated) {
-        $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec
+        $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec -Deadline $deadline
         if ($viaDevTools.Ok) {
             $result.Html = [string]$viaDevTools.Html
             $result.Ok = $true
@@ -75,10 +76,11 @@ function Get-WinstBrowserPageHtml {
     foreach ($proxyUrl in $attempts) {
         # 同一代理最多两轮：第一轮用复用的 profile，失败后删掉它、第二轮自动换新目录
         for ($round = 1; $round -le 2; $round++) {
+            if ([datetime]::UtcNow -ge $deadline) { $lastError = '浏览器操作已达到整体超时限制'; break }
             try {
                 $profileDir = Get-WinstBrowserProfileDir
                 # 上一次抓取（或上一次刷新）残留的实例会占着这个 profile，先清掉（见上方说明）
-                $null = Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir
+                $null = Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir -Deadline $deadline
 
                 # 逐项按 Windows argv 规则加引号（Format-WinstCommandArgument）：profile 目录来自
                 # %TEMP%，用户名带空格时（C:\Users\John Smith\...）不加引号会被空格截断，
@@ -104,30 +106,32 @@ function Get-WinstBrowserPageHtml {
                     Write-Host ('  [verbose] 用系统浏览器抓取 {0}{1}' -f $Url, $note) -ForegroundColor DarkGray
                 }
 
-                $run = Invoke-WinstCapturedCommand -FilePath $exe -Arguments ($argList -join ' ') -TimeoutMs ($TimeoutSec * 1000)
+                $run = Invoke-WinstCapturedCommand -FilePath $exe -Arguments ($argList -join ' ') -TimeoutMs (Get-WinstBrowserRemainingMs -Deadline $deadline -LimitMs ([int]::MaxValue))
                 if ($run.TimedOut) {
                     # 超时已经等了一整轮，换 profile 重试多半只是再等一轮：直接换下一个代理
                     $lastError = ('浏览器抓取超时（{0} 秒未完成）' -f $TimeoutSec)
-                    Reset-WinstBrowserProfile
+                    Reset-WinstBrowserProfile -Deadline $deadline
                     break
                 }
                 if (-not $run.Ok) {
                     $lastError = ('启动系统浏览器失败：{0}' -f [string]$run.Error)
-                    Reset-WinstBrowserProfile
+                    Reset-WinstBrowserProfile -Deadline $deadline
                     continue
                 }
 
                 $html = [string]$run.Text
-                if (-not $html) {
+                if ($null -eq $run.ExitCode -or $run.ExitCode -ne 0 -or -not $html) {
                     # 浏览器什么都没输出：把它的 stderr 尾部带上（顶多两百字符），否则只剩一句没有线索的提示
                     $lastError = '浏览器没有返回页面内容'
+                    if ($null -eq $run.ExitCode) { $lastError = '读不到浏览器退出码，未确认抓取成功' }
+                    elseif ($run.ExitCode -ne 0) { $lastError = ('浏览器抓取失败（退出码 {0}）' -f $run.ExitCode) }
                     $errText = ([string]$run.ErrText).Trim()
                     if ($errText) {
                         $errText = ($errText -replace '\s+', ' ')
                         if ($errText.Length -gt 200) { $errText = $errText.Substring($errText.Length - 200) }
                         $lastError += ('（浏览器输出：{0}）' -f $errText)
                     }
-                    Reset-WinstBrowserProfile
+                    Reset-WinstBrowserProfile -Deadline $deadline
                     continue
                 }
 
@@ -137,7 +141,7 @@ function Get-WinstBrowserPageHtml {
                 break
             } catch {
                 $lastError = $_.Exception.Message
-                Reset-WinstBrowserProfile
+                Reset-WinstBrowserProfile -Deadline $deadline
             }
         }
         if ($result.Ok) { break }
@@ -148,7 +152,7 @@ function Get-WinstBrowserPageHtml {
     if (@($attempts).Count -gt 1) { $lastError = ('{0}（直连与代理均失败）' -f $lastError) }
 
     # 非提权进程先试过 --dump-dom 了，再给 CDP 一次机会（有的环境里 stdout 管道就是收不到东西）
-    $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec
+    $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec -Deadline $deadline
     if ($viaDevTools.Ok) {
         $result.Html = [string]$viaDevTools.Html
         $result.Ok = $true

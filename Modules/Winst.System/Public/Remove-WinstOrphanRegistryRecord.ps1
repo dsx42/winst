@@ -24,16 +24,14 @@ function Remove-WinstOrphanRegistryRecord {
         $result.Error = ('不是系统安装记录里的键，已跳过: {0}' -f $KeyPath)
         return $result
     }
-    if (-not (Test-Path -LiteralPath $KeyPath)) { $result.Skipped = $true; return $result }
-
     try {
-        $displayName = ''
-        $props = Get-ItemProperty -LiteralPath $KeyPath -ErrorAction SilentlyContinue
-        if ($props) {
-            $prop = $props.PSObject.Properties['DisplayName']
-            if ($prop -and $null -ne $prop.Value) { $displayName = [string]$prop.Value }
-        }
-        Remove-Item -LiteralPath $KeyPath -Recurse -Force -ErrorAction Stop
+        $props = Read-WinstUninstallRegistryEntry -KeyPath $KeyPath
+        if (-not $props -or (Test-WinstUninstallerUsable -Entry $props)) { $result.Skipped = $true; return $result }
+        $displayName = Get-EntryString -Entry $props -Key 'DisplayName'
+        $parent = Open-WinstUninstallRegistryKey -KeyPath $KeyPath -Writable -Parent
+        if ($null -eq $parent) { $result.Skipped = $true; return $result }
+        try { $parent.DeleteSubKeyTree(($KeyPath -split '\\')[-1], $false) } finally { $parent.Dispose() }
+        Reset-WinstSystemCache
         if (-not $Quiet) {
             if ($displayName) { Write-Host ('      已清理失效的安装记录: {0}' -f $displayName) -ForegroundColor DarkGray }
             else { Write-Host '      已清理一条失效的安装记录' -ForegroundColor DarkGray }

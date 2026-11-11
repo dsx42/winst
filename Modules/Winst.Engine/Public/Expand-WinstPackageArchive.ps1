@@ -3,29 +3,17 @@
 function Expand-WinstPackageArchive {
     <#
     .SYNOPSIS
-        解压压缩包到指定目录：7z.exe（7-Zip-CLI 引擎）→ 系统 tar.exe → Expand-Archive（仅 zip）。
+        解压压缩包到独立空暂存目录：7z.exe（7-Zip-CLI 引擎）→ 系统 tar.exe → Expand-Archive（仅 zip）。
     .DESCRIPTION
-        解压引擎就是完整版 7-Zip 的命令行前端（7z.exe + 7z.dll），覆盖 7-Zip 的全部格式——7z / zip /
-        tar / gzip / xz / cab / **NSIS 安装器** / RAR / WIM / iso 等，因此不需要"借系统已装的完整版
-        7-Zip"这一档。后面两档只是引擎不可用（首次引导的鸡生蛋
-        环节）或解压失败时的后备：tar.exe（bsdtar）能解 7z / zip / tar / gz / rar / iso，正好够用来解
-        引擎自己的引导包；Expand-Archive 仅 .zip。
-
-        7-Zip 自解压包（`7z<版本>-x64.exe` 这类 PE + 内嵌 7z）本身能被 7z.exe 直接打开，因此先按原样
-        走三档。`-AllowSfxPayload` 只给「安装 7-Zip-CLI」用：三档全失败时——典型是「引擎还没装上 +
-        系统 bsdtar 太旧」的引导场景——再用 Get-Winst7zSfxPayload 按 PE 覆盖区起点切出内嵌载荷，
-        当普通 .7z 重试一次。老系统的限制是：libarchive 3.6 只在 0x27000～0x60000 之间扫 7z 签名，
-        而新版 7-Zip 的载荷起点已经前移到这个窗口之下，于是「同样的包在新系统能解、老系统报无法
-        识别格式」——这不是包坏，是系统工具太旧。
+        目标必须是调用方拥有的独立空目录。工具失败后清理本次残留，再尝试下一工具；
+        全部失败时返回各工具错误，成功后由调用方负责交付内容并清理暂存目录。
     .OUTPUTS
         @{ Ok; Tool; Error }
     #>
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$ArchivePath,
-        [Parameter(Mandatory = $true)][string]$DestDir,
-        # 允许「切出 7-Zip 自解压包的内嵌载荷」这一档：只在安装 7-Zip-CLI 时传
-        [switch]$AllowSfxPayload
+        [Parameter(Mandatory = $true)][string]$DestDir
     )
 
     $result = @{ Ok = $false; Tool = ''; Error = '' }
@@ -33,56 +21,29 @@ function Expand-WinstPackageArchive {
         $result.Error = ('找不到压缩包：{0}' -f $ArchivePath)
         return $result
     }
-    $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction SilentlyContinue
-
-    $errors = New-Object 'System.Collections.Generic.List[string]'
-
-    # ① 按原样走三档：7z.exe 自己能打开 7-Zip 自解压包与 NSIS 安装包，
-    #    引擎在的时候这一档就够了，不需要切载荷。
-    $direct = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors
-    if ($direct.Ok) {
-        $result.Ok = $true
-        $result.Tool = $direct.Tool
+    try {
+        Assert-WinstSafeWritePath -Path $DestDir -Directory
+        if (Test-Path -LiteralPath $DestDir) {
+            if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
+            if (Get-ChildItem -LiteralPath $DestDir -Force -ErrorAction Stop | Select-Object -First 1) {
+                throw '解压暂存目录必须为空，拒绝覆盖已有文件'
+            }
+        }
+    } catch {
+        $result.Error = $_.Exception.Message
         return $result
     }
 
-    # ② 仅安装 7-Zip-CLI 时：三档都没解开，就按 PE 覆盖区起点切出内嵌载荷再解一次。
-    #    真正需要它的只有「引擎还没装上（引导）+ 系统 bsdtar 太旧」这条路径，
-    #    旧版 libarchive 的签名扫描窗口够不到新版 7-Zip 的载荷起点。
-    if ($AllowSfxPayload) {
-        $carvedPath = ''
-        try {
-            $carved = Get-Winst7zSfxPayload -Path $ArchivePath -DestDir ([IO.Path]::GetTempPath())
-            if ($carved.Ok -and $carved.Path) {
-                $carvedPath = [string]$carved.Path
-                $inner = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $carvedPath -DestDir $DestDir -Errors $errors
-                if ($inner.Ok) {
-                    $result.Ok = $true
-                    $result.Tool = $inner.Tool + '(sfx)'
-                    return $result
-                }
-            } elseif ($carved.Error) {
-                $errors.Add([string]$carved.Error)
-            }
-        } finally {
-            if ($carvedPath -and (Test-Path -LiteralPath $carvedPath -PathType Leaf)) {
-                Remove-Item -LiteralPath $carvedPath -Force -ErrorAction SilentlyContinue
-            }
-        }
+    $errors = New-Object 'System.Collections.Generic.List[string]'
+    $expand = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors
+    if ($expand.Ok) {
+        $result.Ok = $true
+        $result.Tool = $expand.Tool
+        return $result
     }
 
-    $sevenZip = ''
-    if ($Context) { $sevenZip = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
-
-    $detail = ''
-    if ($errors.Count -gt 0) { $detail = '（已尝试：{0}）' -f ($errors -join '；') }
-    if (-not $sevenZip) {
-        # 引擎不在（首次引导时可能出现，或安装目录被挪走）：按"缺引擎"给指引
-        $hint = ('解压引擎不可用；请执行 winst install {0} 安装（一键安装 / bundle install 会自动装）。' -f (Get-WinstExtractEngineId))
-    } else {
-        # 引擎在却打不开：多数是包损坏，或包不是 7-Zip 能识别的档案（如某些自解压封装）
-        $hint = '这个包 7-Zip 打不开（格式不支持或文件损坏）；可用 --verbose 查看引擎原始输出，或用其它工具确认这个包能否解开。'
-    }
-    $result.Error = ('无法解压 {0}{1}。{2}' -f (Split-Path -Leaf $ArchivePath), $detail, $hint)
+    $detail = '没有可用的解压工具'
+    if ($errors.Count -gt 0) { $detail = $errors -join '；' }
+    $result.Error = ('无法解压 {0}：{1}' -f (Split-Path -Leaf $ArchivePath), $detail)
     return $result
 }

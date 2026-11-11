@@ -28,35 +28,34 @@ function Install-WinstInstallerPayload {
     # 主包是压缩包（如 Chocolatey 的 .nupkg）：声明 installerExe 时先解压，再运行包内的安装程序
     $installerExeRel = (Get-EntryString -Entry $Install -Key 'installerExe').Trim()
     if ($installerExeRel) {
-        $null = Confirm-WinstExtractEngine -Context $Context -Quiet:$Quiet
-        $unpackDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-inst-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+        $engine = Confirm-WinstExtractEngine -Context $Context -Quiet:$Quiet
+        if (-not $engine.Ok) {
+            return @{ Ok = $false; Error = ('解压引擎不可用：{0}' -f $engine.Error); InstallDir = $InstallDir }
+        }
+        $unpackTarget = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-inst-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
         $stripValue = Get-EntryValue -Entry $Install -Key 'stripTopDir' -Default $true
         if ($null -eq $stripValue) { $stripValue = $true }
 
-        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $work -DestDir $unpackDir -StripTopDir $stripValue
+        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $work -DestDir $unpackTarget -StripTopDir $stripValue
         if (-not $layout.Ok) {
-            if (Test-Path -LiteralPath $unpackDir) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = ('解压安装包 {0} 失败：{1}' -f (Split-Path -Leaf $work), $layout.Error); InstallDir = $InstallDir }
         }
 
-        $installerResolved = Resolve-WinstSafeChildPattern -Root $unpackDir -Child $installerExeRel -Label 'installerExe'
+        $unpackDir = [string]$layout.TempRoot
+        $installerResolved = Resolve-WinstSafeChildPattern -Root ([string]$layout.SourceDir) -Child $installerExeRel -Label 'installerExe'
         if (-not $installerResolved.Ok) {
-            if (Test-Path -LiteralPath $unpackDir) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = [string]$installerResolved.Error; InstallDir = $InstallDir }
         }
         $found = @()
         try { $found = @(Get-Item -Path $installerResolved.Path -Force -ErrorAction SilentlyContinue) } catch { $found = @() }
         if ($found.Count -eq 0) {
-            if (Test-Path -LiteralPath $unpackDir) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = ('解压后的安装包里没有找到安装程序「{0}」（安装包: {1}）' -f $installerExeRel, (Split-Path -Leaf $work)); InstallDir = $InstallDir }
         }
         if ($found.Count -gt 1) {
-            if (Test-Path -LiteralPath $unpackDir) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = ('「{0}」在安装包里命中了多个文件，无法确定要运行哪一个' -f $installerExeRel); InstallDir = $InstallDir }
         }
         if (-not (Test-Path -LiteralPath $found[0].FullName -PathType Leaf) -or
                 (Test-WinstPathHasReparsePoint -Path $found[0].FullName -Root $unpackDir)) {
-            if (Test-Path -LiteralPath $unpackDir) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = ('拒绝运行重解析点或非文件安装程序：{0}' -f $found[0].FullName); InstallDir = $InstallDir }
         }
 
@@ -67,11 +66,9 @@ function Install-WinstInstallerPayload {
     $argumentExpansion = Expand-WinstInstallerArguments -Template (Get-EntryString -Entry $Install -Key 'installArgs') `
         -InstallDir $InstallDir -InstallRoot $Context.InstallRoot
     if (-not (Test-WinstArgumentSafe -Value $work) -or -not (Test-WinstArgumentSafe -Value $InstallDir)) {
-        if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
         return @{ Ok = $false; Error = ('安装包路径或安装目录含有无法安全传给安装程序的字符（双引号 / 控制字符）：{0}' -f $work); InstallDir = $InstallDir }
     }
     if (-not $argumentExpansion.Ok) {
-        if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
         return @{ Ok = $false; Error = ('软件源里的安装参数无法安全展开：{0}' -f $argumentExpansion.Error); InstallDir = $InstallDir }
     }
     $argsText = [string]$argumentExpansion.Value
@@ -126,17 +123,12 @@ function Install-WinstInstallerPayload {
         }
         # 0 = 成功；1641 = 已发起重启（MSI/大量 exe 安装器常用）；3010 = 需重启才能完成
         if ($null -eq $exitCode) {
-            if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = '读不到安装程序退出码，无法确认安装成功，请检查安装结果后重试。'; InstallDir = $InstallDir }
         } elseif (@(0, 1641, 3010) -notcontains [int]$exitCode) {
-            if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) { Clear-WinstInstallDir -Dir $unpackDir }
             return @{ Ok = $false; Error = ('安装程序返回失败（退出码 {0}）' -f $exitCode); InstallDir = $InstallDir }
         } elseif ([int]$exitCode -ne 0 -and -not $Quiet) {
             Write-Host '    安装程序提示需要重启电脑才能完成，请稍后重启。' -ForegroundColor DarkYellow
         }
-    }
-    if ($unpackDir -and (Test-Path -LiteralPath $unpackDir)) {
-        Clear-WinstInstallDir -Dir $unpackDir
     }
 
     # 安装器刚写完系统记录：立刻让注册表 / Appx 快照失效，

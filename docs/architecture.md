@@ -17,7 +17,7 @@
 
 | 形态 | 布局 | 用途 |
 |---|---|---|
-| 多模块 | `Modules\Winst.<名>\<名>.psd1` | 开发树：逐个导入，修改后可直接重跑 |
+| 多模块 | `Modules\Winst.<名>\Winst.<名>.psd1` | 开发树：逐个导入，修改后可直接重跑 |
 | 单一模块 | `Modules\Winst\Winst.psd1` + `Winst.psm1` | release：`build.ps1` 合并生成，一次导入 |
 
 只有一个模块目录时按单一模块处理，多个则逐个导入；非模块目录、缺少同名清单或没有任何模块都会明确报错。没有额外的模块清单文件，新增、删除或重命名模块无需修改 `winst.ps1` 与 `build.ps1`。
@@ -56,7 +56,7 @@
 
 | 模块 | 职责 |
 |---|---|
-| `Winst.Core` | 上下文与配置、路径解析与安全校验、原子文件 IO、文件摘要、JSON 缓存、状态容器、条目字段读取、参数转义、匹配规则、纯格式化 |
+| `Winst.Core` | 上下文与配置、路径解析与安全校验、原子文件 IO、文件摘要、JSON 缓存、状态容器、条目字段读取与清单结构校验归一、参数转义、匹配规则、纯格式化 |
 | `Winst.Logging` | 统一的区块标题输出 |
 | `Winst.Version` | 版本比较与规范化、`versionKind` / `versionBetween` / `versionRewrite`、版本占位符 |
 | `Winst.Net` | HTTP GET/HEAD、代理尝试、进程内响应缓存、HTML 锚点、外部校验文件抓取 |

@@ -19,6 +19,7 @@ function Register-WinstSelfLedger {
     $appliedEnv = @()
     $appliedPath = @()
     $appliedShortcuts = @()
+    $shortcutHashes = @{}
     if ($Updated) {
         $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
         if ($stateRead.Error -and -not $stateRead.Reset) { throw $stateRead.Error }
@@ -26,6 +27,7 @@ function Register-WinstSelfLedger {
         $appliedEnv = @(Get-EntryArray -Entry $previous -Key 'appliedEnv')
         $appliedPath = @(Get-EntryArray -Entry $previous -Key 'appliedPath')
         $appliedShortcuts = @(Get-EntryArray -Entry $previous -Key 'appliedShortcuts')
+        $shortcutHashes = Get-EntryValue -Entry $previous -Key 'appliedShortcutHashes' -Default @{}
     }
     if ($Plan -and -not $Updated) {
         try {
@@ -33,6 +35,7 @@ function Register-WinstSelfLedger {
             $appliedEnv = @($systemItems.AppliedEnv)
             $appliedPath = @($systemItems.AppliedPath)
             $appliedShortcuts = @($systemItems.AppliedShortcuts)
+            $shortcutHashes = $systemItems.ShortcutHashes
             if (-not $Quiet) {
                 foreach ($note in @($systemItems.Notes)) {
                     if ($note) { Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow }
@@ -69,6 +72,7 @@ function Register-WinstSelfLedger {
         appliedEnv       = $appliedEnv
         appliedPath      = $appliedPath
         appliedShortcuts = $appliedShortcuts
+        appliedShortcutHashes = $shortcutHashes
         uninstall        = $uninstall
     })
     return @{ Version = $version }

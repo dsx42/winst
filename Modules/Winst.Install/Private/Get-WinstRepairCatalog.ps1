@@ -36,6 +36,7 @@ function Get-WinstRepairCatalog {
             $planLookup[$id] = $app
             $sourceLookup[$id] = [string]$item['Source']
             if (-not $ciIdLookup.ContainsKey($id)) { $ciIdLookup[$id] = $id }
+            else { $ciIdLookup[$id] = '' }
         }
     }
 

@@ -12,14 +12,14 @@ function Invoke-WinstOldVersionCleanup {
         逐个确认，`n` 跳过但不影响其它条目；全部处理完后把台账里的 `oldVersions` 换成剩下的，
         用户下次进来看到的就是真实剩余状态。
     .OUTPUTS
-        @{ Ok; Removed; Skipped; Failed; Notes }
+        @{ Ok; Cancelled; Removed; Skipped; Failed; Notes }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Item
     )
 
-    $result = @{ Ok = $true; Removed = @(); Skipped = @(); Failed = @(); Notes = @() }
+    $result = @{ Ok = $true; Cancelled = $false; Removed = @(); Skipped = @(); Failed = @(); Notes = @() }
 
     $id = [string]$Item['Id']
     $oldVersions = @($Item['OldVersions'])
@@ -38,7 +38,9 @@ function Invoke-WinstOldVersionCleanup {
     }
 
     $remaining = @()
+    $restartInitiated = $false
     foreach ($one in $oldVersions) {
+        if ($restartInitiated) { $remaining += $one; continue }
         $version = [string]$one['Version']
         $recordKey = [string]$one['RecordKey']
         $detail = [string]$one['Detail']
@@ -62,6 +64,13 @@ function Invoke-WinstOldVersionCleanup {
         # 按「登记的键 → 其它可用的键」逐个尝试，不会连带卸掉同名的其它版本
         $run = Invoke-WinstOldVersionRemoval -Context $Context -Id $id -Version $version -RecordKey $recordKey -Quiet
 
+        if ($run.Cancelled) {
+            $result.Cancelled = $true
+            $result.Skipped += $version
+            $remaining += $one
+            Write-Host ('      已取消卸载旧版本 {0}，未尝试其它卸载入口。' -f $version) -ForegroundColor DarkGray
+            continue
+        }
         if (-not $run.Ok) {
             $result.Ok = $false
             $result.Failed += [ordered]@{ Version = $version; Error = [string]$run.Error }
@@ -73,6 +82,7 @@ function Invoke-WinstOldVersionCleanup {
         if ([bool]$run.NeedRestart) {
             $result.Notes += ('卸载 {0} 的旧版本 {1} 时提示需要重启电脑才能完成' -f $displayName, $version)
         }
+        $restartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
         $result.Removed += $version
         Write-Host ('      已移除旧版本 {0}。' -f $version) -ForegroundColor Green
         foreach ($cleaned in @($run.Cleaned)) {

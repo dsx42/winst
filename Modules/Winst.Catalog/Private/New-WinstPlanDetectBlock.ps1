@@ -8,6 +8,7 @@ function New-WinstPlanDetectBlock {
     param($Entry, [string]$Version, [string]$Type, [string]$DisplayName)
 
     $detectBlock = [ordered]@{ method = 'none' }
+    if ($Type -eq 'installer') { $detectBlock['method'] = 'registry' }
     $detectObj = Get-EntryValue -Entry $Entry -Key 'detect' -Default $null
     if ($null -ne $detectObj) {
         $method = (Get-EntryString -Entry $detectObj -Key 'method').Trim().ToLowerInvariant()
@@ -44,8 +45,8 @@ function New-WinstPlanDetectBlock {
             return @{ Block = $detectBlock; Error = ('detect.versionRewrite 有误: {0}' -f $detectRewrite.Error) }
         }
         if ($detectRewrite.Rules.Count -gt 0) { $detectBlock['versionRewrite'] = @($detectRewrite.Rules) }
-    } elseif ($Type -eq 'installer') {
-        $detectBlock['method'] = 'registry'
+    }
+    if ($detectBlock['method'] -eq 'registry' -and -not (Get-EntryString -Entry $detectBlock -Key 'name')) {
         $detectBlock['name'] = ('*' + (ConvertTo-WildcardLiteral -Text $DisplayName) + '*')
     }
 

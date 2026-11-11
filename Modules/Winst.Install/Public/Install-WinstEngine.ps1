@@ -7,10 +7,9 @@ function Install-WinstEngine {
         `-ForceUpdate` 时引擎已存在也重新下载覆盖。
     .DESCRIPTION
         引擎引导包与 winst 自身包是仅有的两处允许用 Invoke-WebRequest 下载的地方；
-        引擎均为 portable 且不写系统项，因此本函数只做「下载 → 解压 → 复制改名 → 台账」。
-        `7-Zip-CLI` 的引导包是官方的 `7z<版本>-x64.exe`（7z 自解压安装包，1.6 MB）——**首次引导时
-        解压引擎还不存在**，靠 `Expand-WinstPackageArchive` 的后备档位（系统 tar.exe / Expand-Archive）；
-        系统 tar.exe 太旧时再按 PE 覆盖区起点切出内嵌载荷（该流程传 -AllowSfxPayload）。
+        引擎专用目录按 portable 管理；无法直接解压 7-Zip 引导包时可能安装完整的系统 7-Zip。
+        7-Zip 引导包优先直接解压；失败时查找同版本的系统安装，缺失则静默运行已下载的 EXE。
+        系统安装完成且实际文件版本匹配后，复制 7z.exe / 7z.dll 到暂存目录再交付。
         取定义 / 下载与索引 / 解压落地 / 台账 各由独立函数承担。
     .OUTPUTS
         @{ Ok; Exe; Error; Installed; Updated }
@@ -72,7 +71,7 @@ function Install-WinstEngine {
 
     # ② 解压 ③ 复制 / 改名
     $layout = Expand-WinstEnginePackage -Context $Context -Id $Id -Plan $plan -InstallDir $installDir `
-        -ArchivePath ([string]$download.PrimaryPath)
+        -ArchivePath ([string]$download.PrimaryPath) -Quiet:$Quiet
     if (-not $layout.Ok) {
         $result.Error = [string]$layout.Error
         return $result
@@ -86,7 +85,7 @@ function Install-WinstEngine {
         $result.Exe = $exePath
     }
 
-    # ④ 台账（引擎不写系统项）
+    # ④ 台账只登记引擎专用目录
     Register-WinstEngineLedger -Context $Context -Plan $plan -PlanId $planId -InstallDir $installDir `
         -SourceName ([string]$resolved.Source)
 

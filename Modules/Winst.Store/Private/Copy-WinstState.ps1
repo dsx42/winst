@@ -43,6 +43,7 @@ function Copy-WinstState {
                 appliedEnv       = $entry['appliedEnv']
                 appliedPath      = $entry['appliedPath']
                 appliedShortcuts = $entry['appliedShortcuts']
+                appliedShortcutHashes = $entry['appliedShortcutHashes']
                 appliedFileVersions = $entry['appliedFileVersions']
                 appliedFiles     = $entry['appliedFiles']
                 appliedFileRules = $entry['appliedFileRules']

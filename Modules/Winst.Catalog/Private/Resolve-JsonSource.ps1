@@ -38,7 +38,7 @@ function Resolve-JsonSource {
     if ($pick.Error) { $result.Error = $pick.Error; return $result }
 
     $version = Resolve-WinstJsonVersion -Source $source -Entry $Entry -Chosen $pick.Item -ApiUrl $apiUrl `
-        -VersionKind $spec.VersionKind -VersionBetween $spec.VersionBetween -DownloadUrl $pick.Url -Result $result
+        -DownloadUrl $pick.Url -Result $result
     if ($result.Error) { return $result }
     $result.Version = $version
 

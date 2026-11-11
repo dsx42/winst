@@ -5,7 +5,7 @@ function Get-WinstRemoteManifest {
     .SYNOPSIS
         远程清单：固定 URL 直接下载；含 {version} 的先取指示地址，高于缓存版本（或 -Force）才重新下载。
     .DESCRIPTION
-        内容不是合法 JSON / 为空时同样返回失败（并提示已保留既有缓存），由调用方决定是否中止刷新。
+        正文须为条目数组、单条目或 apps 数组包装；错误结构不覆盖缓存或解析锁。
     .OUTPUTS
         同 Get-WinstManifestPayload
     #>
@@ -88,16 +88,22 @@ function Get-WinstRemoteManifest {
 
     $obj = $null
     try {
-        $obj = $content | ConvertFrom-Json
+        $obj = ConvertFrom-Json -InputObject $content -ErrorAction Stop
+        $entries = $null
+        if ($obj -is [System.Array]) { $entries = $obj }
+        elseif ($obj -is [pscustomobject]) {
+            $apps = $obj.PSObject.Properties['apps']
+            if ($apps -and $apps.Value -is [System.Array]) { $entries = $apps.Value }
+            elseif (-not $apps -and (Get-EntryString -Entry $obj -Key 'id')) { $entries = @($obj) }
+        }
+        if ($null -eq $entries) { throw '清单必须是条目数组、含 id 的单条目或含 apps 数组的对象' }
+        foreach ($entry in $entries) {
+            if ($entry -isnot [pscustomobject] -or -not (Get-EntryString -Entry $entry -Key 'id')) {
+                throw '清单数组中的每项必须是含 id 的条目对象'
+            }
+        }
     } catch {
-        $out.Message = ('清单内容不是合法 JSON: {0}' -f $_.Exception.Message)
-        if ($HasCache) { $out.Message += '（已保留并使用既有缓存）' }
-        return $out
-    }
-
-    # 内容为空（或仅空白 / 仅空数组）时 ConvertFrom-Json 不产生对象，需显式判空后再取属性
-    if ($null -eq $obj) {
-        $out.Message = '清单内容为空，不是有效的清单文件'
+        $out.Message = ('清单内容或结构无效: {0}' -f $_.Exception.Message)
         if ($HasCache) { $out.Message += '（已保留并使用既有缓存）' }
         return $out
     }
@@ -109,7 +115,7 @@ function Get-WinstRemoteManifest {
 
     $out.Ok = $true
     $out.Content = [string]$content
-    $out.Entries = @(Get-ManifestEntries -Manifest $obj)
+    $out.Entries = @($entries)
     $out.TargetUrl = $targetUrl
     $out.ManifestVersion = $manifestVersion
     $out.ReusedFromCache = $reusedFromCache

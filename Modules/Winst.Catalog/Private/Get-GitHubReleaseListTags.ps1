@@ -12,7 +12,7 @@ function Get-GitHubReleaseListTags {
         每页 10 条，按页面顺序取。**页内顺序是 GitHub 的展示顺序，不代表版本高低**
         （temurin21 页面上 `21.0.9+10` 排在 `21.0.13+9` 前面），调用方需要自己按版本排序。
     .OUTPUTS
-        @( @{ Tag; Title; Body; UpdatedAt; Prerelease } )；读取失败返回空数组
+        @( @{ Tag; Title; Body; UpdatedAt; Prerelease } )；任一页读取失败抛出错误，不返回不完整结果
         UpdatedAt 由页面上的 relative-time 绝对时间换算成 ISO 8601（取不到时为空串）
     #>
     param(
@@ -34,7 +34,8 @@ function Get-GitHubReleaseListTags {
         try {
             $html = Invoke-WinstHttpGet -Uri $url -Context $Context
         } catch {
-            break
+            if ($page -eq 1) { throw }
+            throw ('{0} 的发布列表结果不完整，第 {1} 页读取失败：{2}' -f $Repo, $page, $_.Exception.Message)
         }
         if (-not $html) { break }
 

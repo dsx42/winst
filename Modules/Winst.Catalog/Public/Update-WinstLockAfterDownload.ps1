@@ -9,7 +9,7 @@ function Update-WinstLockAfterDownload {
         解析锁的 remoteFresh 是**刷新时刻**的快照（HEAD 比对「远端 vs 当时缓存」的结论）——用户随后
         真的更新了软件，锁里的「远端有新包」也不会自己消失，「已装软件 / 检查更新」在下次刷新前会一直
         显示下载前的旧结论。下载成功意味着缓存里这份就是远端当前这份：remoteFresh → unchanged、
-        version → 本次读数、versionFromCache → false（读数已由下载的包核实，不是「仅展示用」）。
+        version → 本次缓存包读数、versionFromCache → true；包内读数仍不能代表下一次远端版本。
         只改写锁里该软件的条目；锁里没有（来源不同步等）时静默跳过，下次刷新自然重建。
     #>
     param(
@@ -30,7 +30,7 @@ function Update-WinstLockAfterDownload {
         $copy = Copy-WinstObjectShallow -InputObject $app
         $null = Set-EntryValue -Entry $copy -Key 'remoteFresh' -Value 'unchanged'
         $null = Set-EntryValue -Entry $copy -Key 'version' -Value ([string]$Version)
-        $null = Set-EntryValue -Entry $copy -Key 'versionFromCache' -Value $false
+        $null = Set-EntryValue -Entry $copy -Key 'versionFromCache' -Value $true
         $apps += $copy
         $changed = $true
     }

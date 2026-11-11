@@ -5,7 +5,7 @@ function Read-WinstCacheIndex {
     .SYNOPSIS
         读取缓存索引；缺失或损坏时按各 id 目录内的文件重建。
     .OUTPUTS
-        @{ Index; Rebuilt; Changed; Error }
+        @{ Index; Rebuilt; Changed; Error; CanSave; BackupError }
     .DESCRIPTION
         重建时版本未知（记空串），并按文件的最后写入时间填 downloadedAt；目录已不存在的索引条目
         在本次读取中清除（Changed 为 $true 时调用方应回写）。
@@ -20,6 +20,8 @@ function Read-WinstCacheIndex {
         Rebuilt = $false
         Changed = $false
         Error   = ''
+        CanSave = $true
+        BackupError = ''
     }
 
     $path = Get-WinstCacheIndexPath -PkgDir $PkgDir
@@ -36,6 +38,8 @@ function Read-WinstCacheIndex {
         $result.Rebuilt = [bool]$cachedResult.Rebuilt
         $result.Changed = [bool]$cachedResult.Changed
         $result.Error = [string]$cachedResult.Error
+        $result.CanSave = [bool]$cachedResult.CanSave
+        $result.BackupError = [string]$cachedResult.BackupError
 
         # 一次枚举拿到现存 id 集合，替代「逐 id 一次 Test-Path」：
         # 后者在几百个 id 时是数百次独立 stat（实测 300 条约 112 ms，一次枚举约 8 ms）。
@@ -62,10 +66,10 @@ function Read-WinstCacheIndex {
     $loaded = $false
     if (Test-Path -LiteralPath $path -PathType Leaf) {
         try {
-            $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+            $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
             if ($raw -and $raw.Trim()) {
-                $obj = $raw | ConvertFrom-Json
-                if ($null -ne $obj) {
+                $obj = ConvertFrom-Json -InputObject $raw -ErrorAction Stop
+                if ($null -ne $obj -and $obj.GetType() -eq [System.Management.Automation.PSCustomObject]) {
                     foreach ($prop in $obj.PSObject.Properties) {
                         $id = [string]$prop.Name
                         if (-not $id) { continue }
@@ -94,15 +98,21 @@ function Read-WinstCacheIndex {
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             $result.Error = '安装包索引损坏，已按各软件目录内的文件重建。'
             # 覆盖前留一份旧文件：重建后的记录没有版本 / 校验码 / 新鲜度基线，万一是解析口径的问题
-            # （而不是文件真坏了），还能照着重找回来。同一份坏文件只留一次（备份比原文件新就不再复制）
+            # （而不是文件真坏了），还能照着重找回来；仅内容相同才复用已有备份。
             try {
                 $backup = $path + '.bak'
-                $needCopy = -not (Test-Path -LiteralPath $backup -PathType Leaf)
-                if (-not $needCopy) {
-                    $needCopy = (Get-Item -LiteralPath $backup).LastWriteTimeUtc -lt (Get-Item -LiteralPath $path).LastWriteTimeUtc
-                }
+                Assert-WinstSafeWritePath -Path $path
+                Assert-WinstSafeWritePath -Path $backup
+                $originalHash = Get-WinstFileHash -Path $path
+                if (-not $originalHash) { throw '无法读取损坏索引的原始内容' }
+                $needCopy = $originalHash -cne (Get-WinstFileHash -Path $backup)
                 if ($needCopy) { Copy-Item -LiteralPath $path -Destination $backup -Force -ErrorAction Stop }
-            } catch { }
+                if ($originalHash -cne (Get-WinstFileHash -Path $backup)) { throw '备份内容与原索引不一致' }
+            } catch {
+                $result.CanSave = $false
+                $result.BackupError = ('备份损坏索引失败，禁止覆盖原文件 {0}：{1}' -f $path, $_.Exception.Message)
+                $result.Error += ' ' + $result.BackupError
+            }
         }
     }
 
@@ -130,6 +140,8 @@ function Read-WinstCacheIndex {
         Rebuilt = [bool]$result.Rebuilt
         Changed = [bool]$result.Changed
         Error   = [string]$result.Error
+        CanSave = [bool]$result.CanSave
+        BackupError = [string]$result.BackupError
         Index   = (New-WinstOrdinalDictionary)
     }
     foreach ($id in @($result.Index.Keys)) {

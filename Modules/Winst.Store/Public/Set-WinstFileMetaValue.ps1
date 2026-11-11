@@ -38,8 +38,8 @@ function Set-WinstFileMetaValue {
     # sourceVersion 记录的是「这个文件自己的版本」：跟随主包版本的附加文件要能显式写空，
     # 否则旧索引里继承的主包版本会一直留着（判定虽已不看它，但记录会误导排查）
     if ($PSBoundParameters.ContainsKey('SourceVersion')) { $merged['sourceVersion'] = [string]$SourceVersion }
-    if ($PSBoundParameters.ContainsKey('ETag') -and $ETag) { $merged['etag'] = $ETag }
-    if ($PSBoundParameters.ContainsKey('LastModified') -and $LastModified) { $merged['lastModified'] = $LastModified }
+    if ($PSBoundParameters.ContainsKey('ETag')) { $merged['etag'] = [string]$ETag }
+    if ($PSBoundParameters.ContainsKey('LastModified')) { $merged['lastModified'] = [string]$LastModified }
     if ($PSBoundParameters.ContainsKey('Size') -and $null -ne $Size) { $merged['size'] = $Size }
     if ($PSBoundParameters.ContainsKey('DownloadedAt') -and $DownloadedAt) { $merged['downloadedAt'] = $DownloadedAt }
     if ($PSBoundParameters.ContainsKey('LastCheckedAt') -and $LastCheckedAt) { $merged['lastCheckedAt'] = $LastCheckedAt }

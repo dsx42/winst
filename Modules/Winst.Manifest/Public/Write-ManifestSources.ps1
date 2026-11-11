@@ -12,6 +12,7 @@ function Write-ManifestSources {
         $Sources
     )
 
+    $null = Read-ManifestSources -PkgDir $PkgDir
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($source in @($Sources)) {
         $repo = Get-EntryString -Entry $source -Key 'repo'

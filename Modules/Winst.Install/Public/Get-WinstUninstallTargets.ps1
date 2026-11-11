@@ -35,7 +35,7 @@ function Get-WinstUninstallTargets {
 
     # 仅登记（external）的条目同样取：软件源里定义了卸载方式时，卸载按它执行——如 Windows App Runtime
     # 由系统 / 其它软件带装，但清单里定义了应用包卸载规则，「不是 winst 装的」不该等于「卸载不了」
-    $manifestPlan = Get-WinstLockedPlan -Context $Context -Id $Id
+    $manifestPlan = Get-WinstLockedPlan -Context $Context -Id $Id -SourceName (Get-EntryString -Entry $Entry -Key 'manifestOrigin')
     $manifestSnapshot = ConvertTo-WinstUninstallSnapshot -Block $null
     if ($manifestPlan) { $manifestSnapshot = Get-WinstUninstallSnapshotFromPlan -Plan $manifestPlan }
     $hasManifest = -not (Test-WinstUninstallSnapshotEmpty -Snapshot $manifestSnapshot)

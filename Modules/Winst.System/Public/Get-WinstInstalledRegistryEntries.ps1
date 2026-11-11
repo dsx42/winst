@@ -3,69 +3,48 @@
 function Get-WinstInstalledRegistryEntries {
     <#
     .SYNOPSIS
-        枚举系统卸载记录（HKLM 含 WOW6432Node / HKCU 的 Uninstall 键）。
-    .OUTPUTS
-        @( @{ DisplayName; DisplayVersion; InstallLocation; UninstallString; DisplayIcon; KeyPath } )
+        显式枚举 HKLM / HKCU 的卸载记录；KeyPath 包含注册表视图。
     #>
     param([switch]$Force, [int]$TtlSeconds = 15, [hashtable]$Status = $null)
 
-    if ($null -ne $Status) { $Status.Ok = $true; $Status.Error = '' }
-
-    # 短 TTL 快照：一次安装 / 卸载流程会反复问「系统里有哪些卸载记录」（每个检测项、每个依赖各一次），
-    # 而三个根全表枚举 + 逐键 Get-ItemProperty 单次就要几百毫秒。
-    # -Force 用于「必须重读」的场景（卸载器逐条回读）；写操作后由 Reset-WinstSystemCache 立即失效。
-    if (-not $Force -and (Get-WinstState -Name WinstRegistryEntriesCache)) {
-        $age = ((Get-Date) - [datetime](Get-WinstState -Name WinstRegistryEntriesCache)['At']).TotalSeconds
+    $cached = Get-WinstState -Name WinstRegistryEntriesCache
+    if (-not $Force -and $cached) {
+        $age = ((Get-Date) - [datetime]$cached.At).TotalSeconds
         if ($age -ge 0 -and $age -lt $TtlSeconds) {
-            if ($null -ne $Status) {
-                $Status.Error = Get-EntryString -Entry (Get-WinstState -Name WinstRegistryEntriesCache) -Key 'Error'
-                $Status.Ok = -not [bool]$Status.Error
-            }
-            return @((Get-WinstState -Name WinstRegistryEntriesCache)['List'])
+            if ($null -ne $Status) { $Status.Error = $cached.Error; $Status.Ok = -not [bool]$cached.Error }
+            return @($cached.List)
         }
     }
-
-    $roots = @(
-        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
-        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
-    )
     $list = New-Object 'System.Collections.Generic.List[object]'
-    # 卸载键里这些属性都是可选的（实测 HKLM 下就有只写了 UninstallString 的项）：
-    # StrictMode 2 下直接 $props.DisplayName 会抛 PropertyNotFoundException，
-    # 于是「检查更新 / 安装 / 卸载」走到版本检测就整个中断。统一按「有没有这个属性」读。
     $queryErrors = @()
-    foreach ($root in $roots) {
-        $rootErrors = @()
-        $keys = @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue -ErrorVariable rootErrors)
-        # 未建立卸载根属于正常的空记录；访问被拒绝等异常不能解释为「未安装」。
-        foreach ($oneError in $rootErrors) {
-            if ($oneError.CategoryInfo.Category -ne [Management.Automation.ErrorCategory]::ObjectNotFound) { $queryErrors += [string]$oneError }
-        }
-        foreach ($key in $keys) {
-            $props = $null
-            # -LiteralPath：-Path 会把键名里的 `[` `]` 当通配符，名字带方括号的记录
-            # （如 `Foo [x64]`）会整条读不到 → 既检测不到安装状态，也无法通过 winst 卸载
-            try { $props = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction Stop } catch {
-                # 枚举后被其它安装器删除的键已不再代表已装产品；权限 / IO 故障仍使本次查询不完整。
-                if ($_.CategoryInfo.Category -ne [Management.Automation.ErrorCategory]::ObjectNotFound) { $queryErrors += [string]$_ }
-                $props = $null
+    $views = @('Registry32')
+    if ([Environment]::Is64BitOperatingSystem) { $views += 'Registry64' }
+    foreach ($view in $views) {
+        foreach ($hive in @('LocalMachine','CurrentUser')) {
+            $base = $null
+            $root = $null
+            try {
+                $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::$hive, [Microsoft.Win32.RegistryView]::$view)
+                $root = $base.OpenSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall')
+                if ($null -eq $root) { continue }
+                $hiveName = if ($hive -eq 'LocalMachine') { 'HKEY_LOCAL_MACHINE' } else { 'HKEY_CURRENT_USER' }
+                foreach ($name in $root.GetSubKeyNames()) {
+                    $path = '{0}::{1}\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{2}' -f $view, $hiveName, $name
+                    try {
+                        $row = Read-WinstUninstallRegistryEntry -KeyPath $path
+                        if ($null -ne $row) { $list.Add($row) }
+                    } catch { $queryErrors += ('{0}: {1}' -f $path, $_.Exception.Message) }
+                }
+            } catch { $queryErrors += ('{0}/{1}: {2}' -f $view, $hive, $_.Exception.Message) }
+            finally {
+                if ($root) { $root.Dispose() }
+                if ($base) { $base.Dispose() }
             }
-            if ($null -eq $props) { continue }
-            $row = [ordered]@{}
-            foreach ($fieldName in @('DisplayName', 'DisplayVersion', 'InstallLocation', 'UninstallString', 'DisplayIcon')) {
-                $fieldValue = ''
-                $prop = $props.PSObject.Properties[$fieldName]
-                if ($prop -and $null -ne $prop.Value) { $fieldValue = [string]$prop.Value }
-                $row[$fieldName] = $fieldValue
-            }
-            $row['KeyPath'] = [string]$key.PSPath
-            $list.Add($row)
         }
     }
     $snapshot = @($list.ToArray())
     $queryError = $queryErrors -join '；'
     if ($null -ne $Status) { $Status.Error = $queryError; $Status.Ok = -not [bool]$queryError }
-    $null = Set-WinstState -Name WinstRegistryEntriesCache -Value (@{ At = (Get-Date); List = $snapshot; Error = $queryError })
+    $null = Set-WinstState WinstRegistryEntriesCache @{ At = (Get-Date); List = $snapshot; Error = $queryError }
     return $snapshot
 }

@@ -13,6 +13,11 @@ function Write-WinstUpdateCheckList {
     #   ① 可以更新：绿色 + 编号，含「主包无变化、只有附加文件有更新」的条目；
     #   ② 无法比较且无从下手：黄色 + 原因（软件源里没有这个软件 / 本机版本比软件源里的更新）；
     #      解析阶段就失败的条目（ResolutionError）改用红色。
+    if (@($Check.Entries).Count -eq 0) {
+        Write-Host ''
+        Write-Host '  没有可检查更新的软件。' -ForegroundColor Gray
+        return @{ ShouldPrompt = $false; UpdatableIds = @(); EntryTexts = @() }
+    }
     $buckets = Get-WinstUpdateCheckBuckets -Entries $Check.Entries
     $updatableIds = @($buckets.UpdatableIds)
     $updateEntries = @($buckets.UpdateEntries)

@@ -15,11 +15,18 @@ function Set-WinstInstallLedger {
     $existingEnv = @()
     $existingPath = @()
     $existingShortcuts = @()
+    $shortcutHashes = @{}
     $ledger = Get-WinstInstalledApp -State (Read-WinstState -InstallRoot $Context.InstallRoot).State -Id $Id
     if ($ledger) {
         foreach ($item in @(Get-EntryArray -Entry $ledger -Key 'appliedEnv')) { $existingEnv += $item }
         foreach ($item in @(Get-EntryArray -Entry $ledger -Key 'appliedPath')) { $existingPath += $item }
         foreach ($item in @(Get-EntryArray -Entry $ledger -Key 'appliedShortcuts')) { $existingShortcuts += [string]$item }
+        foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $ledger -Key 'appliedShortcutHashes'))) {
+            $shortcutHashes[[string]$pair.Key] = [string]$pair.Value
+        }
+    }
+    foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $SystemItems -Key 'ShortcutHashes'))) {
+        $shortcutHashes[[string]$pair.Key] = [string]$pair.Value
     }
     $mergeKey = { param($items, $keyName)
         $merged = @()
@@ -66,6 +73,7 @@ function Set-WinstInstallLedger {
         appliedEnv       = $allEnv
         appliedPath      = $allPath
         appliedShortcuts = $allShortcuts
+        appliedShortcutHashes = $shortcutHashes
         appliedFiles     = $AppliedFiles
         appliedFileVersions = $AppliedFileVersions
         appliedFileRules = $AppliedFileRules

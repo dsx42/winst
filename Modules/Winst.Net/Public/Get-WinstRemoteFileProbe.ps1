@@ -7,7 +7,7 @@ function Get-WinstRemoteFileProbe {
     .DESCRIPTION
         用于校验解析出的安装包地址是否真的可以下载（历史问题：版本列表页会提前出现尚未发布正式包的版本目录，
         如 python.org 的 3.15.0 目录此时只有 alpha 包）。代理行为与其它元数据请求一致，结果按 URL、完整请求头
-        与最终地址校验条件记入进程内 TTL 缓存，相同请求不重复探测。
+        与最终地址校验条件记入进程内 TTL 缓存；只缓存确定存在 / 不存在的结果。
         FinalUriMustContain：传入版本号时，200 还要再核对「重定向后的最终地址仍然包含它」——部分站点
         （如 SourceForge 的 /download）对不存在的文件不回 404，而是 302 回项目文件根目录并返回 200 的
         HTML 错误页，只看状态码会误判成存在。
@@ -108,6 +108,8 @@ function Get-WinstRemoteFileProbe {
         Write-Host ('  [verbose] 校验安装包地址 {0} → {1}' -f $Uri, $state) -ForegroundColor DarkGray
     }
 
-    (Get-WinstState -Name WinstHttpCache)[$cacheKey] = @{ At = [DateTime]::Now; State = $state; Detail = $detail }
+    if ($state -eq 'ok' -or $state -eq 'missing') {
+        (Get-WinstState -Name WinstHttpCache)[$cacheKey] = @{ At = [DateTime]::Now; State = $state; Detail = $detail }
+    }
     return @{ State = $state; Detail = $detail }
 }

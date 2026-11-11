@@ -19,6 +19,7 @@ function Invoke-WinstSearchCommand {
         $tokens = @()
         foreach ($one in @($Arguments)) {
             $text = ([string]$one).Trim()
+            if ($text.StartsWith('-')) { Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow; return 1 }
             if ($text) { $tokens += $text }
         }
         $keyword = ($tokens -join ' ')
@@ -32,11 +33,12 @@ function Invoke-WinstSearchCommand {
 
     # 先按缓存搜出要展示的软件，再按需刷新这些软件的版本信息，
     # 刷新有成果时用新数据重新搜索展示——不把软件源里所有软件都解析一遍
+    $state = Read-WinstCommandState -Context $Context
     $lookup = Search-WinstRowsWithRefresh -Context $Context -Keyword $keyword -Quiet
+    Write-WinstRefreshErrors -Errors $lookup.Refresh.Errors
     $searched = $lookup.Searched
 
     $rows = @($searched.Rows)
-    $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
 
     Write-Host ''
     if ($searched.Merged -and $rows.Count -gt 0) {

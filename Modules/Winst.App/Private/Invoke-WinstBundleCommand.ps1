@@ -30,9 +30,18 @@ function Invoke-WinstBundleCommand {
         if (-not $sub) { $sub = $text.ToLowerInvariant(); continue }
         if ($sub -eq 'pack') {
             if (-not $file) { $file = $text } elseif (-not $dir) { $dir = $text }
+            else { Write-Host ('  多余参数: {0}' -f $text) -ForegroundColor Yellow; return 1 }
         } elseif (-not $file) {
             $file = $text
+        } else {
+            Write-Host ('  多余参数: {0}' -f $text) -ForegroundColor Yellow
+            return 1
         }
+    }
+
+    if (($skipExisting -and $sub -ne 'install') -or ($skipMissing -and $sub -ne 'pack') -or ($sub -eq 'help' -and $file)) {
+        Write-Host '  参数不适用于此 bundle 子命令。' -ForegroundColor Yellow
+        return 1
     }
 
     switch ($sub) {

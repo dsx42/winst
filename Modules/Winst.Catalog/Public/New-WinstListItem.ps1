@@ -50,8 +50,8 @@ function New-WinstListItem {
     $pinMismatch = $false
     $pinUnknown = $false
     if ($PinnedVersion) {
-        if (-not $facts.BestVersion) { $pinUnknown = $true }
-        elseif ((Compare-WinstVersion -A $PinnedVersion -B ([string]$facts.BestVersion)) -ne 0) { $pinMismatch = $true }
+        if (-not $facts.RemoteVersion) { $pinUnknown = $true }
+        elseif ((Compare-WinstVersion -A $PinnedVersion -B ([string]$facts.RemoteVersion)) -ne 0) { $pinMismatch = $true }
     }
 
     # 条目类型（download = 「仅下载软件包」）：下载流程据此把「安装包」换成「软件包」措辞

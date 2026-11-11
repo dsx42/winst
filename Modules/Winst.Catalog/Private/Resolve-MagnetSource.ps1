@@ -31,37 +31,17 @@ function Resolve-MagnetSource {
         return $result
     }
 
-    $versionKind = (Get-EntryString -Entry $source -Key 'versionKind').Trim()
-    if ($versionKind -and -not (Get-VersionKindPattern -Kind $versionKind)) {
-        $result.Error = ('不认识的版本识别器「{0}」；可用 {1}' -f $versionKind, ((Get-VersionKindList) -join '、'))
-        return $result
-    }
-    $versionBetween = @(Get-EntryArray -Entry $source -Key 'versionBetween')
-
-    if ($versionKind -or $versionBetween.Count -gt 0) {
-        $displayName = Get-MagnetDisplayName -Uri $primaryUrl
-        if ($displayName) {
-            if ($versionBetween.Count -gt 0) {
-                $between = Get-VersionBetween -Spec $versionBetween -Text $displayName
-                if ($between.Ok) {
-                    $result.Version = Get-NormalizedVersionString -Value $between.Value
-                } else {
-                    $result.Notes += ('未能从文件名「{0}」里取出 {1} 之间的内容作为版本号' -f $displayName, ($versionBetween -join ' … '))
-                }
-            } else {
-                $found = Get-VersionValue -Text $displayName -Kind $versionKind
-                if ($found) {
-                    $result.Version = Get-NormalizedVersionString -Value $found
-                } else {
-                    $result.Notes += ('未能从磁力链接的文件名（{0}）中识别出版本号' -f $displayName)
-                }
-            }
-        } else {
-            $result.Notes += '磁力链接里没有文件名信息，无法识别版本号'
-        }
-    }
-    if (-not $result.Version) {
+    $versionRule = Get-WinstVersionRule -Source $source
+    if (-not $versionRule.Ok) { $result.Error = $versionRule.Error; return $result }
+    $displayName = Get-MagnetDisplayName -Uri $primaryUrl
+    $found = Get-VersionFromSourceText -Source $source -Text $displayName -Where '磁力链接的文件名（dn）'
+    if ($found.Missing) {
         $result.Version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
+    } elseif (-not $found.Ok) {
+        $result.Error = [string]$found.Error
+        return $result
+    } else {
+        $result.Version = [string]$found.Version
     }
 
     $files = @()
@@ -71,7 +51,14 @@ function Resolve-MagnetSource {
         $locator = Get-SourceFileLocator -Item $item -Kind 'magnet'
         if ($locator.Error) { $result.Error = $locator.Error; return $result }
         $uri = $locator.Url
-        if (-not $uri) { continue }
+        if (-not $uri -or $uri -notmatch '^(?i)magnet:') {
+            $result.Error = ('source.files[{0}].url 必须是完整磁力链接' -f ($index - 1))
+            return $result
+        }
+        if ($uri -cmatch '\{(?:version(?:Major|Minor)?|tag)\}') {
+            $result.Error = ('source.files[{0}].url 的磁力链接不支持版本或 tag 占位符' -f ($index - 1))
+            return $result
+        }
 
         $fileName = Get-EntryString -Entry $item -Key 'name'
         if (-not $fileName) { $fileName = Get-MagnetDisplayName -Uri $uri }

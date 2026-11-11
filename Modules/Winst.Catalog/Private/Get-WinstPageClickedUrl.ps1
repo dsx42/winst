@@ -16,8 +16,8 @@ function Get-WinstPageClickedUrl {
     }
 
     $clickFetchWith = (Get-EntryString -Entry $Source -Key 'fetchWith').Trim().ToLowerInvariant()
-    if ($clickFetchWith -ne 'browser') {
-        return @{ Ok = $false; Error = 'source.click 要用无头浏览器点按钮取地址，必须同时声明 fetchWith: "browser"'; Url = ''; Html = ''; PageHash = '' }
+    if ($clickFetchWith -and $clickFetchWith -ne 'browser') {
+        return @{ Ok = $false; Error = 'source.click 使用无头浏览器取地址，fetchWith 只能省略或填写 "browser"'; Url = ''; Html = ''; PageHash = '' }
     }
 
     # 版本要从页面里取时（versionKey / versionFrom: page），把点击之后的 DOM 一并带回来

@@ -43,6 +43,10 @@ function Resolve-GitHubManifestInput {
             $result.Error = '地址格式不正确，请检查后重试'
             return $result
         }
+        if (@('http', 'https') -notcontains $uri.Scheme -or -not $uri.IsDefaultPort -or $uri.UserInfo) {
+            $result.Error = '软件源地址必须为不含账号和自定义端口的 HTTP(S) 地址'
+            return $result
+        }
         $hostName = $uri.Host.ToLowerInvariant()
         $segments = @($uri.AbsolutePath.Trim('/') -split '/' | Where-Object { $_ -ne '' })
 
@@ -63,7 +67,7 @@ function Resolve-GitHubManifestInput {
                 if ($segments.Count -ge 4) { $ref = $segments[3] }
                 if ($segments.Count -ge 5) {
                     $path = ($segments[4..($segments.Count - 1)] -join '/')
-                    if ($kind -eq 'tree' -and $path -notmatch '\.json$') {
+                    if ($kind -eq 'tree') {
                         $path = $path.TrimEnd('/') + '/manifest.json'
                     }
                 }
@@ -75,7 +79,10 @@ function Resolve-GitHubManifestInput {
                 return $result
             }
             $repo = '{0}/{1}' -f $segments[0], $segments[1]
-            $manifestUrl = $text
+            $secureUri = New-Object System.UriBuilder($uri)
+            $secureUri.Scheme = 'https'
+            $secureUri.Port = -1
+            $manifestUrl = $secureUri.Uri.AbsoluteUri
         } else {
             $result.Error = '软件源只支持 GitHub 仓库（github.com / raw.githubusercontent.com），请勿使用其它站点'
             return $result

@@ -12,11 +12,11 @@ function Get-WinstDependencyLines {
           - 未安装（将安装 x）——软件源里有可用版本时带上将安装的版本；
           - 已安装 x，已是最新 / 已安装 x，可更新到 y / 已安装 x（软件源里没有可用版本）；
           - 已安装（版本未知）——台账里没有版本号；
-          - 依赖 id 在软件源里不存在时说明「安装时会跳过」（与 4.7 的安装口径一致）。
+          - 依赖不存在或没有可用计划时说明「安装时会跳过」，有效的版本待定计划仍可安装。
         间接依赖标出经由谁。`download` 类型（只下载软件包、不安装到电脑）不处理依赖，返回空列表。
     .OUTPUTS
         @( @{ Text; Color; Id; Missing } )：一行一条（Text 不含缩进），Color 为 Write-Host 颜色名，
-        Id 为对应的依赖 id，Missing = $true 表示软件源里没有这个依赖
+        Id 为对应的依赖 id，Missing = $true 表示依赖不存在或没有可用计划
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -50,10 +50,13 @@ function Get-WinstDependencyLines {
 
     foreach ($one in @($resolved.Order)) {
         $depId = [string]$one['Id']
+        $depBest = $null
         $targetVersion = ''
         if ($rows.Contains($depId)) {
-            $depBest = Get-WinstRowBestSourceEntry -Row $rows[$depId]
-            if ($depBest) { $targetVersion = [string]$depBest['Version'] }
+            $depBest = Get-WinstRowBestPlanEntry -Row $rows[$depId]
+            if ($depBest -and $depBest['Plan'] -and
+                -not (Get-EntryBool -Entry $depBest['Plan'] -Key 'versionFromPackage') -and
+                -not (Get-EntryBool -Entry $depBest['Plan'] -Key 'versionFromCache')) { $targetVersion = [string]$depBest['Version'] }
         }
 
         # 状态把「是否已安装 / 已装版本 / 能否更新 / 更新后的版本」一次说清（见上方说明）
@@ -75,11 +78,19 @@ function Get-WinstDependencyLines {
             $color = 'Gray'
         }
 
+        $missing = (-not $depBest -or -not $depBest['Plan'])
+        if ($missing) {
+            $status += '（依赖不可用，软件源里没有可用的安装计划，安装时会跳过）'
+            $color = 'DarkYellow'
+        } elseif (-not $ledger -and -not $targetVersion) {
+            $status = '未安装（版本待定，按可用计划安装）'
+        }
+
         $levelText = ''
         if ([int]$one['Level'] -gt 1) {
             $levelText = ('（间接依赖，经 {0}）' -f (& $nameOf ([string]$one['Via'])))
         }
-        $lines.Add(@{ Text = ('{0} ({1})：{2}{3}' -f (& $nameOf $depId), $depId, $status, $levelText); Color = $color; Id = $depId; Missing = $false })
+        $lines.Add(@{ Text = ('{0} ({1})：{2}{3}' -f (& $nameOf $depId), $depId, $status, $levelText); Color = $color; Id = $depId; Missing = $missing })
     }
 
     foreach ($miss in @($resolved.Missing)) {

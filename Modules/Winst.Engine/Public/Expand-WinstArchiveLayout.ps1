@@ -3,90 +3,111 @@
 function Expand-WinstArchiveLayout {
     <#
     .SYNOPSIS
-        按清单的 stripTopDir / extractFiles 设置把压缩包内容解压到目标目录（先解压到临时目录，再按需挑拣）。
+        在目标同盘的临时目录完整解压并整理布局，不修改目标目录。
     .DESCRIPTION
-        stripTopDir：$true = 压缩包仅含单一顶层目录时剥掉；$false = 原样解压；
-        字符串 = 只取压缩包内该相对路径（目录 = 该目录下的内容；文件 = 该文件本身，文件本身是压缩包时
-        递归解压其内容，见 Test-WinstArchiveFileByExtension）（不存在即报错）。
-        extractFiles（字符串数组）= 只取包内这几个相对路径（文件取自身、目录取内容；不会自动展开内层压缩文件，可写多个）；
-        声明了它就以它为准、不看 stripTopDir——引擎包用这种方式"只从官方 7-Zip 安装包里取 7z.exe + 7z.dll"
-        ；缺哪个路径即报错，不静默少装。
+        extractFiles 优先于 stripTopDir；目录取内容，文件取自身。
+        stripTopDir 指定内层压缩包时先展开内层；其余目录选择只切换路径。
+        成功后调用方从 SourceDir 直接交付，并负责清理 TempRoot；失败时自行清理。
+    .PARAMETER DestDir
+        最终交付目录，用于选择同盘临时位置；本函数不向该目录写入。
     .OUTPUTS
-        @{ Ok; Error }
+        @{ Ok; Error; TempRoot; SourceDir; ExtractFailed }
     #>
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$ArchivePath,
         [Parameter(Mandatory = $true)][string]$DestDir,
         $StripTopDir = $true,
-        [string[]]$ExtractFiles = @(),
-        # 允许「切出 7-Zip 自解压包的内嵌载荷」：只在安装 7-Zip-CLI 时由调用方传
-        [switch]$AllowSfxPayload
+        [string[]]$ExtractFiles = @()
     )
 
-    $result = @{ Ok = $false; Error = '' }
-    $tempRoot = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-x-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
-
+    $result = @{ Ok = $false; Error = ''; TempRoot = ''; SourceDir = ''; ExtractFailed = $false }
+    $tempRoot = ''
     try {
-        Assert-WinstSafeWritePath -Path $DestDir -Directory
+        $target = [IO.Path]::GetFullPath($DestDir).TrimEnd('\', '/')
+        Assert-WinstSafeWritePath -Path $target -Directory
+        $parent = [IO.Path]::GetDirectoryName($target)
+        Assert-WinstSafeWritePath -Path $parent
+        $tempRoot = Join-WinstPath $parent ('.winst-stage-' + [Guid]::NewGuid().ToString('N'))
         Assert-WinstSafeWritePath -Path $tempRoot -Directory
-        $null = New-Item -ItemType Directory -Path $tempRoot -Force -ErrorAction Stop
-
-        $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -AllowSfxPayload:$AllowSfxPayload
-        if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
-
-        # 先校验完整解压树，再选择目录；不能先枚举 junction 的目标。
+        $null = New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop
+        $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot
+        if (-not $expand.Ok) { $result.ExtractFailed = $true; $result.Error = $expand.Error; return $result }
         Assert-WinstTreeWithoutReparsePoint -Path $tempRoot
 
-        # extractFiles：只搬这几个路径（文件 / 目录），一个都不能少
-        # 每一项都先过 Resolve-WinstSafeChildPath：`..\..\Windows\System32` 这类写法能从临时解压目录
-        # 跳到任意位置，把外面目录里的内容搬进安装目录
-        $wanted = New-Object 'System.Collections.Generic.List[string]'
-        $wantedPaths = New-Object 'System.Collections.Generic.List[string]'
+        $selected = New-Object 'System.Collections.Generic.List[string]'
         foreach ($one in @($ExtractFiles)) {
             $text = ([string]$one).Trim()
             if (-not $text) { continue }
-            $safeChild = Resolve-WinstSafeChildPath -Root $tempRoot -Child $text -Label '软件源里的解压路径'
-            if (-not $safeChild.Ok) { $result.Error = $safeChild.Error; return $result }
-            $wanted.Add($text)
-            $wantedPaths.Add([string]$safeChild.Path)
+            $safe = Resolve-WinstSafeChildPath -Root $tempRoot -Child $text -Label '软件源里的解压路径'
+            if (-not $safe.Ok) { $result.Error = $safe.Error; return $result }
+            if (-not (Test-Path -LiteralPath $safe.Path)) { throw ('压缩包缺少所需路径：' + $text) }
+            if (-not $selected.Contains([string]$safe.Path)) { $selected.Add([string]$safe.Path) }
         }
-        if ($wanted.Count -gt 0) {
-            $missing = @($wantedPaths | Where-Object { -not (Test-Path -LiteralPath $_) })
-            if ($missing.Count -gt 0) {
-                $result.Error = ('压缩包缺少所需路径：{0}' -f ($missing -join '、'))
-                return $result
+        if ($selected.Count -eq 0) {
+            $source = $tempRoot
+            if ($StripTopDir -is [string]) {
+                $safe = Resolve-WinstSafeChildPath -Root $tempRoot -Child $StripTopDir -Label '软件源里的解压路径'
+                if (-not $safe.Ok) { $result.Error = $safe.Error; return $result }
+                $source = [string]$safe.Path
+                if (-not (Test-Path -LiteralPath $source)) { throw ('压缩包里没有所需路径：' + $StripTopDir) }
+                if ((Test-Path -LiteralPath $source -PathType Leaf) -and (Test-WinstArchiveFileByExtension -Path $source)) {
+                    $inner = Join-WinstPath $tempRoot ('.winst-inner-' + [Guid]::NewGuid().ToString('N'))
+                    $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $source -DestDir $inner
+                    if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
+                    Assert-WinstTreeWithoutReparsePoint -Path $inner
+                    $source = $inner
+                }
+            } elseif ($StripTopDir -eq $true) {
+                $top = @(Get-ChildItem -LiteralPath $tempRoot -Force -ErrorAction Stop)
+                if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $source = $top[0].FullName }
             }
-            foreach ($candidate in $wantedPaths) {
-                $moved = Move-WinstArchiveSelection -Context $Context -Path $candidate -DestDir $DestDir
-                if (-not $moved.Ok) { $result.Error = $moved.Error; return $result }
-            }
-            $result.Ok = $true
-            return $result
+            $selected.Add($source)
         }
 
-        $sourceDir = $tempRoot
-        if ($StripTopDir -is [string]) {
-            $safe = Resolve-WinstSafeChildPath -Root $tempRoot -Child $StripTopDir -Label '软件源里的解压路径'
-            if (-not $safe.Ok) { $result.Error = $safe.Error; return $result }
-            $sourceDir = $safe.Path
-            if (-not (Test-Path -LiteralPath $sourceDir)) {
-                $result.Error = ('压缩包里没有所需路径：{0}' -f $StripTopDir)
-                return $result
+        if ($selected.Count -eq 1 -and (Test-Path -LiteralPath $selected[0] -PathType Container)) {
+            $sourceDir = $selected[0]
+        } else {
+            $fileParent = [IO.Path]::GetDirectoryName($selected[0])
+            $sameParentFiles = $true
+            foreach ($path in $selected) {
+                if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or [IO.Path]::GetDirectoryName($path) -ine $fileParent) {
+                    $sameParentFiles = $false
+                    break
+                }
             }
-        } elseif ($StripTopDir -eq $true) {
-            $top = @(Get-ChildItem -LiteralPath $tempRoot -Force -ErrorAction Stop)
-            if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $sourceDir = $top[0].FullName }
+            if ($sameParentFiles) {
+                $sourceDir = $fileParent
+                foreach ($item in @(Get-ChildItem -LiteralPath $sourceDir -Force -ErrorAction Stop)) {
+                    if (@($selected) -contains $item.FullName) { continue }
+                    if ($item.PSIsContainer) { Clear-WinstInstallDir -Dir $item.FullName -Strict }
+                    else { Remove-Item -LiteralPath $item.FullName -Force -ErrorAction Stop }
+                }
+            } else {
+                # 多个目录取内容时必须合并布局；只在本次临时树内移动，不复制整树。
+                $sourceDir = Join-WinstPath $tempRoot ('.winst-layout-' + [Guid]::NewGuid().ToString('N'))
+                $null = New-Item -ItemType Directory -Path $sourceDir -ErrorAction Stop
+                foreach ($path in $selected) {
+                    if ($path -ieq $tempRoot) { throw '解压选择不能同时包含整个临时目录和其中的条目' }
+                    $moved = Move-WinstArchiveSelection -Path $path -DestDir $sourceDir
+                    if (-not $moved.Ok) { $result.Error = $moved.Error; return $result }
+                }
+            }
         }
-        $moved = Move-WinstArchiveSelection -Context $Context -Path $sourceDir -DestDir $DestDir `
-            -ExpandInner:($StripTopDir -is [string]) -AllowSfxPayload:$AllowSfxPayload
-        if (-not $moved.Ok) { $result.Error = $moved.Error; return $result }
+        Assert-WinstTreeWithoutReparsePoint -Path $sourceDir
+        if (-not (Get-ChildItem -LiteralPath $sourceDir -File -Recurse -Force -ErrorAction Stop | Select-Object -First 1)) {
+            throw '解压结果没有文件，拒绝清理安装目录'
+        }
+        $result.TempRoot = $tempRoot
+        $result.SourceDir = $sourceDir
         $result.Ok = $true
         return $result
     } catch {
-        $result.Error = ('解压失败：{0}' -f $_.Exception.Message)
+        $result.Error = ('解压失败：' + $_.Exception.Message)
         return $result
     } finally {
-        if (Test-Path -LiteralPath $tempRoot) { Clear-WinstInstallDir -Dir $tempRoot }
+        if (-not $result.Ok -and $tempRoot -and (Test-Path -LiteralPath $tempRoot)) {
+            Clear-WinstInstallDir -Dir $tempRoot -AllowedRoot $parent
+        }
     }
 }

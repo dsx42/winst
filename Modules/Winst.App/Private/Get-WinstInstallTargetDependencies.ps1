@@ -28,7 +28,7 @@ function Get-WinstInstallTargetDependencies {
                     $depRow = $null
                     if ($depIndex['Rows'].Contains($depId)) { $depRow = $depIndex['Rows'][$depId] }
                     $depEntry = $null
-                    if ($depRow) { $depEntry = Get-WinstRowBestSourceEntry -Row $depRow }
+                    if ($depRow) { $depEntry = Get-WinstRowBestPlanEntry -Row $depRow }
                     if (-not $depEntry -or -not $depEntry['Plan']) {
                         $depMissing += @{ Id = $depId; Level = [int]$one['Level']; Via = [string]$one['Via'] }
                         continue
@@ -41,13 +41,15 @@ function Get-WinstInstallTargetDependencies {
                     $depInstalledVersion = ''
                     if ($depLedger) { $depInstalledVersion = Get-EntryString -Entry $depLedger -Key 'version' }
                     $depTargetVersion = [string]$depEntry['Version']
+                    if ((Get-EntryBool -Entry $depEntry['Plan'] -Key 'versionFromPackage') -or
+                        (Get-EntryBool -Entry $depEntry['Plan'] -Key 'versionFromCache')) { $depTargetVersion = '' }
                     $depActionText = ''
                     if (-not $depInstalledVersion) {
                         $depActionText = '未安装'
                     } elseif ($depTargetVersion -and ((Compare-WinstVersion -A $depTargetVersion -B $depInstalledVersion) -gt 0)) {
                         $depActionText = ('可更新到 {0}' -f $depTargetVersion)
                     }
-                    if (-not $depActionText) { continue }   # 已安装且已是最新：不提示、不处理
+                    if (-not $depActionText) { continue }   # 没有明确更新证据时不自动处理已安装依赖。
 
                     $depName = [string]$depRow['Name']
                     if (-not $depName) { $depName = $depId }
@@ -67,7 +69,7 @@ function Get-WinstInstallTargetDependencies {
     }
 
     foreach ($miss in @($depMissing)) {
-        Write-Host ('    提示: 依赖「{0}」在软件源里不存在，已跳过（不影响本体的安装）。' -f [string]$miss['Id']) -ForegroundColor DarkYellow
+        Write-Host ('    提示: 依赖「{0}」在软件源里不存在或没有可用安装计划，已跳过（不影响本体的安装）。' -f [string]$miss['Id']) -ForegroundColor DarkYellow
     }
     if ($depSteps.Count -gt 0) {
         $depParts = @()

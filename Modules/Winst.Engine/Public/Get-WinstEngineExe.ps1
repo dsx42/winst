@@ -19,7 +19,11 @@ function Get-WinstEngineExe {
         $null = Set-WinstState -Name WinstEnginePathCache -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase))
     }
     $cacheKey = ('{0}|{1}' -f $Context.InstallRoot, $Id)
-    if ((Get-WinstState -Name WinstEnginePathCache).ContainsKey($cacheKey)) { return [string](Get-WinstState -Name WinstEnginePathCache)[$cacheKey] }
+    if ((Get-WinstState -Name WinstEnginePathCache).ContainsKey($cacheKey)) {
+        $cachedExe = [string](Get-WinstState -Name WinstEnginePathCache)[$cacheKey]
+        if (Test-Path -LiteralPath $cachedExe -PathType Leaf) { return $cachedExe }
+        (Get-WinstState -Name WinstEnginePathCache).Remove($cacheKey)
+    }
 
     $found = ''
     $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State

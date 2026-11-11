@@ -85,8 +85,8 @@ function Read-WinstCommandLine {
                     $command = $text
                     continue
                 }
-                $rest += $text
-                continue
+                $error = ('未知参数: {0}' -f $text)
+                break
             }
             $command = $text
             continue

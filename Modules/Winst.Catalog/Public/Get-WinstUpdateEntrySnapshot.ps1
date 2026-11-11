@@ -49,7 +49,10 @@ function Get-WinstUpdateEntrySnapshot {
         foreach ($candidate in @($Row['Sources'])) {
             if ([string]$candidate['Source'] -ieq $originName) { $originEntry = $candidate; break }
         }
-        if ($originEntry) { $originVersion = [string]$originEntry['Version'] }
+        if ($originEntry) {
+            $originRemote = Get-WinstRowBestSourceEntry -Row @{ Sources = @($originEntry) }
+            if ($originRemote) { $originVersion = [string]$originRemote['Version'] }
+        }
     }
 
     $comparable = [bool]($InstalledVersion -and $InstalledVersion -ne 'unknown')

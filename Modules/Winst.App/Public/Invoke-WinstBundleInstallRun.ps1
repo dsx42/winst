@@ -25,6 +25,7 @@ function Invoke-WinstBundleInstallRun {
         PinSkipped        = 0
         CancelCount       = 0
         FailCount         = 0
+        Network           = $false
     }
 
     foreach ($item in @($Items)) {
@@ -76,13 +77,18 @@ function Invoke-WinstBundleInstallRun {
             }
         }
 
-        $one = Invoke-WinstInstallTarget -Context $Context -Row $item['Row'] -AutoPickSource -Yes:$InstallYes
+        try {
+            $one = Invoke-WinstInstallTarget -Context $Context -Row $item['Row'] -AutoPickSource -Yes:$InstallYes
+        } catch {
+            $one = @{ Ok = $false; Cancelled = $false; Error = $_.Exception.Message; Message = ''; Network = $false }
+        }
         if ($one.Cancelled) {
             $stats['CancelCount']++
             continue
         }
         if (-not $one.Ok) {
             $stats['FailCount']++
+            if ($one.Network) { $stats['Network'] = $true }
             if ($one.Error) { Write-Host ('  失败: {0}' -f [string]$one.Error) -ForegroundColor Red }
             elseif ([string]$one.Message) { Write-Host ('  失败: {0}' -f [string]$one.Message) -ForegroundColor Red }
             else { Write-Host '  失败: 安装流程没有给出原因（可用 --verbose 重试以取得更多信息）。' -ForegroundColor Red }
@@ -90,7 +96,7 @@ function Invoke-WinstBundleInstallRun {
         }
         if ($one.Skipped) { $stats['SkipCount']++; continue }
         $stats['OkCount']++
-        if ((Get-WinstRowType -Row $item['Row']) -eq 'download') { $stats['DownloadOkCount']++ }
+        if ((Get-WinstRowType -Row $item['Row'] -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $stats['DownloadOkCount']++ }
     }
 
     return $stats

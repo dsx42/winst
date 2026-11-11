@@ -21,7 +21,8 @@ function Get-WinstBrowserPageHtmlByDevTools {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Url,
-        [int]$TimeoutSec = 60
+        [int]$TimeoutSec = 60,
+        [datetime]$Deadline = [datetime]::MaxValue
     )
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
@@ -32,20 +33,23 @@ function Get-WinstBrowserPageHtmlByDevTools {
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
+    $localDeadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
+    if ($localDeadline -lt $Deadline) { $Deadline = $localDeadline }
     foreach ($proxyUrl in $attempts) {
+        if ([datetime]::UtcNow -ge $Deadline) { $lastError = '浏览器操作已达到整体超时限制'; break }
         $session = $null
         try {
-            $session = New-WinstDevToolsSession -ProxyUrl ([string]$proxyUrl) -UserAgent $ua
+            $session = New-WinstDevToolsSession -ProxyUrl ([string]$proxyUrl) -UserAgent $ua -TimeoutSec $TimeoutSec -Deadline $Deadline
             if (-not $session.Ok) { $lastError = [string]$session.Error; continue }
             $result.Engine = [string]$session.Engine
 
-            $null = Invoke-WinstDevToolsCommand -Session $session -Method 'Page.navigate' -Params @{ url = $Url }
+            Start-WinstDevToolsNavigation -Session $session -Url $Url
 
             # 等 loadEventFired，最多 25 秒；页面长轮询时可能一直不给，超时也继续取 DOM
-            $loadDeadline = [DateTime]::Now.AddSeconds(25)
-            $hardDeadline = [DateTime]::Now.AddSeconds($TimeoutSec)
+            $loadDeadline = [DateTime]::UtcNow.AddSeconds(25)
+            $hardDeadline = $Deadline
             if ($hardDeadline -lt $loadDeadline) { $loadDeadline = $hardDeadline }
-            while (-not $session.LoadEventFired -and [DateTime]::Now -lt $loadDeadline) {
+            while (-not $session.LoadEventFired -and [DateTime]::UtcNow -lt $loadDeadline) {
                 Wait-WinstDevToolsMessages -Session $session -Milliseconds 100
             }
             # 页面脚本是在 DOMContentLoaded 之后才把内容拼上去的（下载页尤其如此），再给一点时间
@@ -65,6 +69,7 @@ function Get-WinstBrowserPageHtmlByDevTools {
             $lastError = $_.Exception.Message
         } finally {
             Close-WinstDevToolsSession -Session $session
+            if ($session -and $session.CleanupError) { $result.Ok = $false; $lastError += ('；' + $session.CleanupError) }
         }
     }
 

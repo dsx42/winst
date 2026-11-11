@@ -44,8 +44,7 @@ function Copy-WinstCompanionFiles {
         }
         $destPath = [string]$safeDest.Path
         # 落位目标经过 junction / 符号链接时会被写到安装目录之外。这里必须无条件检查：
-        # Test-WinstPathHasReparsePoint 只遍历「已存在」的路径段（遇到不存在的就停），
-        # 目标文件还不存在时也能查出父级 `link\` 是 junction（它会同时复核边界）。
+        # 目标尚不存在时也要复核父级路径链与边界，无法读取属性时立即中止。
         if (Test-WinstPathHasReparsePoint -Path $destPath -Root $InstallDir) {
             $result.Ok = $false
             $result.Error = ('附加文件的落位路径经过重解析点或位于安装目录之外，已拒绝：{0}' -f $dest)
@@ -72,14 +71,30 @@ function Copy-WinstCompanionFiles {
             return $result
         }
         if ($extract) {
-            # 附加文件是压缩包：解压到 dest 指定的目录
+            $engine = Confirm-WinstExtractEngine -Context $Context -Quiet
+            if (-not $engine.Ok) {
+                $result.Ok = $false
+                $result.Error = ('解压引擎不可用（附加文件 {0}）：{1}' -f $name, $engine.Error)
+                return $result
+            }
+            # 完整解压后直接把选中的内容合并到 dest，临时解压树由本次调用清理。
             $expand = Expand-WinstArchiveLayout -Context $Context -ArchivePath $source -DestDir $destPath -StripTopDir $stripValue
             if (-not $expand.Ok) {
                 $result.Ok = $false
                 $result.Error = ('附加文件解压失败（{0}）：{1}' -f $dest, $expand.Error)
                 return $result
             }
-            $result.UpdatedNames += $name
+            try {
+                $landing = Move-WinstStagedInstall -StageDir $expand.TempRoot -SourceDir $expand.SourceDir -InstallDir $destPath
+                if (-not $landing.Ok) {
+                    $result.Ok = $false
+                    $result.Error = ('附加文件落位失败（{0}）：{1}' -f $dest, $landing.Error)
+                    return $result
+                }
+                $result.UpdatedNames += $name
+            } finally {
+                if ($expand.TempRoot -and (Test-Path -LiteralPath $expand.TempRoot)) { Clear-WinstInstallDir -Dir $expand.TempRoot }
+            }
             continue
         }
         $target = $destPath

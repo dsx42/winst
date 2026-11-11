@@ -7,7 +7,7 @@ function Get-WinstLiveResolvedFileUrl {
     .DESCRIPTION
         下载失败时的补救：部分来源给的地址带时效——`page` 源 `fetchWith: "browser"`
         的签名链接（约 1 天失效）、临时令牌地址等，解析锁里那份过期后必然下载失败。此时按条目所属来源
-        （`-PreferSource`）实时重新解析一次拿新地址；只用于这一次下载重试，**不写回解析锁**
+        （`-PreferSource`）实时重新解析一次拿新地址，不切换到其它来源；只用于这一次下载重试，**不写回解析锁**
         （锁会在下次刷新软件源时统一更新）。
         取文件：优先按 `-Index` 序号对应，序号对不上时按文件名匹配。为避免「软件源已经换了新版本」时
         误把新版本的内容当成目标版本下载，调用方还要核对返回的 Name / Version 是否与本次目标一致
@@ -25,7 +25,7 @@ function Get-WinstLiveResolvedFileUrl {
 
     $result = @{ Ok = $false; Url = ''; Name = ''; Version = ''; Error = '' }
 
-    $resolved = Get-WinstManifestAppPlan -Context $Context -Id $Id -PreferSource $PreferSource -LiveResolve
+    $resolved = Get-WinstManifestAppPlan -Context $Context -Id $Id -RequiredSource $PreferSource -LiveResolve
     if (-not $resolved.Ok) {
         $result.Error = [string]$resolved.Error
         return $result

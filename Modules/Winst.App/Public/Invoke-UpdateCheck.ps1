@@ -25,12 +25,20 @@ function Invoke-UpdateCheck {
 
     if (-not (Assert-WinstContext $Context)) { return }
 
-    Update-WinstCheckSources -Context $Context
+    $refresh = Update-WinstCheckSources -Context $Context
 
     $round = 0
     while ($true) {
         $check = Invoke-WinstUpdateTargets -Context $Context -All -Check -Quiet -NoRefresh
         if ($check.ExitCode -eq 1) { return }
+        if (@($refresh.Errors).Count -gt 0) {
+            $check.Ok = $false
+            $check.RefreshErrors = @($refresh.Errors)
+            $check.Network = [bool]$refresh.Network
+            $check.ExitCode = 1
+            if ($refresh.Network) { $check.ExitCode = 2 }
+            Write-Host '  以下按现有缓存比较，本次未完成全部远端检查。' -ForegroundColor DarkYellow
+        }
 
         if ($round -gt 0) {
             Write-Host ''

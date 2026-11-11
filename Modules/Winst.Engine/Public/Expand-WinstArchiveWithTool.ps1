@@ -3,7 +3,7 @@
 function Expand-WinstArchiveWithTool {
     <#
     .SYNOPSIS
-        按引擎、系统 tar、系统 ZIP 的顺序在独立暂存树解压，只交付成功档的内容。
+        按引擎、系统 tar、系统 ZIP 的顺序解压到空暂存目录，重试前清除本次失败残留。
     .OUTPUTS
         @{ Ok; Tool }
     #>
@@ -11,7 +11,19 @@ function Expand-WinstArchiveWithTool {
         [Parameter(Mandatory = $true)][string]$DestDir, [Parameter(Mandatory = $true)]$Errors)
 
     $result = @{ Ok = $false; Tool = '' }
-    Assert-WinstSafeWritePath -Path $DestDir -Directory
+    try {
+        $DestDir = [IO.Path]::GetFullPath($DestDir)
+        Assert-WinstSafeWritePath -Path $DestDir -Directory
+        if (Test-Path -LiteralPath $DestDir) {
+            if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
+            if (Get-ChildItem -LiteralPath $DestDir -Force -ErrorAction Stop | Select-Object -First 1) {
+                throw '解压暂存目录必须为空，拒绝覆盖已有文件'
+            }
+        }
+    } catch {
+        $Errors.Add($_.Exception.Message)
+        return $result
+    }
     foreach ($value in @($ArchivePath, $DestDir)) {
         if (-not (Test-WinstArgumentSafe -Value $value)) {
             $Errors.Add('压缩包或目标路径含有不安全的命令行字符')
@@ -27,48 +39,34 @@ function Expand-WinstArchiveWithTool {
     if ($ArchivePath -match '(?i)\.zip$') { $tools.Add(@{ Name = 'Expand-Archive'; Path = '' }) }
 
     foreach ($tool in $tools) {
-        $stage = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-unpack-' + [guid]::NewGuid().ToString('N'))
         try {
-            Assert-WinstSafeWritePath -Path $stage -Directory
-            $null = New-Item -ItemType Directory -Path $stage -ErrorAction Stop
-            try {
-                if ($tool.Name -eq 'Expand-Archive') {
-                    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $stage -Force -ErrorAction Stop
+            $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
+            if ($tool.Name -eq 'Expand-Archive') {
+                Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestDir -Force -ErrorAction Stop
+            } else {
+                $arguments = ''
+                if ($tool.Name -eq '7z') {
+                    $arguments = 'x {0} {1} -y -bso0 -bse0 -bsp0' -f (Format-WinstCommandArgument $ArchivePath), (Format-WinstCommandArgument ('-o' + $DestDir))
                 } else {
-                    $arguments = ''
-                    if ($tool.Name -eq '7z') {
-                        $arguments = 'x {0} {1} -y -bso0 -bse0 -bsp0' -f (Format-WinstCommandArgument $ArchivePath), (Format-WinstCommandArgument ('-o' + $stage))
-                    } else {
-                        $arguments = '-xf {0} -C {1}' -f (Format-WinstCommandArgument $ArchivePath), (Format-WinstCommandArgument $stage)
-                    }
-                    $run = Invoke-WinstCapturedCommand -FilePath $tool.Path -Arguments $arguments -NoTimeout -TailOutput -MaxOutputChars 65536
-                    if (-not $run.Ok -or $run.ExitCode -ne 0) {
-                        $Errors.Add(('{0} 解压失败（退出码 {1}）：{2} {3}' -f $tool.Name, $run.ExitCode, $run.Error, $run.ErrText))
-                        continue
-                    }
+                    $arguments = '-xf {0} -C {1}' -f (Format-WinstCommandArgument $ArchivePath), (Format-WinstCommandArgument $DestDir)
                 }
-            } catch {
-                $Errors.Add(('{0} 解压失败：{1}' -f $tool.Name, $_.Exception.Message))
-                continue
+                $run = Invoke-WinstCapturedCommand -FilePath $tool.Path -Arguments $arguments -NoTimeout -TailOutput -MaxOutputChars 65536
+                if (-not $run.Ok -or $run.ExitCode -ne 0) {
+                    throw ('退出码 {0}：{1} {2}' -f $run.ExitCode, $run.Error, $run.ErrText)
+                }
             }
-            # 交付阶段失败必须直接返回，不能把部分交付的目录交给下一档继续合并。
-            try {
-                Assert-WinstTreeWithoutReparsePoint -Path $stage
-                if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) {
-                    $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
-                }
-                foreach ($item in @(Get-ChildItem -LiteralPath $stage -Force -ErrorAction Stop)) {
-                    Move-WinstItemInto -Source $item -DestDir $DestDir
-                }
-            } catch {
-                $Errors.Add(('交付解压结果失败：{0}' -f $_.Exception.Message))
-                return $result
-            }
+            Assert-WinstTreeWithoutReparsePoint -Path $DestDir
             $result.Ok = $true
             $result.Tool = $tool.Name
             return $result
-        } finally {
-            if (Test-Path -LiteralPath $stage) { Clear-WinstInstallDir -Dir $stage }
+        } catch {
+            $Errors.Add(('{0} 解压失败：{1}' -f $tool.Name, $_.Exception.Message))
+        }
+        try {
+            Clear-WinstInstallDir -Dir $DestDir -Strict
+        } catch {
+            $Errors.Add(('清理解压失败残留失败：{0}' -f $_.Exception.Message))
+            return $result
         }
     }
     return $result

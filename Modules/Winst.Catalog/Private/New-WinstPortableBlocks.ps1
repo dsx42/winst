@@ -14,7 +14,10 @@ function New-WinstPortableBlocks {
         -Value (Get-EntryValue -Entry $Entry -Key 'stripTopDir' -Default $null)
 
     $portableMode = (Get-EntryString -Entry $Entry -Key 'portableMode').Trim().ToLowerInvariant()
-    if ($portableMode -ne 'overwrite') { $portableMode = 'clean' }
+    if (-not $portableMode) { $portableMode = 'clean' }
+    if ($Type -eq 'portable' -and @('clean', 'overwrite') -notcontains $portableMode) {
+        throw ('不支持的 portableMode：{0}；可用值为 clean / overwrite' -f $portableMode)
+    }
 
     $keepList = @()
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'keep')) {

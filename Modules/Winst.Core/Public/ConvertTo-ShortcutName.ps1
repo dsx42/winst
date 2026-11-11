@@ -10,8 +10,13 @@ function ConvertTo-ShortcutName {
     $text = ''
     if ($null -ne $Name) { $text = ([string]$Name).Trim() }
     if (-not $text) { return '' }
-    foreach ($ch in @(([char[]]@('\', '/', ':', '*', '?', '"', '<', '>', '|')))) {
-        $text = $text.Replace($ch, '_')
+    foreach ($ch in [IO.Path]::GetInvalidFileNameChars()) { $text = $text.Replace($ch, '_') }
+    $text = $text.TrimEnd(' ', '.')
+    if (-not $text) { $text = '_' }
+    if (Test-WinstReservedDeviceName -Name $text) { $text = '_' + $text }
+    $fileName = $text + '.lnk'
+    if (-not (Test-WinstSafePathSegment -Name $fileName -MaxLength 255)) {
+        throw ('快捷方式名称无效或过长：{0}' -f $Name)
     }
-    return ($text + '.lnk')
+    return $fileName
 }

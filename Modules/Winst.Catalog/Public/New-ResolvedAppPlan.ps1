@@ -18,6 +18,13 @@ function New-ResolvedAppPlan {
         $Context = $null
     )
 
+    try { $Entry = ConvertTo-WinstManifestEntry -Entry $Entry }
+    catch {
+        $failure = New-SourceResolveResult
+        $failure.Error = $_.Exception.Message
+        return (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $failure).Plan
+    }
+
     $base = New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $Resolve
     $plan = $base.Plan
     if ($base.Error) { return $plan }
@@ -77,6 +84,15 @@ function New-ResolvedAppPlan {
         foreach ($note in @($portable.Notes)) { $notes += $note }
         $shortcutName = [string]$portable.ShortcutName
         $uninstallBlock = New-WinstPortableUninstallBlock -EnvMap $envMap -PathList $pathList -ShortcutName $shortcutName
+    }
+
+    if ($detectBlock['method'] -eq 'fileVersion' -and -not (Get-EntryString -Entry $detectBlock -Key 'pathGlob')) {
+        $mainExe = Get-EntryString -Entry $installBlock -Key 'mainExe'
+        if (-not $mainExe) {
+            $plan['error'] = 'detect.pathGlob 未填写且没有可用主程序'
+            return $plan
+        }
+        $detectBlock['pathGlob'] = '{installDir}\' + $mainExe
     }
 
     # ⑦′ 卸载命令：删安装目录 / 跑官方卸载器**之前**执行

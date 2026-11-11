@@ -21,17 +21,21 @@ function Invoke-WinstApplySystemItems {
         - 只更新文件：**只修已存在的**（用户删掉的不补建，见 Set-WinstAppShortcuts -ExistingOnly）。
     .OUTPUTS
         @{ Items; Skipped; Error }
+    .PARAMETER SkipCopy
+        引擎已在暂存目录完成复制改名时跳过，避免重复执行移动规则。
     #>
     param([hashtable]$Context, $Plan, [string]$InstallDir, [switch]$FilesOnly, [switch]$ForceSystemItems,
-        $Ledger, [switch]$Quiet)
+        $Ledger, [switch]$Quiet, [switch]$SkipCopy)
 
-    $systemItems = @{ AppliedEnv = @(); AppliedPath = @(); AppliedShortcuts = @(); RepairedShortcuts = @(); Notes = @() }
+    $systemItems = @{ AppliedEnv = @(); AppliedPath = @(); AppliedShortcuts = @(); RepairedShortcuts = @(); Notes = @(); ShortcutHashes = @{} }
     if (-not $InstallDir) { return @{ Items = $systemItems; Skipped = $false; Error = '' } }
 
     $systemItemsSkipped = $false
     try {
-        $copy = Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $InstallDir
-        if (-not $copy.Ok) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$copy.Error } }
+        if (-not $SkipCopy) {
+            $copy = Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $InstallDir
+            if (-not $copy.Ok) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$copy.Error } }
+        }
 
         # 显式 FilesOnly 始终跳过系统项；否则 ForceSystemItems 覆盖配置，最后才读取更新方式配置。
         $keepExisting = $true
@@ -51,7 +55,9 @@ function Invoke-WinstApplySystemItems {
                 }
             }
             # 环境变量 / PATH 不动，但已有快捷方式必须校验：位置换过以后旧 .lnk 指向空目录，双击打不开
-            $shortcuts = Set-WinstAppShortcuts -Plan $Plan -InstallDir $InstallDir -ExistingOnly
+            $shortcuts = Set-WinstAppShortcuts -Context $Context -Plan $Plan -InstallDir $InstallDir -ExistingOnly `
+                -OwnedShortcuts @(Get-EntryArray -Entry $Ledger -Key 'appliedShortcuts')
+            $systemItems.ShortcutHashes = $shortcuts.Hashes
             $systemItems.AppliedShortcuts = @($shortcuts.Applied)
             $systemItems.RepairedShortcuts = @($shortcuts.Repaired)
             if (-not $Quiet) {
@@ -64,7 +70,8 @@ function Invoke-WinstApplySystemItems {
             if ($keepExisting -and -not $Quiet) {
                 Write-Host '    首次安装：补齐缺失的环境变量 / 快捷方式（已存在的保持不动）' -ForegroundColor DarkGray
             }
-            $systemItems = Set-WinstAppSystemItems -Context $Context -Plan $Plan -InstallDir $InstallDir -KeepExisting:$keepExisting
+            $systemItems = Set-WinstAppSystemItems -Context $Context -Plan $Plan -InstallDir $InstallDir -KeepExisting:$keepExisting `
+                -OwnedShortcuts @(Get-EntryArray -Entry $Ledger -Key 'appliedShortcuts')
             if ($systemItems.Error) { return @{ Items = $systemItems; Skipped = $false; Error = [string]$systemItems.Error } }
             foreach ($note in @($systemItems.Notes)) { Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow }
         }

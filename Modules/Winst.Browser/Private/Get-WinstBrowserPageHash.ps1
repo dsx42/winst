@@ -58,13 +58,13 @@ function Get-WinstBrowserPageHash {
 })()
 '@
 
-    $readDeadline = [DateTime]::Now.AddSeconds(10)
+    $readDeadline = [DateTime]::UtcNow.AddSeconds(10)
     if ($Deadline -lt $readDeadline) { $readDeadline = $Deadline }
-    while ([DateTime]::Now -lt $readDeadline) {
+    while ([DateTime]::UtcNow -lt $readDeadline) {
         $raw = Get-WinstDevToolsValue -Session $Session -Expression $readExpression
         $fromPage = ([string]$raw).Trim().ToLowerInvariant()
         if ($fromPage -match '^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$|^[0-9a-f]{128}$') { return $fromPage }
-        $remaining = [int]($readDeadline - [DateTime]::Now).TotalMilliseconds
+        $remaining = [int]($readDeadline - [DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -gt 0) {
             Wait-WinstDevToolsMessages -Session $Session -Milliseconds ([Math]::Min(500, $remaining))
         }

@@ -87,11 +87,15 @@ function Invoke-UninstallFlow {
                     $okCount = 0
                     $cancelCount = 0
                     $failCount = 0
+                    $restartInitiated = $false
                     foreach ($idx in @($pick.Indexes)) {
+                        if ($restartInitiated) { $cancelCount++; continue }
                         $one = $hits[[int]$idx]
                         Write-Host ''
                         Write-Host ('  —— {0}（{1}）——' -f [string]$one['DisplayName'], [string]$one['Id']) -ForegroundColor Cyan
                         $r = Invoke-WinstUninstallApp -Context $Context -Id ([string]$one['Id'])
+                        $restartInitiated = Get-EntryBool -Entry $r -Key 'RestartInitiated'
+                        if ($restartInitiated) { Write-Host '  系统已发起重启，剩余卸载目标本次跳过。' -ForegroundColor DarkYellow }
                         if ($r.Cancelled) { $cancelCount++; continue }
                         if (-not $r.Ok) {
                             $failCount++
@@ -105,6 +109,7 @@ function Invoke-UninstallFlow {
                     }
                     Write-Host ''
                     Write-Host ('  汇总: 已卸载 {0} / 取消 {1} / 失败 {2}' -f $okCount, $cancelCount, $failCount) -ForegroundColor Gray
+                    if ($restartInitiated) { return }
                     continue   # 本轮结束，回到名称输入
                 }
                 if ($pick.Action -eq 'select') {
@@ -130,6 +135,11 @@ function Invoke-UninstallFlow {
         Write-Host ''
         Write-Host ('  —— {0}（{1}）——' -f [string]$target['DisplayName'], $id) -ForegroundColor Cyan
         $one = Invoke-WinstUninstallApp -Context $Context -Id $id
+        if (Get-EntryBool -Entry $one -Key 'RestartInitiated') {
+            Write-WinstUninstallResult -Result $one
+            Write-Host '  系统已发起重启，本次卸载流程已结束。' -ForegroundColor DarkYellow
+            return
+        }
         if ($one.Cancelled) { continue }   # 取消本轮：回到名称输入
         if (-not $one.Ok) {
             Write-Host ''

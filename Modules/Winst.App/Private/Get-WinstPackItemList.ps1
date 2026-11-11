@@ -9,7 +9,7 @@ function Get-WinstPackItemList {
         因此**必须显式纳入收集范围**。
         清单里软件声明的 dependencies（含传递依赖）同样必须收集，否则离线机器安装时会缺依赖包。
     .OUTPUTS
-        @( [ordered]@{ Item; Reason } )；Reason = 'list' | 'dependency' | 'engine'
+        @{ Plan = @( @{ Item; Reason } ); Errors }；Reason = 'list' | 'dependency' | 'engine'
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -18,6 +18,7 @@ function Get-WinstPackItemList {
     )
 
     $result = @()
+    $errors = @()
     $seen = New-WinstOrdinalDictionary
 
     foreach ($item in @($Items)) {
@@ -32,9 +33,12 @@ function Get-WinstPackItemList {
     foreach ($item in @($Items)) {
         $id = [string]$item['Id']
         if (-not $id) { continue }
-        $resolvedDeps = Resolve-WinstDependencyOrder -Context $Context -Id $id
-        if (-not $resolvedDeps.Ok) { continue }
-        foreach ($one in @($resolvedDeps.Order)) {
+        $chosen = Get-WinstRowBestPlanEntry -Row $item['Row']
+        $selectedPlan = $null
+        if ($chosen) { $selectedPlan = $chosen['Plan'] }
+        $resolvedDeps = Resolve-WinstDependencyOrder -Context $Context -Id $id -Plan $selectedPlan
+        if (-not $resolvedDeps.Ok) { $errors += ('{0}: {1}' -f $id, $resolvedDeps.Error) }
+        foreach ($one in @($resolvedDeps.Order) + @($resolvedDeps.Missing)) {
             $depId = [string]$one['Id']
             if (-not $depId -or $seen.Contains($depId)) { continue }
             $seen[$depId] = $true
@@ -51,5 +55,5 @@ function Get-WinstPackItemList {
         $result += [ordered]@{ Item = $item; Reason = 'engine' }
     }
 
-    return @($result)
+    return @{ Plan = @($result); Errors = @($errors) }
 }

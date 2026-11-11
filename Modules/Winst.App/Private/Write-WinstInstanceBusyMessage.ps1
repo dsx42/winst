@@ -9,6 +9,11 @@ function Write-WinstInstanceBusyMessage {
         [Parameter(Mandatory = $true)]$Instance
     )
 
+    if (-not (Get-EntryBool -Entry $Instance -Key 'Busy')) {
+        Write-Host ('  无法取得单实例锁，本次启动已退出：{0}' -f (Get-EntryString -Entry $Instance -Key 'Error')) -ForegroundColor Red
+        Write-Host ('  请检查锁文件路径的权限与磁盘状态：{0}' -f $Instance.LockPath) -ForegroundColor Gray
+        return
+    }
     Write-Host ''
     Write-Host '  已经有一个 winst 正在运行，本次启动已退出。' -ForegroundColor Yellow
     Write-Host '  同时开两个 winst 会并发改写安装记录与安装包缓存，可能把记录写坏，因此只允许一个。' -ForegroundColor Gray

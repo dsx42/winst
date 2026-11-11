@@ -15,6 +15,11 @@ function Invoke-WinstListEditFlow {
     )
 
     $result = @{ Ok = $false; Cancelled = $false }
+    if (Test-WinstInputRedirected) {
+        Write-Host '  编辑清单需要交互输入，本次已取消，文件没有改动。' -ForegroundColor DarkYellow
+        $result.Cancelled = $true
+        return $result
+    }
     $kindText = (Get-WinstListKindText)
     Write-Section ('编辑' + $kindText)
 

@@ -15,30 +15,34 @@ function Set-WinstAppShortcuts {
           旧快捷方式指向已不存在的程序，双击打不开，必须跟着改到新位置。
 
         判断「指向对不对」见 Test-WinstShortcutMatches（目标程序 + 起始位置）。
+        复用其它条目创建的链接时，台账路径与摘要均匹配才登记共享归属；用户链接不认领。
         所有失败都写进 Notes 返回，不抛异常——快捷方式建不出来不该让整次安装失败。
 
     .OUTPUTS
-        @{ Applied; Repaired; Notes }
+        @{ Applied; Repaired; Notes; Hashes }
     #>
     param(
         [Parameter(Mandatory = $true)]$Plan,
         [Parameter(Mandatory = $true)][string]$InstallDir,
-        [switch]$ExistingOnly
+        [switch]$ExistingOnly,
+        [string[]]$OwnedShortcuts = @(),
+        [hashtable]$Context = $null
     )
 
     $applied = @()
     $repaired = @()
     $notes = @()
+    $hashes = @{}
 
     $shortcutPaths = @(Get-WinstShortcutPaths -Plan $Plan)
     if ($shortcutPaths.Count -eq 0) {
-        return @{ Applied = $applied; Repaired = $repaired; Notes = $notes }
+        return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
     }
 
     $resolved = Resolve-WinstShortcutTarget -Plan $Plan -InstallDir $InstallDir
     if (-not $resolved.Target) {
         if ($resolved.Note) { $notes += $resolved.Note }
-        return @{ Applied = $applied; Repaired = $repaired; Notes = $notes }
+        return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
     }
 
     foreach ($link in $shortcutPaths) {
@@ -50,13 +54,28 @@ function Set-WinstAppShortcuts {
             # 否则用户双击的是「打不开的快捷方式」。
             if (Test-WinstShortcutMatches -LinkPath $link -TargetPath $resolved.Target -WorkingDirectory $resolved.WorkingDirectory) {
                 $notes += ('快捷方式已存在且指向正确，已保留: {0}' -f $link)
-                $applied += $link
+                if ($OwnedShortcuts -contains $link) { $applied += $link }
+                elseif ($Context) {
+                    $read = Read-WinstState -InstallRoot $Context.InstallRoot
+                    if ($read.Error -and -not $read.Reset) { throw ([string]$read.Error) }
+                    $hash = Get-WinstFileHash -Path $link
+                    foreach ($owner in @($read.State.Installed.Values)) {
+                        $expected = Get-EntryString -Entry (Get-EntryValue -Entry $owner -Key 'appliedShortcutHashes') -Key $link
+                        if ($expected -and $expected -ceq $hash -and
+                            @(Get-EntryArray -Entry $owner -Key 'appliedShortcuts') -contains $link) {
+                            $applied += $link
+                            $hashes[$link] = $expected
+                            break
+                        }
+                    }
+                }
                 continue
             }
             try {
                 New-WinstShortcutFile -LinkPath $link -TargetPath $resolved.Target `
                     -WorkingDirectory $resolved.WorkingDirectory -Description $resolved.DisplayName
                 $applied += $link
+                $hashes[$link] = Get-WinstFileHash -Path $link
                 $repaired += $link
                 $notes += ('快捷方式指向不正确，已修正: {0}' -f $link)
             } catch {
@@ -74,10 +93,11 @@ function Set-WinstAppShortcuts {
             New-WinstShortcutFile -LinkPath $link -TargetPath $resolved.Target `
                 -WorkingDirectory $resolved.WorkingDirectory -Description $resolved.DisplayName
             $applied += $link
+            $hashes[$link] = Get-WinstFileHash -Path $link
         } catch {
             $notes += ('创建快捷方式失败（{0}）：{1}' -f $link, $_.Exception.Message)
         }
     }
 
-    return @{ Applied = $applied; Repaired = $repaired; Notes = $notes }
+    return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
 }

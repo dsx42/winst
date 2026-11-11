@@ -57,21 +57,29 @@ winst install winst --from D:\downloads\winst
 ## 快速上手
 
 ```bat
-winst                              :: 无参数进入交互式菜单
-winst search jdk                   :: 搜索软件
-winst info jdk21                   :: 查看详情（各源版本、安装状态、缓存状态）
-winst install vscode python3       :: 安装（已有更新版本时自动按更新处理）
-winst list                         :: 已安装软件（等价 list --installed）
-winst list --cached                :: 已下载的安装包
-winst update --check               :: 只检查更新（有可更新项时退出码 4）
-winst update --all                 :: 全部更新
-winst uninstall Rufus              :: 卸载（id 区分大小写）
-winst clean                        :: 清理旧版本安装包
-winst repair                       :: 扫描本机，重建安装台账
-winst bundle install setup.list    :: 按安装清单批量安装
-winst bundle pack setup.list E:\   :: 制作 U 盘离线套装
-winst config list                  :: 查看配置项
-winst help                         :: 全部命令
+rem 无参数进入交互式菜单
+winst
+rem 搜索软件；查看详情（各源版本、安装状态、缓存状态）
+winst search jdk
+winst info jdk21
+rem 安装多个软件；已有更新版本时自动按更新处理
+winst install vscode python3
+rem 已安装软件（等价 list --installed）；已下载的安装包
+winst list
+winst list --cached
+rem 只检查更新（有可更新项时退出码 4）；全部更新
+winst update --check
+winst update --all
+rem 卸载（id 区分大小写）；清理旧版本安装包；扫描本机并重建安装台账
+winst uninstall Rufus
+winst clean
+winst repair
+rem 按安装清单批量安装；制作 U 盘离线套装
+winst bundle install setup.list
+winst bundle pack setup.list E:\
+rem 查看配置项；全部命令
+winst config list
+winst help
 ```
 
 全局参数（写在命令前后都行）：`--pkg-dir`、`--install-root`、`--proxy`、`--offline`、`--dry-run`、`--yes` / `-y`、`--verbose`。完整命令与选项见 [docs/cli.md](docs/cli.md)。

@@ -37,15 +37,18 @@ function Remove-WinstCachedPackage {
         return $result
     }
     $result.Path = $dir
+    Assert-WinstSafeWritePath -Path $dir -Directory
 
     $fileList = New-Object 'System.Collections.Generic.List[string]'
     if (Test-Path -LiteralPath $dir -PathType Container) {
-        foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue)) { $fileList.Add([string]$file.Name) }
+        foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction Stop)) { $fileList.Add([string]$file.Name) }
     }
     $files = $fileList.ToArray()
     $result.FileCount = $files.Count
     $result.Files = @($files)
-    if ($files.Count -eq 0) {
+    $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+    if (-not $cacheRead.CanSave) { $result.Error = $cacheRead.Error; return $result }
+    if ($files.Count -eq 0 -and -not $cacheRead.Index.Contains($Id)) {
         $result.Error = ('没有找到「{0}」的已下载{1}。' -f $Id, $PackageNoun)
         return $result
     }
@@ -59,30 +62,28 @@ function Remove-WinstCachedPackage {
 
     Clear-WinstInstallDir -Dir $dir -AllowedRoot $Context.PkgDir
     if (Test-Path -LiteralPath $dir -PathType Container) {
-        $remain = @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue)
+        $remain = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction Stop)
         if ($remain.Count -gt 0) {
             $result.Error = ('部分{0}文件未能删除，请手动检查: {1}' -f $PackageNoun, $dir)
             return $result
         }
-        $left = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue)
-        if ($left.Count -eq 0) { try { [IO.Directory]::Delete($dir, $false) } catch { } }
+        try { [IO.Directory]::Delete($dir, $false) } catch { $result.Error = $_.Exception.Message; return $result }
     }
 
-    # 同步缓存索引（索引键可能与该 id 仅大小写不同，一并移除）；写失败不影响已完成的删除，
-    # 下次读取索引时该条目会因目录已不存在而自动清除。
-    $indexNote = ''
+    # 索引按精确 id 删除；写回失败仍向调用方报告。
     try {
         Save-WinstCacheIndex -PkgDir $Context.PkgDir -Update {
             param($index)
             foreach ($key in @($index.Keys)) {
-                if ([string]$key -ieq $Id) { $index.Remove($key) }
+                if ([string]$key -ceq $Id) { $index.Remove($key) }
             }
         }
     } catch {
-        $indexNote = ('（安装包索引未能更新，下次会自动校正）')
+        $result.Error = ('文件已删除，但安装包索引更新失败：{0}' -f $_.Exception.Message)
+        return $result
     }
 
     $result.Ok = $true
-    $result.Message = ('已删除「{0}」的已下载{1}: {2} 个文件{3}' -f $Id, $PackageNoun, $files.Count, $indexNote)
+    $result.Message = ('已删除「{0}」的已下载{1}: {2} 个文件' -f $Id, $PackageNoun, $files.Count)
     return $result
 }

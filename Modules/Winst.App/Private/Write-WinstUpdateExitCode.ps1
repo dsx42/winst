@@ -50,5 +50,12 @@ function Write-WinstUpdateExitCode {
         $Result.ExitCode = 1
         $Result.Ok = $false   # Ok 与 ExitCode 必须一致：调用方有按 Ok 判定成功的
     }
+    if ($Result.Network) {
+        $Result.Ok = $false
+        $Result.ExitCode = 2
+    } elseif ([int]$Result['RefreshFailed'] -gt 0) {
+        $Result.Ok = $false
+        if ($Result.ExitCode -ne 3) { $Result.ExitCode = 1 }
+    }
     return $Result
 }

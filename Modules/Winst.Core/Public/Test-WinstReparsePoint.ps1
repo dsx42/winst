@@ -15,9 +15,10 @@ function Test-WinstReparsePoint {
     if (-not $Path) { return $false }
     try {
         $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-        if (-not $item) { return $false }
+        if (-not $item) { throw ('无法确认路径属性：' + $Path) }
         return (([int]$item.Attributes -band [int][IO.FileAttributes]::ReparsePoint) -ne 0)
     } catch {
-        return $false
+        if ($_.Exception -is [System.Management.Automation.ItemNotFoundException]) { return $false }
+        throw
     }
 }

@@ -119,6 +119,10 @@ function Resolve-ListingSource {
 
     # 从最新到最旧逐个校验安装包是否真的存在；上限 8 个候选，避免异常页面造成大量请求
     $ordered = @(Sort-VersionList -Versions $candidates -SortMode (Get-EntryString -Entry $source -Key 'sort'))
+    if ($mainTemplate -cnotmatch '\{version(?:Major|Minor)?\}' -and $ordered.Count -gt 1) {
+        $result.Error = 'listing 主包使用固定滚动地址时，过滤后必须只有一个版本候选；多个候选无法确认文件对应的版本，请使用版本模板或从该文件的元数据取版'
+        return $result
+    }
     $skipCheck = Get-EntryBool -Entry $source -Key 'skipExistsCheck'
     $version = ''
     $tried = @()

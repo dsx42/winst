@@ -7,19 +7,18 @@ function Write-WinstUpdateMissingEntry {
     .OUTPUTS
         @{ DownloadOnly }
     #>
-    param([string]$Id, $RowById, [hashtable]$Result)
+    param([string]$Id, $RowById, [hashtable]$Result, [string]$SourceName = '')
 
     $Result.NotInstalled++
     Write-Host ''
     # 仅下载类型的软件不写台账，它的「更新」是换新软件包，不该被引导去执行安装
-    $isDownloadId = $false
-    if ($RowById.Contains($Id)) {
-        $firstSource = @($RowById[$Id]['Sources'])
-        if ($firstSource.Count -gt 0) {
-            $idType = ([string](Get-EntryString -Entry $firstSource[0]['Plan'] -Key 'type')).Trim().ToLowerInvariant()
-            if ($idType -eq 'download') { $isDownloadId = $true }
-        }
+    $idType = ''
+    if ($RowById.Contains($Id)) { $idType = Get-WinstRowType -Row $RowById[$Id] -SourceName $SourceName }
+    if (-not $idType) {
+        Write-Host ('  {0}: 安装记录里没有这个软件，软件源里也没有可用的安装计划；请刷新或检查软件源。' -f $Id) -ForegroundColor Yellow
+        return @{ DownloadOnly = $false }
     }
+    $isDownloadId = ($idType -eq 'download')
     if ($isDownloadId) {
         if (Test-WinstMenuMode) {
             # 菜单里不出现命令行写法：指向菜单里能做这件事的地方

@@ -35,7 +35,9 @@ function Save-WinstCacheIndex {
         }
         # 拿锁前的快照不能作为写入基线，即使远端文件戳恰好没有变化。
         Clear-WinstJsonCache -Path $path
-        $index = (Read-WinstCacheIndex -PkgDir $PkgDir).Index
+        $read = Read-WinstCacheIndex -PkgDir $PkgDir
+        if (-not $read.CanSave) { throw $read.BackupError }
+        $index = $read.Index
         $null = & $Update $index
         Assert-WinstDistinctIds -Ids @($index.Keys)
         $null = Write-WinstJsonFileIfChanged -Path $path -InputObject $index -Depth 8

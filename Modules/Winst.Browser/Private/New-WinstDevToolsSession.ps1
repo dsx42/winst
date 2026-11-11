@@ -24,7 +24,8 @@ function New-WinstDevToolsSession {
     param(
         [string]$ProxyUrl = '',
         [string]$UserAgent = '',
-        [int]$TimeoutSec = 40
+        [int]$TimeoutSec = 40,
+        [datetime]$Deadline = [datetime]::MaxValue
     )
 
     $result = @{
@@ -46,11 +47,18 @@ function New-WinstDevToolsSession {
         Downloads   = (New-Object System.Collections.ArrayList)
         Requests    = (New-Object System.Collections.ArrayList)
         LoadEventFired = $false
+        FrameId     = ''
+        Frames      = (New-WinstOrdinalDictionary)
+        Deadline    = $Deadline
+        CleanupError = ''
     }
+    $localDeadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
+    if ($localDeadline -lt $result.Deadline) { $result.Deadline = $localDeadline }
 
     $exe = Get-WinstSystemBrowserExe
     if (-not $exe) {
         $result.Error = '系统里没有找到 Microsoft Edge（Windows 自带的浏览器内核，无头抓取只用它）'
+        Close-WinstDevToolsSession -Session $result
         return $result
     }
     $result.Engine = Split-Path -Leaf $exe
@@ -108,25 +116,21 @@ function New-WinstDevToolsSession {
         $result.StderrTask = $stderrTask
     } catch {
         $result.Error = ('无法启动无头浏览器：{0}' -f $_.Exception.Message)
+        Close-WinstDevToolsSession -Session $result
+        if ($result.CleanupError) { $result.Error += ('；' + $result.CleanupError) }
         return $result
     }
 
     # 启动成功后的各失败出口统一收尾：杀掉整棵浏览器进程树 + 删 profile，不留残留进程。
-    # 按 profile 目录匹配（拿到的 PID 可能只是先退出的那个引导进程），PID 再补一刀兜底；
+    # 按 profile 目录匹配（拿到的 PID 可能只是先退出的那个引导进程）；
     # 顺手把浏览器自己的 stderr 尾部拼进错误原因——端口没就绪 / 连不上 DevTools 时，那才是线索
     $cleanup = {
-        # 先断开 DevTools 连接再杀进程：否则已建立的 WebSocket 与 CTS 会留在返回的会话对象里没人释放
-        if ($result.Socket) { try { $result.Socket.Dispose() } catch { } }
-        if ($result.TokenSource) { try { $result.TokenSource.Cancel(); $result.TokenSource.Dispose() } catch { } }
-        if ($profileDir) { $null = Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir }
-        if ($result.ProcessId) { try { $null = & taskkill.exe /PID $result.ProcessId /T /F 2>&1 } catch { } }
-        if ($profileDir -and (Test-Path -LiteralPath $profileDir)) {
-            Clear-WinstInstallDir -Dir $profileDir
-        }
         $tail = ''
         if ($stderrTask) {
-            try { if ($stderrTask.Wait(1500)) { $tail = [string]$stderrTask.Result } } catch { $tail = '' }
+            try { if ($stderrTask.IsCompleted) { $tail = [string]$stderrTask.Result } } catch { $tail = '' }
         }
+        Close-WinstDevToolsSession -Session $result
+        if ($result.CleanupError) { $result.Error += ('；' + $result.CleanupError) }
         if ($tail) {
             $tail = ($tail -replace '\s+', ' ').Trim()
             if ($tail.Length -gt 200) { $tail = $tail.Substring($tail.Length - 200) }
@@ -136,8 +140,7 @@ function New-WinstDevToolsSession {
 
     $portFile = Join-WinstPath $profileDir 'DevToolsActivePort'
     $port = 0
-    $portDeadline = [DateTime]::Now.AddSeconds($TimeoutSec)
-    while ($port -le 0 -and [DateTime]::Now -lt $portDeadline) {
+    while ($port -le 0 -and [DateTime]::UtcNow -lt $result.Deadline) {
         if (Test-Path -LiteralPath $portFile -PathType Leaf) {
             try {
                 $lines = @(Get-Content -LiteralPath $portFile -ErrorAction Stop)
@@ -147,7 +150,7 @@ function New-WinstDevToolsSession {
                 }
             } catch { $port = 0 }
         }
-        if ($port -le 0) { Start-Sleep -Milliseconds 200 }
+        if ($port -le 0) { Start-Sleep -Milliseconds (Get-WinstBrowserRemainingMs -Session $result -LimitMs 200 -Cleanup) }
     }
     if ($port -le 0) {
         $result.Error = ('无头浏览器没有在 {0} 秒内就绪（读不到 DevTools 端口）' -f $TimeoutSec)
@@ -156,13 +159,14 @@ function New-WinstDevToolsSession {
     }
 
     $wsUrl = ''
-    $wsDeadline = [DateTime]::Now.AddSeconds(15)
-    while (-not $wsUrl -and [DateTime]::Now -lt $wsDeadline) {
+    $wsDeadline = [DateTime]::UtcNow.AddMilliseconds((Get-WinstBrowserRemainingMs -Session $result -LimitMs 15000 -Cleanup))
+    while (-not $wsUrl -and [DateTime]::UtcNow -lt $wsDeadline) {
         try {
-            $info = (Invoke-WebRequest -Uri ('http://127.0.0.1:{0}/json/version' -f $port) -UseBasicParsing -TimeoutSec 3).Content | ConvertFrom-Json
+            $timeout = [Math]::Max(1, [int][Math]::Ceiling((Get-WinstBrowserRemainingMs -Session $result -LimitMs 3000) / 1000.0))
+            $info = (Invoke-WebRequest -Uri ('http://127.0.0.1:{0}/json/version' -f $port) -UseBasicParsing -TimeoutSec $timeout).Content | ConvertFrom-Json
             $wsUrl = [string]$info.webSocketDebuggerUrl
         } catch { $wsUrl = '' }
-        if (-not $wsUrl) { Start-Sleep -Milliseconds 250 }
+        if (-not $wsUrl) { Start-Sleep -Milliseconds (Get-WinstBrowserRemainingMs -Session $result -LimitMs 250 -Cleanup) }
     }
     if (-not $wsUrl) {
         $result.Error = '拿不到无头浏览器的 DevTools 地址'
@@ -175,9 +179,10 @@ function New-WinstDevToolsSession {
     $result.Socket = $socket
     $result.TokenSource = $source
     $result.Token = $source.Token
+    $source.CancelAfter((Get-WinstBrowserRemainingMs -Session $result -LimitMs ([int]::MaxValue) -Cleanup))
 
     $connected = $false
-    try { $connected = $socket.ConnectAsync([Uri]$wsUrl, $source.Token).Wait(15000) } catch { $connected = $false }
+    try { $connected = $socket.ConnectAsync([Uri]$wsUrl, $source.Token).Wait((Get-WinstBrowserRemainingMs -Session $result -LimitMs 15000)) } catch { $connected = $false }
     if (-not $connected -or $socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
         $result.Error = '连接无头浏览器的 DevTools 失败'
         & $cleanup
@@ -192,10 +197,12 @@ function New-WinstDevToolsSession {
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Page.enable'
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Network.enable'
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Runtime.enable'
+        $tree = Invoke-WinstDevToolsCommand -Session $result -Method 'Page.getFrameTree'
+        $result.FrameId = [string]$tree.result.frameTree.frame.id
+        if (-not $result.FrameId) { throw '读不到浏览器主 frame 身份' }
+        $result.Frames[$result.FrameId] = $true
         # 只取地址、不真下文件：deny 下浏览器照样上报 downloadWillBegin
-        try {
-            $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Browser.setDownloadBehavior' -Params @{ behavior = 'deny'; eventsEnabled = $true } -BrowserLevel
-        } catch { }
+        $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Browser.setDownloadBehavior' -Params @{ behavior = 'deny'; eventsEnabled = $true } -BrowserLevel
     } catch {
         $result.Error = ('初始化无头浏览器会话失败：{0}' -f $_.Exception.Message)
         & $cleanup

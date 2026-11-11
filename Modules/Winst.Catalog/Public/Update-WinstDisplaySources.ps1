@@ -18,7 +18,7 @@ function Update-WinstDisplaySources {
     )
 
     if (@($Ids).Count -eq 0) {
-        return @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @() }
+        return @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
     }
     return (Update-WinstStaleSources -Context $Context -OnlyIds @($Ids) -Quiet:$Quiet)
 }

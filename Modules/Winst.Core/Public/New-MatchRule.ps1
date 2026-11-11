@@ -24,7 +24,7 @@ function New-MatchRule {
             $result.Error = ('不认识的预置匹配规则「{0}」；可用 stable' -f $preset)
             return $result
         }
-        $result.Pattern = '\A[0-9]+\.[0-9]+\.[0-9]+\z'
+        $result.Pattern = '\A\s*[vV]?[0-9]+(?:\.[0-9]+){1,3}\s*\z'
     } elseif ($text.TrimStart() -match '^(?i)product:') {
         # 产品别名按字面量编译，只允许完整名称及可选的数字版本后缀，避免命中名称相近的其它产品。
         $names = @()
@@ -43,7 +43,7 @@ function New-MatchRule {
     }
 
     try {
-        $null = [regex]::new($result.Pattern)
+        $null = [regex]::new($result.Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
         $result.Ok = $true
     } catch {
         $result.Error = ('匹配规则写错了（{0}）: {1}' -f $text, $_.Exception.Message)

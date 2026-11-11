@@ -21,7 +21,12 @@ function Invoke-WinstUninstallRegistryPayload {
     $recordDir = ''
     if ($selectedRecord) { $recordDir = Get-WinstRegistryEntryInstallDir -Entry $selectedRecord }
     $run = Invoke-WinstRunUninstaller -Context $Context -Plan $uninstallPlan -Quiet:$Quiet
+    $result.RestartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
     if (-not $run.Ok) {
+        if (Get-EntryBool -Entry $run -Key 'Cancelled') {
+            $result.Cancelled = $true
+            return @{ Abort = $true; Error = '用户已取消卸载，安装记录已保留' }
+        }
         $result.Missing = [bool]$run.Missing
         $fallback = Resolve-WinstRecordOnlyFallback -Id $Id -Reason ([string]$run.Error) -RunState $RunState -Yes $Yes `
             -MenuAbortFormat '{0}。安装记录已保留；如需只移除安装记录，请重新进入「卸载软件」并在提示里选 y。'
@@ -34,6 +39,7 @@ function Invoke-WinstUninstallRegistryPayload {
         $result.NeedRestart = $true
         $RunState.Notes += '卸载程序提示需要重启电脑才能完成'
     }
+    if (Get-EntryBool -Entry $run -Key 'RestartInitiated') { return @{ Abort = $false; Error = '' } }
     if (-not $Quiet) { Write-Host '    卸载程序已执行完成。' -ForegroundColor Gray }
 
     # 回读系统安装记录：仍在 → 可能需重启才能完成

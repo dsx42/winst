@@ -11,6 +11,7 @@ function Get-WinstDuplicateDownloadNameError {
     foreach ($file in @($Files)) {
         $name = Get-EntryString -Entry $file -Key 'name'
         if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $file -Key 'url') }
+        $name = ([string]$name).Trim()
         if (-not $name) { continue }
         if ($names.ContainsKey($name)) {
             return ('下载文件名重复：{0}；source.files 的产物必须使用不同文件名（不区分大小写），请修正 name 并刷新软件源。' -f $name)

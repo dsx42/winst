@@ -7,7 +7,7 @@ function Invoke-WinstBundleInstallCli {
     .DESCRIPTION
         缺省使用 lists\setup.list（不存在时报错并列出可选清单）；`--skip-existing` 时**已安装（任意版本）**
         的条目直接跳过（重装后幂等补装）。每条复用 `Invoke-WinstInstallTarget`（未加 --yes 时仍逐个确认）。
-        退出码：0 成功 / 1 参数或清单问题 / 3 存在失败项。
+        退出码：0 成功 / 1 参数、目标或清单问题 / 2 网络失败 / 3 执行失败。
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -27,6 +27,10 @@ function Invoke-WinstBundleInstallCli {
         return 1
     }
     if ($loaded.Warning) { Write-Host ('  提示: {0}' -f $loaded.Warning) -ForegroundColor DarkYellow }
+    if (@($loaded.BadLines).Count -gt 0) {
+        Write-Host ('  安装清单含无法解析的行，未执行安装：{0}' -f (@($loaded.BadLines) -join '；')) -ForegroundColor Red
+        return 1
+    }
     if (@($loaded.Items).Count -eq 0) {
         Write-Host ''
         Write-Host ('  {0}里还没有软件。' -f [string]$target.Path) -ForegroundColor Yellow
@@ -47,7 +51,10 @@ function Invoke-WinstBundleInstallCli {
     $failCount = [int]$stats['FailCount']
     $okCount = [int]$stats['OkCount']
     $skipCount = [int]$stats['SkipCount']
+    if ([bool]$stats['Network'] -or (Get-EntryBool -Entry $loaded.Refresh -Key 'Network')) { return 2 }
     if ($failCount -gt 0) { return 3 }
+    if ([int]$stats['MissingCount'] -gt 0) { return 1 }
+    if ((Get-EntryInt -Entry $loaded.Refresh -Key 'Failed') -gt 0) { return 1 }
     if ($okCount -eq 0 -and $skipCount -eq 0 -and [int]$stats['CancelCount'] -eq 0) { return 1 }
     return 0
 }

@@ -9,5 +9,9 @@ function Test-CompiledMatchRule {
 
     if ($null -eq $Rule -or -not $Rule.Ok) { return $false }
     if ($null -eq $Text -or -not ([string]$Text)) { return $false }
-    return [regex]::IsMatch([string]$Text, [string]$Rule.Pattern)
+    try {
+        return [regex]::IsMatch([string]$Text, [string]$Rule.Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
+    } catch {
+        throw ('匹配规则执行失败或超时（{0}，{1}）：{2}' -f $Rule.Kind, $Rule.Source, $_.Exception.Message)
+    }
 }

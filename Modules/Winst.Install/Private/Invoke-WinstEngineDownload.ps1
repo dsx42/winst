@@ -3,7 +3,7 @@
 function Invoke-WinstEngineDownload {
     <#
     .SYNOPSIS
-        ① 引擎引导下载（唯一允许 IWR 的路径）：逐文件下载 + 校验 + 写缓存索引 + 清理旧包。
+        ① 引擎自动引导下载（直接 HTTP）：逐文件下载 + 校验 + 写缓存索引 + 清理旧包。
     .OUTPUTS
         @{ Ok; Error; PrimaryPath; Files }
     #>

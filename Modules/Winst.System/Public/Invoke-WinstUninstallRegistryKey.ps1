@@ -11,11 +11,11 @@ function Invoke-WinstUninstallRegistryKey {
         执行前重新回读该键（记录可能已被其它卸载动作连带移除），按 Resolve-WinstUninstallerCommand
         解析命令、校验路径与参数后运行。MsiExec 返回 1605（产品不存在）视为已移除。
     .OUTPUTS
-        @{ Ok; Missing; NeedRestart; Error; Command; ExitCode }
+        @{ Ok; Missing; Cancelled; NeedRestart; RestartInitiated; Error; Command; ExitCode }
     #>
     param([string]$KeyPath, [string]$ExtraArgs = '', [switch]$Quiet)
 
-    $result = @{ Ok = $false; Missing = $false; NeedRestart = $false; Error = ''; Command = ''; ExitCode = 0 }
+    $result = @{ Ok = $false; Missing = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false; Error = ''; Command = ''; ExitCode = 0 }
 
     if (-not $KeyPath) { $result.Missing = $true; $result.Error = '缺少卸载记录'; return $result }
     # 只允许卸载记录分支下的键：KeyPath 虽然来自注册表枚举，但脏数据 / 被改过的值不能拿去执行
@@ -25,12 +25,11 @@ function Invoke-WinstUninstallRegistryKey {
     }
 
     $props = $null
-    try { $props = Get-ItemProperty -LiteralPath $KeyPath -ErrorAction SilentlyContinue } catch { $props = $null }
+    try { $props = Read-WinstUninstallRegistryEntry -KeyPath $KeyPath } catch { $result.Error = ('读取卸载记录失败：{0}' -f $_.Exception.Message); return $result }
     if ($null -eq $props) { $result.Missing = $true; $result.Error = '这条安装记录已经不存在'; return $result }
 
     $commandLine = ''
-    $prop = $props.PSObject.Properties['UninstallString']
-    if ($prop -and $null -ne $prop.Value) { $commandLine = [string]$prop.Value }
+    $commandLine = Get-EntryString -Entry $props -Key 'UninstallString'
     if (-not $commandLine) { $result.Missing = $true; $result.Error = '这条安装记录里没有卸载命令'; return $result }
 
     $command = Resolve-WinstUninstallerCommand -CommandLine $commandLine -ExtraArgs $ExtraArgs
@@ -40,6 +39,11 @@ function Invoke-WinstUninstallRegistryKey {
         return $result
     }
     $result.Command = [string]$command.Command
+    $isMsiExec = ([IO.Path]::GetFileName([string]$command.Exe) -ieq 'msiexec.exe')
+    if ($isMsiExec) {
+        $systemMsiPaths = @('System32','SysWOW64','Sysnative') | ForEach-Object { Join-WinstPath $env:SystemRoot ($_ + '\msiexec.exe') }
+        $isMsiExec = ($systemMsiPaths -icontains [string]$command.Exe)
+    }
 
     if (-not $Quiet) { Write-Host ('    正在运行卸载程序: {0}' -f $result.Command) -ForegroundColor Gray }
     try {
@@ -58,16 +62,18 @@ function Invoke-WinstUninstallRegistryKey {
         return $result
     }
 
-    if ($result.ExitCode -eq 3010) {
+    if ($isMsiExec -and $result.ExitCode -in @(3010,1641)) {
         $result.Ok = $true
         $result.NeedRestart = $true
+        $result.RestartInitiated = ($result.ExitCode -eq 1641)
         return $result
     }
-    if ($result.ExitCode -eq 1605 -or $result.ExitCode -eq 0) {
+    if (($isMsiExec -and $result.ExitCode -eq 1605) -or $result.ExitCode -eq 0) {
         # 1605 = 产品未安装（已被上一条卸载连带移除）→ 视为已移除
         $result.Ok = $true
         return $result
     }
+    $result.Cancelled = ($result.ExitCode -eq 1602 -and $isMsiExec)
     $result.Error = ('卸载程序返回失败（退出码 {0}）' -f $result.ExitCode)
     return $result
 }

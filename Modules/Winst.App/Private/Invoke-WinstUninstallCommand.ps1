@@ -57,9 +57,11 @@ function Invoke-WinstUninstallCommand {
     $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
 
     # 台账读一次：下面逐 id 只做 Get-WinstInstalledApp 查表，避免每个 id 重解析 state.json
-    $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
+    $state = Read-WinstCommandState -Context $Context
 
+    $restartInitiated = $false
     foreach ($id in $ids) {
+        if ($restartInitiated) { $skipCount++; continue }
         Write-Host ''
         Write-Host ('  —— {0} ——' -f $id) -ForegroundColor Cyan
 
@@ -85,6 +87,8 @@ function Invoke-WinstUninstallCommand {
         }
 
         $one = Invoke-WinstUninstallApp -Context $Context -Id $id -Force:$force -Kill:$kill -Yes:$yes
+        $restartInitiated = Get-EntryBool -Entry $one -Key 'RestartInitiated'
+        if ($restartInitiated) { Write-Host '  系统已发起重启，剩余卸载目标本次跳过。' -ForegroundColor DarkYellow }
         if ($one.Cancelled) { $skipCount++; continue }
         if (-not $one.Ok) {
             Write-Host ('  失败: {0}' -f $one.Error) -ForegroundColor Red

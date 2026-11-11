@@ -36,7 +36,9 @@ function Resolve-WinstUncInput {
     $text = ([string]$Value).Trim()
     if (-not $text) { $result.Error = '路径不能为空'; return $result }
     # 用户常从资源管理器复制到带引号的路径
-    $text = $text.Trim('"').Trim()
+    if ($text.Length -ge 2 -and $text.StartsWith('"') -and $text.EndsWith('"')) {
+        $text = $text.Substring(1, $text.Length - 2).Trim()
+    }
     if (-not $text) { $result.Error = '路径不能为空'; return $result }
 
     # 盘符：本地盘（固定 / 可移动 / 光驱）是合法路径，交回调用方按本地路径处理；
@@ -68,15 +70,16 @@ function Resolve-WinstUncInput {
         return $result
     }
 
-    # 校验 UNC 结构：\\服务器\共享名[\子路径...]
-    $parts = @($text.Substring(2) -split '\\' | Where-Object { $_ -ne '' })
-    if ($parts.Count -lt 1) {
-        $result.Error = 'UNC 路径缺少服务器名（\\服务器\共享名\目录）'
+    if ($text -match '^\\\\[?.]\\') {
+        $result.Error = '安装包位置不接受设备命名空间，请使用普通 UNC 路径'
         return $result
     }
+
+    # 校验 UNC 结构：\\服务器\共享名[\子路径...]
+    $parts = @($text.Substring(2).TrimEnd('\') -split '\\')
     $server = $parts[0]
     # 服务器名里的引号会让后续 cmdkey 参数拼接失效；控制字符 / 空白 / 冒号 / @ 同样不合法
-    if ($server -match '[\x00-\x1F\s"''<>|]' -or $server.Contains(':') -or $server.Contains('@')) {
+    if (-not $server -or $server -match '[\s''@]' -or $server.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0) {
         $result.Error = '服务器名不合法（UNC 格式：\\服务器\共享名\目录；账号密码请在其后单独输入）'
         return $result
     }
@@ -84,18 +87,25 @@ function Resolve-WinstUncInput {
         $result.Error = 'UNC 路径缺少共享名（\\服务器\共享名\目录）'
         return $result
     }
-    foreach ($segment in $parts) {
-        if ($segment -eq '.' -or $segment -eq '..') {
-            $result.Error = ('UNC 路径不能包含 . 或 ..：{0}' -f $text)
+    for ($i = 0; $i -lt $parts.Count; $i++) {
+        $segment = $parts[$i]
+        if (-not $segment -or $segment -eq '.' -or $segment -eq '..' -or
+            $segment.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0 -or
+            ($i -gt 0 -and ($segment.EndsWith('.') -or $segment.EndsWith(' ')))) {
+            $result.Error = ('UNC 路径包含空路径段、非法字符、. / .. 或尾点空格：{0}' -f $text)
             return $result
         }
     }
 
     $trimmed = $text.TrimEnd('\')
-    try { $trimmed = [IO.Path]::GetFullPath($trimmed) } catch { }
+    try { $trimmed = [IO.Path]::GetFullPath($trimmed) }
+    catch {
+        $result.Error = ('无法规范化 UNC 路径：{0}' -f $_.Exception.Message)
+        return $result
+    }
     # GetFullPath 会把 \\server\share 归一成 \\server\share\，去掉尾部分隔符（共享根保留）
     $trimmed = $trimmed.TrimEnd('\')
-    if (-not $trimmed.StartsWith('\\')) {
+    if ($trimmed -notmatch '^\\\\[^\\]+\\[^\\]+(?:\\[^\\]+)*$') {
         $result.Error = ('不是合法的 UNC 路径：{0}' -f $text)
         return $result
     }

@@ -39,6 +39,7 @@ function Confirm-WinstSelf {
     $result = @{ Ok = $true; Installed = $false; Updated = $false; Error = '' }
 
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { return $result }
+    if ((Get-WinstState -Name WinstInstallingAppIds) -ccontains 'winst') { return $result }
     if ((Get-WinstState -Name WinstSelfChecked)) { return $result }
     $null = Set-WinstState -Name WinstSelfChecked -Value ($true)
 

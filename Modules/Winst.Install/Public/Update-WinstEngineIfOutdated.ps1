@@ -10,7 +10,7 @@ function Update-WinstEngineIfOutdated {
         锁里没有该条目时才会实时解析（联网）。
         每个进程内每个引擎最多检查一次（$script:WinstEngineUpdateChecked），避免同一会话里反复比较；
         `--offline` / `--dry-run` 跳过；版本未知（台账或软件源任一侧读不出）不自动更新；
-        更新失败**不阻塞**：保留现有引擎继续用，只提示一行（安装版流程照常进行）。
+        更新失败会报告错误；只有确认主程序仍存在时才提示继续使用现有版本。
     .OUTPUTS
         @{ Updated; Error }
     #>
@@ -47,7 +47,13 @@ function Update-WinstEngineIfOutdated {
         if (-not $Quiet) { Write-Host ('  {0} 已更新到 {1}。' -f $Id, $latest) -ForegroundColor DarkGray }
     } else {
         $result.Error = $r.Error
-        if (-not $Quiet) { Write-Host ('  {0} 自动更新失败（继续使用现有版本 {1}）: {2}' -f $Id, $installedVersion, $r.Error) -ForegroundColor DarkYellow }
+        if (-not $Quiet) {
+            if (Get-WinstEngineExe -Context $Context -Id $Id) {
+                Write-Host ('  {0} 自动更新失败（继续使用现有版本 {1}）: {2}' -f $Id, $installedVersion, $r.Error) -ForegroundColor DarkYellow
+            } else {
+                Write-Host ('  {0} 自动更新失败，现有引擎不可用: {1}' -f $Id, $r.Error) -ForegroundColor DarkYellow
+            }
+        }
     }
     return $result
 }

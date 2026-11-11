@@ -13,6 +13,13 @@ function Resolve-AppSource {
         $Entry
     )
 
+    try { $Entry = ConvertTo-WinstManifestEntry -Entry $Entry }
+    catch {
+        $failure = New-SourceResolveResult
+        $failure.Error = $_.Exception.Message
+        return $failure
+    }
+
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
     $kind = Get-EntryString -Entry $source -Key 'kind'
 

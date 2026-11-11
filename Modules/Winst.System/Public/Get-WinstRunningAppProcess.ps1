@@ -12,7 +12,7 @@ function Get-WinstRunningAppProcess {
           - 只按清单进程名 / 主程序名命中 → $false，要求用户手动关闭。
         -Refresh 跳过进程快照缓存，强制用实时数据判定（交互确认后复核用）。
     .OUTPUTS
-        @( @{ Id; Name; Path; Certain } )
+        @( @{ Id; Name; Path; StartedAt; Certain } )
     #>
     param(
         [hashtable]$Context,
@@ -90,7 +90,8 @@ function Get-WinstRunningAppProcess {
         $exists = $false
         foreach ($item in $result) { if ([int]$item['Id'] -eq $procId) { $exists = $true; break } }
         if (-not $exists) {
-            $result += [ordered]@{ Id = $procId; Name = [string]$proc['Name']; Path = $path; Certain = $certain }
+            $startedAt = Get-EntryValue -Entry $proc -Key 'StartedAt'
+            $result += [ordered]@{ Id = $procId; Name = [string]$proc['Name']; Path = $path; StartedAt = $startedAt; Certain = ($certain -and $null -ne $startedAt) }
         }
     }
     return @($result)

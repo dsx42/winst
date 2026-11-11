@@ -39,10 +39,14 @@ function Update-WinstPackageCacheIndex {
         if ($wasDownloaded) { $downloadedAt = $stampNow }
         $checkedAt = [string]$filePlan['CheckedAt']
         if (-not $checkedAt -and $downloadedAt) { $checkedAt = $downloadedAt }
-        $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
+        $validatorArgs = @{}
+        if ($filePlan['CheckedAt']) {
+            $validatorArgs['ETag'] = [string]$filePlan['ValidatorETag']
+            $validatorArgs['LastModified'] = [string]$filePlan['ValidatorLastModified']
+        }
+        $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name @validatorArgs `
             -Url ([string]$filePlan['Url']) -SourceVersion ([string]$filePlan['FileVersion']) -Size $size `
-            -DownloadedAt $downloadedAt -LastCheckedAt $checkedAt `
-            -ETag ([string]$filePlan['ValidatorETag']) -LastModified ([string]$filePlan['ValidatorLastModified'])
+            -DownloadedAt $downloadedAt -LastCheckedAt $checkedAt
         if ([string]$filePlan['ChecksumMetadataAction'] -eq 'replace') {
             # 包内派生版本可能在下载校验后才确定，来源指纹必须绑定最终写入解析锁的版本。
             if ($filePlan['ChecksumHashFile']) {

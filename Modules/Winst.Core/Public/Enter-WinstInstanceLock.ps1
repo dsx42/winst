@@ -26,7 +26,7 @@ function Enter-WinstInstanceLock {
 
     if (-not $Path) { $Path = Get-WinstInstanceLockPath }
 
-    $result = @{ Ok = $false; Path = $Path; OwnerPid = 0; OwnerPath = ''; Error = '' }
+    $result = @{ Ok = $false; Busy = $false; Path = $Path; OwnerPid = 0; OwnerPath = ''; Error = '' }
 
     $dir = Split-Path -Parent $Path
     if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
@@ -37,10 +37,13 @@ function Enter-WinstInstanceLock {
     try {
         $stream = [IO.File]::Open($Path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read)
     } catch {
-        # 打不开 = 已有 winst 持有；顺手读出占用者信息用于提示
-        $owner = Read-WinstInstanceLockInfo -Path $Path
-        $result.OwnerPid = [int]$owner.Pid
-        $result.OwnerPath = [string]$owner.Path
+        $cause = $_.Exception.GetBaseException()
+        $result.Busy = ($cause -is [IO.IOException] -and ($cause.HResult -band 0xffff) -in @(32,33))
+        if ($result.Busy) {
+            $owner = Read-WinstInstanceLockInfo -Path $Path
+            $result.OwnerPid = [int]$owner.Pid
+            $result.OwnerPath = [string]$owner.Path
+        }
         $result.Error = $_.Exception.Message
         return $result
     }

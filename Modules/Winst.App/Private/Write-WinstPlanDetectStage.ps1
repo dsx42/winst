@@ -37,11 +37,13 @@ function Write-WinstPlanDetectStage {
             if ($programText -and $installDir -and -not [IO.Path]::IsPathRooted($programText)) { $programText = Join-WinstPath $installDir $programText }
             $argsText = Get-EntryString -Entry $detect -Key 'versionArgs'
             if (-not $argsText) { $argsText = '-v' }
-            # jar 主程序要由 java 启动，展示的也应是实际执行的命令（见 Get-WinstDetectedVersionCore）
-            if ($programText -match '(?i)\.jar$') {
-                $detectLines += ('运行这个命令读取版本号: java -jar "{0}" {1}' -f $programText, $argsText)
+            $programArgument = Format-WinstCommandArgument -Value $programText
+            if ($programText -match '(?i)\.ps1$') {
+                $detectLines += ('运行这个命令读取版本号: powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {0} {1}' -f $programArgument, $argsText)
+            } elseif ($programText -match '(?i)\.jar$') {
+                $detectLines += ('运行这个命令读取版本号: java -jar {0} {1}' -f $programArgument, $argsText)
             } else {
-                $detectLines += ('运行这个命令读取版本号: {0} {1}' -f $programText, $argsText)
+                $detectLines += ('运行这个命令读取版本号: {0} {1}' -f $programArgument, $argsText)
             }
         }
         default { $detectLines += '不做版本检测' }

@@ -13,7 +13,8 @@ function Remove-WinstObsoletePackages {
     $prune = $true
     try { $prune = [bool](Get-ConfigValue -Config $Context.Config -Key 'pruneOldPackages') } catch { $prune = $true }
     if (-not $prune) { return }
-    $removed = @(Remove-WinstOldPackages -Context $Context -Id $Id -KeepFiles $keepNames)
+    $cleanup = Remove-WinstOldPackages -Context $Context -Id $Id -KeepFiles $keepNames
+    $removed = @($cleanup.Removed)
     if ($removed.Count -gt 0 -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
         Write-Host ('  [verbose] 已清理旧安装包: {0}' -f ($removed -join '、')) -ForegroundColor DarkGray
     }

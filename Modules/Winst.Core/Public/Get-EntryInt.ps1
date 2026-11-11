@@ -14,7 +14,6 @@ function Get-EntryInt {
 
     $value = Get-EntryValue -Entry $Entry -Key $Key -Default $null
     if ($null -eq $value) { return $Default }
-    if ($value -is [int] -or $value -is [long]) { return [int]$value }
     $number = 0
     if ([int]::TryParse(([string]$value).Trim(), [ref]$number)) { return $number }
     return $Default

@@ -11,6 +11,7 @@ function Invoke-WinstBrowserClickStep {
         点之前先 scrollIntoView 并确认「该坐标上真的是它或它的子元素」（被别的图层挡住就换下一个候选）。
     #>
     param($Session, $Spec)
+    $null = Get-WinstBrowserRemainingMs -Session $Session
 
     $probeExpression = @'
 (() => {
@@ -52,6 +53,7 @@ function Invoke-WinstBrowserClickStep {
 
     $matched = @()
     foreach ($candidate in $candidates) {
+        $null = Get-WinstBrowserRemainingMs -Session $Session
         $anchor = @{
             Href  = [string]$candidate.href
             Class = [string]$candidate.cls
@@ -65,6 +67,7 @@ function Invoke-WinstBrowserClickStep {
     $ordered = @($matched | Sort-Object -Property @{ Expression = { [int]$_.area } })
     $blocked = ''
     foreach ($candidate in $ordered) {
+        $null = Get-WinstBrowserRemainingMs -Session $Session
         $index = [int]$candidate.i
         $clickExpression = @"
 (() => {

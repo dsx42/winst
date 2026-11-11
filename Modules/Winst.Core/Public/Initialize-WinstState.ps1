@@ -170,6 +170,12 @@ function Initialize-WinstState {
         $initialized++
     }
 
+    # 当前安装目标及其祖先，防止依赖检查重复安装正在处理的引擎。
+    if ($null -eq (Get-WinstState -Name 'WinstInstallingAppIds')) {
+        $null = Set-WinstState -Name 'WinstInstallingAppIds' -Value @()
+        $initialized++
+    }
+
     # 进程级「已检查过」标记（Winst.Install）。
     if ($null -eq (Get-WinstState -Name 'WinstEngineUpdateChecked')) {
         $null = Set-WinstState -Name 'WinstEngineUpdateChecked' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))

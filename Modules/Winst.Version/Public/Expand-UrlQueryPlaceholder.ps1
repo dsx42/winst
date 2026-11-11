@@ -16,7 +16,7 @@ function Expand-UrlQueryPlaceholder {
     $text = [string]$Text
     if (-not [regex]::IsMatch($text, '\{urlQuery:[^}]+\}')) { return $text }
 
-    $values = @{}
+    $values = New-WinstOrdinalDictionary
     if ($Url) {
         $query = [string]$Url
         $cut = $query.IndexOf('?')
@@ -29,7 +29,7 @@ function Expand-UrlQueryPlaceholder {
                 $eq = $pair.IndexOf('=')
                 if ($eq -le 0) { continue }
                 $name = $pair.Substring(0, $eq)
-                if ($values.ContainsKey($name)) { continue }
+                if ($values.Contains($name)) { continue }
                 $value = $pair.Substring($eq + 1)
                 try { $value = [Uri]::UnescapeDataString($value) } catch { }
                 $values[$name] = $value
@@ -37,10 +37,10 @@ function Expand-UrlQueryPlaceholder {
         }
     }
 
-    $result = $text
-    foreach ($m in [regex]::Matches($text, '\{urlQuery:([^}]+)\}')) {
-        $name = $m.Groups[1].Value
-        if ($values.ContainsKey($name)) { $result = $result.Replace($m.Value, $values[$name]) }
-    }
-    return $result
+    return [regex]::Replace($text, '\{urlQuery:([^}]+)\}', [System.Text.RegularExpressions.MatchEvaluator]{
+        param($match)
+        $name = $match.Groups[1].Value
+        if ($values.Contains($name)) { return [string]$values[$name] }
+        return $match.Value
+    })
 }

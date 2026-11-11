@@ -16,7 +16,7 @@ function Invoke-WinstOldVersionRemoval {
         卸掉之后，同一版本那些「卸载器已不存在」的孤儿记录会一并清理——否则它们会一直留在
         「设置 → 应用」里，用户点了也卸不掉。
     .OUTPUTS
-        @{ Ok; NeedRestart; Error; Command; Attempts; Removed; Cleaned }
+        @{ Ok; Cancelled; NeedRestart; Error; Command; Attempts; Removed; Cleaned }
     #>
     param(
         [hashtable]$Context,
@@ -27,11 +27,14 @@ function Invoke-WinstOldVersionRemoval {
     )
 
     $result = @{
-        Ok = $false; NeedRestart = $false; Error = ''; Command = ''
+        Ok = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false; Error = ''; Command = ''
         Attempts = @(); Removed = $false; Cleaned = @()
     }
 
-    $plan = Get-WinstLockedPlan -Context $Context -Id $Id
+    $read = Read-WinstState -InstallRoot $Context.InstallRoot
+    if ($read.Error -and -not $read.Reset) { $result.Error = $read.Error; return $result }
+    $entry = Get-WinstInstalledApp -State $read.State -Id $Id
+    $plan = Get-WinstLockedPlan -Context $Context -Id $Id -SourceName (Get-EntryString -Entry $entry -Key 'manifestOrigin')
     $candidates = @()
     if ($plan) { $candidates = @(Resolve-WinstOldVersionCandidateKeys -Plan $plan -Version $Version) }
     # 登记的键排在最前：它是检测时确实指向这个版本的那条记录
@@ -55,6 +58,7 @@ function Invoke-WinstOldVersionRemoval {
         if ($run.Ok) {
             $result.Ok = $true
             $result.NeedRestart = [bool]$run.NeedRestart
+            $result.RestartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
             $result.Command = [string]$run.Command
             $removed = $true
             break
@@ -62,6 +66,11 @@ function Invoke-WinstOldVersionRemoval {
         $reason = [string]$run.Error
         if (-not $reason) { $reason = '未知原因' }
         $failures += $reason
+        if (-not $run.Missing) {
+            $result.Cancelled = (Get-EntryBool -Entry $run -Key 'Cancelled')
+            $result.Error = ($failures -join '；')
+            return $result
+        }
     }
 
     if (-not $removed) {
@@ -71,7 +80,7 @@ function Invoke-WinstOldVersionRemoval {
 
     # 已卸掉：同一版本里「卸载器已不存在」的孤儿记录一并清理，否则它们在「设置 → 应用」里
     # 会一直显示一个卸不掉的条目
-    if ($plan) {
+    if ($plan -and -not $result.RestartInitiated) {
         foreach ($orphanKey in @(Find-WinstOrphanRegistryRecords -Plan $plan -Version $Version)) {
             $clean = Remove-WinstOrphanRegistryRecord -KeyPath $orphanKey -Quiet:$Quiet
             if ($clean.Ok) { $result.Cleaned += $orphanKey }

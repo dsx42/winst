@@ -5,15 +5,16 @@ function Invoke-WinstUpdateCustomLoop {
     .SYNOPSIS
         逐条「单独选更新方式与来源」：选择方式或来源时回车 / b，即按默认方式与来源更新。
     .OUTPUTS
-        @{ Updated = <int>; Skipped = <int>; Failed = <int> }
+        @{ Ok; Error; Executed; Updated; Skipped; Failed }
     #>
     param([hashtable]$Context, [string[]]$Targets, $Items = $null)
 
-    $result = @{ Updated = 0; Skipped = 0; Failed = 0 }
+    $result = @{ Ok = $false; Error = ''; Executed = $false; Updated = 0; Skipped = 0; Failed = 0 }
 
     if ($null -eq $Items) {
         $overview = Get-WinstInstalledOverview -Context $Context
         if (-not $overview.Ok) {
+            $result.Error = [string]$overview.Error
             Write-Host ''
             Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
             return $result
@@ -52,9 +53,11 @@ function Invoke-WinstUpdateCustomLoop {
         }
 
         $result.Updated += [int]$customResult.Updated
+        $result.Executed = $true
         $result.Skipped += [int]$customResult.Skipped
         $result.Failed += [int]$customResult.Failed
     }
 
+    $result.Ok = ($result.Failed -eq 0)
     return $result
 }

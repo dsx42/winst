@@ -105,7 +105,7 @@ function New-WinstVersionRewriteRules {
             return $result
         }
         try {
-            $null = New-Object System.Text.RegularExpressions.Regex($pattern)
+            $null = [regex]::new($pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
         } catch {
             $result.Ok = $false
             $result.Error = ('版本改写的 pattern 不是合法的正则: {0}' -f $pattern)

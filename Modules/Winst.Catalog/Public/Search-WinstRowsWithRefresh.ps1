@@ -25,7 +25,7 @@ function Search-WinstRowsWithRefresh {
     $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
 
     # 解析锁里没有命中的，可能只是「清单里有、还没解析过」：再按清单正文找一遍，命中就解析后重搜
-    $discovered = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @() }
+    $discovered = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
     if (@($searched.Rows).Count -eq 0) {
         $discovered = Resolve-WinstDeclaredKeywordMatches -Context $Context -Keyword $Keyword -Quiet:$Quiet
         if ([int]$discovered.Refreshed -gt 0) {
@@ -33,7 +33,7 @@ function Search-WinstRowsWithRefresh {
         }
     }
 
-    $refresh = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @() }
+    $refresh = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
     if (-not $SkipVersionRefresh) {
         $hitIds = @(Get-WinstDisplayIds -Items $searched.Rows)
         $refresh = Update-WinstDisplaySources -Context $Context -Ids $hitIds -Quiet:$Quiet
@@ -47,5 +47,6 @@ function Search-WinstRowsWithRefresh {
     $refresh.Failed = [int]$refresh.Failed + [int]$discovered.Failed
     $refresh.Skipped = ([bool]$refresh.Skipped -or [bool]$discovered.Skipped)
     $refresh.Errors = @($discovered.Errors) + @($refresh.Errors)
+    $refresh.Network = [bool]$refresh.Network -or [bool]$discovered.Network
     return @{ Searched = $searched; Refresh = $refresh }
 }

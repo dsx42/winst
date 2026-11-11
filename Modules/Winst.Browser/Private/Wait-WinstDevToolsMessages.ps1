@@ -7,13 +7,13 @@ function Wait-WinstDevToolsMessages {
     #>
     param($Session, [int]$Milliseconds)
 
-    $deadline = [DateTime]::Now.AddMilliseconds($Milliseconds)
+    $deadline = [DateTime]::UtcNow.AddMilliseconds((Get-WinstBrowserRemainingMs -Session $Session -LimitMs $Milliseconds))
     while ($true) {
-        $remaining = [int]($deadline - [DateTime]::Now).TotalMilliseconds
+        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -le 0) { return }
 
         $raw = ''
-        try { $raw = Receive-WinstDevToolsMessage -Session $Session -TimeoutMs $remaining } catch { return }
+        $raw = Receive-WinstDevToolsMessage -Session $Session -TimeoutMs $remaining
         if (-not $raw) { return }
 
         Add-WinstDevToolsEvent -Session $Session -Raw $raw

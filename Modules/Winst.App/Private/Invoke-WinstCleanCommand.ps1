@@ -61,6 +61,7 @@ function Invoke-WinstCleanCommand {
     $index = $cacheRead.Index
 
     $total = 0
+    $failed = 0
     foreach ($key in @($index.Keys)) {
         $idText = [string]$key
         if (-not $idText) { continue }
@@ -73,8 +74,14 @@ function Invoke-WinstCleanCommand {
         if ($keepFiles.Count -eq 0) { continue }   # 索引里没记录文件名时不猜、不动任何文件
 
         $candidates = New-Object 'System.Collections.Generic.List[string]'
-        foreach ($file in @(Get-ChildItem -LiteralPath (Join-WinstPath $Context.PkgDir $idText) -File -ErrorAction SilentlyContinue)) {
-            if ($keepFiles -notcontains $file.Name) { $candidates.Add([string]$file.Name) }
+        try {
+            foreach ($file in @(Get-ChildItem -LiteralPath (Join-WinstPath $Context.PkgDir $idText) -File -ErrorAction Stop)) {
+                if ($keepFiles -notcontains $file.Name) { $candidates.Add([string]$file.Name) }
+            }
+        } catch {
+            $failed++
+            Write-Host ('  {0}: 无法枚举待清理文件：{1}' -f $idText, $_.Exception.Message) -ForegroundColor Red
+            continue
         }
         if ($candidates.Count -eq 0) { continue }
 
@@ -84,7 +91,15 @@ function Invoke-WinstCleanCommand {
             continue
         }
 
-        $removed = @(Remove-WinstOldPackages -Context $Context -Id $idText -KeepFiles $keepFiles)
+        try {
+            $cleanup = Remove-WinstOldPackages -Context $Context -Id $idText -KeepFiles $keepFiles
+        } catch {
+            $failed++
+            Write-Host ('  {0}: 清理失败：{1}' -f $idText, $_.Exception.Message) -ForegroundColor Red
+            continue
+        }
+        $removed = @($cleanup.Removed)
+        $failed += @($cleanup.Failed).Count
         if ($removed.Count -eq 0) { continue }
         $total += $removed.Count
         $shown = ((@($removed) | Select-Object -First 3) -join '、')
@@ -94,7 +109,10 @@ function Invoke-WinstCleanCommand {
     }
 
     Write-Host ''
-    if ($total -eq 0) {
+    if ($failed -gt 0) {
+        Write-Host ('  共清理 {0} 个文件，{1} 个文件删除失败。' -f $total, $failed) -ForegroundColor Yellow
+        return 3
+    } elseif ($total -eq 0) {
         Write-Host '  没有需要清理的旧版本安装包。' -ForegroundColor Green
     } elseif ($dryRun) {
         Write-Host ('  预览: 共 {0} 个旧版本安装包文件会被清理。' -f $total) -ForegroundColor Green

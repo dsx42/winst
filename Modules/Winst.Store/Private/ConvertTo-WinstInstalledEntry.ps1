@@ -22,6 +22,7 @@ function ConvertTo-WinstInstalledEntry {
         appliedEnv       = @()
         appliedPath      = @()
         appliedShortcuts = @()
+        appliedShortcutHashes = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedShortcutHashes' -Default @{}))
         appliedFileVersions = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedFileVersions' -Default @{}))
         appliedFiles     = @()
         appliedFileRules = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedFileRules' -Default @{}))

@@ -21,7 +21,7 @@ function Test-WinstNumericVersionPrefix {
     $b = @($m2.Groups[1].Value.Split('.'))
     if ($a.Count -gt $b.Count) { return $false }
     for ($i = 0; $i -lt $a.Count; $i++) {
-        if ([long]$a[$i] -ne [long]$b[$i]) { return $false }
+        if ((Compare-WinstNumericText -A $a[$i] -B $b[$i]) -ne 0) { return $false }
     }
     return $true
 }

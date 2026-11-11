@@ -39,8 +39,8 @@
       Invoke-WinstAppInstall 会调 Confirm-WinstDownloadEngine，
       冷启动（还没有引擎）时会递归回到自安装路径。
     - 目标重叠。安装目录常常就是 winst 当前运行的目录。
-      Invoke-WinstAppInstall 的 clean 绿色版模式会先删目标目录再解压，
-      那会删掉正在运行进程的文件。本函数先解压到暂存目录再合并，
+      Invoke-WinstAppInstall 的 clean 绿色版模式会清理目标目录，
+      当前运行树需要按自更新流程保留正在使用的文件。本函数先解压到暂存目录再合并，
       运行中的副本直到合并那一步才被改动。
 
     更新时保留
@@ -110,13 +110,16 @@ function Install-WinstSelf {
         $sourceVersion = [string]$versionRead.Version
 
         $installedVersion = ''
-        $ledger = Get-WinstInstalledApp -State (Read-WinstState -InstallRoot $Context.InstallRoot).State -Id $selfId
-        if ($ledger) { $installedVersion = Get-EntryString -Entry $ledger -Key 'version' }
-
-        if ($exists -and $installedVersion -and -not $ForceUpdate) {
+        if ((Test-Path -LiteralPath $installDir -PathType Container) -and -not $ForceUpdate) {
+            $installedRead = Get-WinstSelfSourceVersion -Path $installDir
+            if (-not $installedRead.Ok -or -not $installedRead.Version) {
+                $result.Error = ('无法识别现存 winst 程序树的版本，未覆盖文件；请核对目录，确需重装时加 --force：{0}' -f $installedRead.Error)
+                return $result
+            }
+            $installedVersion = [string]$installedRead.Version
             $comparison = Compare-WinstVersion -A $sourceVersion -B $installedVersion
 
-            if ($comparison -eq 0) {
+            if ($comparison -eq 0 -and $exists) {
                 $result.Ok = $true
                 $result.UpToDate = $true
                 $result.Version = $installedVersion

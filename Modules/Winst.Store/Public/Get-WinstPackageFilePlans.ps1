@@ -27,6 +27,8 @@ function Get-WinstPackageFilePlans {
         [Parameter(Mandatory = $true)]$Index,
         [Parameter(Mandatory = $true)][string]$Id,
         $Files,
+        # 套件完整性检查只消费本地文件与匹配的校验信息。
+        [switch]$Offline,
         [switch]$CheckValidators,
         [switch]$FreshMain,
         [string]$FreshMainReason = '版本号取自主包文件信息（软件源里没有版本号），每次都重新取包'
@@ -37,7 +39,7 @@ function Get-WinstPackageFilePlans {
     $entry = $null
     if ($Index -and $Index.Contains($Id)) { $entry = $Index[$Id] }
 
-    $offline = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline)
+    $offline = [bool]($Offline -or ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline))
     $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
     $canCheckRemote = [bool]($CheckValidators -and -not $offline -and -not $dryRun)
 

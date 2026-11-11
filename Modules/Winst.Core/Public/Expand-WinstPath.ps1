@@ -9,7 +9,7 @@ function Expand-WinstPath {
         `..\..\Windows` 这类相对路径必须在这里就被折叠成绝对路径：调用方拿到的要么是归一化后的
         绝对路径，要么是空串；归一化失败时原样返回，由下游路径校验拒绝。
 
-        网络共享只支持 UNC 路径（`\\服务器\共享名\目录`）。映射盘符（`Z:\`）不做转换：
+        网络共享只支持普通 UNC 路径（`\\服务器\共享名\目录`），格式错误立即报错。映射盘符（`Z:\`）不做转换：
         映射是按登录会话生效的，winst 以管理员身份运行时往往看不到它。入口处的
         Resolve-WinstUncInput 会拒绝映射盘符并提示改写 UNC。
     #>
@@ -31,6 +31,9 @@ function Expand-WinstPath {
         if ($head.LastIndexOf('@') -gt 0 -and $head.Substring(0, $head.LastIndexOf('@')).Contains(':')) {
             throw ('路径里不能写账号密码：UNC 路径只写 \\服务器\共享名\目录。需要认证时请到「设置 → 安装包位置」，输入路径后会单独询问账号与密码。')
         }
+        $unc = Resolve-WinstUncInput -Value $expanded
+        if (-not $unc.Ok) { throw ([string]$unc.Error) }
+        return [string]$unc.Path
     }
 
     if ($Base -and -not [IO.Path]::IsPathRooted($expanded)) {

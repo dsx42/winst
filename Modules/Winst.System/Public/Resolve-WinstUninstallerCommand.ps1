@@ -35,6 +35,10 @@ function Resolve-WinstUninstallerCommand {
 
     # 裸名（msiexec 之类）必须在系统目录里定位
     if ($exeText -notmatch '^[A-Za-z]:[\\/]' -and -not $exeText.StartsWith('\\')) {
+        if ($exeText -match '[\\/:]' -or -not (Test-WinstSafePathSegment -Name $exeText -MaxLength 255)) {
+            $result.Error = ('卸载命令必须使用绝对路径或纯程序文件名，已拒绝执行: {0}' -f $exeText)
+            return $result
+        }
         $resolvedExe = ''
         $exeFileName = $exeText
         if (-not [IO.Path]::GetExtension($exeFileName)) { $exeFileName += '.exe' }
@@ -46,7 +50,8 @@ function Resolve-WinstUninstallerCommand {
         }
         foreach ($systemDir in $systemDirs.ToArray()) {
             if (-not $systemDir) { continue }
-            $candidate = Join-WinstPath $systemDir $exeFileName
+            $candidate = [IO.Path]::GetFullPath((Join-WinstPath $systemDir $exeFileName))
+            if (-not (Test-WinstPathUnderRoot -Path $candidate -Root $systemDir)) { continue }
             if (Test-Path -LiteralPath $candidate -PathType Leaf) { $resolvedExe = $candidate; break }
         }
         if (-not $resolvedExe) {

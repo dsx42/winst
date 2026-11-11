@@ -10,16 +10,15 @@ function Invoke-WinstDevToolsCommand {
     #>
     param($Session, [string]$Method, $Params = $null, [switch]$BrowserLevel, [int]$TimeoutMs = 20000)
 
+    $deadline = [DateTime]::UtcNow.AddMilliseconds((Get-WinstBrowserRemainingMs -Session $Session -LimitMs $TimeoutMs))
     $id = [int]$Session.NextId
     $Session.NextId = $id + 1
     $message = @{ id = $id; method = $Method }
     if ($Params) { $message['params'] = $Params }
     if (-not $BrowserLevel) { $message['sessionId'] = [string]$Session.SessionId }
-    Send-WinstDevToolsMessage -Session $Session -Message $message
-
-    $deadline = [DateTime]::Now.AddMilliseconds($TimeoutMs)
+    Send-WinstDevToolsMessage -Session $Session -Message $message -TimeoutMs (Get-WinstBrowserRemainingMs -Session $Session -Deadline $deadline -LimitMs $TimeoutMs)
     while ($true) {
-        $remaining = [int]($deadline - [DateTime]::Now).TotalMilliseconds
+        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -le 0) { throw ('等待无头浏览器回应 {0} 超时' -f $Method) }
 
         $raw = Receive-WinstDevToolsMessage -Session $Session -TimeoutMs $remaining

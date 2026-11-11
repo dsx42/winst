@@ -36,6 +36,10 @@ function Get-HashFromChecksumFile {
             return $result
         }
         $result.Hash = ([string]$capture.Value).Trim()
+        if ($result.Hash -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $result.Hash.Length)) {
+            $result.Error = '正则提取的摘要必须是 32 / 40 / 64 / 128 位十六进制字符串'
+            return $result
+        }
         $result.Ok = $true
         return $result
     }

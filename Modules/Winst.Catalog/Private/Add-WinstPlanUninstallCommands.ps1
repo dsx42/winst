@@ -8,6 +8,6 @@ function Add-WinstPlanUninstallCommands {
     param($Uninstall, $Entry, [string]$Version)
 
     $uninstallSpec = Get-EntryValue -Entry $Entry -Key 'uninstall' -Default $null
-    $uninstallCommands = @(New-WinstPlanCommandList -Commands (Get-EntryArray -Entry $uninstallSpec -Key 'commands') -Version $Version)
+    $uninstallCommands = @(New-WinstPlanCommandList -Commands @(Get-EntryArray -Entry $uninstallSpec -Key 'commands') -Version $Version -Field 'uninstall.commands')
     if ($uninstallCommands.Count -gt 0) { $Uninstall['commands'] = @($uninstallCommands) }
 }

@@ -39,6 +39,15 @@ function Invoke-ManifestCommand {
     $all = [bool]$parsed.All
     $positional = @($parsed.Positional)
 
+    if (@('add','list','update','remove') -notcontains $sub -or
+        @($positional | Where-Object { ([string]$_).StartsWith('-') }).Count -gt 0 -or
+        ($all -and ($sub -ne 'update' -or $positional.Count -gt 0)) -or
+        ($sub -eq 'list' -and $positional.Count -gt 0) -or
+        ($sub -in @('add','remove') -and $positional.Count -ne 1)) {
+        Write-Host '  manifest 子命令或参数不合法。' -ForegroundColor Yellow
+        return 1
+    }
+
     $null = Ensure-OfficialManifest -Context $Context
 
     if ($sub -eq 'list') {

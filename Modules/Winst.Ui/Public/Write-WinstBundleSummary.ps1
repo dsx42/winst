@@ -9,6 +9,7 @@ function Write-WinstBundleSummary {
         [int]$ManifestCopied, [int]$ListFileCount)
 
     Write-Host ''
+    if ($MissingCount -gt 0) { Write-Host '  此套件不完整，缺少的软件或依赖需要在目标机联网取得。' -ForegroundColor DarkYellow }
     if ($DryRun) {
         Write-Host ('  预览完成: 将复制 {0} 个软件包、跳过 {1} 个（目标已有相同版本）、缺包 {2} 个。' -f `
             $Copied, $Skipped, $MissingCount) -ForegroundColor DarkYellow

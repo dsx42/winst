@@ -3,11 +3,11 @@
 function Expand-WinstEnginePackage {
     <#
     .SYNOPSIS
-        ② 解压引擎包 ③ 复制 / 改名（引擎均为 portable，无系统项）。
+        在暂存目录完成引擎解压、复制与主程序校验，成功后清理旧目录并移入新文件。
     .OUTPUTS
         @{ Ok; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Plan, [string]$InstallDir, [string]$ArchivePath)
+    param([hashtable]$Context, [string]$Id, $Plan, [string]$InstallDir, [string]$ArchivePath, [switch]$Quiet)
 
     $install = Get-EntryValue -Entry $Plan -Key 'install' -Default $null
     $method = Get-EntryString -Entry $install -Key 'method'
@@ -15,22 +15,39 @@ function Expand-WinstEnginePackage {
         return @{ Ok = $false; Error = ('{0} 的类型不是绿色版（{1}），无法自动安装' -f $Id, $method) }
     }
 
-    if (Test-Path -LiteralPath $InstallDir -PathType Container) {
-        try { Clear-WinstInstallDir -Dir $InstallDir -Strict }
-        catch { return @{ Ok = $false; Error = ('清理引擎目录失败：{0}' -f $_.Exception.Message) } }
-    }
-    $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction SilentlyContinue
+    $stage = ''
+    $parent = ''
+    try {
+        $InstallDir = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\', '/')
+        Assert-WinstSafeWritePath -Path $InstallDir -Directory
+        if (-not (Test-WinstPathUnderRoot -Path $InstallDir -Root $Context.InstallRoot)) {
+            throw '引擎目录必须位于软件安装根目录之下'
+        }
+        $parent = Split-Path -Parent $InstallDir
 
-    $stripTopDir = Get-EntryValue -Entry $install -Key 'stripTopDir' -Default $true
-    $extractFiles = @(Get-EntryArray -Entry $install -Key 'extractFiles')
-    # 7-Zip-CLI 的引导包是官方自解压安装包：引擎还没装上时只能靠系统 tar，老系统的 tar 打不开它，
-    # 因此只给这一条允许「切出内嵌载荷」的兜底档。
-    $allowSfxPayload = ($Id -eq (Get-WinstExtractEngineId))
-    $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $ArchivePath -DestDir $InstallDir `
-        -StripTopDir $stripTopDir -ExtractFiles $extractFiles -AllowSfxPayload:$allowSfxPayload
-    if (-not $layout.Ok) {
-        return @{ Ok = $false; Error = ('解压 {0} 失败：{1}' -f (Split-Path -Leaf $ArchivePath), $layout.Error) }
-    }
+        $stripTopDir = Get-EntryValue -Entry $install -Key 'stripTopDir' -Default $true
+        $extractFiles = @(Get-EntryArray -Entry $install -Key 'extractFiles')
 
-    return (Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $InstallDir)
+        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $ArchivePath -DestDir $InstallDir `
+            -StripTopDir $stripTopDir -ExtractFiles $extractFiles
+        if (-not $layout.Ok -and (Get-EntryBool -Entry $layout -Key 'ExtractFailed') -and $Id -ceq (Get-WinstExtractEngineId)) {
+            $directError = [string]$layout.Error
+            $layout = Initialize-WinstSevenZipFromSystem -Context $Context -Plan $Plan -ArchivePath $ArchivePath -InstallDir $InstallDir -Quiet:$Quiet
+            if (-not $layout.Ok) { $layout.Error = $directError + '；' + $layout.Error }
+        }
+        if (-not $layout.Ok) {
+            return @{ Ok = $false; Error = ('解压 {0} 失败：{1}' -f (Split-Path -Leaf $ArchivePath), $layout.Error) }
+        }
+
+        $stage = [string]$layout.TempRoot
+        $sourceDir = [string]$layout.SourceDir
+        Initialize-WinstEngineStage -Id $Id -Plan $Plan -SourceDir $sourceDir
+        return (Move-WinstStagedInstall -StageDir $stage -SourceDir $sourceDir -InstallDir $InstallDir -Clean)
+    } catch {
+        return @{ Ok = $false; Error = ('安装引擎失败：{0}' -f $_.Exception.Message) }
+    } finally {
+        if ($stage -and (Test-Path -LiteralPath $stage)) {
+            Clear-WinstInstallDir -Dir $stage -AllowedRoot $parent
+        }
+    }
 }

@@ -20,12 +20,13 @@ function Resolve-WinstBundleTarget {
         Write-Host ''
         Write-Host '  安装包将复制到这个目录（可以填 U 盘上的目录，如 E:\winst-kit）。' -ForegroundColor DarkGray
         Write-Host ('  直接回车 = {0}' -f $defaultTarget) -ForegroundColor DarkGray
-        $text = (Read-WinstAnswerText -Prompt '  请输入目标目录').Trim('"')
+        $text = Read-WinstAnswerText -Prompt '  请输入目标目录'
+        if ($null -eq $text) { return '' }
+        $text = $text.Trim('"')
         if (-not $text) { $text = $defaultTarget }
         $TargetDir = $text
     }
-    if (-not [IO.Path]::IsPathRooted($TargetDir)) {
-        try { $TargetDir = (Join-WinstPath (Get-Location).Path $TargetDir) } catch { }
-    }
-    return $TargetDir
+    if ($TargetDir -match '^[a-zA-Z]:(?![\\/])') { throw '目标目录不能是盘符相对路径，请指定完整路径。' }
+    $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TargetDir)
+    return [IO.Path]::GetFullPath($resolved)
 }

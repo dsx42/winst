@@ -21,7 +21,7 @@ function Resolve-WinstDeclaredKeywordMatches {
         [switch]$Quiet
     )
 
-    $result = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @() }
+    $result = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
     # 关键字为空时每条都会被当成命中（IndexOf('') = 0），等于给每个源做一次全量解析：直接不做事
     if (-not ([string]$Keyword).Trim()) { return $result }
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { $result.Skipped = $true; return $result }
@@ -42,6 +42,7 @@ function Resolve-WinstDeclaredKeywordMatches {
 
         $declared = Get-WinstDeclaredManifestEntries -Context $Context -Source $Source
         if ($declared.Error) {
+            $result.Failed++
             $result.Errors += [string]$declared.Error
             continue
         }
@@ -83,6 +84,7 @@ function Resolve-WinstDeclaredKeywordMatches {
             Write-Host ('  软件源 {0} 的清单里有 {1} 个匹配，正在解析 …' -f $name, $ids.Count) -ForegroundColor Gray
         }
         $r = Update-ManifestSource -Context $Context -Source $Source -OnlyIds $ids
+        $result.Network = $result.Network -or [bool]$r.Network
         if (-not $r.Success) {
             $result.Failed++
             $result.Errors += ('{0}: {1}' -f $name, [string]$r.Message)

@@ -30,6 +30,11 @@ function Invoke-WinstConfigCommand {
         Write-WinstUnknownSubcommand -Sub $sub -Usage 'winst config get|set|reset|list [<key> [<value>]]'
         return 1
     }
+    $expected = @{ list = 1; get = 2; set = 3; reset = 2 }[$sub]
+    if ($tokens.Count -gt $expected -or $sub.StartsWith('-') -or $key.StartsWith('-')) {
+        Write-Host '  config 含未知或多余参数。' -ForegroundColor Yellow
+        return 1
+    }
 
     $keys = @()
     foreach ($k in @($Context.Config.Keys)) { $keys += [string]$k }

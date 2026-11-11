@@ -31,7 +31,7 @@ function Update-WinstStaleSources {
         [string[]]$OnlyIds = @()
     )
 
-    $result = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @() }
+    $result = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { $result.Skipped = $true; return $result }
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { $result.Skipped = $true; return $result }
 
@@ -61,6 +61,7 @@ function Update-WinstStaleSources {
         if ($persistUnavailable.ContainsKey((Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $name))) {
             if ($persistNoted -notcontains $name) {
                 $persistNoted += $name
+                $result.Failed++
                 $result.Errors += ('{0}: 上次刷新已取到最新数据，但缓存写不进去（目标盘当前不可用，或缓存目录不允许写入）；本会话内不再重复刷新。' -f $name)
             }
             continue
@@ -157,7 +158,8 @@ function Update-WinstStaleSources {
         $onlyIds = @()
         if ($resolveIdsBySource.ContainsKey($name)) { $onlyIds = @($resolveIdsBySource[$name]) }
         if (-not $Quiet) { Write-Host ('    刷新软件源 {0} …' -f $name) -ForegroundColor Gray }
-        $r = Update-ManifestSource -Context $Context -Source $source -OnlyIds $onlyIds -IncludeUnresolved:(-not $hasOnlyIds -and $onlyIds.Count -gt 0)
+        $r = Update-ManifestSource -Context $Context -Source $source -Force:$Force -OnlyIds $onlyIds -IncludeUnresolved:(-not $hasOnlyIds -and $onlyIds.Count -gt 0)
+        $result.Network = $result.Network -or [bool]$r.Network
         if ($r.Success) {
             $result.Refreshed++
         } else {

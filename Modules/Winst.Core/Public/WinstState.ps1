@@ -63,7 +63,7 @@ function Set-WinstState {
     )
 
     [Winst.State]::Set($Name, $Value)
-    return $Value
+    Write-Output -NoEnumerate $Value
 }
 
 function Test-WinstState {

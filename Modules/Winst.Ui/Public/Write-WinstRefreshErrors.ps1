@@ -10,4 +10,7 @@ function Write-WinstRefreshErrors {
     foreach ($errorText in @($Errors)) {
         Write-Host ('  提示: {0}' -f $errorText) -ForegroundColor DarkYellow
     }
+    if (@($Errors).Count -gt 0) {
+        Write-Host '  本次软件源刷新未全部成功；展示结果可能包含缓存，不能据此确认远端已是最新。' -ForegroundColor DarkYellow
+    }
 }

@@ -14,7 +14,7 @@ function Get-WinstRegistryEntryInstallDir {
     if (-not $Entry) { return '' }
 
     $location = ConvertTo-WinstDirPath -Text (Get-EntryString -Entry $Entry -Key 'InstallLocation')
-    if ($location) { return $location }
+    if ($location -and (Test-Path -LiteralPath $location -PathType Container -ErrorAction Stop)) { return $location }
 
     foreach ($key in @('UninstallString', 'DisplayIcon')) {
         $text = (Get-EntryString -Entry $Entry -Key $key).Trim()
@@ -38,7 +38,7 @@ function Get-WinstRegistryEntryInstallDir {
         $path = ConvertTo-WinstDirPath -Text $value
         if (-not $path) { continue }
         $dir = ''
-        if (Test-Path -LiteralPath $path -PathType Container) {
+        if (Test-Path -LiteralPath $path -PathType Container -ErrorAction Stop) {
             $dir = $path                                      # 记录里直接写的就是目录
         } else {
             $parent = ConvertTo-WinstDirPath -Text (Split-Path -Parent $path)
@@ -46,7 +46,7 @@ function Get-WinstRegistryEntryInstallDir {
             # 盘根（`C:\unins000.exe` 的父目录就是 `C:\`）同样不采用：它会被当成安装目录写进台账，
             # 之后「残留目录」判定就以整盘为目标。
             if ($parent -and $parent -ne $path -and $parent -notmatch '^[A-Za-z]:[\\/]?$' -and
-                (Test-Path -LiteralPath $parent -PathType Container)) { $dir = $parent }
+                (Test-Path -LiteralPath $parent -PathType Container -ErrorAction Stop)) { $dir = $parent }
         }
         if ($dir) { return $dir }
     }

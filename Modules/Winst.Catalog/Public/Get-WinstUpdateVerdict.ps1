@@ -54,7 +54,7 @@ function Get-WinstUpdateVerdict {
     $cmp = Compare-WinstVersion -A $BestVersion -B $CurrentVersion
     if ($cmp -gt 0) {
         $hint = ('↑ 可更新到 {0}' -f $BestVersion)
-        if ($null -ne $Row) { $hint = Get-WinstUpgradeHint -Row $Row -InstalledVersion $CurrentVersion -WithSource }
+        if ($null -ne $Row -and -not $VersionFromPackage) { $hint = Get-WinstUpgradeHint -Row $Row -InstalledVersion $CurrentVersion -WithSource }
         return @{ State = 'update'; Hint = $hint; HasUpdate = $true }
     }
     if ($cmp -eq 0) { return @{ State = 'latest'; Hint = ''; HasUpdate = $false } }

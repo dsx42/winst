@@ -21,7 +21,7 @@ function Write-ResolvedStage {
     if ($items.Count -eq 0) { $items = @('（无）') }
 
     Write-Host ($headText + [string]$items[0]) -ForegroundColor $Color
-    $indent = ' ' * 14
+    $indent = ' ' * (Get-DisplayWidth -Text $headText)
     for ($i = 1; $i -lt $items.Count; $i++) {
         Write-Host ($indent + [string]$items[$i]) -ForegroundColor $Color
     }

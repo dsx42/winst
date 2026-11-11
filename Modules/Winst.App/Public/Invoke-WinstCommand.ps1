@@ -28,6 +28,15 @@ function Invoke-WinstCommand {
     $name = ''
     if ($null -ne $Command) { $name = ([string]$Command).Trim().ToLowerInvariant() }
     $rest = @($Arguments)
+    if (($name -eq 'repair' -or $name -in @('--version','-v','version')) -and $rest.Count -gt 0) {
+        Write-Host ('  {0} 不接受额外参数。' -f $name) -ForegroundColor Yellow
+        return 1
+    }
+    if (($name -in @('--help','-h','help','?','-?')) -and
+        ($rest.Count -gt 1 -or @($rest | Where-Object { $_.StartsWith('-') }).Count -gt 0)) {
+        Write-Host '  help 只接受一个命令名。' -ForegroundColor Yellow
+        return 1
+    }
 
     # 命令之前的 -v / --version / -h / --help 也在此处理（此时 Command 为空）
     if (-not $name -and $rest.Count -gt 0) {

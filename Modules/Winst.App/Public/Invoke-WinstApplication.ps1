@@ -76,7 +76,7 @@ function Invoke-WinstApplication {
     if (-not $instance.Allowed) {
         Write-WinstInstanceBusyMessage -Instance $instance
         $result.ExitCode = 1
-        $result.Message = '已经有一个 winst 正在运行'
+        $result.Message = if ($instance.Busy) { '已经有一个 winst 正在运行' } else { '无法取得单实例锁：' + $instance.Error }
         return $result
     }
 

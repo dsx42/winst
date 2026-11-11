@@ -45,7 +45,7 @@ function Get-WinstInstalledDeclaredItems {
         $pathItems += [ordered]@{ path = $path; scope = $itemScope }
     }
 
-    $plan = Get-WinstLockedPlan -Context $Context -Id $Id
+    $plan = Get-WinstLockedPlan -Context $Context -Id $Id -SourceName (Get-EntryString -Entry $Entry -Key 'manifestOrigin')
     if ($plan) {
         foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $plan -Key 'env' -Default $null))) {
             $name = ([string]$pair['Key']).Trim()

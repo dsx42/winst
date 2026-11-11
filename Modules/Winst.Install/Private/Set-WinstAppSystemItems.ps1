@@ -24,7 +24,8 @@ function Set-WinstAppSystemItems {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
         [Parameter(Mandatory = $true)][string]$InstallDir,
-        [switch]$KeepExisting
+        [switch]$KeepExisting,
+        [string[]]$OwnedShortcuts = @()
     )
 
     $appliedEnv = @()
@@ -32,6 +33,7 @@ function Set-WinstAppSystemItems {
     $appliedShortcuts = @()
     $repairedShortcuts = @()
     $notes = @()
+    $shortcutHashes = @{}
 
     $errorText = ''
     $scope = ''
@@ -93,7 +95,8 @@ function Set-WinstAppSystemItems {
         }
 
         # 快捷方式（始终用户级；路径规则见 Get-WinstShortcutPaths）
-        $shortcuts = Set-WinstAppShortcuts -Plan $Plan -InstallDir $InstallDir
+        $shortcuts = Set-WinstAppShortcuts -Context $Context -Plan $Plan -InstallDir $InstallDir -OwnedShortcuts $OwnedShortcuts
+        $shortcutHashes = $shortcuts.Hashes
         $appliedShortcuts = @($shortcuts.Applied)
         $repairedShortcuts = @($shortcuts.Repaired)
         foreach ($note in @($shortcuts.Notes)) { $notes += $note }
@@ -102,6 +105,6 @@ function Set-WinstAppSystemItems {
         $errorText = ('写入系统项失败：{0}' -f $_.Exception.Message)
     }
 
-    return @{ AppliedEnv = $appliedEnv; AppliedPath = $appliedPath; AppliedShortcuts = $appliedShortcuts
+    return @{ AppliedEnv = $appliedEnv; AppliedPath = $appliedPath; AppliedShortcuts = $appliedShortcuts; ShortcutHashes = $shortcutHashes
               RepairedShortcuts = $repairedShortcuts; Notes = $notes; Scope = $scope; Error = $errorText }
 }

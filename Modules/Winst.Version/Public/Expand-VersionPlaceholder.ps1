@@ -15,6 +15,7 @@ function Expand-VersionPlaceholder {
 
     $versionText = ''
     if ($null -ne $Version) { $versionText = [string]$Version }
+    if (-not $versionText) { throw '模板使用了版本占位符，但当前版本未知，无法展开' }
     $majorText = ''
     if ($versionText) { $majorText = ($versionText -split '\.')[0] }
     $minorText = ''
@@ -24,11 +25,12 @@ function Expand-VersionPlaceholder {
         $minorText = $parts[1]
     }
 
-    # 替换串中的 $ 需转义为 $$，避免被当作正则替换引用。
-    $versionEscaped = $versionText.Replace('$', '$$')
-    $majorEscaped = $majorText.Replace('$', '$$')
-    $minorEscaped = $minorText.Replace('$', '$$')
-    $text = [regex]::Replace($text, '\{versionMajor\}', $majorEscaped)
-    $text = [regex]::Replace($text, '\{versionMinor\}', $minorEscaped)
-    return [regex]::Replace($text, '\{version\}', $versionEscaped)
+    return [regex]::Replace($text, '\{version(Major|Minor)?\}', [System.Text.RegularExpressions.MatchEvaluator]{
+        param($match)
+        switch -CaseSensitive ($match.Value) {
+            '{versionMajor}' { return $majorText }
+            '{versionMinor}' { return $minorText }
+            default { return $versionText }
+        }
+    })
 }

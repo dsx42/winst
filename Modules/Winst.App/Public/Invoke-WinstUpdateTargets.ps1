@@ -43,7 +43,7 @@ function Invoke-WinstUpdateTargets {
     $result = @{
         Ok = $false; ExitCode = 0; Updatable = 0; Updated = 0; Skipped = 0; Failed = 0;
         UpToDate = 0; NotInstalled = 0; Unknown = 0; Reported = 0; Network = $false;
-        RefreshErrors = @(); Entries = @()
+        RefreshErrors = @(); RefreshFailed = 0; Entries = @()
     }
 
     # 0. 读台账 / 目标集合 / 按需刷新 / 搜索目录
@@ -67,7 +67,7 @@ function Invoke-WinstUpdateTargets {
         if ($one.Entries.Count -gt 0) { $entries += @($one.Entries) }
         if ($one.Installed) { $installedTargets++ }
         if ($one.DownloadOnlySkipped) { $downloadOnlySkipped++ }
-        if ($one.RefreshState) { $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
+        if ($one.RefreshState) { $state = Read-WinstCommandState -Context $Context }
     }
 
     $result.Entries = @($entries)

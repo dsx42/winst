@@ -3,30 +3,48 @@
 function Add-WinstDevToolsEvent {
     <#
     .SYNOPSIS
-        把 DevTools 事件里我们关心的内容收进会话对象（下载地址、像安装包的请求地址、页面是否加载完）。
-    .DESCRIPTION
-        取「点击后生成的下载地址」有两条渠道，按可靠性排序：
-        ① `Browser.downloadWillBegin` / `Page.downloadWillBegin`：浏览器真发起了下载，`params.url` 就是下载地址（准）；
-        ② `Network.requestWillBeSent` 里扩展名像安装包的请求：兜底线索，零命中报错时列出来给用户排查。
-        入参是消息原文而不是解析后的对象：先用一次子串查找把无关事件筛掉，避免每条事件都做 JSON 解析。
+        按 CDP 方法、页面会话和 frame 归属接收下载、请求与加载事件。
     #>
     param($Session, [string]$Raw)
 
     if (-not $Raw) { return }
-
-    if ($Raw.IndexOf('downloadWillBegin', [StringComparison]::Ordinal) -ge 0) {
-        $url = Get-WinstDevToolsStringField -Text $Raw -Name 'url'
-        if ($url) { $null = $Session.Downloads.Add($url) }
-        return
-    }
-
-    if ($Raw.IndexOf('"method":"Network.requestWillBeSent"', [StringComparison]::Ordinal) -ge 0) {
-        $url = Get-WinstDevToolsStringField -Text $Raw -Name 'url'
-        if ($url -and ($url -match '(?i)\.(exe|msi|cab|zip|7z|rar|dmg|deb|rpm|pkg|msix|appx|jar|apk)(\?|$)')) {
-            $null = $Session.Requests.Add($url)
+    try { $event = ConvertFrom-Json -InputObject $Raw -ErrorAction Stop } catch { return }
+    $method = Get-EntryString $event 'method'
+    $params = Get-EntryValue $event 'params'
+    if (-not $params) { return }
+    $sessionId = Get-EntryString $event 'sessionId'
+    if ($method -ceq 'Browser.downloadWillBegin') {
+        $frameId = Get-EntryString $params 'frameId'
+        if ($frameId -and $Session.Frames.Contains($frameId)) {
+            $url = Get-EntryString $params 'url'
+            if ($url) { $null = $Session.Downloads.Add($url) }
         }
         return
     }
-
-    if ($Raw.IndexOf('loadEventFired', [StringComparison]::Ordinal) -ge 0) { $Session.LoadEventFired = $true }
+    if (-not $sessionId -or $sessionId -cne $Session.SessionId) { return }
+    switch -CaseSensitive ($method) {
+        'Page.frameAttached' {
+            $parentId = Get-EntryString $params 'parentFrameId'
+            if ($Session.Frames.Contains($parentId)) { $Session.Frames[(Get-EntryString $params 'frameId')] = $true }
+        }
+        'Page.frameDetached' { $Session.Frames.Remove((Get-EntryString $params 'frameId')) }
+        'Page.frameNavigated' {
+            $frame = Get-EntryValue $params 'frame'
+            $frameId = Get-EntryString $frame 'id'
+            $parentId = Get-EntryString $frame 'parentId'
+            if ($frameId -ceq $Session.FrameId -or ($parentId -and $Session.Frames.Contains($parentId))) { $Session.Frames[$frameId] = $true }
+        }
+        'Page.downloadWillBegin' {
+            if ($Session.Frames.Contains((Get-EntryString $params 'frameId'))) {
+                $url = Get-EntryString $params 'url'
+                if ($url) { $null = $Session.Downloads.Add($url) }
+            }
+        }
+        'Network.requestWillBeSent' {
+            $request = Get-EntryValue $params 'request'
+            $url = Get-EntryString $request 'url'
+            if ($url -match '(?i)\.(exe|msi|cab|zip|7z|rar|dmg|deb|rpm|pkg|msix|appx|jar|apk)(\?|$)') { $null = $Session.Requests.Add($url) }
+        }
+        'Page.loadEventFired' { $Session.LoadEventFired = $true }
+    }
 }

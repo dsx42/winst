@@ -57,7 +57,7 @@ function Resolve-WinstGithubVersion {
         $kindText = $(if ($versionFrom -eq 'releaseTitle') { '标题' } else { '正文' })
         $metaSource = ''
         foreach ($item in @($Releases)) {
-            if ([string]$item['Tag'] -eq $ChosenTag) {
+            if ([string]$item['Tag'] -ceq $ChosenTag) {
                 $metaSource = [string]$(if ($versionFrom -eq 'releaseTitle') { $item['Title'] } else { $item['Body'] })
                 break
             }
@@ -66,12 +66,14 @@ function Resolve-WinstGithubVersion {
             # $Releases 还没取过（releases/latest 路径不读列表）或列表里没有这条 tag → 现读一次发布列表
             try {
                 foreach ($item in @(Get-GitHubReleaseListTags -Context $Context -Repo $Repo)) {
-                    if ([string]$item['Tag'] -eq $ChosenTag) {
+                    if ([string]$item['Tag'] -ceq $ChosenTag) {
                         $metaSource = [string]$(if ($versionFrom -eq 'releaseTitle') { $item['Title'] } else { $item['Body'] })
                         break
                     }
                 }
-            } catch { }
+            } catch {
+                return @{ Error = ('读取 {0} 的发布元数据失败：{1}' -f $Repo, $_.Exception.Message); Version = ''; ResultVersion = ''; VersionFrom = ''; VersionKind = ''; VersionBetween = @() }
+            }
         }
         if (-not $metaSource) {
             return @{

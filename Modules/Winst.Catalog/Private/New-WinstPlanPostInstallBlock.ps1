@@ -7,5 +7,5 @@ function New-WinstPlanPostInstallBlock {
     #>
     param($Entry, [string]$Version)
 
-    return (New-WinstPlanCommandList -Commands (Get-EntryArray -Entry $Entry -Key 'postInstall') -Version $Version)
+    return (New-WinstPlanCommandList -Commands @(Get-EntryArray -Entry $Entry -Key 'postInstall') -Version $Version -Field 'postInstall')
 }

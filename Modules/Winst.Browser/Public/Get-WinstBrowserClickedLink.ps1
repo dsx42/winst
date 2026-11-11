@@ -29,33 +29,34 @@ function Get-WinstBrowserClickedLink {
     $steps = @($ClickSpecs)
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
+    $overallDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
 
     $userAgent = ''
     $headers = Get-WinstBrowserHeaders
     if ($headers -and $headers['User-Agent']) { $userAgent = [string]$headers['User-Agent'] }
 
     foreach ($proxyUrl in $attempts) {
+        if ([DateTime]::UtcNow -ge $overallDeadline) { $lastError = '浏览器操作已达到整体超时限制'; break }
         $session = $null
         try {
-            $overallDeadline = [DateTime]::Now.AddSeconds($TimeoutSec)
             if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
                 $note = ''
                 if ($proxyUrl) { $note = ('（代理 {0}）' -f $proxyUrl) }
                 Write-Host ('  [verbose] 用系统浏览器点击下载按钮取地址 {0}{1}' -f $Url, $note) -ForegroundColor DarkGray
             }
 
-            $session = New-WinstDevToolsSession -ProxyUrl $proxyUrl -UserAgent $userAgent
+            $session = New-WinstDevToolsSession -ProxyUrl $proxyUrl -UserAgent $userAgent -TimeoutSec $TimeoutSec -Deadline $overallDeadline
             if (-not $session.Ok) { $lastError = [string]$session.Error; continue }
             $result.Engine = [string]$session.Engine
 
-            $null = Invoke-WinstDevToolsCommand -Session $session -Method 'Page.navigate' -Params @{ url = $Url }
+            Start-WinstDevToolsNavigation -Session $session -Url $Url
 
             # 等页面加载完（Page.loadEventFired）+ 一小段脚本挂载时间：按钮的点击处理器是随后才挂上的，
             # 不等就点会点空。超时也继续往下走（有的页面长轮询，永远不给 loadEventFired）。
             $readyDeadline = $overallDeadline
-            $readyCap = [DateTime]::Now.AddSeconds(25)
+            $readyCap = [DateTime]::UtcNow.AddSeconds(25)
             if ($readyCap -lt $readyDeadline) { $readyDeadline = $readyCap }
-            while (-not $session.LoadEventFired -and [DateTime]::Now -lt $readyDeadline) {
+            while (-not $session.LoadEventFired -and [DateTime]::UtcNow -lt $readyDeadline) {
                 Wait-WinstDevToolsMessages -Session $session -Milliseconds 100
             }
             if (-not $session.LoadEventFired) {
@@ -86,9 +87,9 @@ function Get-WinstBrowserClickedLink {
             }
 
             # 等浏览器把下载地址交出来（受整体超时约束）
-            $downloadDeadline = [DateTime]::Now.AddSeconds(20)
+            $downloadDeadline = [DateTime]::UtcNow.AddSeconds(20)
             if ($overallDeadline -lt $downloadDeadline) { $downloadDeadline = $overallDeadline }
-            while ($session.Downloads.Count -eq 0 -and [DateTime]::Now -lt $downloadDeadline) {
+            while ($session.Downloads.Count -eq 0 -and [DateTime]::UtcNow -lt $downloadDeadline) {
                 Wait-WinstDevToolsMessages -Session $session -Milliseconds 500
             }
 
@@ -123,6 +124,7 @@ function Get-WinstBrowserClickedLink {
             $lastError = $_.Exception.Message
         } finally {
             Close-WinstDevToolsSession -Session $session
+            if ($session -and $session.CleanupError) { $result.Ok = $false; $lastError += ('；' + $session.CleanupError) }
         }
     }
 

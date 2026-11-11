@@ -8,6 +8,6 @@ function Test-WinstInputRedirected {
     try {
         return [Console]::IsInputRedirected
     } catch {
-        return $false
+        return $true
     }
 }

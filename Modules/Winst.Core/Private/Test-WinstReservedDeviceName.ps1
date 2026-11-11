@@ -19,6 +19,6 @@ function Test-WinstReservedDeviceName {
     $stem = $stem.Trim().ToUpperInvariant()
     if (-not $stem) { return $false }
     if (@('CON', 'PRN', 'AUX', 'NUL', 'CONIN$', 'CONOUT$') -contains $stem) { return $true }
-    if ($stem -match '^(COM|LPT)[1-9]$') { return $true }
+    if ($stem -match '^(COM|LPT)[1-9¹²³]$') { return $true }
     return $false
 }

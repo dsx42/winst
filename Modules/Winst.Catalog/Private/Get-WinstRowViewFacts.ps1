@@ -37,8 +37,14 @@ function Get-WinstRowViewFacts {
     if (-not $type -and $Row) { $type = Get-WinstRowType -Row $Row }
 
     $versionFromPackage = Test-WinstRowVersionFromPackage -Row $Row
+    $remoteVersion = $bestVersion
     $remoteFresh = ''
-    if ($versionFromPackage) { $remoteFresh = Get-WinstRowRemoteFreshState -Row $Row }
+    if ($versionFromPackage) {
+        $chosen = Get-WinstRowBestPlanEntry -Row $Row
+        $remoteFresh = Get-EntryString -Entry $chosen['Plan'] -Key 'remoteFresh'
+        $bestVersion = [string]$chosen['Version']
+        $bestSource = [string]$chosen['Source']
+    }
 
     return [ordered]@{
         Id                 = $Id
@@ -48,6 +54,7 @@ function Get-WinstRowViewFacts {
         SourceText         = $sourceText
         BestVersion        = $bestVersion
         BestSource         = $bestSource
+        RemoteVersion      = $remoteVersion
         InCatalog          = $inCatalog
         Type               = $type
         VersionFromPackage = [bool]$versionFromPackage

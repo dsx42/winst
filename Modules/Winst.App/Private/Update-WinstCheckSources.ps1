@@ -7,11 +7,11 @@ function Update-WinstCheckSources {
     #>
     param([hashtable]$Context)
 
-    # 先读安装台账拿到「已安装软件」的 id 集合（纯本地文件读取）：检查更新只解析已装软件的最新版本，
-    # 不对软件源里所有软件逐条联网解析。台账读取失败或没有安装记录（首次运行）
-    # 时回退全量刷新，保证 id 匹配可用。
+    # 检查更新只解析已装软件；没有安装记录时全量刷新，读取失败则停止。
     $ledgerIds = @()
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    if ($stateRead.Error -and -not $stateRead.Reset) { throw ([string]$stateRead.Error) }
+    if ($stateRead.Error) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor DarkYellow }
     if (-not $stateRead.Error) {
         foreach ($key in @($stateRead.State['Installed'].Keys)) { $ledgerIds += [string]$key }
     }
@@ -40,11 +40,19 @@ function Update-WinstCheckSources {
     # 修复可能新登记了之前不在台账里的软件：这些软件的版本信息若已过期则按需补刷新
     # （非 Force 按需路径：只刷过期的，全部有效时零开销、无提示）。
     $postStateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    if ($postStateRead.Error -and -not $postStateRead.Reset) { throw ([string]$postStateRead.Error) }
     if (-not $postStateRead.Error) {
         $postIds = @()
         foreach ($key in @($postStateRead.State['Installed'].Keys)) { $postIds += [string]$key }
         if ($postIds.Count -gt 0) {
-            $null = Update-WinstStaleSources -Context $Context -Quiet -OnlyIds $postIds
+            $post = Update-WinstStaleSources -Context $Context -Quiet -OnlyIds $postIds
+            $newErrors = @($post.Errors | Where-Object { $refresh.Errors -cnotcontains $_ })
+            Write-WinstRefreshErrors -Errors $newErrors
+            $refresh.Errors = @($refresh.Errors) + $newErrors
+            $refresh.Refreshed += [int]$post.Refreshed
+            $refresh.Failed += [int]$post.Failed
+            $refresh.Network = [bool]$refresh.Network -or [bool]$post.Network
         }
     }
+    return $refresh
 }

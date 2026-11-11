@@ -25,14 +25,14 @@ function Receive-WinstDevToolsMessage {
         }
     }
     $pending = $Session.Pending
-    $deadline = [DateTime]::Now.AddMilliseconds($TimeoutMs)
+    $deadline = [DateTime]::UtcNow.AddMilliseconds((Get-WinstBrowserRemainingMs -Session $Session -LimitMs $TimeoutMs))
 
     while ($true) {
         if ($null -eq $pending.Task) {
             $pending.Task = $Session.Socket.ReceiveAsync($pending.Segment, $Session.Token)
         }
 
-        $remaining = [int]($deadline - [DateTime]::Now).TotalMilliseconds
+        $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -lt 0) { $remaining = 0 }
         if (-not $pending.Task.Wait($remaining)) { return '' }
 

@@ -29,8 +29,8 @@ function New-WinstJsonResolvedFiles {
                     return @{ Error = ('JSON 接口 {0} 的条目里没有校验字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashKey); Files = $files }
                 }
                 $hash = ([string]$found.Text).Trim()
-                if ($hash -notmatch '^[0-9a-fA-F]{32,128}$') {
-                    return @{ Error = ('JSON 接口字段「{0}」里取到的不是摘要: {1}' -f $hashKey, $hash); Files = $files }
+                if ($hash -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $hash.Length)) {
+                    return @{ Error = ('JSON 接口字段「{0}」必须是 32 / 40 / 64 / 128 位十六进制摘要' -f $hashKey); Files = $files }
                 }
             }
 

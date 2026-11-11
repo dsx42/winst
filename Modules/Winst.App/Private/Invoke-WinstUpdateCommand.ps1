@@ -58,6 +58,10 @@ function Invoke-WinstUpdateCommand {
     }
 
     if ($sourceSpecified -and -not (Test-WinstCliRequiredValue -Name '--source' -Value $sourceName)) { return 1 }
+    if ($sourceSpecified -and $ids.Count -eq 0) {
+        Write-Host '  --source 必须与具体软件 id 一起使用。' -ForegroundColor Yellow
+        return 1
+    }
 
     if ($check -and $downloadOnly) {
         Write-Host ''

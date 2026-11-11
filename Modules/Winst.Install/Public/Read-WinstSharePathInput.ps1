@@ -81,6 +81,8 @@ function Read-WinstSharePathInput {
         }
 
         $password = ''
+        $authWarning = Get-EntryString -Entry $auth -Key 'Warning'
+        if ($authWarning) { Write-Host ('  提示：' + $authWarning) -ForegroundColor DarkYellow }
         if ($user) {
             if (Test-WinstInputRedirected) {
                 $result.Error = '当前输入被重定向，无法安全地输入密码。请在交互式终端里重新运行 winst（设置 → 安装包位置）。'

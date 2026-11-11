@@ -10,7 +10,7 @@ $env:WINST_INSTALL_ROOT = Join-Path $env:TEMP 'winst-dev/root'
 $env:WINST_PKG_DIR = Join-Path $env:TEMP 'winst-dev/pkg'
 $env:WINST_NO_ELEVATE = '1'
 powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 -v
-powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list
+powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list --offline
 ```
 
 实验目录应为本次独立目录。安装、更新、卸载和修复会修改台账及系统项，不能直接用真实用户数据验证删除分支。网络请求可通过 `--offline` 禁止，预览边界见 [CLI](cli.md#预览边界)。
@@ -64,16 +64,18 @@ Get-ChildItem Modules -Recurse -File |
     }
 ```
 
-`Tests/*.Regression.ps1` 是无需测试框架的断言脚本，各自在独立的 Windows PowerShell 5.1 进程运行：
+`tests/verify-review-batch*.ps1` 是无需测试框架的隔离断言脚本，各自在独立的 Windows PowerShell 5.1 进程运行：
 
 ```powershell
-Get-ChildItem Tests -Filter *.Regression.ps1 | ForEach-Object {
+Get-ChildItem tests -Filter verify-review-batch*.ps1 | Sort-Object Name | ForEach-Object {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $_.FullName
     if ($LASTEXITCODE -ne 0) { throw ('回归失败：{0}' -f $_.Name) }
 }
 ```
 
 针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。回归脚本覆盖缓存校验、来源解析、安装生命周期和菜单分支，不能替代真实系统集成验证。
+
+界面列宽以 Windows Terminal 中的常见中日韩全角字形及合成 emoji 为估算目标：代理对作为一个码点，组合符不另占列，常见 ZWJ 序列、肤色、旗帜和带变体选择符的 emoji 按一个两列字形估算。终端版本、字体和未合成序列可能显示不同宽度；传统控制台与其它终端的 emoji 对齐不作保证。隔离断言验证计算结果，实际渲染需在目标终端人工检查。
 
 ## 构建
 

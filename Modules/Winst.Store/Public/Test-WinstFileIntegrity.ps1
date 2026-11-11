@@ -48,9 +48,7 @@ function Test-WinstFileIntegrity {
     $result.ChecksumHashFrom = [string]$expected.HashFrom
     $result.ChecksumFingerprint = [string]$expected.Fingerprint
 
-    # 期望摘要认不出算法（如 re: 正则抓到其它长度的串）→ 只能按 sha256 比较
     $algorithm = Get-HashAlgorithmFromDigestLength -Length ([string]$expected.Hash).Length
-    if (-not $algorithm) { $algorithm = 'SHA256' }
     $result.Algorithm = $algorithm
 
     $actual = ''

@@ -13,7 +13,7 @@ function Invoke-WinstUpdateEntry {
 
     $ledger = Get-WinstInstalledApp -State $State -Id $Id
     if (-not $ledger) {
-        $skip = Write-WinstUpdateMissingEntry -Id $Id -RowById $RowById -Result $Result
+        $skip = Write-WinstUpdateMissingEntry -Id $Id -RowById $RowById -Result $Result -SourceName $SourceName
         return @{ Entries = @(); Installed = $false; DownloadOnlySkipped = [bool]$skip.DownloadOnly; RefreshState = $false }
     }
 

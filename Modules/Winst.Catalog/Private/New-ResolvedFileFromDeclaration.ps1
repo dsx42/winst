@@ -44,7 +44,12 @@ function New-ResolvedFileFromDeclaration {
     if ($HashFromOverride) { $hashFrom = $HashFromOverride }
     if ($hashFile -and -not $hashFrom) { $hashFrom = 'sha256sums' }
 
-    $hash = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $Item -Key 'hash') -Version $Version
+    $hash = (Expand-VersionPlaceholder -Text (Get-EntryString -Entry $Item -Key 'hash') -Version $Version).Trim()
+    foreach ($digest in @($hash, $HashOverride)) {
+        if ($digest -and ($digest -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $digest.Length))) {
+            throw '文件摘要必须是 32 / 40 / 64 / 128 位十六进制字符串'
+        }
+    }
     if ($HashOverride) { $hash = $HashOverride }
 
     # 附加文件可声明 extract（这个文件是压缩包，安装时解压到 dest 目录），

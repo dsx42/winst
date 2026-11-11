@@ -43,6 +43,8 @@ function Resolve-WinstUpdateTargets {
     if (-not $NoRefresh) {
         $refresh = Update-WinstStaleSources -Context $Context -Quiet:$Quiet -OnlyIds $targetIds
         $Result.RefreshErrors = @($refresh.Errors)
+        $Result.Network = [bool]$refresh.Network
+        $Result.RefreshFailed = [int]$refresh.Failed
         Write-WinstRefreshErrors -Errors $refresh.Errors
     }
 

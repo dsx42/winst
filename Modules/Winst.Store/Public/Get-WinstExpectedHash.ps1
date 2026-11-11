@@ -34,6 +34,12 @@ function Get-WinstExpectedHash {
     if (-not $hash -and -not $hashFile) { return $result }
 
     if ($hash) {
+        if ($hash -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $hash.Length)) {
+            $result.Ok = $false
+            $result.Skipped = $false
+            $result.Error = '文件摘要必须是 32 / 40 / 64 / 128 位十六进制字符串'
+            return $result
+        }
         $result.Hash = $hash
         $result.Skipped = $false
         return $result
@@ -57,6 +63,12 @@ function Get-WinstExpectedHash {
         if ($cachedHash -and $cachedFingerprint -and
                 $cachedFingerprint -ieq $result.Fingerprint -and
                 $cachedHashFile -eq $hashFile -and $cachedHashFrom -ieq $hashFrom) {
+            if ($cachedHash -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $cachedHash.Length)) {
+                $result.Ok = $false
+                $result.Skipped = $false
+                $result.Error = '缓存中的期望摘要不是 32 / 40 / 64 / 128 位十六进制字符串'
+                return $result
+            }
             $result.Hash = $cachedHash
             $result.Skipped = $false
             return $result

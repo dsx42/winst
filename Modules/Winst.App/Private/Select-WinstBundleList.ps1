@@ -38,6 +38,10 @@ function Select-WinstBundleList {
         return @{ Ok = $false; Cancelled = $false; ListPath = $ListPath; Loaded = $null; SourceCacheIndex = $null }
     }
     if ($loaded.Warning) { Write-Host ('  提示: {0}' -f $loaded.Warning) -ForegroundColor DarkYellow }
+    if (@($loaded.BadLines).Count -gt 0) {
+        Write-Host ('  安装清单含无法解析的行，请先修正：{0}' -f (@($loaded.BadLines) -join '；')) -ForegroundColor Red
+        return @{ Ok = $false; Cancelled = $false; ListPath = $ListPath; Loaded = $null; SourceCacheIndex = $null }
+    }
     if (-not $loaded.Exists -or @($loaded.Items).Count -eq 0) {
         Write-Host ''
         Write-Host '  这份安装清单是空的。' -ForegroundColor Yellow

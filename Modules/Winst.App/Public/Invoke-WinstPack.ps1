@@ -8,7 +8,7 @@ function Invoke-WinstPack {
         步骤：
           ① 选清单后**先列出清单里的软件**（状态 / 软件源 / 依赖，与「查看清单」同一口径），
              再收集它们的安装包 + 两个引擎包（FluxDown-CLI / 7-Zip-CLI）；
-             缺包时先列出缺包清单并询问「是否现在联网下载补齐」，答否就跳过这些项继续制作；
+             缺包时询问是否联网补齐；仍缺包时须显式允许部分套件；
           ② 按 <dir>\apps\<id>\ 复制包文件，并生成只含相关条目的套件索引 <dir>\apps\winst.json：
              **版本相同才跳过**；U 盘里是旧版本时先清掉该软件的旧目录再整份复制；
           ③ 复制脚本本体、本地清单、软件源列表与各源清单缓存（apps\manifests\）；
@@ -24,7 +24,7 @@ function Invoke-WinstPack {
         [string]$TargetDir = '',
         # CLI `bundle pack --skip-missing`：缺包时**不联网补齐**，直接跳过这些软件
         [switch]$SkipMissing,
-        # CLI 调用：不询问（缺包按 SkipMissing 处理；确认步骤由调用方负责）
+        # CLI 调用：不询问；只有显式 SkipMissing 才允许部分套件。
         [switch]$NonInteractive
     )
 
@@ -62,7 +62,9 @@ function Invoke-WinstPack {
     $TargetDir = Resolve-WinstBundleTarget -Context $Context -TargetDir $TargetDir -ListPath $ListPath -Items $loaded.Items
     $result.TargetDir = $TargetDir
 
-    $plan = @(Get-WinstPackItemList -Context $Context -Lookup $lookup -Items $loaded.Items)
+    if (-not $TargetDir) { $result.Cancelled = $true; return $result }
+    $requirements = Get-WinstPackItemList -Context $Context -Lookup $lookup -Items $loaded.Items
+    $plan = @($requirements.Plan)
     Write-WinstBundleRequirement -Items $loaded.Items -Plan $plan -TargetDir $TargetDir
 
     # —— ⑤ 缺包检查（只查本地缓存，不联网） ——
@@ -71,13 +73,28 @@ function Invoke-WinstPack {
     $needDownload = @($missing.NeedDownload)
     $noSource = @($missing.NoSource)
     $result.Downloaded = [int]$missing.Downloaded
-    if ([int]$missing.Downloaded -gt 0) {
+    if ($missing.Attempted) {
         # 重新读取目录、索引和列表条目，不能继续引用下载前的缓存快照。
         $loaded = Get-WinstListItems -Context $Context -Path $ListPath
         if (-not $loaded.Ok) { $result.Error = [string]$loaded.Error; return $result }
         $lookup = $loaded.Lookup
         $sourceCacheIndex = $lookup['CacheIndex']
-        $plan = @(Get-WinstPackItemList -Context $Context -Lookup $lookup -Items $loaded.Items)
+        $requirements = Get-WinstPackItemList -Context $Context -Lookup $lookup -Items $loaded.Items
+        $plan = @($requirements.Plan)
+        $missing = Resolve-WinstBundleMissingPackages -Context $Context -Plan $plan -Lookup $lookup -Offline -DryRun -SkipMissing -NonInteractive
+        $needDownload = @($missing.NeedDownload)
+        $noSource = @($missing.NoSource)
+    }
+
+    $missingCount = $needDownload.Count + $noSource.Count + @($requirements.Errors).Count
+    $result.Missing = $missingCount
+    foreach ($errorText in @($requirements.Errors)) { Write-Host ('  依赖不完整: {0}' -f $errorText) -ForegroundColor DarkYellow }
+    if ($missingCount -gt 0 -and -not $SkipMissing) {
+        if ($NonInteractive -or $dryRun -or (Test-WinstInputRedirected) -or
+            -not (Read-WinstConfirm -Prompt '  缺包或依赖不完整，仍制作部分套件？(y/N)' -Default 'n')) {
+            $result.Error = '套件不完整；请补齐缺包和依赖，或显式指定 --skip-missing 制作部分套件。'
+            return $result
+        }
     }
 
     # —— ⑥ 制作计划确认 ——
@@ -105,7 +122,6 @@ function Invoke-WinstPack {
     }
 
     # —— ⑨ 汇总 ——
-    $missingCount = $needDownload.Count + $noSource.Count
     if (@($packages.Errors).Count -gt 0) {
         $result.Error = ('部分安装包复制失败：{0}' -f (@($packages.Errors) -join '；'))
         Write-Host ('  制作U盘安装包失败: {0}' -f $result.Error) -ForegroundColor Red

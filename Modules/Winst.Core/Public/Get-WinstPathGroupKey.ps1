@@ -6,8 +6,8 @@ function Get-WinstPathGroupKey {
         把「命中文件的路径」归一成「同一个产品」的比较键（抹掉路径里的版本目录）。
     .DESCRIPTION
         文件类检测靠路径区分版本：同一个产品的两个版本装在按版本命名的子目录里，
-        `C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\10.0.13` 与
-        `...\10.0.14` 只差版本目录。抹掉版本目录后两者相等，说明是同一产品的新旧两版；
+        `C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\10.0.13\coreclr.dll` 与
+        `...\10.0.14\coreclr.dll` 只差版本目录。抹掉版本目录后两者相等，说明是同一产品的新旧两版；
         而 `Microsoft.NETCore.App\10.0.14` 抹完是另一个键——它确实是另一个产品。
 
         只抹「整段就是版本号」的路径段（`10.0.13` / `1.8.0_504`），不动 `Microsoft.WindowsDesktop.App`
@@ -22,11 +22,12 @@ function Get-WinstPathGroupKey {
 
     $segments = @($text -split '[\\/]')
     $kept = @()
-    foreach ($segment in $segments) {
+    for ($i = 0; $i -lt $segments.Count; $i++) {
+        $segment = $segments[$i]
         if (-not $segment) { continue }
         # 整段是「可选 v + 纯数字段」（`10.0.13`、`v1.2.3`、`1.8.0.504`）：版本目录，抹掉。
         # 段里出现字母的（`1.8.0_504-b01`）不匹配，按普通目录保留。
-        if ($segment -match '^[vV]?\d+(?:[._-]\d+)+$') { continue }
+        if ($i -lt $segments.Count - 1 -and $segment -match '^[vV]?\d+(?:[._-]\d+)+$') { continue }
         $kept += $segment
     }
 

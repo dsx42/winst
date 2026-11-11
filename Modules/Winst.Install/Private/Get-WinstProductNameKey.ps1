@@ -20,7 +20,7 @@ function Get-WinstProductNameKey {
 
     $text = ([string]$DisplayName).Trim()
     if (-not $text) { return '' }
-    $text = [regex]::Replace($text, '\d+(?:\.\d+)+', '#')
+    $text = [regex]::Replace($text, '\d+(?:\.\d+)+(?:_\d+)?', '#')
     # `Runtime - 10.0.13` 与 `Runtime 10.0.13` 只差分隔符，归一成同一种写法
     $text = [regex]::Replace($text, '\s*-\s*#', ' #')
     $text = [regex]::Replace($text, '\s+', ' ')

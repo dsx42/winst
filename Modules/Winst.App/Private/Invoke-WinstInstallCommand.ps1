@@ -121,17 +121,18 @@ function Invoke-WinstInstallCommand {
             return 1
         }
 
-        # --from 走的是自安装路径，除 --force 外的安装类开关都不适用。
-        # 明说一句，避免使用者以为 --keep 之类已经生效。
+        # 本地自安装只接受适用的安装参数。
         $ignored = @()
         if ($overwrite) { $ignored += '--overwrite' }
         if (@($keep).Count -gt 0) { $ignored += '--keep' }
         if ($filesOnly) { $ignored += '--files-only' }
         if ($forceSystemItems) { $ignored += '--system-items' }
         if ($sourceName) { $ignored += '--source' }
+        if ($kill) { $ignored += '--kill' }
         if ($ignored.Count -gt 0) {
             Write-Host ''
-            Write-Host ('  提示: 本地自安装不适用 {0}，已忽略。' -f ($ignored -join ' / ')) -ForegroundColor DarkYellow
+            Write-Host ('  本地自安装不适用 {0}。' -f ($ignored -join ' / ')) -ForegroundColor Yellow
+            return 1
         }
 
         Write-Section ('{0} {1}' -f $commandName, 'winst')
@@ -168,13 +169,16 @@ function Invoke-WinstInstallCommand {
         return 1
     }
 
-    $null = Update-WinstDisplaySources -Context $Context -Ids $ids -Quiet
+    $state = Read-WinstCommandState -Context $Context
+    $refresh = Update-WinstDisplaySources -Context $Context -Ids $ids -Quiet
+    Write-WinstRefreshErrors -Errors $refresh.Errors
 
     $okCount = 0
     $downloadOkCount = 0   # 仅下载类型：软件包下载成功（不写台账，汇总里单列）
     $skipCount = 0
     $failCount = 0
-    $networkFailed = $false
+    $networkFailed = [bool]$refresh.Network
+    $executionFailed = $false
     $parameterFailed = $false
     # 失败 / 跳过的原因：汇总只报条数，逐条原因在这里收好，结尾统一列出
     $failureNotes = @()
@@ -184,9 +188,6 @@ function Invoke-WinstInstallCommand {
     # 也避免 N 个 id 各留一份全量缓存常驻。
     # 用 Ordinal（区分大小写）字典，与 id 精确匹配语义一致。
     $rowById = Get-WinstCatalogRowMap -Context $Context
-
-    # 台账读一次：循环里只做 Get-WinstInstalledApp 查表，避免每个 id 重解析 state.json
-    $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
 
     foreach ($id in $ids) {
         Write-Section ('{0} {1}' -f $commandName, $id)
@@ -207,7 +208,7 @@ function Invoke-WinstInstallCommand {
         if (-not $ledger) {
             # 循环里可能刚装过（如前面某个 id 的依赖就是它）：缓存台账里查不到时重读一次，
             # 否则会漏掉「本机已装」而按默认来源排序、把已装软件当成首次安装来提示
-            $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
+            $state = Read-WinstCommandState -Context $Context
             $ledger = Get-WinstInstalledApp -State $state -Id $id
         }
         if ($ledger) { $installedVersion = Get-EntryString -Entry $ledger -Key 'version' }
@@ -226,6 +227,7 @@ function Invoke-WinstInstallCommand {
             -FilesOnly:$filesOnly -ForceSystemItems:$forceSystemItems
         if ($one.Cancelled) { $skipCount++; continue }
         if (-not $one.Ok) {
+            $executionFailed = $true
             if ($one.Network) { $networkFailed = $true }
             $failCount++
             # 原因已由 Invoke-WinstInstallTarget 就地打印时不再重复，避免同一屏出现两遍
@@ -243,7 +245,7 @@ function Invoke-WinstInstallCommand {
             continue
         }
         $okCount++
-        if ((Get-WinstRowType -Row $targetRow) -eq 'download') { $downloadOkCount++ }
+        if ((Get-WinstRowType -Row $targetRow -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $downloadOkCount++ }
     }
 
     Write-Host ''
@@ -258,11 +260,8 @@ function Invoke-WinstInstallCommand {
         Write-Host ('    跳过原因: {0}' -f $note) -ForegroundColor DarkYellow
     }
 
-    if ($failCount -gt 0) {
-        if ($networkFailed) { return 2 }
-        if ($okCount -gt 0) { return 3 }
-        if ($parameterFailed) { return 1 }
-        return 3
-    }
+    if ($networkFailed) { return 2 }
+    if ($executionFailed) { return 3 }
+    if ($parameterFailed -or [int]$refresh.Failed -gt 0) { return 1 }
     return 0
 }

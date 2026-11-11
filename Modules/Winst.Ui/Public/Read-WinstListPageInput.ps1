@@ -40,8 +40,9 @@ function Read-WinstListPageInput {
         }
         if ($Filter -and $text -ieq 'f') { return @{ Action = 'filter'; Indexes = @(); Filter = '' } }
 
-        $selection = @(Read-WinstSelectionFrom -Text $text -Count $Count)
-        if ($selection.Count -gt 0) {
+        $resolved = Resolve-WinstSelectionText -Text $text -Count $Count
+        $selection = @($resolved.Numbers)
+        if ($resolved.Ok) {
             if ($selection.Count -gt 1 -and -not $AllowMultiple) {
                 Write-Host '  这里只能选一个编号，请重新输入。' -ForegroundColor Yellow
                 continue
@@ -50,9 +51,9 @@ function Read-WinstListPageInput {
             foreach ($n in $selection) { $indexes += ([int]$n - 1) }
             return @{ Action = 'select'; Indexes = @($indexes); Filter = $Filter }
         }
-        # 纯数字但越界 → 提示编号范围；其它内容 → 当作关键字过滤
-        if ($text -match '^\d+$') {
-            Write-Host ('  没有这个编号（可选 1 - {0}），请重新输入。' -f $Count) -ForegroundColor Yellow
+        # 越界编号不能作为过滤词；含文本的输入保留过滤语义。
+        if ($resolved.OutOfRange) {
+            Write-Host (Get-WinstSelectionErrorText -Resolved $resolved -Count $Count) -ForegroundColor Yellow
             continue
         }
         return @{ Action = 'filter'; Indexes = @(); Filter = $text }

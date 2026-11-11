@@ -30,7 +30,6 @@ function Test-WinstPathHasReparsePoint {
     foreach ($segment in ($relative -split '[\\/]')) {
         if (-not $segment) { continue }
         $current = Join-WinstPath $current $segment
-        if (-not (Test-Path -LiteralPath $current)) { break }
         if (Test-WinstReparsePoint -Path $current) { return $true }
     }
     return $false

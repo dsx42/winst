@@ -3,7 +3,7 @@
 function Get-WinstProcessSnapshot {
     <#
     .SYNOPSIS
-        取当前进程快照（进程号 / 名称 / 可执行文件路径）。
+        取当前进程快照（进程号 / 名称 / 可执行文件路径 / 创建时间）。
     .DESCRIPTION
         优先用 CIM（第三方程序以管理员运行时，Get-Process 读不到 Path），失败时退回 Get-Process。
         -Refresh 跳过缓存强制重新枚举：判断「进程是不是真的还在」必须用实时数据。
@@ -25,6 +25,7 @@ function Get-WinstProcessSnapshot {
                 Id   = [int]$p.ProcessId
                 Name = [string]$p.Name
                 Path = [string]$p.ExecutablePath
+                StartedAt = $p.CreationDate
             })
         }
         if ($list.Count -gt 0) {
@@ -39,7 +40,9 @@ function Get-WinstProcessSnapshot {
         foreach ($p in @(Get-Process -ErrorAction SilentlyContinue)) {
             $path = ''
             try { $path = [string]$p.Path } catch { $path = '' }
-            $list.Add([ordered]@{ Id = [int]$p.Id; Name = ([string]$p.ProcessName + '.exe'); Path = $path })
+            $startedAt = $null
+            try { $startedAt = $p.StartTime } catch { }
+            $list.Add([ordered]@{ Id = [int]$p.Id; Name = ([string]$p.ProcessName + '.exe'); Path = $path; StartedAt = $startedAt })
         }
     } catch { }
     $fallback = @($list.ToArray())

@@ -16,7 +16,7 @@ function Invoke-WinstUninstallApp {
         Confirm-WinstUninstallRunning / Invoke-WinstPreUninstallCommands / Invoke-WinstRemovePayload /
         Remove-WinstAppliedSystemItems 的说明。
     .OUTPUTS
-        @{ Ok; Cancelled; Removed; NeedRestart; Missing; Error; Message; Leftovers; Notes }
+        @{ Ok; Cancelled; Removed; NeedRestart; RestartInitiated; Missing; Error; Message; Leftovers; Notes }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -31,7 +31,7 @@ function Invoke-WinstUninstallApp {
     )
 
     $result = @{
-        Ok = $false; Cancelled = $false; Removed = $false; NeedRestart = $false; Missing = $false;
+        Ok = $false; Cancelled = $false; Removed = $false; NeedRestart = $false; RestartInitiated = $false; Missing = $false;
         Error = ''; Message = ''; Leftovers = @(); Notes = @()
     }
 

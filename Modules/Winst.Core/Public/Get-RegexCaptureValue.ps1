@@ -19,9 +19,9 @@ function Get-RegexCaptureValue {
 
     $m = $null
     try {
-        $m = [regex]::Match([string]$Text, $Pattern)
+        $m = [regex]::Match([string]$Text, $Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
     } catch {
-        throw ('正则表达式非法: {0}（{1}）' -f $Pattern, $_.Exception.Message)
+        throw ('正则提取失败或超时: {0}（{1}）' -f $Pattern, $_.Exception.Message)
     }
     if (-not $m.Success) { return $result }
 

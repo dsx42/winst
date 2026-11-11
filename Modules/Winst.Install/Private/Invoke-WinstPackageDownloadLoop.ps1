@@ -13,7 +13,8 @@ function Invoke-WinstPackageDownloadLoop {
     $downloaded = @()
     $downloadedNames = @()
     $downloadedAny = $false
-    $engineReady = $false
+    $isDownloadEngine = ($Id -ceq (Get-WinstDownloadEngineId))
+    $engineReady = $isDownloadEngine
     $fileSeq = -1
     foreach ($filePlan in @($Plans)) {
         $fileSeq++
@@ -94,7 +95,11 @@ function Invoke-WinstPackageDownloadLoop {
         }
         if (-not $Quiet) { Write-Host ('    正在下载 {0} …' -f $name) -ForegroundColor Gray }
         $beforeFiles = @(Get-ChildItem -LiteralPath $PkgDir -File -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
-        $dl = Invoke-WinstPackageDownload -Context $Context -Url $url -DestDir $PkgDir -FileName $name
+        if ($isDownloadEngine) {
+            $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $target
+        } else {
+            $dl = Invoke-WinstPackageDownload -Context $Context -Url $url -DestDir $PkgDir -FileName $name
+        }
         if (-not $dl.Ok) {
             # 带时效的地址过期后必然下载失败：
             # 重新解析该条目的来源、用新地址再试一次。只认「同一个文件」（名字与版本都要对得上），
@@ -110,7 +115,11 @@ function Invoke-WinstPackageDownloadLoop {
             }
             if ($retryUrl) {
                 if (-not $Quiet) { Write-Host '    下载地址可能已失效，已重新从软件源取回下载地址，正在重试 …' -ForegroundColor DarkYellow }
-                $retryDl = Invoke-WinstPackageDownload -Context $Context -Url $retryUrl -DestDir $PkgDir -FileName $name
+                if ($isDownloadEngine) {
+                    $retryDl = Save-WinstFileWithHttp -Context $Context -Uri $retryUrl -OutFile $target
+                } else {
+                    $retryDl = Invoke-WinstPackageDownload -Context $Context -Url $retryUrl -DestDir $PkgDir -FileName $name
+                }
                 if ($retryDl.Ok) {
                     $dl = $retryDl
                     $url = $retryUrl

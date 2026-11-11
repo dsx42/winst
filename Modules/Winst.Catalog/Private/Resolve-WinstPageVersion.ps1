@@ -19,7 +19,11 @@ function Resolve-WinstPageVersion {
         if (-not $found.Ok) {
             return @{ Error = ('下载页 {0} 上没有找到版本字段「{1}」；可能是页面结构变更，需要更新软件源' -f $PageUrl, $versionKey); Version = '' }
         }
-        return @{ Error = ''; Version = (Get-NormalizedVersionString -Value $found.Value) }
+        $version = Get-NormalizedVersionString -Value $found.Value
+        if (-not $version) {
+            return @{ Error = ('下载页 {0} 的版本字段「{1}」为空，无法确定版本' -f $PageUrl, $versionKey); Version = '' }
+        }
+        return @{ Error = ''; Version = $version }
     }
 
     if ($VersionFrom -eq 'package') {

@@ -28,19 +28,19 @@ function Confirm-WinstSingleInstance {
         OwnerPath      = ''
         OwnerStartedAt = ''
         LockPath       = ''
+        Busy           = $false
+        Error          = ''
     }
 
     if ($env:WINST_NO_LOCK -eq '1') { $result.Allowed = $true; $result.Skipped = $true; return $result }
     if (Test-WinstReadOnlyInvocation -Arguments $Arguments) { $result.Allowed = $true; $result.Skipped = $true; return $result }
 
-    # 锁本身出问题（磁盘只读、权限异常、句柄受限）时放行：
-    # 单进程校验是为了防止并发写坏数据，不能因为锁机制自己不可用就让 winst 完全起不来。
+    # 没取得锁就不能进入可能写入数据的业务逻辑。
     $lock = $null
     try {
         $lock = Enter-WinstInstanceLock
     } catch {
-        $result.Allowed = $true
-        $result.Skipped = $true
+        $result.Error = $_.Exception.Message
         return $result
     }
 
@@ -51,6 +51,8 @@ function Confirm-WinstSingleInstance {
     }
 
     $result.OwnerPid = [int]$lock['OwnerPid']
+    $result.Busy = Get-EntryBool -Entry $lock -Key 'Busy'
+    $result.Error = Get-EntryString -Entry $lock -Key 'Error'
     $result.OwnerPath = [string]$lock['OwnerPath']
     try {
         $owner = Read-WinstInstanceLockInfo -Path $result.LockPath

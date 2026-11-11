@@ -21,7 +21,8 @@ function Get-WinstRewrittenVersion {
         $replacement = ''
         $replaceValue = Get-EntryValue -Entry $rule -Key 'replace' -Default ''
         if ($null -ne $replaceValue) { $replacement = [string]$replaceValue }
-        try { $value = [regex]::Replace($value, $pattern, $replacement) } catch { }
+        try { $value = [regex]::Replace($value, $pattern, $replacement, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1)) }
+        catch { throw ('版本改写失败或超时（{0}）：{1}' -f $pattern, $_.Exception.Message) }
     }
     return $value
 }
