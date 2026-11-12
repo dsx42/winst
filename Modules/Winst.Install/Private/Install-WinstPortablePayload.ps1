@@ -3,7 +3,7 @@
 function Install-WinstPortablePayload {
     <#
     .SYNOPSIS
-        ② portable：确认引擎可用，完整解压成功后再按 portableMode / keep 清理旧目录并移入新文件。
+        ② portable：确认引擎可用，完整解压成功后再按 portableMode / keep 清理旧目录并复制新文件。
     .OUTPUTS
         @{ Ok; Error; PostInstallCopyApplied }
     #>
@@ -35,18 +35,19 @@ function Install-WinstPortablePayload {
     }
 
     $stage = ''
-    $parent = ''
+    $tempPath = [IO.Path]::GetTempPath()
     try {
         $target = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\', '/')
         if (-not (Test-WinstPathUnderRoot -Path $target -Root $Context.InstallRoot)) {
             throw '绿色软件安装目录必须位于安装根目录之下'
         }
-        $parent = [IO.Path]::GetDirectoryName($target)
 
         $stripTopDir = Get-EntryValue -Entry $Install -Key 'stripTopDir' -Default $true
         $extractFiles = @(Get-EntryArray -Entry $Install -Key 'extractFiles')
-        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target -StripTopDir $stripTopDir -ExtractFiles $extractFiles
-        if (-not $layout.Ok -and $isExtractEngine -and (Get-EntryBool -Entry $layout -Key 'ExtractFailed')) {
+        $existing = ''
+        if ($isExtractEngine) { $existing = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
+        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target -StripTopDir $stripTopDir -ExtractFiles $extractFiles -SevenZipPath $existing
+        if (-not $layout.Ok -and $isExtractEngine -and -not $existing -and (Get-EntryBool -Entry $layout -Key 'ExtractFailed')) {
             $directError = [string]$layout.Error
             $layout = Initialize-WinstSevenZipFromSystem -Context $Context -Plan $Plan -ArchivePath $PrimaryPath -InstallDir $target -Quiet:$Quiet
             if (-not $layout.Ok) { $layout.Error = $directError + '；' + $layout.Error }
@@ -64,8 +65,8 @@ function Install-WinstPortablePayload {
     } catch {
         return @{ Ok = $false; Error = ('准备安装目录失败：' + $_.Exception.Message) }
     } finally {
-        if ($stage -and (Test-WinstPathUnderRoot -Path $stage -Root $parent) -and (Test-Path -LiteralPath $stage -PathType Container)) {
-            Clear-WinstInstallDir -Dir $stage -AllowedRoot $parent
+        if ($stage -and (Test-WinstPathUnderRoot -Path $stage -Root $tempPath) -and (Test-Path -LiteralPath $stage -PathType Container)) {
+            Clear-WinstInstallDir -Dir $stage -AllowedRoot $tempPath
         }
     }
 }

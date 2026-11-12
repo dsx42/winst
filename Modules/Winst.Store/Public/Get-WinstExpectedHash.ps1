@@ -41,6 +41,7 @@ function Get-WinstExpectedHash {
             return $result
         }
         $result.Hash = $hash
+        $result.Label = Get-HashAlgorithmFromDigestLength -Length $hash.Length
         $result.Skipped = $false
         return $result
     }

@@ -53,6 +53,7 @@ function Update-WinstStaleSources {
     $resolveIdsBySource = @{}
     foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = [string]$source['name']
+        try {
         $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name
 
         # 本进程内已经确认「解析成功但写不进盘」的源：不要再来一遍。
@@ -142,6 +143,10 @@ function Update-WinstStaleSources {
                 $staleSources += $source
                 $resolveIdsBySource[$name] = @()
             }
+        }
+        } catch {
+            $result.Failed++
+            $result.Errors += ('{0}: {1}' -f $name, $_.Exception.Message)
         }
     }
     if ($staleSources.Count -eq 0) { return $result }

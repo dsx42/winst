@@ -20,7 +20,7 @@ function Invoke-ManifestCommand {
         Write-Host '  用法: winst manifest <add|list|update|remove>' -ForegroundColor Yellow
         Write-Host '    manifest add <仓库|地址>          添加 GitHub 仓库软件源（名称自动取 用户名/仓库）' -ForegroundColor Gray
         Write-Host '    manifest list                    列出全部软件源（含本地清单）' -ForegroundColor Gray
-        Write-Host '    manifest update [<名称>|--all]    刷新软件源（本地清单也走同样流程）' -ForegroundColor Gray
+        Write-Host '    manifest update [<名称>...] [--all]    刷新软件源（本地清单也走同样流程）' -ForegroundColor Gray
         Write-Host '    manifest remove <名称>            删除软件源' -ForegroundColor Gray
         Write-Host '  示例: winst manifest add owner/repo' -ForegroundColor DarkGray
         Write-Host '        winst manifest add https://github.com/owner/repo' -ForegroundColor DarkGray
@@ -80,12 +80,8 @@ function Invoke-ManifestCommand {
             Write-Host '  用法: winst manifest remove <name>' -ForegroundColor Yellow
             return 1
         }
-        if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) {
-            Write-Host ''
-            Write-Host ('  （预览）将删除软件源 "{0}"' -f $positional[0]) -ForegroundColor Cyan
-            return 0
-        }
-        $result = Remove-RemoteManifest -Context $Context -Name $positional[0]
+        $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
+        $result = Remove-RemoteManifest -Context $Context -Name $positional[0] -DryRun:$dryRun
         Write-Host ''
         if ($result.Success) {
             Write-Host ('  {0}' -f $result.Message) -ForegroundColor Green

@@ -24,6 +24,7 @@ function Write-WinstUpdateCheckEntry {
         # 版本相同、但配套文件有变化 → 单列一档「附加文件有更新」：
         # 不算版本升级、不计入「可更新到 x.y」，但要让用户看见并能选择只更新这些文件
         $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row
+        if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
         if ($companionInfo -and $companionInfo.CompanionsOnly) {
             $Result.Updatable++
             $EntryResult.Action = 'files'

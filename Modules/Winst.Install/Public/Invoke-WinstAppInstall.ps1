@@ -261,19 +261,25 @@ function Invoke-WinstAppInstall {
             $result.Ok = $true
             $result.InstallDir = $installDir
             $result.Message = ('{0} {1}：主包无变化；已更新 {2} 个附加文件（{3}）{4}' -f $displayName, $detected, $updatedNames.Count, ($updatedNames -join '、'), $removedNote)
+            if ($method -eq 'installer') {
+                $result.Message = ('{0} {1}：主包无变化；已刷新缓存的配套文件 {2} 个（{3}）' -f $displayName, $detected, $downloadedNames.Count, ($downloadedNames -join '、'))
+            }
             return $result
         }
 
         # —— ③ 复制 / 改名 ④ 环境变量 / PATH / 快捷方式 ⑤ 安装后命令 ——
         $system = Invoke-WinstApplySystemItems -Context $Context -Plan $Plan -InstallDir $installDir `
             -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -Ledger $ledger -Quiet:$Quiet -SkipCopy:$postInstallCopyApplied
+        $final = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `
+            -Version $version -Ledger $ledger -Quiet:$Quiet
+        $finalVersion = [string]$final.Version
         if ($system.Error) {
             # 系统项在 postInstall 之前就已落地：这里直接返回会让台账里没有这些登记，
             # 卸载时回收不到（环境变量 / PATH / 快捷方式成为孤儿）。先把已落地的项写进台账再报错。
             try {
                 Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
-                    -InstallDir $installDir -Version $version -SourceName $SourceName `
-                    -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions -OldVersions @()
+                    -InstallDir $installDir -Version $finalVersion -SourceName $SourceName `
+                    -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions -OldVersions @($final.OldVersions)
             } catch {
                 $result.Error = ('{0}（且写入安装台账失败：{1}）' -f [string]$system.Error, $_.Exception.Message)
                 return $result
@@ -281,11 +287,6 @@ function Invoke-WinstAppInstall {
             $result.Error = [string]$system.Error
             return $result
         }
-
-        # —— ⑥ 版本检测 ——
-        $final = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `
-            -Version $version -Ledger $ledger -Quiet:$Quiet
-        $finalVersion = [string]$final.Version
 
         # —— ⑦ 写台账 ——
         try {

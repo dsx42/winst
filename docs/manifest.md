@@ -138,7 +138,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 }
 ```
 
-清单也兼容顶层数组 `[ {...} ]`、顶层单条目对象（含 `id`）。远程正文在更新缓存前校验根结构与条目对象，`apps` 必须是数组，数组内每项必须含 `id`；空数组及 `{"apps":[]}` 表示空清单。错误对象、标量及其它结构明确报错，保留既有正文缓存与解析锁。
+清单也兼容顶层数组 `[ {...} ]`、顶层单条目对象（含 `id`）。本地与远程正文均校验根结构与条目对象，`apps` 必须是数组，数组内每项必须含 `id`；空数组及 `{"apps":[]}` 表示空清单。错误对象、标量及其它结构明确报错，保留既有正文缓存与解析锁。
 
 - **纯 JSON**：清单文件与本文 JSON 示例均不写注释
 - **编码**：UTF-8（带不带 BOM 均可）；其它编码会导致解析失败并明确报错
@@ -150,7 +150,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 推荐把来源版本规则集中写为 `source.version`，每个下载文件的摘要规则集中写为 `source.files[].checksum`，卸载参数写为 `uninstall.args`。这些对象是作者配置，解析锁、安装台账中的内部字段不能直接复制到清单。
 
 - 条目及 `source`、`source.version`、`files[]`、`checksum`、`follow`、页面条件、`detect`、`shortcuts`、`uninstall`、复制规则、命令对象中的未知字段会报「不支持字段」，不会静默忽略拼写错误。`env` 的环境变量名与 `match` 的接口字段名由作者指定。
-- 声明为字符串的字段不能用数字、对象或 JSON `null` 代替。`version.key` 在 XML 中额外接受非空字符串数组；`version.between` 使用至多两个字符串组成的数组，空数组按未配置处理。
+- 声明为字符串的字段不能用数字、对象或 JSON `null` 代替。`version.key` 在 XML 中额外接受非空字符串数组；`version.between` 使用至多两个字符串组成的数组，空数组仅在允许该字段的来源和取版方式中按未配置处理；不适用位置仍报错。
 - 布尔字段推荐使用 JSON `true` / `false`；兼容 `"true"` / `"false"` / `"1"` / `"0"` / `"yes"` / `"no"` / `"on"` / `"off"` 及数字 `1` / `0`，不区分大小写；无法识别的值报错。`stripTopDir` 和 `addToPath` 另有下文说明的路径写法。
 - 已声明的 `postInstallCopy` 必须有非空 `from` 与 `to`；`postInstall` / `uninstall.commands` 的每项必须有非空 `exe`。省略整个功能或写空数组表示不用它，填写不完整的规则会报出字段路径与下标。
 - `source.version` 与任一分散的来源版本字段或根级 `version` 不能混写；同一文件的 `checksum` 与旧 `hash*` 字段不能混写；`uninstall.args` 与根级 `uninstallArgs` 不能混写。字段对应关系见「兼容字段对照」。
@@ -197,8 +197,8 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `source` | 必填 | 下载来源定义，见「下载来源」 |
 | `stripTopDir` | `true` | `portable` 的主包解压规则，或 `installer` 声明 `installerExe` 时的外层包解压规则。`true` 剥掉唯一顶层目录；`false` 原样解压；字符串 = 只取包内该路径（目录取内容、文件取自身；该文件本身是压缩包则再解压一层）；路径不存在即报错 |
 | `extractFiles` | `[]` | 仅 `portable`：只取包内这几个路径；声明后不再看 `stripTopDir`；任一不存在即报错 |
-| `portableMode` | `clean` | 仅 `portable`：确认解压引擎可用后，在安装目录同级的临时目录完成解压和布局选择；`clean` 将旧目录改名为同级备份，按 `keep` 保留内容后移入新文件，校验新文件摘要成功才清理备份，失败恢复旧树；恢复失败时保留备份并给出路径。`overwrite` 不清理旧目录，直接合并覆盖，不提供回滚。引擎不可用或解压失败时保留旧目录。省略或空字符串按 `clean`；其它非空值必须是 `clean` / `overwrite`，写错报「不支持的 portableMode」 |
-| `keep` | `[]` | 仅 `portable` 的 `clean` 模式：相对安装目录的保留路径通配；支持 `*`（单层）/ `**`（跨层）/ `?`，不写分隔符时按文件名匹配（任意层都保留）；`overwrite` 模式不使用 |
+| `portableMode` | `clean` | 仅 `portable`：确认解压引擎可用后，在 Temp 下的随机暂存目录完成解压、布局选择、非空及路径安全检查；`clean` 在原安装位置按 `keep` 清理，清理成功后复制新文件，不改旧目录名、不备份、不回滚，不计算暂存或落位文件摘要。`overwrite` 不清理旧目录，直接复制并合并覆盖，也不回滚。引擎不可用或暂存检查失败时保留旧目录；清理失败不开始复制，清理或复制失败可能留下不完整目录并明确报错。省略或空字符串按 `clean`；其它非空值必须是 `clean` / `overwrite`，写错报「不支持的 portableMode」 |
+| `keep` | `[]` | 仅 `portable` 的 `clean` 模式：相对安装目录的保留路径通配；支持 `*`（单层）/ `**`（跨层）/ `?`，不写分隔符时按文件名匹配（任意层都保留）；新包中的同名文件仍会覆盖保留内容；`overwrite` 模式不使用 |
 | `mainExe` | 空 | 仅 `portable`：主程序相对路径（快捷方式目标、进程检测、`cliVersion` 入口）；`file` 的主程序自动取主包落位文件 |
 | `addToPath` | `[]` | `portable` / `file` 加入 PATH 的路径；布尔 `true` 或字符串 `"true"` 表示安装目录本身；字符串 `"false"` / `"0"` / `"no"` / `"off"` 会被忽略 |
 | `env` | `{}` | `portable` / `file` 的环境变量；必须为对象，值必须为字符串；`{installDir}` 展开为实际安装目录，`%VAR%` 原样写入；作用域按安装目录自动判定（`%USERPROFILE%` 下 → User，否则 Machine） |
@@ -240,6 +240,8 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 4. 路径不可见且未命中 `processes` 时，只有进程名与主程序相同才会作为候选，且不属于可自动结束的一组。
 5. 安装 / 更新 `installer` 时，交互提示提供「直接安装」：保留运行中的进程并继续执行安装器，由安装器处理占用；只按名字命中、无法确认归属的进程也允许这样继续。卸载以及 `portable` / `file` 的安装 / 更新没有这个选项；`--yes`、`--kill` 和输入重定向不会自动选择它。
 6. 未选择「直接安装」时，结束进程或用户回答之后都重新检测，判定只看重新检测的结果：进程已经不在了就直接继续。「不能自动结束」的进程在重新检测仍命中时中止；结束进程失败在 `--kill` 下立即中止，交互模式下重新提示（最多 5 轮）。
+
+软件 id 禁止使用保留包目录名 `manifests`（含任意大小写变体），清单解析、缓存规划与删除入口均拒绝。
 
 ## 条目类型
 
@@ -706,11 +708,11 @@ JSON 取值可为单个版本，也可为版本数组。候选先按 `version.fi
 
 `files[].file` 中的版本占位符只适用于已取得版本的 github 源；page / json 在识别主包版本前就需要匹配文件，因此主包 `file` 应使用固定文字和通配符。正则规则中的版本值按字面量转义，`{versionMajor}` / `{versionMinor}` 与 `{version}` 遵循相同规则。
 
-使用版本占位符时必须已取得相应版本；版本未知时报错，不替换为空串。`direct` 即使跳过存在性探测，各文件展开后的 URL 也必须是绝对 HTTP(S) 地址。文件名去首尾空白后用于重复检查与缓存落盘，大小写不同的同名文件也算重复。`{urlQuery:参数名}` 按参数名精确区分大小写，同名参数重复时取首值；替换值作为字面文本插入，不再解释其内部占位符。
+使用版本占位符时必须已取得相应版本；版本未知时报错，不替换为空串。`direct` 即使跳过存在性探测，各文件展开后的 URL 也必须是绝对 HTTP(S) 地址。文件名去首尾空白后用于重复检查与缓存落盘，大小写不同的同名文件也算重复。`{urlQuery:参数名}` 按参数名精确区分大小写，同名参数重复时取首值；保留值的百分号编码（如 `%26`、`%2B`、`%25`），不解码为 URL 结构字符，也不二次编码；替换值作为字面文本插入，不再解释其内部占位符。
 
 `{installDir}` 与 `%VAR%` 的区别很重要：前者是 winst 自己的路径，后者是对其它环境变量的引用（如 `%JAVA_HOME%\bin`），在 `env` / `addToPath` 中保留下来才能在用户切换版本时自动跟随。
 
-`installArgs` 未写在双引号内的 `{installDir}` / `{installRoot}` 会自动按单个参数加引号。`postInstall` / `uninstall.commands` 的展开顺序是先展开 `%VAR%`，再替换 `{installDir}` / `{installRoot}`；版本占位符在来源解析阶段已经展开。
+`installArgs` 未写在双引号内的 `{installDir}` / `{installRoot}` 会自动按单个参数加引号；仅展开原模板的占位符，插入路径中的花括号按字面保留。`postInstall` / `uninstall.commands` 的展开顺序是先展开 `%VAR%`，再替换 `{installDir}` / `{installRoot}`；版本占位符在来源解析阶段已经展开。
 
 ### 版本标识器
 
@@ -722,7 +724,7 @@ JSON 取值可为单个版本，也可为版本数组。候选先按 `version.fi
 | `date` | `2026-09-07` / `2026.09.07` / `20260907` | |
 | `digits` | 2 位以上纯数字 | `20326` |
 
-来源的 `source.version.between`，以及检测与包内派生的 `versionBetween`，写成 `[ "前缀", "后缀" ]`；后缀可省略为 `[ "前缀" ]`，表示取到文本末尾。空数组按未配置处理；非空数组的前缀不能为空，数组不能多于两项；标记按字面量、区分大小写查找。它适合版本号夹在固定文本里的场合（`["Temurin-", " "]`）。
+来源的 `source.version.between`，以及检测与包内派生的 `versionBetween`，写成 `[ "前缀", "后缀" ]`；后缀可省略为 `[ "前缀" ]`，表示取到文本末尾。空数组仅在允许该字段的位置按未配置处理；非空数组的前缀不能为空，数组不能多于两项；标记按字面量、区分大小写查找。它适合版本号夹在固定文本里的场合（`["Temurin-", " "]`）。
 
 direct / page 的版本文本识别先按 `version.between` 截取，再按 `version.kind` 提取；两者都没写时不从任意文本猜版本，由该来源的其它有效规则提供版本；page 完全无版本规则时可保留未知版本。github 的 `file` / `releaseTitle` / `releaseBody` 及 detect 使用同一截取与识别组合。json / magnet 也使用先截取、再识别的同一顺序。`source.version.package` 两个识别字段都不写时才取第一个像版本号的字符串；detect 的无识别规则兜底见「版本检测」。
 
@@ -793,6 +795,8 @@ direct / page 的版本文本识别先按 `version.between` 截取，再按 `ver
 | `versionListUrl` / 文件级版本识别 | 不适用 | 仅 listing / page / json / xml 的 `url` 附件，可独立选择版本 |
 | `refresh` / `compare` / `maxAgeHours` | 控制本文件缓存复用 | 控制本文件缓存复用，不继承主包声明 |
 
+GitHub 需要检索发布列表（前缀筛选、元数据或旧发布回退）时只读取近期发布的前两页；未命中表示该检索范围内没有目标，不能据此断言仓库全部历史中不存在。按版本推断 tag 的候选请求不改变此检索范围。
+
 ### 不同来源怎样选记录
 
 | 来源 | 候选选择 | 找不到目标文件时 |
@@ -800,6 +804,8 @@ direct / page 的版本文本识别先按 `version.between` 截取，再按 `ver
 | listing | 过滤后按版本或文本从高到低选候选 | 在规定数量内探测较低版本，非 404 的首个候选可用 |
 | JSON | 简单扁平响应默认取第一个合适项；`version.sort` 选择唯一最高父发布；非空文件 `itemsKey` 要求唯一父发布与唯一子文件 | 选定最高父发布后缺文件即报错，不尝试低版本 |
 | XML | `itemsKey` + `match` 或 XPath 必须选出唯一父记录；文件记录也必须唯一 | 无匹配或多匹配均报错，不按顺序取首个，不自动挑最高版本 |
+
+page 的架构筛选应把架构词限定到文件名，避免被目录中的 `x64` 命中而选到另一架构文件。
 
 JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` 按去首尾空白后的区分大小写完整文本比较。两者都不使用通用匹配规则；需要按下载文件名通配筛选 JSON 主包时使用 `file`。
 
@@ -810,14 +816,14 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `url` | — | 下载地址或地址模板 |
-| `file` | — | 文件名匹配规则，见[通用匹配规则](#通用匹配规则) |
+| `file` | — | 文件名匹配规则，见[通用匹配规则](#通用匹配规则)；page 同时匹配完整 URL 和文件名 |
 | `urlKey` | — | `json` 主包或 `xml` 文件：存放下载地址的字段路径；XML 相对于本项选中的文件记录，结果必须唯一非空；与 `urlXPath` 互斥 |
 | `urlXPath` | 空 = 未配置 | 仅 `xml`：相对于本项文件记录读取下载地址的 XPath，与 `urlKey` 互斥；主包必须选择其一，配套文件还可写 `url`；结果须唯一非空，相对地址必须配 `source.baseUrl`，详见「xml 源」 |
 | `itemsKey` | 父记录本身 | 字符串；`json` 仅主包可用，相对于父发布取子文件数组或对象；`xml` 主包和配套文件均可用，相对于父记录取子文件节点，再按本项 `match` 筛选；父记录与最终匹配文件均须唯一，详见对应来源 |
 | `dest` | 空 = 仅缓存，不落位 | 配套文件的相对落位路径（不能为绝对路径、`.` 或含 `..`）；普通文件填写目标文件名（如 `config.ini`），`extract: true` 时必须填写解压目标目录，否则安装时报错；主包上的 `dest` 忽略并提示 |
 | `extract` | `false` | 该文件是压缩包，安装时解压到 `dest`（仅配套文件） |
 | `stripTopDir` | `false` | `extract` 时该压缩包自己的剥壳设置 |
-| `name` | 空 = 从地址或来源推导 | 下载产物文件名（地址里带不出文件名时用；magnet 源也可覆盖 `dn`）；github 的 `file` 使用实际资产名。同一条目的全部下载产物必须使用不重复的文件名（Windows 不区分大小写），否则报「下载文件名重复」。下载引擎按单层文件名使用它：不能含 `\` / `/`、`.` / `..`、保留设备名或超过 100 字符，写错会报「下载文件名不合法」 |
+| `name` | 空 = 从地址或来源推导 | 下载产物文件名（地址里带不出文件名时用；magnet 源也可覆盖 `dn`）；github 的 `file` 使用实际资产名。同一条目的全部下载产物必须使用不重复的文件名（Windows 不区分大小写），否则报「下载文件名重复」。下载引擎按单层文件名使用它：不能含 `\` / `/`、`.` / `..`、保留设备名或超过 100 字符，规划时无法使用会报「下载信息不完整（文件名不合法或地址为空）」 |
 | `checksum.header` | 无；选用时须非空 | HTTP 来源可用，magnet 不支持。对最终下载地址发 HEAD，以指定响应头作为摘要；与其它摘要来源互斥，不能配校验文件格式。响应头必须是非空十六进制摘要，长度只接受 32（MD5）/ 40（SHA1）/ 64（SHA256）/ 128（SHA512）；请求失败、缺头或格式非法时条目解析失败。解析结果保存取得的摘要，下载后按该摘要校验；package 来源用此摘要与本地包实际摘要判断远端有无新包，本地缺包时无法比较。已存在包按摘要一致复用、不一致重取，不因地址变化强制重取 |
 | `checksum.value` | 无；选用时须非空 | 固定摘要。算法由长度推断：32 → MD5，40 → SHA1，64 → SHA256，128 → SHA512；长度必须为 32 / 40 / 64 / 128 且内容为十六进制；不能与其它摘要来源混写 |
 | `checksum.file` | 无；选用时须非空 | 外部校验文件的地址；与 `checksum.format` 搭配；`format` 需要校验文件来源；页面摘要使用独立的 `format: "page"` 写法 |
@@ -905,7 +911,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 |---|---|---|---|
 | `none`（默认，`installer` 除外） | 不检测 | — | 每次都按未安装处理 |
 | `registry` | 系统卸载记录（HKLM / HKCU 的 `Uninstall` 键） | `name` | `installer` 未声明 `detect` 时的默认值，`name` 自动生成为 `*<name>*` |
-| `fileVersion` | 文件的版本资源 | `pathGlob` | 取 `FileVersion` / `ProductVersion`；字符串与数值体不一致时以数值体为准（除非字符串是它的数字前缀） |
+| `fileVersion` | 文件的版本资源 | `pathGlob` | 取 `FileVersion` / `ProductVersion`；无有效字符串且数值体全零时视为没有版本资源，明确声明的零版本仍有效；字符串与数值体不一致时以数值体为准（除非字符串是它的数字前缀） |
 | `markerFile` | 标记文件的内容 | `pathGlob` | 文件内容常就是版本号本身 |
 | `jsonFile` | JSON 文件里的字段 | `pathGlob`、`jsonKey` | 从 `pathGlob` 命中的文件里取 `jsonKey` 字段 |
 | `appx` | 系统应用包记录 | `name` | 按包名规则匹配；检测使用单条字符串规则，卸载规则才可为数组 |
@@ -919,10 +925,10 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 |---|---|---|---|
 | `method` | 见条目字段表 | `none` / `registry` / `fileVersion` / `markerFile` / `jsonFile` / `appx` / `cliVersion` | 全部 |
 | `name` | `registry` 未写时按 `*<name>*` 推导；`appx` 无默认 | `registry` 比 `DisplayName`，`appx` 比包名；写法见[通用匹配规则](#通用匹配规则)；`appx` 检测只接受单条字符串规则 | `registry` / `appx` 读版本；其它 installer 检测方式可用于系统身份定位 |
-| `pathGlob` | `fileVersion` 缺省时取安装后的主程序；其它方式无默认 | 文件定位通配（支持 `{installDir}` / `{installRoot}`）；`file` 使用主包落位名，匹配的 `postInstallCopy` 移动规则改名后使用完整目标相对路径；无主程序可推导时报错。命中多个时逐个读取、取版本最高的那个（其余记为旧版本） | `fileVersion` / `markerFile` / `jsonFile` |
+| `pathGlob` | `fileVersion` 缺省时取安装后的主程序；其它方式无默认 | 文件定位通配（支持 `{installDir}` / `{installRoot}`）；相对路径以安装目录为根，不依赖当前工作目录，拒绝 `..` 越界；缺少安装目录时明确报错；`file` 使用主包落位名，匹配的 `postInstallCopy` 移动规则改名后使用完整目标相对路径；无主程序可推导时报错。命中多个时逐个读取、取版本最高的那个（其余记为旧版本） | `fileVersion` / `markerFile` / `jsonFile` |
 | `jsonKey` | 空 | JSON 里的版本字段名（支持点分嵌套） | `jsonFile` |
 | `exe` | `mainExe` | 要运行的程序（相对安装目录或绝对路径） | `cliVersion` |
-| `versionArgs` | 空或未写时 = `-v` | 取版本时传给程序的参数（如 `--version`） | `cliVersion` |
+| `versionArgs` | 空或未写时 = `-v` | 取版本时传给程序的完整参数模板（如 `--version` 或 `--config "a b"`）；允许配对双引号，拒绝控制字符及未闭合双引号 | `cliVersion` |
 | `versionKind` | 空 | 从原始文本里识别版本的识别器 | 全部 |
 | `versionBetween` | `[]` | 用两个标记截取版本 | 全部 |
 | `versionRewrite` | 空 | 归一化检测结果 | 全部 |
@@ -930,6 +936,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 约束：
 
 - `detect.method` 大小写不敏感；非空值不在上表枚举中时，报「不支持的 detect.method」并使条目解析失败
+- `detect.exe` 的相对路径以安装目录为根并拒绝 `..` 越界；绝对路径保留显式指定能力。
 - `detect.exe` 只对 `cliVersion` 有效；`method` 是别的时写了会报错（要求改用 `pathGlob`）
 - `detect.name` 与 `detect.versionKind` 会在清单解析期编译校验，写错即条目解析失败
 - 未声明 `versionKind` / `versionBetween` 时，原始文本整体像单行版本号就原样采用；否则按 `semver` → `date` → `digits` 找第一个像版本号的内容。`markerFile` 即使声明了识别规则但未命中，也执行这个兜底；其它方式不兜底。
@@ -1087,10 +1094,10 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 | id | 用途 | 何时自动安装 |
 |---|---|---|
 | `winst` | winst 自身（`type: portable`，主程序 `winst.cmd`） | 安装任意其它软件前（`Confirm-WinstSelf`）；已装则检查并应用更新 |
-| `7-Zip-CLI` | 解压引擎，专用目录只落地 `7z.exe` + `7z.dll`；引导包解压失败时可从系统 7-Zip 取得 | 每次解压前（`Confirm-WinstExtractEngine`） |
+| `7-Zip-CLI` | 解压引擎，专用目录只落地 `7z.exe` + `7z.dll`；首次引导解压失败时借助系统 7-Zip 解包，缺失则以 `/S` 静默安装；更新时使用旧引擎解包 | 每次解压前（`Confirm-WinstExtractEngine`） |
 | `FluxDown-CLI` | 下载引擎（`fluxdown.exe`） | 每次下载前（`Confirm-WinstDownloadEngine`） |
 
-这些 id 的引导流程由 winst 内置识别，其它条目按普通软件处理。引擎使用独立目录；离线时缺失引擎不会自动安装。引导的执行顺序、版本核对、系统 7-Zip 安装与保留行为见 [下载与解压引擎](install-flows.md#下载与解压引擎)；自身安装见 [winst 自身的安装与更新](install-flows.md#winst-自身的安装与更新)。
+这些 id 的引导流程由 winst 内置识别，其它条目按普通软件处理。引擎使用独立目录；离线时缺失引擎不会自动安装。引导的执行顺序、包内文件选择、系统 7-Zip 安装与保留行为见 [下载与解压引擎](install-flows.md#下载与解压引擎)；自身安装见 [winst 自身的安装与更新](install-flows.md#winst-自身的安装与更新)。
 
 ## 兼容字段对照
 
@@ -1121,7 +1128,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 |---|---|
 | `source.version.from 不适用于…` | 该 kind 不支持这个取值，见「下载来源」表 |
 | `versionFrom: file 但没有写 versionKind / versionBetween` | github 的 `file` 必须给出识别方式 |
-| `写了 versionKind 但没声明 versionFrom: file` | github 默认用 tag 当版本，要取文件名里的版本必须显式声明 |
+| `source.versionKind 不适用于当前来源和版本读取方式` | github 默认用 tag 当版本，要取文件名里的版本必须显式声明 |
 | `source.link 与 source.click 只能写一个` | 两者互斥 |
 | `source.hashClick 要和 source.click 或 source.thenClick 搭配` | `checksum.click` 需要无头取址会话；不能单独写在只有 `link` / `thenLink` 的条目上 |
 | `source.hashClick 只配合 files[0].hashFrom: "page"` | 声明了 `checksum.click` 但主包没有 `checksum.format: "page"` |
@@ -1130,7 +1137,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 | `urlXPath 只用于 XML 源，且不能与 url / urlKey / file 同时配置` | `urlXPath` 是 xml 专属，且与同一文件的其它定位字段互斥 |
 | XML 的字段路径或 XPath 没有匹配或匹配多个节点 | 父记录与文件记录筛选结果必须唯一；取值字段也必须唯一，不自动挑选记录 |
 | `同一个文件不能同时填写 url 和 file` | `url` / `urlKey` / `file` 的互斥组合写错；json 主包允许 `urlKey` + `file` |
-| `source.packageVersion 只配合 versionFrom: "package"` | 派生规格必须与 package 版本来源搭配 |
+| `source.packageVersion 不适用于当前来源和版本读取方式` | 派生规格必须与 package 版本来源搭配 |
 | `source.version 不能与 source.versionFrom 同时填写` | 同一组的集中写法与分散写法混用；改为仅保留 `source.version` |
 | `必须且只能声明一种摘要来源` | 同一个 checksum 同时填写多个选择字段，或 format: page 又填写了其它来源 |
 | `不支持的 portableMode` | 只接受 clean / overwrite，不把拼写错误当默认清理模式 |

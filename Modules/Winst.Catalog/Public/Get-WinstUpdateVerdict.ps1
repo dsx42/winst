@@ -21,6 +21,20 @@ function Get-WinstUpdateVerdict {
 
     $freshChanged = '↑ 远端有新包（文件比较），建议重新下载'
     $freshUnknown = '↑ 无法判断远端是否有新包（文件比较未得出结论）'
+    if ($CurrentVersion -ieq 'unknown') { $CurrentVersion = '' }
+    if ($BestVersion -ieq 'unknown') { $BestVersion = '' }
+
+    if (-not $ForPackage -and -not $CurrentVersion) {
+        $usable = [bool]$BestVersion
+        if ($null -ne $Row) {
+            $usable = $false
+            foreach ($source in @(Get-EntryArray -Entry $Row -Key 'Sources')) {
+                if ((Get-EntryBool -Entry $source -Key 'Ok') -and (Get-EntryValue -Entry $source -Key 'Plan' -Default $null)) { $usable = $true; break }
+            }
+        }
+        if ($usable) { return @{ State = 'update'; Hint = '↑ 本机版本未知，可按软件源定义更新'; HasUpdate = $true } }
+        return @{ State = $MissingCurrentState; Hint = '本机版本未知'; HasUpdate = $false }
+    }
 
     if ($ForPackage) {
         # 安装包结论：三条新鲜度分支都要求「缓存里有版本」

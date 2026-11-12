@@ -14,7 +14,7 @@ function Exit-WinstInstanceLock {
     $stream = Get-WinstState -Name WinstInstanceLock
     if ($null -eq $stream) { return }
 
-    $path = Get-WinstInstanceLockPath
+    $path = $stream.Name
     try { $stream.Dispose() } catch { }
     $null = Set-WinstState -Name WinstInstanceLock -Value $null
 

@@ -8,6 +8,8 @@ function Get-WinstPageClickedUrl {
         @{ Ok; Error; Url; Html; PageHash }
     #>
     param($Context, $Source, [string]$PageUrl, $ClickSpec, $FileRule, $Item, $Result)
+    try { Assert-WinstHttpUrl -Url $PageUrl -Label 'source.pageUrl' }
+    catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = ''; PageHash = '' } }
 
     # ---- 点击取址：地址不写在页面里，点了按钮才由页面脚本生成 ----
     $clickSteps = @($ClickSpec)
@@ -47,5 +49,8 @@ function Get-WinstPageClickedUrl {
     if ($clickUrls.Count -gt 1) {
         $Result.Notes += ('点击后浏览器发起了 {0} 个下载，已取第一个' -f $clickUrls.Count)
     }
+    if ($clickUrls.Count -eq 0) { return @{ Ok = $false; Error = '点击后没有取得下载地址'; Url = ''; Html = $html; PageHash = $pageHash } }
+    try { Assert-WinstHttpUrl -Url ([string]$clickUrls[0]) }
+    catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = $html; PageHash = $pageHash } }
     return @{ Ok = $true; Error = ''; Url = [string]$clickUrls[0]; Html = $html; PageHash = $pageHash }
 }

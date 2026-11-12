@@ -44,9 +44,11 @@ function Get-WinstRepairCatalog {
     $canScan = $true
     if ($planLookup.Count -eq 0) {
         $canScan = $false
-        Write-Host ''
-        Write-Host '  没有可用的软件清单：跳过清单匹配与注册表扫描，安装目录下的文件夹仍会登记。' -ForegroundColor Yellow
-        Write-Host '  如需找回已装软件，请先刷新软件源，或把清单文件放到脚本同目录（本地清单）后重试。' -ForegroundColor DarkGray
+        if (-not $Quiet) {
+            Write-Host ''
+            Write-Host '  没有可用的软件清单：跳过清单匹配与注册表扫描，安装目录下的文件夹仍会登记。' -ForegroundColor Yellow
+            Write-Host '  如需找回已装软件，请先刷新软件源，或把清单文件放到脚本同目录（本地清单）后重试。' -ForegroundColor DarkGray
+        }
     }
 
     return @{ Plan = $planLookup; Source = $sourceLookup; CiId = $ciIdLookup; CanScan = $canScan }

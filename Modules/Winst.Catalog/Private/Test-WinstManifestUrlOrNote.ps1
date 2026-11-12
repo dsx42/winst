@@ -30,6 +30,8 @@ function Test-WinstManifestUrlOrNote {
         [Parameter(Mandatory = $true)]$MissingError
     )
 
+    try { Assert-WinstHttpUrl -Url $Url }
+    catch { return @{ Ok = $false; Error = $_.Exception.Message; Note = '' } }
     $check = Test-DownloadUrlForManifestCheck -Context $Context -Url $Url -Skip $Skip -Headers $Headers
     if ($check -eq 'missing') {
         # 允许传 scriptblock：只在真的 404 时才求值，用于「报错里还要附上额外信息」的来源

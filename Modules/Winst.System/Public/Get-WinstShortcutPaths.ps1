@@ -25,8 +25,10 @@ function Get-WinstShortcutPaths {
         try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
         if ($desktopDir) { $paths += (Join-WinstPath $desktopDir $fileName) }
     }
-    if ($startMenuOn -and $env:APPDATA) {
-        $paths += (Join-WinstPath $env:APPDATA ('Microsoft\Windows\Start Menu\Programs\' + $fileName))
+    if ($startMenuOn) {
+        $programsDir = [Environment]::GetFolderPath('Programs')
+        if (-not $programsDir) { throw '无法取得当前用户的开始菜单 Programs 目录' }
+        $paths += (Join-WinstPath $programsDir $fileName)
     }
     return @($paths)
 }

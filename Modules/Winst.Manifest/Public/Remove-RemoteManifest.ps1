@@ -9,14 +9,12 @@ function Remove-RemoteManifest {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Name
+        [string]$Name,
+        [switch]$DryRun
     )
 
     $result = @{ Success = $false; Message = '' }
     $sourceName = ConvertTo-WinstTrimmedInput -Value $Name
-
-    # 软件源变化后条目（含依赖关系）可能变化：置空依赖索引，下次使用时按新清单重建
-    $null = Set-WinstState -Name WinstDependencyIndex -Value ($null)
 
     if (-not $sourceName) { $result.Message = '请指定要删除的软件源名称'; return $result }
     if ($sourceName -ieq (Get-WinstOfficialManifestName)) {
@@ -36,6 +34,9 @@ function Remove-RemoteManifest {
         $newList += $source
     }
     if (-not $found) { $result.Message = ('软件源 "{0}" 不存在' -f $sourceName); return $result }
+    if ($DryRun) { $result.Success = $true; $result.Message = ('预览：将删除软件源 "{0}"' -f $sourceName); return $result }
+
+    $null = Set-WinstState -Name WinstDependencyIndex -Value ($null)
 
     try {
         Write-ManifestSources -PkgDir $Context.PkgDir -Sources $newList

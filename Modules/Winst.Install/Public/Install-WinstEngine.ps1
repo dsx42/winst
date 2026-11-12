@@ -8,8 +8,8 @@ function Install-WinstEngine {
     .DESCRIPTION
         引擎引导包与 winst 自身包是仅有的两处允许用 Invoke-WebRequest 下载的地方；
         引擎专用目录按 portable 管理；无法直接解压 7-Zip 引导包时可能安装完整的系统 7-Zip。
-        7-Zip 引导包优先直接解压；失败时查找同版本的系统安装，缺失则静默运行已下载的 EXE。
-        系统安装完成且实际文件版本匹配后，复制 7z.exe / 7z.dll 到暂存目录再交付。
+        7-Zip 引导包有旧引擎时直接用旧引擎解压；没有时先尝试 tar，再借助系统安装版解压。
+        找不到可用系统安装时用 /S 静默运行已下载的 EXE，安装结束后用系统 7-Zip 解压引导包并交付。
         取定义 / 下载与索引 / 解压落地 / 台账 各由独立函数承担。
     .OUTPUTS
         @{ Ok; Exe; Error; Installed; Updated }

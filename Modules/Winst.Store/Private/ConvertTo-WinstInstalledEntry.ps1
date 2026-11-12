@@ -10,6 +10,12 @@ function ConvertTo-WinstInstalledEntry {
     #>
     param($Entry)
 
+    if ($null -eq $Entry -or ($Entry -isnot [System.Collections.IDictionary] -and $Entry -isnot [System.Management.Automation.PSCustomObject])) { throw '安装条目必须是对象' }
+    foreach ($key in @('appliedShortcutHashes', 'appliedFileVersions', 'appliedFileRules')) {
+        $value = Get-EntryValue -Entry $Entry -Key $key -Default @{}
+        if ($null -eq $value -or ($value -isnot [System.Collections.IDictionary] -and $value -isnot [System.Management.Automation.PSCustomObject])) { throw ('安装条目的 ' + $key + ' 必须是对象') }
+    }
+
     $result = [ordered]@{
         version          = (Get-EntryString -Entry $Entry -Key 'version')
         type             = (Get-EntryString -Entry $Entry -Key 'type')
@@ -62,7 +68,9 @@ function ConvertTo-WinstInstalledEntry {
         $existed = Get-EntryValue -Entry $item -Key 'existed' -Default $null
         if ($null -ne $existed) {
             $normalizedEnv['existed'] = Get-EntryBool -Entry $item -Key 'existed'
-            $normalizedEnv['previous'] = Get-EntryString -Entry $item -Key 'previous'
+            if ($null -ne (Get-EntryValue -Entry $item -Key 'previous' -Default $null)) {
+                $normalizedEnv['previous'] = Get-EntryString -Entry $item -Key 'previous'
+            }
         }
         $result['appliedEnv'] += $normalizedEnv
     }

@@ -68,7 +68,8 @@ function ConvertFrom-GitHubReleaseListHtml {
         }
 
         # 预发布标记：页面上的 Pre-release 标签
-        $prerelease = $text.IndexOf('Pre-release', [StringComparison]::OrdinalIgnoreCase) -ge 0
+        $header = if ($bodyMatch.Success) { $text.Substring(0, $bodyMatch.Index) } else { $text }
+        $prerelease = [regex]::IsMatch($header, '(?is)<span\b[^>]*>\s*Pre-release\s*</span>')
 
         $items += [ordered]@{
             Tag        = $tag

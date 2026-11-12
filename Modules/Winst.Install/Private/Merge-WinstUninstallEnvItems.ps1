@@ -30,7 +30,8 @@ function Merge-WinstUninstallEnvItems {
         $known = Get-EntryValue -Entry $item -Key 'existed' -Default $null
         if ($null -ne $known) {
             $envItem['existed'] = Get-EntryBool -Entry $item -Key 'existed'
-            $envItem['previous'] = Get-EntryString -Entry $item -Key 'previous'
+            $previous = Get-EntryValue -Entry $item -Key 'previous' -Default $null
+            if ($null -ne $previous) { $envItem['previous'] = [string]$previous }
         }
         $envList += $envItem
     }

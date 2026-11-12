@@ -16,8 +16,12 @@ function Remove-WinstOldPackages {
     $removed = New-Object 'System.Collections.Generic.List[string]'
     $failed = @()
     # 删除入口再兜一层：id 不是单层目录名时（如 clean 传了 .. / 绝对路径）不猜、不越界删
-    if (-not (Test-WinstSafePathSegment -Name $Id)) { throw ('软件 id 不合法：{0}' -f $Id) }
-    $dir = Join-WinstPath $Context.PkgDir $Id
+    if (-not (Test-WinstSafePathSegment -Name $Id) -or (Test-WinstReservedPackageId -Id $Id)) { throw ('软件 id 不合法或使用了保留目录名：{0}' -f $Id) }
+    $pkgRoot = Get-EntryString -Entry $Context -Key 'PkgDir'
+    if (-not $pkgRoot -or $pkgRoot -notmatch '^(?:[A-Za-z]:[\\/]|\\\\[^\\]+\\[^\\]+)') { throw '安装包位置必须为非空绝对路径' }
+    $pkgRoot = [IO.Path]::GetFullPath($pkgRoot)
+    $dir = Join-WinstPath $pkgRoot $Id
+    if (-not (Test-WinstPathUnderRoot -Path $dir -Root $pkgRoot) -or (Test-WinstProtectedDirectory -Path $dir)) { throw ('拒绝清理不安全的安装包目录：' + $dir) }
     Assert-WinstSafeWritePath -Path $dir -Directory
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @{ Removed = @(); Failed = @() } }
 

@@ -44,7 +44,7 @@ function Set-WinstSelfTree {
     try {
         $InstallDir = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\', '/')
         Assert-WinstSafeWritePath -Path $InstallDir -Directory
-        $parent = Split-Path -Parent $InstallDir
+        $parent = [IO.Path]::GetTempPath()
         $staging = Join-WinstPath $parent ('winst-self-' + [Guid]::NewGuid().ToString('N'))
         Assert-WinstSafeWritePath -Path $staging -Directory
         $null = New-Item -ItemType Directory -Path $staging -Force -ErrorAction Stop
@@ -142,7 +142,7 @@ function Set-WinstSelfTree {
                 Copy-Item -LiteralPath $item.FullName -Destination $destination -Recurse -Force -ErrorAction Stop
             }
         }
-        $move = Move-WinstStagedInstall -StageDir $staging -InstallDir $InstallDir -Clean
+        $move = Move-WinstStagedInstall -StageDir $staging -InstallDir $InstallDir -Clean -Keep @('lists/', '*.list')
         if (-not $move.Ok) { throw $move.Error }
         $result.Ok = $true
         return $result
@@ -151,7 +151,7 @@ function Set-WinstSelfTree {
         return $result
     } finally {
         try {
-            if ($staging -and (Test-Path -LiteralPath $staging)) { Clear-WinstInstallDir -Dir $staging }
+            if ($staging -and (Test-Path -LiteralPath $staging)) { Clear-WinstInstallDir -Dir $staging -AllowedRoot $parent }
         } catch { }
     }
 }

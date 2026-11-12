@@ -83,6 +83,6 @@ function Get-WinstRemoteValidators {
         Write-Host ('  [verbose] 确认远端文件是否变化 {0} → {1}' -f $Uri, $note) -ForegroundColor DarkGray
     }
 
-    (Get-WinstState -Name WinstHttpCache)[$cacheKey] = @{ At = [DateTime]::Now; Value = $result }
+    if ($result.Ok) { (Get-WinstState -Name WinstHttpCache)[$cacheKey] = @{ At = [DateTime]::Now; Value = $result } }
     return $result
 }

@@ -74,6 +74,7 @@ function New-WinstGithubResolvedFiles {
 
             $assetName = $matched[0]
             $url = Expand-GitHubFileUrl -Repo $Repo -Tag $ChosenTag -FileName $assetName
+            Assert-WinstHttpUrl -Url $url
             $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Name $assetName -Dest $dest `
                 -OwnVersion ([bool]($index -eq 1) -or [bool]$fileVersion.Own)
             continue
@@ -91,6 +92,9 @@ function New-WinstGithubResolvedFiles {
             return @{ Error = ('下载地址里的占位符无法替换: {0}' -f $locator.Url); Files = $files; MissingFile = $false }
         }
         if (-not (Test-UrlText -Text $url)) {
+            if ($url -match '[/\\:]') {
+                return @{ Error = ('GitHub 文件名不能包含路径或协议：' + $url); Files = $files; MissingFile = $false }
+            }
             $url = Expand-GitHubFileUrl -Repo $Repo -Tag $ChosenTag -FileName $url
         }
 

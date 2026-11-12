@@ -26,9 +26,9 @@ winst [全局参数] <命令> [命令参数]
 
 `--dry-run` 下，安装 / 更新 / 下载只展示计划，不下载软件包、不改动程序文件或系统项，也不写包缓存索引；卸载不执行删除，`bundle pack` 不复制文件。winst 自身安装的预览会明确拒绝执行。
 
-普通展示和安装预览不自动刷新软件源；显式 `manifest add` / `manifest update` 可联网获取清单并解析条目，但不保存本次预览的清单正文、sidecar 或新增源配置。需要完全离线时加 `--offline`。
+普通展示按需刷新软件源；`--offline` / `--dry-run` 及安装预览不自动刷新。显式 `manifest add` / `manifest update` 可联网获取清单并解析条目，但不保存本次预览的清单正文、sidecar 或新增源配置。需要完全离线时加 `--offline`。
 
-预览不等于文件系统只读：日志、锁、配置 / 内置源初始化或自愈、损坏台账的安全备份仍可能写盘；同版本检测时仍可能补 `external` 登记或同步 installer 的实际安装路径。`repair --dry-run` 不保存修复后的台账和缓存索引。配置命令（`config set` / `config reset`）与设置菜单是显式配置操作，仍保存配置；修改路径时也可能创建目录。
+预览不等于文件系统只读：锁、配置 / 内置源初始化或自愈、损坏台账的安全备份仍可能写盘；同版本检测时仍可能补 `external` 登记或同步 installer 的实际安装路径。`repair --dry-run` 不保存修复后的台账和缓存索引。配置命令（`config set` / `config reset`）与设置菜单是显式配置操作，仍保存配置；修改路径时也可能创建目录。
 
 ## 单进程限制
 
@@ -138,6 +138,8 @@ winst update [--check] [--download-only] [--force]
 - `--all`：全部已登记软件；不能与 id 列表或 `--source` 同用
 - 未带 `--all` 也未带 id 时，`update` 作用于台账里全部已登记软件
 
+更新检查与执行使用相同来源选择：显式 `--source` 不可用时本条失败，不自动换源；否则优先台账绑定来源，可用性按解析成功且存在计划判断。本机版本为空或 `unknown` 时，有可用计划会提示「本机版本未知」并提供按来源更新的入口；不能把未知版本当作更高版本。仅有较旧缓存包时不自动降级。
+
 ### uninstall
 
 ```bat
@@ -156,6 +158,8 @@ winst clean          :: 清理各软件的旧版本安装包
 winst clean <id>     :: 删除该 id 的全部已下载安装包
 ```
 
+`clean` 的非法 id 或缓存不存在返回 `1`，实际删除失败返回 `3`。保留目录名 `manifests` 及大小写变体不能清理。
+
 ### repair
 
 ```bat
@@ -169,11 +173,11 @@ winst repair
 ```bat
 winst manifest add <仓库|地址>    :: 支持 用户名/仓库、仓库页地址、清单 raw 地址
 winst manifest list
-winst manifest update [<名称>|--all]
+winst manifest update [<名称>...|--all]
 winst manifest remove <名称>
 ```
 
-只支持 GitHub 仓库源；添加时会实际拉取并校验清单。内置源 `dsx42/winst-manifest` 与本地源 `local` 不能被添加或删除。`update` 不带名称或带 `--all` 时刷新全部源；不能与 `--offline` 同用。
+只支持 GitHub 仓库源；添加时会实际拉取并校验清单。内置源 `dsx42/winst-manifest` 与本地源 `local` 不能被添加或删除。`update` 可指定多个名称，不带名称或带 `--all` 时刷新全部源；名称不能与 `--all` 同用，更新不能与 `--offline` 同用。删除预览与执行使用相同校验，不存在源和保留源均拒绝。
 
 ### bundle
 
@@ -183,6 +187,8 @@ winst bundle edit [<file>]
 winst bundle install [<file>] [--skip-existing]
 winst bundle pack <清单> <目标目录> [--skip-missing]
 ```
+
+行式清单不能表示以 `#` 开头、含 `==` 或控制字符、首尾空白的 id / 版本；保存时明确拒绝并保留旧文件。软件 id 本身合法并不保证能用此行格式表示。
 
 清单目录优先使用脚本同目录下已有的 `lists\`，否则使用 `<数据目录>\lists\`。`bundle install` 不带文件参数时默认使用该目录下的 `setup.list`；`bundle list` 不带文件列出全部清单，`bundle edit` 不带文件时交互选择清单。文件名按该目录解析并自动补 `.list` 后缀；显式路径也必须位于此目录内。套件中的清单名不是 `setup.list` 时，用 `bundle install <清单名>` 或在菜单中选择该清单。
 
@@ -209,7 +215,7 @@ winst config reset proxy
 | 码 | 含义 |
 |---|---|
 | `0` | 成功 / 用户取消 / 菜单正常返回 |
-| `1` | 参数错误、找不到目标、内部错误、已有一个 winst 正在运行 |
+| `1` | 参数错误、要求确切 id 的操作找不到目标、内部错误、已有一个 winst 正在运行；`search` 成功但零命中为 `0` |
 | `2` | 网络失败（`install` / `update` / `manifest update`；`manifest add` 拉取清单失败按 `1` 返回） |
 | `3` | 安装 / 卸载 / 校验失败 |
 | `4` | `update --check` 检测到可更新项（未执行更新） |
@@ -248,3 +254,5 @@ winst config reset proxy
 软件列表、搜索结果、列表详情与安装确认详情分别显示「已下载附件」与「已安装附件」。有独立版本时显示版本号，并按附件 compare 展示已有的 ETag、修改时间、字节大小或校验摘要；没有记录的项不显示。下载信息取自缓存索引，安装信息取自落位快照。
 
 高级功能和设置菜单支持按回车或 b 返回上一层；q 退出。
+
+通过 `winst.cmd` 调用时，百分号按 cmd 的环境变量展开规则处理。需要保留字面百分号时，可直接使用 `powershell -File winst.ps1`，并按调用 shell 的规则转义。交互选择遇到重定向输入结束（EOF）按返回处理。

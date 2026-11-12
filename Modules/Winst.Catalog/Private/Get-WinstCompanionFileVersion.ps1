@@ -59,6 +59,7 @@ function Get-WinstCompanionFileVersion {
     if ($kindError) { $result.Error = $kindError; return $result }
 
     try {
+        Assert-WinstHttpUrl -Url $listUrl -Label 'files[].versionListUrl'
         $html = [string](Invoke-WinstHttpGet -Uri $listUrl -Context $Context)
     } catch {
         $result.Error = ('无法打开版本列表页 {0}：{1}' -f $listUrl, $_.Exception.Message)
@@ -113,13 +114,14 @@ function Get-WinstCompanionFileVersion {
         $fileVersion = Get-SourceFileVersion -Item $Item -Version $candidate
         if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
         $probed++
+        $probeUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
+        if ($BaseUri) { $probeUrl = ([Uri]::new($BaseUri, $probeUrl)).AbsoluteUri }
+        Assert-WinstHttpUrl -Url $probeUrl
         if ($skipCheck) {
             $result.Ok = $true
             $result.Version = $fileVersion.Version
             return $result
         }
-        $probeUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
-        if ($BaseUri) { $probeUrl = ([Uri]::new($BaseUri, $probeUrl)).AbsoluteUri }
         # FinalUriMustContain：SourceForge 这类站点对不存在的文件不回 404，而是重定向回文件根目录
         # 返回 200 HTML——校验最终地址仍带着本候选的版本段，才能可靠地退到下一个候选
         $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context -FinalUriMustContain $fileVersion.Version

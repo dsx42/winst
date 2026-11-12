@@ -26,30 +26,26 @@ function Expand-WinstInstallerArguments {
     }
 
     $text = [string]$Template
-    $values = [ordered]@{ '{installDir}' = $InstallDir; '{installRoot}' = $InstallRoot }
-    foreach ($placeholder in @($values.Keys)) {
-        $value = [string]$values[$placeholder]
+    $values = @{ '{installDir}' = $InstallDir; '{installRoot}' = $InstallRoot }
+    # 从后向前替换原模板的命中点，插入的路径不再作为模板解析。
+    $hits = [regex]::Matches($text, '\{installDir\}|\{installRoot\}')
+    for ($hitIndex = $hits.Count - 1; $hitIndex -ge 0; $hitIndex--) {
+        $hit = $hits[$hitIndex]
+        $value = [string]$values[$hit.Value]
         if (-not $value) { continue }
-        $searchFrom = 0
-        while ($true) {
-            $index = $text.IndexOf($placeholder, $searchFrom, [StringComparison]::Ordinal)
-            if ($index -lt 0) { break }
-            $before = $text.Substring(0, $index)
-            $after = $text.Substring($index + $placeholder.Length)
-            $insideQuotes = Get-WinstCommandLineQuoteState -Text $before
-            if ($insideQuotes) {
-                $replacement = $value
-                if ($after.StartsWith('"')) {
-                    $trailing = 0
-                    for ($i = $replacement.Length - 1; $i -ge 0 -and $replacement[$i] -eq '\'; $i--) { $trailing++ }
-                    if ($trailing -gt 0) { $replacement += (('\' * $trailing) -join '') }
-                }
-            } else {
-                $replacement = Format-WinstCommandArgument -Value $value
+        $before = $text.Substring(0, $hit.Index)
+        $after = $text.Substring($hit.Index + $hit.Length)
+        if (Get-WinstCommandLineQuoteState -Text $before) {
+            $replacement = $value
+            if ($after.StartsWith('"')) {
+                $trailing = 0
+                for ($i = $replacement.Length - 1; $i -ge 0 -and $replacement[$i] -eq '\'; $i--) { $trailing++ }
+                if ($trailing -gt 0) { $replacement += (('\' * $trailing) -join '') }
             }
-            $text = $before + $replacement + $after
-            $searchFrom = $before.Length + $replacement.Length
+        } else {
+            $replacement = Format-WinstCommandArgument -Value $value
         }
+        $text = $before + $replacement + $after
     }
     if (-not (Test-WinstArgumentTemplateSafe -Value $text)) {
         $result.Error = '安装参数展开后双引号不匹配'

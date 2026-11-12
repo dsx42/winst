@@ -35,16 +35,18 @@ function Invoke-WinstCleanCommand {
     # —— 指定 id：删除该 id 的全部已下载安装包（与菜单「已下载包 → d」同一实现） ——
     if ($ids.Count -gt 0) {
         $failed = 0
+        $parameterFailed = $false
         foreach ($id in $ids) {
             $one = Remove-WinstCachedPackage -Context $Context -Id $id
             if ($one.Ok) {
                 Write-Host ('  {0}' -f [string]$one.Message) -ForegroundColor Green
             } else {
                 Write-Host ('  失败: {0}' -f [string]$one.Error) -ForegroundColor Red
-                $failed++
+                if ($one.FailureKind -eq 'Parameter') { $parameterFailed = $true } else { $failed++ }
             }
         }
         if ($failed -gt 0) { return 3 }
+        if ($parameterFailed) { return 1 }
         return 0
     }
 
@@ -66,7 +68,7 @@ function Invoke-WinstCleanCommand {
         $idText = [string]$key
         if (-not $idText) { continue }
         # 索引键同样会拼成 <pkgDir>\<id>：手工改过的 winst.json 里可能有 `..\` 之类的键
-        if (-not (Test-WinstSafePathSegment -Name $idText)) {
+        if (-not (Test-WinstSafePathSegment -Name $idText) -or (Test-WinstReservedPackageId -Id $idText)) {
             Write-Host ('  提示: 安装包索引里的条目名不合法，已跳过: {0}' -f $idText) -ForegroundColor DarkYellow
             continue
         }

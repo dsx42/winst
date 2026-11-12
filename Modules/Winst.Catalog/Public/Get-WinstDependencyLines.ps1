@@ -36,7 +36,13 @@ function Get-WinstDependencyLines {
     if (-not $resolved.Ok) { return $lines }
 
     $rows = $index['Rows']
-    $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
+    $read = Read-WinstState -InstallRoot $Context.InstallRoot
+    if ($read.Error) {
+        $label = if ($read.Reset) { '安装台账已备份重置：' } else { '安装台账不可用：' }
+        $lines.Add(@{ Text = ($label + $read.Error); Color = 'DarkYellow'; Id = ''; Missing = $false })
+        if (-not $read.Reset) { return @($lines.ToArray()) }
+    }
+    $state = $read.State
 
     # 依赖名称：优先软件源里的展示名，取不到就用 id（间接依赖的「经由」同样处理）
     $nameOf = {
@@ -66,7 +72,7 @@ function Get-WinstDependencyLines {
         $ledger = Get-WinstInstalledApp -State $state -Id $depId
         if ($ledger) {
             $installedVersion = Get-EntryString -Entry $ledger -Key 'version'
-            if (-not $installedVersion) {
+            if (-not $installedVersion -or $installedVersion -ieq 'unknown') {
                 $status = '已安装（版本未知）'
             } elseif (-not $targetVersion) {
                 $status = ('已安装 {0}' -f $installedVersion)

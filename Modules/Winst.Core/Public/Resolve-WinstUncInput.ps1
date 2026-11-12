@@ -43,6 +43,10 @@ function Resolve-WinstUncInput {
 
     # 盘符：本地盘（固定 / 可移动 / 光驱）是合法路径，交回调用方按本地路径处理；
     # 网络映射盘则明确拒绝——映射只在当前登录会话可见，winst 以管理员身份运行时可能访问不到。
+    if ($text -match '^[A-Za-z]:(?![\\/])') {
+        $result.Error = '本地路径必须为盘符绝对路径（例如 C:\apps），不能使用 C: 或 C:apps'
+        return $result
+    }
     if ($text -match '^([A-Za-z]):') {
         $letter = $Matches[1].ToUpperInvariant()
         $driveType = 'NoRootDirectory'

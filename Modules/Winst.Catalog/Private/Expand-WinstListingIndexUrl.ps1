@@ -7,7 +7,12 @@ function Expand-WinstListingIndexUrl {
     #>
     param([hashtable]$Context, [string]$IndexUrl)
 
-    if ($IndexUrl.IndexOf('*') -lt 0) { return $IndexUrl }
+    Assert-WinstHttpUrl -Url $IndexUrl -Label 'source.indexUrl'
+    if ($IndexUrl.IndexOf('*') -lt 0) {
+        $directory = New-Object UriBuilder($IndexUrl)
+        $directory.Path = $directory.Path.TrimEnd('/') + '/'
+        return $directory.Uri.AbsoluteUri
+    }
     $rawPath = $IndexUrl.TrimEnd('/')
     if ($rawPath.Substring(0, $rawPath.LastIndexOf('/') + 1).Contains('*')) {
         throw ('列表地址的星号只能写在最后一个目录名中：' + $IndexUrl)

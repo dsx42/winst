@@ -36,7 +36,7 @@ function Clear-WinstInstallDir {
     $dirFull = ''
     $pathRoot = ''
     try {
-        $dirFull = [IO.Path]::GetFullPath($Dir)
+        $dirFull = [IO.Path]::GetFullPath($Dir).TrimEnd('\', '/')
         $pathRoot = [IO.Path]::GetPathRoot($dirFull)
     } catch {
         $dirFull = ''
@@ -53,16 +53,17 @@ function Clear-WinstInstallDir {
         return
     }
 
+    $Keep = @($Keep | Where-Object { $null -ne $_ })
     try {
-        foreach ($item in @(Get-ChildItem -LiteralPath $Dir -Force -ErrorAction Stop)) {
-            try { Remove-WinstItemWithKeep -Item $item -Base $Dir -Keep $Keep }
+        foreach ($item in @(Get-ChildItem -LiteralPath $dirFull -Force -ErrorAction Stop)) {
+            try { Remove-WinstItemWithKeep -Item $item -Base $dirFull -Keep $Keep }
             catch {
                 if ($Strict) { throw }
                 Write-Warning ('未能清理 {0}：{1}' -f $item.FullName, $_.Exception.Message)
             }
         }
         # 无 keep 时只做非递归删除，不跟随嵌套重解析点。
-        if (@($Keep).Count -eq 0) { [IO.Directory]::Delete($Dir, $false) }
+        if (@($Keep).Count -eq 0) { [IO.Directory]::Delete($dirFull, $false) }
     } catch {
         if ($Strict) { throw }
         Write-Warning ('未能清理目录 {0}：{1}' -f $Dir, $_.Exception.Message)

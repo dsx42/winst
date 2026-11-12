@@ -44,6 +44,12 @@ function Sync-WinstInstalledRecord {
     }
 
     $detect = Get-WinstDetectedVersion -Context $Context -Plan $plan -InstallDir $newDir
+    $detectMethod = Get-EntryString -Entry $detect -Key 'Method'
+    if (@('registry', 'appx') -contains $detectMethod -and -not $detect.QuerySucceeded) {
+        $result.Error = [string]$detect.Note
+        if (-not $result.Error) { $result.Error = '系统安装记录查询未完成，安装记录保持不变' }
+        return $result
+    }
     $newVersion = ''
     if ($detect.Ok -and $detect.Version) { $newVersion = [string]$detect.Version }
     $newOldVersions = @()
@@ -58,7 +64,8 @@ function Sync-WinstInstalledRecord {
     if (-not $newVersion) {
         if (-not $dirChanged) {
             $detail = ''
-            if ($detect.Detail) { $detail = ('（{0}）' -f [string]$detect.Detail) }
+            if ($detect.Note) { $detail = ('（{0}）' -f [string]$detect.Note) }
+            elseif ($detect.Detail) { $detail = ('（{0}）' -f [string]$detect.Detail) }
             $result.Ok = $true
             $result.Message = ('没能识别出这个软件当前的版本{0}，安装记录保持不变。' -f $detail)
             return $result

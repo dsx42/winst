@@ -24,6 +24,6 @@ function Get-WinstPathRemovalPlan {
         $kept.Add($one)
     }
     # 删到空 = PATH 变量整体消失（不可逆，且用户原有项也一起没了）→ 拒绝写入
-    $refused = ($removed -gt 0 -and $kept.Count -eq 0)
+    $refused = ($removed -gt 0 -and @($kept | Where-Object { $_.Trim().Trim('"') }).Count -eq 0)
     return @{ Removed = $removed; Kept = @($kept.ToArray()); Refused = $refused }
 }

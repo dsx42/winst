@@ -44,7 +44,11 @@ function New-WinstPlanViewState {
     $pkgTarget = ''
     if ($PkgDir -and $id) { $pkgTarget = Join-WinstPath $PkgDir $id }
 
-    $shortcutName = ConvertTo-ShortcutName -Name $displayName
+    $shortcutName = ''
+    $shortcuts = Get-EntryValue -Entry $Plan -Key 'shortcuts' -Default $null
+    if ((Get-EntryBool -Entry $shortcuts -Key 'desktop') -or (Get-EntryBool -Entry $shortcuts -Key 'startMenu')) {
+        $shortcutName = ConvertTo-ShortcutName -Name $displayName
+    }
     $desktopLink = ''
     if ($DesktopDir -and $shortcutName) { $desktopLink = Join-WinstPath $DesktopDir $shortcutName }
     $startMenuLink = ''

@@ -89,19 +89,7 @@ function Get-WinstRemoteManifest {
     $obj = $null
     try {
         $obj = ConvertFrom-Json -InputObject $content -ErrorAction Stop
-        $entries = $null
-        if ($obj -is [System.Array]) { $entries = $obj }
-        elseif ($obj -is [pscustomobject]) {
-            $apps = $obj.PSObject.Properties['apps']
-            if ($apps -and $apps.Value -is [System.Array]) { $entries = $apps.Value }
-            elseif (-not $apps -and (Get-EntryString -Entry $obj -Key 'id')) { $entries = @($obj) }
-        }
-        if ($null -eq $entries) { throw '清单必须是条目数组、含 id 的单条目或含 apps 数组的对象' }
-        foreach ($entry in $entries) {
-            if ($entry -isnot [pscustomobject] -or -not (Get-EntryString -Entry $entry -Key 'id')) {
-                throw '清单数组中的每项必须是含 id 的条目对象'
-            }
-        }
+        $entries = @(Get-ManifestEntries -Manifest $obj)
     } catch {
         $out.Message = ('清单内容或结构无效: {0}' -f $_.Exception.Message)
         if ($HasCache) { $out.Message += '（已保留并使用既有缓存）' }

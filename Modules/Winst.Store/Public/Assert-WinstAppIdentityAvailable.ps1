@@ -8,6 +8,7 @@ function Assert-WinstAppIdentityAvailable {
     param([hashtable]$Context, [string]$Id, $State = $null, $Index = $null)
 
     if (-not (Test-WinstSafePathSegment -Name $Id)) { throw ('软件 id 不是合法的单层目录名：{0}' -f $Id) }
+    if (Test-WinstReservedPackageId -Id $Id) { throw ('软件 id 使用了保留目录名：' + $Id) }
     if ($null -eq $State) {
         $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
         if ($stateRead.Error -and -not $stateRead.Reset) { throw $stateRead.Error }

@@ -21,7 +21,7 @@
 
 <installRoot>\                           软件安装根目录，默认 %USERPROFILE%\winst
 ├── state.json                           安装台账
-├── winst\                               winst 自身（winst.ps1 + winst.cmd + Modules\）
+├── winst\                               winst 自身（winst.ps1 + winst.cmd + LICENSE + Modules\）
 └── <id>\                                各软件安装目录
 ```
 
@@ -208,7 +208,7 @@ vscode==1.96.0
   "url": "https://raw.githubusercontent.com/dsx42/winst-manifest/main/manifest.json",
   "version": "2026.10.20",
   "fetchedAt": "2026-10-20T16:49:00",
-  "resolvedAt": "2026-10-20T16:49:12",
+  "resolvedAt": "2026-10-20T08:49:12.0000000Z",
   "apps": [ /* 每个条目的完整解析结果 */ ]
 }
 ```
@@ -226,7 +226,7 @@ vscode==1.96.0
   "dependencies": [],
   "processes": [],
   "manifestOrigin": "dsx42/winst-manifest",
-  "resolvedAt": "2026-10-20T16:49:12",
+  "resolvedAt": "2026-10-20T08:49:12.0000000Z",
   "versionFromPackage": false,
   "sourceVersion": "jdk-21.0.5+11",
   "sourceVersionRewrite": [ { "pattern": "^jdk-", "replace": "" } ],
@@ -252,6 +252,7 @@ vscode==1.96.0
 ```
 
 - sidecar 的所有字段与磁盘记录相同时不写盘，保留文件内容、修改时间及汇总缓存；对象键顺序或 JSON 排版差异不触发写入。真实刷新产生的新时间戳属于记录变化，仍需保存，以维持共享缓存的有效期判断。
+- `resolvedAt` 使用带时区的 UTC 格式；读取兼容没有时区的本地时间文本。
 - 顶层 `fetchedAt` 是本次取得或复用清单的时间，每次成功刷新都会改写；顶层 `resolvedAt` 是本次 sidecar 写入时间。每条 `resolvedAt` 用于 `manifestTTLHours` 的按需刷新判断，保留上次成功结果时也会更新为本次尝试时间。
 - `version` 已应用版本改写，`sourceVersion` 保留上游值；`sourceVersionRewrite` 供后续包内派生版本使用。`remoteFresh` 只在版本取自主包文件信息的条目中有意义，取 `changed` / `unchanged` / `unknown`，记录刷新时远端与缓存校验器的比对结论；成功下载后可更新为 `unchanged`。
 

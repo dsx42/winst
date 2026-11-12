@@ -39,7 +39,10 @@ function Read-LocalManifestBundle {
             return $result
         }
         $obj = $read.Value
-        if ($null -eq $obj) { continue }
+        try {
+            if (-not ([string]$read.Raw).Trim()) { throw '清单内容为空' }
+            $fileEntries = @(Get-ManifestEntries -Manifest $obj)
+        } catch { $result.Error = ('本地清单结构无效（{0}）：{1}' -f $filePath, $_.Exception.Message); return $result }
 
         $fileVersion = Get-EntryString -Entry $obj -Key '_manifestVersion'
         if ($fileVersion -and (-not $result.Version -or (Compare-WinstVersion -A $fileVersion -B $result.Version) -gt 0)) {
@@ -50,7 +53,7 @@ function Read-LocalManifestBundle {
         try { $stamp = (Get-Item -LiteralPath $filePath).LastWriteTime.ToString('s') } catch { }
         if (-not $result.FetchedAt -or $stamp -gt $result.FetchedAt) { $result.FetchedAt = $stamp }
 
-        foreach ($entry in @(Get-ManifestEntries -Manifest $obj)) {
+        foreach ($entry in $fileEntries) {
             $id = Get-EntryString -Entry $entry -Key 'id'
             if (-not $id) {
                 $result.Notes += ('{0} 里有一条没有写 id 的软件定义，已忽略' -f $fileName)

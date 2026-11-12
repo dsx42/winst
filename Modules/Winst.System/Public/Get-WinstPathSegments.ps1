@@ -3,15 +3,22 @@
 function Get-WinstPathSegments {
     <#
     .SYNOPSIS
-        拆分 PATH 值（去掉空白与包裹引号，保持原样不做展开）。
+        按引号外的分号拆分 PATH，保留原始引号、空白与空段。
     #>
     param([string]$Value)
 
-    $segments = @()
-    if ($null -eq $Value) { return $segments }
-    foreach ($part in ([string]$Value -split ';')) {
-        $text = $part.Trim().Trim('"')
-        if ($text) { $segments += $text }
+    if (-not $Value) { return @() }
+    $segments = New-Object 'System.Collections.Generic.List[string]'
+    $quoted = $false
+    $start = 0
+    for ($i = 0; $i -lt $Value.Length; $i++) {
+        if ($Value[$i] -eq '"') { $quoted = -not $quoted }
+        if ($Value[$i] -eq ';' -and -not $quoted) {
+            $segments.Add($Value.Substring($start, $i - $start))
+            $start = $i + 1
+        }
     }
-    return $segments
+    if ($quoted) { throw 'PATH 中的引号未闭合，已拒绝重新写入' }
+    $segments.Add($Value.Substring($start))
+    return $segments.ToArray()
 }

@@ -127,48 +127,36 @@ function Get-WinstArgumentScan {
     #>
     param([string[]]$Arguments = @())
 
-    $readOnly = $false
+    $command = ''
     $waitingForValue = $false
     $invalid = $false
     foreach ($one in @($Arguments)) {
-        $text = ([string]$one).Trim()
-        if (-not $text) {
-            if ($waitingForValue) { $invalid = $true; $waitingForValue = $false }
-            continue
-        }
-
+        $text = [string]$one
         if ($waitingForValue) {
-            if ($text.StartsWith('-')) { $invalid = $true }
+            if (-not $text.Trim() -or $text.StartsWith('-')) { $invalid = $true; break }
             $waitingForValue = $false
             continue
         }
-        if ($text -ieq '--install-root' -or $text -ieq '--pkg-dir' -or $text -ieq '--proxy') {
+        if ($text -in @('--install-root', '--pkg-dir', '--proxy')) {
             $waitingForValue = $true
             continue
         }
         if ($text -match '^--(install-root|pkg-dir|proxy)=(.*)$') {
-            if (-not $Matches[2].Trim()) { $invalid = $true }
+            if (-not $Matches[2].Trim()) { $invalid = $true; break }
             continue
         }
-        if ($text -ieq '--offline' -or $text -ieq '--dry-run' -or $text -ieq '--yes' -or
-            $text -ieq '-y' -or $text -ieq '--verbose') { continue }
-
-        if ($text.StartsWith('-')) {
-            # 命令之前的 -v / -h 本身就是一次只读调用，但后面可能还有命令 token，继续扫
-            if ($text -ieq '-v' -or $text -ieq '--version' -or $text -ieq '-h' -or
-                $text -ieq '--help' -or $text -ieq '-?') {
-                $readOnly = $true
-            } else {
+        if ($text -in @('--offline', '--dry-run', '--yes', '-y', '--verbose')) { continue }
+        if (-not $command) {
+            if ($text.StartsWith('-') -and $text -notin @('-v', '--version', '-h', '--help', '-?')) {
                 $invalid = $true
+                break
             }
-            continue
+            $command = $text
         }
-
-        # 第一个非开关 token 就是命令位置：交互性与只读性都由它决定
-        if ($text -ieq 'version' -or $text -ieq 'help' -or $text -ieq '?') { $readOnly = $true }
-        return @{ ReadOnly = $readOnly; Interactive = $false }
     }
-    return @{ ReadOnly = $readOnly; Interactive = (-not $invalid -and -not $waitingForValue -and -not $readOnly) }
+    $valid = -not $invalid -and -not $waitingForValue
+    $readOnly = $valid -and $command -in @('version', 'help', '?', '-v', '--version', '-h', '--help', '-?')
+    return @{ ReadOnly = $readOnly; Interactive = ($valid -and -not $command) }
 }
 
 function Test-WinstNeedsElevation {

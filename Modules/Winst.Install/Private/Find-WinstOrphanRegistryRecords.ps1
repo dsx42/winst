@@ -16,7 +16,8 @@ function Find-WinstOrphanRegistryRecords {
     $keys = @()
     $matched = @(Find-WinstRecordsForVersion -Plan $Plan -Version $Version)
     foreach ($hit in $matched) {
-        if (Test-WinstUninstallerUsable -Entry $hit) { continue }
+        $resolved = Resolve-WinstUninstallerCommand -CommandLine (Get-EntryString -Entry $hit -Key 'UninstallString')
+        if (-not $resolved.Missing) { continue }
         $key = [string]$hit['KeyPath']
         if ($key -and $keys -notcontains $key) { $keys += $key }
     }

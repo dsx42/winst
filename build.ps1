@@ -228,6 +228,8 @@ function Get-SourceScriptFile {
     $files = New-Object 'System.Collections.Generic.List[object]'
     $missingBom = New-Object 'System.Collections.Generic.List[string]'
     $badNewline = New-Object 'System.Collections.Generic.List[string]'
+    $badUtf8 = New-Object 'System.Collections.Generic.List[string]'
+    $strictUtf8 = New-Object Text.UTF8Encoding($false, $true)
 
     $scriptFiles = @(Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction Stop |
             Where-Object { @('.ps1', '.psm1', '.psd1') -contains $_.Extension.ToLowerInvariant() })
@@ -245,13 +247,9 @@ function Get-SourceScriptFile {
         $bytes = [IO.File]::ReadAllBytes($file.FullName)
         $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
 
-        if (-not $hasBom) {
-            $missingBom.Add($file.FullName)
-            $text = [Text.Encoding]::UTF8.GetString($bytes)
-        } else {
-            $text = [Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
-        }
-
+        if (-not $hasBom) { $missingBom.Add($file.FullName) }
+        try { $text = $strictUtf8.GetString($bytes) }
+        catch { $badUtf8.Add($file.FullName); continue }
         if ($text -match "(?<!`r)`n") {
             $badNewline.Add($file.FullName)
         }
@@ -259,9 +257,13 @@ function Get-SourceScriptFile {
         $files.Add($file)
     }
 
-    if ($missingBom.Count -gt 0 -or $badNewline.Count -gt 0) {
+    if ($missingBom.Count -gt 0 -or $badNewline.Count -gt 0 -or $badUtf8.Count -gt 0) {
         $lines = New-Object 'System.Collections.Generic.List[string]'
 
+        if ($badUtf8.Count -gt 0) {
+            $lines.Add('含有非法 UTF-8 字节：')
+            foreach ($path in $badUtf8) { $lines.Add('    ' + $path) }
+        }
         if ($missingBom.Count -gt 0) {
             $lines.Add(('缺少 UTF-8 BOM（{0} 个）：Windows PowerShell 5.1 会按系统 ANSI 读，中文变乱码。' -f $missingBom.Count))
             foreach ($path in $missingBom) { $lines.Add('    ' + $path) }
@@ -549,7 +551,9 @@ try {
         if ($installBytes.Length -ge 3 -and $installBytes[0] -eq 0xEF -and $installBytes[1] -eq 0xBB -and $installBytes[2] -eq 0xBF) {
             $installProblems.Add('install.ps1 带了 UTF-8 BOM。它通过 irm | iex 执行，BOM 会变成命令名的一部分并报错；请存成 UTF-8 无 BOM。')
         }
-        $installText = [Text.Encoding]::UTF8.GetString($installBytes)
+        $installText = ''
+        try { $installText = (New-Object Text.UTF8Encoding($false, $true)).GetString($installBytes) }
+        catch { $installProblems.Add('install.ps1 含有非法 UTF-8 字节。') }
         if ($installText -match '(?im)^[ \t]*#Requires') {
             $installProblems.Add('install.ps1 里有 #Requires。无 BOM 时 iex 会忽略它，有 BOM 时会直接报错；一行安装脚本不需要它。')
         }
@@ -582,12 +586,15 @@ try {
     if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
         $catalogVersion = ''
         try {
-            $catalog = [IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
-            if ($null -ne $catalog.PSObject.Properties['_manifestVersion']) {
+            $manifestText = (New-Object Text.UTF8Encoding($false, $true)).GetString([IO.File]::ReadAllBytes($manifestPath)).TrimStart([char]0xFEFF)
+            if (-not $manifestText.Trim()) { throw '文件为空' }
+            $catalog = $manifestText | ConvertFrom-Json -ErrorAction Stop
+
+            if ($null -ne $catalog -and $null -ne $catalog.PSObject.Properties['_manifestVersion']) {
                 $catalogVersion = [string]$catalog._manifestVersion
             }
         } catch {
-            $catalogVersion = ''
+            throw ('本地测试清单无法解析：{0}：{1}' -f $manifestPath, $_.Exception.Message)
         }
         if ($catalogVersion -and $catalogVersion -ne $version) {
             Write-Host ('  提示       : manifest.json 的 _manifestVersion 是 {0}（软件源目录自己的版本，只在改清单时更新）' -f $catalogVersion) -ForegroundColor DarkYellow

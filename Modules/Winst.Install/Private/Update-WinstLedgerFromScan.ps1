@@ -49,7 +49,12 @@ function Update-WinstLedgerFromScan {
             $dirChanged = [bool]($verifiedInstaller -and $detectedDir -and $detectedDir -ine (Get-EntryString -Entry $existing -Key 'installDir'))
             $uninstallSnapshot = $null
             $nameChanged = $false
-            if ($verifiedInstaller -and $Plan.Contains($id)) {
+            $origin = Get-EntryString -Entry $existing -Key 'manifestOrigin'
+            $sameSource = $origin -and $origin -ieq (Get-EntryString -Entry $info -Key 'Source')
+            if ($verifiedInstaller -and -not $sameSource -and -not $Quiet) {
+                Write-Host ('    [=] 保留 {0} 的卸载快照：扫描来源与台账来源不一致或来源未记录' -f $id) -ForegroundColor Yellow
+            }
+            if ($verifiedInstaller -and $sameSource -and $Plan.Contains($id)) {
                 # 身份已由当前系统记录确认，才把快照中的名称规则同步为当前精确规则；其它卸载设置仍沿用快照。
                 $currentSnapshot = Get-WinstUninstallSnapshotFromPlan -Plan $Plan[$id]
                 $uninstallSnapshot = ConvertTo-WinstUninstallSnapshot -Block (Get-EntryValue -Entry $existing -Key 'uninstall' -Default $null)

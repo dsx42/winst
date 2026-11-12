@@ -67,9 +67,16 @@ function Get-HashFromChecksumFile {
             if ($name.IndexOf('\') -ge 0) { $name = $name.Substring($name.LastIndexOf('\') + 1) }
             if ($target -and $name -ine $target) { continue }
 
-            $result.Hash = $m.Groups['h'].Value
+            $found = $m.Groups['h'].Value
+            if ($result.Hash -and $result.Hash -ine $found) {
+                $result.Ok = $false
+                $result.Hash = ''
+                $result.Error = ('校验文件中同名安装包有不同摘要，请用精确 re: 规则选择：{0}' -f $target)
+                return $result
+            }
+            $result.Hash = $found
             $result.Ok = $true
-            return $result
+            continue
         }
 
         # 纯摘要文件：整行就是摘要（去掉空白 / 引号）；行尾跟着文件名（`<摘要>  <文件名>`）时也取得到
@@ -87,6 +94,7 @@ function Get-HashFromChecksumFile {
         }
     }
 
+    if ($result.Ok) { return $result }
     if ($target) {
         $result.Error = ('校验文件里没有找到这个安装包的摘要（文件名 {0}）' -f $target)
     } else {

@@ -43,7 +43,7 @@ function Invoke-WinstUpdateTargets {
     $result = @{
         Ok = $false; ExitCode = 0; Updatable = 0; Updated = 0; Skipped = 0; Failed = 0;
         UpToDate = 0; NotInstalled = 0; Unknown = 0; Reported = 0; Network = $false;
-        RefreshErrors = @(); RefreshFailed = 0; Entries = @()
+        RefreshErrors = @(); RefreshFailed = 0; InternalFailed = 0; Entries = @()
     }
 
     # 0. 读台账 / 目标集合 / 按需刷新 / 搜索目录
@@ -60,14 +60,35 @@ function Invoke-WinstUpdateTargets {
     $entries = @()
 
     foreach ($id in @($targets.TargetIds)) {
-        $one = Invoke-WinstUpdateEntry -Context $Context -Id $id -State $state -RowById $targets.RowById `
-            -Check:$Check -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
-            -AutoPick $autoPick -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName `
-            -Result $result
-        if ($one.Entries.Count -gt 0) { $entries += @($one.Entries) }
-        if ($one.Installed) { $installedTargets++ }
-        if ($one.DownloadOnlySkipped) { $downloadOnlySkipped++ }
-        if ($one.RefreshState) { $state = Read-WinstCommandState -Context $Context }
+        $before = $result.Clone()
+        $isInstalled = $false
+        try {
+            $isInstalled = [bool](Get-WinstInstalledApp -State $state -Id $id)
+            $one = Invoke-WinstUpdateEntry -Context $Context -Id $id -State $state -RowById $targets.RowById `
+                -Check:$Check -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
+                -AutoPick $autoPick -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName `
+                -Result $result
+            if ($one.RefreshState) { $state = Read-WinstCommandState -Context $Context }
+            if ($one.Entries.Count -gt 0) { $entries += @($one.Entries) }
+            if ($one.Installed) { $installedTargets++ }
+            if ($one.DownloadOnlySkipped) { $downloadOnlySkipped++ }
+        } catch [System.Management.Automation.PipelineStoppedException] { throw
+        } catch {
+            foreach ($key in @($before.Keys)) { $result[$key] = $before[$key] }
+            $result.Failed++
+            $result.InternalFailed++
+            $cause = $_.Exception
+            while ($cause) {
+                if ($cause -is [Net.WebException] -or $cause.GetType().FullName -eq 'System.Net.Http.HttpRequestException') { $result.Network = $true; break }
+                $cause = $cause.InnerException
+            }
+            $failedEntry = New-WinstUpdateEntryResult -Id $id -Name $id -Installed ''
+            $failedEntry.Action = 'failed'
+            $failedEntry.Message = $_.Exception.Message
+            $entries += $failedEntry
+            if ($isInstalled) { $installedTargets++ }
+            if (-not $Quiet) { Write-Host ('  {0}: 处理失败 —— {1}' -f $id, $failedEntry.Message) -ForegroundColor Red }
+        }
     }
 
     $result.Entries = @($entries)

@@ -26,7 +26,7 @@ function Merge-WinstKeywordSearch {
         $one = ([string]$token).Trim()
         if ($one -and ($parts -notcontains $one)) { $parts += $one }
     }
-    if ($parts.Count -le 1) { return $result }
+    if ($parts.Count -eq 0 -or ($parts.Count -eq 1 -and $parts[0] -ceq $Keyword)) { return $result }
 
     $result.Keywords = @($parts)
     $result.Merged = $true

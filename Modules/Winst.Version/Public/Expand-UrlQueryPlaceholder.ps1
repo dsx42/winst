@@ -7,7 +7,7 @@ function Expand-UrlQueryPlaceholder {
     .DESCRIPTION
         典型用途：校验文件地址与主包地址共享同一个查询参数（如 Eclipse 的 download.php?file=… 与
         sums.php?file=…&type=sha512），hashFile 里写 {urlQuery:file} 即可随解析出的下载地址自动更新，
-        清单里无需重复版本号。参数值按 URL 解码；同一参数出现多次取第一个；下载地址上没有该参数时
+        清单里无需重复版本号。参数值保留 URL 编码，避免值中的分隔符改变地址结构；同一参数出现多次取第一个；下载地址上没有该参数时
         原样保留占位符（与 {version} 无法替换的口径一致，后续按取不到校验文件处理）。
     #>
     param([string]$Text, [string]$Url)
@@ -31,7 +31,6 @@ function Expand-UrlQueryPlaceholder {
                 $name = $pair.Substring(0, $eq)
                 if ($values.Contains($name)) { continue }
                 $value = $pair.Substring($eq + 1)
-                try { $value = [Uri]::UnescapeDataString($value) } catch { }
                 $values[$name] = $value
             }
         }

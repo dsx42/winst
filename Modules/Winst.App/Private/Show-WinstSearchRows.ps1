@@ -18,25 +18,24 @@ function Show-WinstSearchRows {
     $rows = @($Rows)
     if ($rows.Count -eq 0) { return @() }
 
-    while ($true) {
-        Write-Host ''
-        $summaryText = ('共 {0} 个软件' -f $rows.Count)
-        Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
-        $hasGrouped = [bool](@($rows | Where-Object { [string]$_['Group'] }).Count)
-        $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index
-        $lastGroup = ''
-        for ($i = 0; $i -lt $rows.Count; $i++) {
-            $row = $rows[$i]
-            $lastGroup = Write-WinstGroupHeading -Group ([string]$row['Group']) -LastGroup $lastGroup -ShowUngrouped:$hasGrouped
-            $view = Get-WinstSearchRowView -Row $row -State $State -Context $Context -CacheIndex $cacheIndex
-            Write-WinstSearchRow -Item $view -Number ($i + 1)
-        }
-
-        # 底部再给一份统计（与顶部同一句），滚到列表末尾不用翻回顶部
-        Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
-        Write-Host '  输入编号选择（可多选，如 1 3 5）；回车 = 取消' -ForegroundColor DarkGray
-
-        $selection = Read-WinstIndexSelection -Prompt '  请选择' -Count $rows.Count -AllowEmpty -AllowMultiple
-        return @($selection.Indexes | ForEach-Object { [int]$_ + 1 })
+    Write-Host ''
+    $summaryText = ('共 {0} 个软件' -f $rows.Count)
+    Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
+    $hasGrouped = [bool](@($rows | Where-Object { [string]$_['Group'] }).Count)
+    $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index
+    $lastGroup = ''
+    for ($i = 0; $i -lt $rows.Count; $i++) {
+        $row = $rows[$i]
+        $lastGroup = Write-WinstGroupHeading -Group ([string]$row['Group']) -LastGroup $lastGroup -ShowUngrouped:$hasGrouped
+        $view = Get-WinstSearchRowView -Row $row -State $State -Context $Context -CacheIndex $cacheIndex
+        Write-WinstSearchRow -Item $view -Number ($i + 1)
     }
+
+    # 底部再给一份统计（与顶部同一句），滚到列表末尾不用翻回顶部
+    Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
+    Write-Host '  输入编号选择（可多选，如 1 3 5）；回车 = 取消' -ForegroundColor DarkGray
+
+    $selection = Read-WinstIndexSelection -Prompt '  请选择' -Count $rows.Count -AllowEmpty -AllowMultiple
+    if ($selection.Action -eq 'quit') { Set-WinstQuit; return @() }
+    return @($selection.Indexes | ForEach-Object { [int]$_ + 1 })
 }

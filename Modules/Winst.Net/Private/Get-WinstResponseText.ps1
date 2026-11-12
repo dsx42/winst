@@ -12,6 +12,19 @@ function Get-WinstResponseText {
     param($Response)
 
     $content = $Response.Content
+    $stream = Get-EntryValue -Entry $Response -Key 'RawContentStream' -Default $null
+    if ($stream -is [IO.Stream] -and $stream.CanRead -and $stream.CanSeek) {
+        $position = $stream.Position
+        $buffer = New-Object IO.MemoryStream
+        try {
+            $stream.Position = 0
+            $stream.CopyTo($buffer)
+            $content = $buffer.ToArray()
+        } finally {
+            $stream.Position = $position
+            $buffer.Dispose()
+        }
+    }
     if ($content -is [byte[]]) {
         if ($content.Length -ge 4 -and $content[0] -eq 0xFF -and $content[1] -eq 0xFE -and $content[2] -eq 0 -and $content[3] -eq 0) {
             return [Text.Encoding]::UTF32.GetString($content, 4, $content.Length - 4)

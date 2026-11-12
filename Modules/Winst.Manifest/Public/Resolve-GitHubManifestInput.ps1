@@ -38,6 +38,12 @@ function Resolve-GitHubManifestInput {
             return $result
         }
     } else {
+        $rawParts = [regex]::Match($text.Replace('\', '/'), '^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/([^/?#]+)/([^/?#]+)')
+        if ($rawParts.Success -and (@('.', '..') -contains [Uri]::UnescapeDataString($rawParts.Groups[1].Value) -or
+                @('.', '..') -contains [Uri]::UnescapeDataString($rawParts.Groups[2].Value))) {
+            $result.Error = '用户名和仓库名不能是 . 或 ..'
+            return $result
+        }
         $uri = $null
         if (-not [Uri]::TryCreate($text, [UriKind]::Absolute, [ref]$uri)) {
             $result.Error = '地址格式不正确，请检查后重试'
@@ -98,7 +104,7 @@ function Resolve-GitHubManifestInput {
         $result.Error = ('"{0}" 不是有效的 GitHub 用户名（只能由字母、数字、短横线组成）' -f $parts[0])
         return $result
     }
-    if ($parts[1] -notmatch '^[A-Za-z0-9._-]+$') {
+    if ($parts[1] -notmatch '^[A-Za-z0-9._-]+$' -or @('.', '..') -contains $parts[1]) {
         $result.Error = ('"{0}" 不是有效的仓库名（只能由字母、数字、点、下划线、短横线组成）' -f $parts[1])
         return $result
     }

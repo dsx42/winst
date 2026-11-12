@@ -14,5 +14,6 @@ function Test-WinstResolvedAtStale {
     $stamp = [datetime]::MinValue
     if (-not [datetime]::TryParse([string]$ResolvedAt, [ref]$stamp)) { return $true }
     if ($TtlHours -le 0) { return $true }
-    return (($Now - $stamp).TotalHours -ge $TtlHours)
+    $age = ($Now.ToUniversalTime() - $stamp.ToUniversalTime()).TotalHours
+    return ($age -lt 0 -or $age -ge $TtlHours)
 }

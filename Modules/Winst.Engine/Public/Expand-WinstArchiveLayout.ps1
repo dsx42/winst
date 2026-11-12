@@ -3,13 +3,13 @@
 function Expand-WinstArchiveLayout {
     <#
     .SYNOPSIS
-        在目标同盘的临时目录完整解压并整理布局，不修改目标目录。
+        在系统 Temp 下的随机目录完整解压并整理布局，不修改目标目录。
     .DESCRIPTION
         extractFiles 优先于 stripTopDir；目录取内容，文件取自身。
         stripTopDir 指定内层压缩包时先展开内层；其余目录选择只切换路径。
-        成功后调用方从 SourceDir 直接交付，并负责清理 TempRoot；失败时自行清理。
+        成功后调用方从 SourceDir 直接交付，并负责清理 TempRoot；失败时自行清理。指定 SevenZipPath 时内外层包均只用该程序。
     .PARAMETER DestDir
-        最终交付目录，用于选择同盘临时位置；本函数不向该目录写入。
+        最终交付目录，用于提前校验目标路径；本函数不向该目录写入。
     .OUTPUTS
         @{ Ok; Error; TempRoot; SourceDir; ExtractFailed }
     #>
@@ -18,7 +18,8 @@ function Expand-WinstArchiveLayout {
         [Parameter(Mandatory = $true)][string]$ArchivePath,
         [Parameter(Mandatory = $true)][string]$DestDir,
         $StripTopDir = $true,
-        [string[]]$ExtractFiles = @()
+        [string[]]$ExtractFiles = @(),
+        [string]$SevenZipPath = ''
     )
 
     $result = @{ Ok = $false; Error = ''; TempRoot = ''; SourceDir = ''; ExtractFailed = $false }
@@ -26,12 +27,12 @@ function Expand-WinstArchiveLayout {
     try {
         $target = [IO.Path]::GetFullPath($DestDir).TrimEnd('\', '/')
         Assert-WinstSafeWritePath -Path $target -Directory
-        $parent = [IO.Path]::GetDirectoryName($target)
+        $parent = [IO.Path]::GetTempPath()
         Assert-WinstSafeWritePath -Path $parent
         $tempRoot = Join-WinstPath $parent ('.winst-stage-' + [Guid]::NewGuid().ToString('N'))
         Assert-WinstSafeWritePath -Path $tempRoot -Directory
         $null = New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop
-        $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot
+        $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -SevenZipPath $SevenZipPath
         if (-not $expand.Ok) { $result.ExtractFailed = $true; $result.Error = $expand.Error; return $result }
         Assert-WinstTreeWithoutReparsePoint -Path $tempRoot
 
@@ -53,7 +54,7 @@ function Expand-WinstArchiveLayout {
                 if (-not (Test-Path -LiteralPath $source)) { throw ('压缩包里没有所需路径：' + $StripTopDir) }
                 if ((Test-Path -LiteralPath $source -PathType Leaf) -and (Test-WinstArchiveFileByExtension -Path $source)) {
                     $inner = Join-WinstPath $tempRoot ('.winst-inner-' + [Guid]::NewGuid().ToString('N'))
-                    $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $source -DestDir $inner
+                    $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $source -DestDir $inner -SevenZipPath $SevenZipPath
                     if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
                     Assert-WinstTreeWithoutReparsePoint -Path $inner
                     $source = $inner

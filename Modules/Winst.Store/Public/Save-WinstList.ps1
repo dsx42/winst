@@ -32,6 +32,10 @@ function Save-WinstList {
         if (-not $id) { continue }
         $version = ''
         if ($VersionById -and $VersionById.Contains($id)) { $version = [string]$VersionById[$id] }
+        if ($id -match '^\s*#|==|[\x00-\x1F\x7F]' -or $version -match '==|[\x00-\x1F\x7F]' -or $id -cne $id.Trim() -or $version -cne $version.Trim()) {
+            $result.Error = '行式清单不能表示以 # 开头、含 == 或控制字符、首尾空白的 id / 版本。'
+            return $result
+        }
         if ($version) { $lines.Add(('{0}=={1}' -f $id, $version)) } else { $lines.Add($id) }
         $count++
     }

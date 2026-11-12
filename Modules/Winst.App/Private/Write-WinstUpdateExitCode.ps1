@@ -16,6 +16,7 @@ function Write-WinstUpdateExitCode {
         $parts = @()
         $parts += ('可更新 {0}' -f $Result.Updatable)
         $parts += ('已是最新 {0}' -f $Result.UpToDate)
+        if ($Result.Failed -gt 0) { $parts += ('失败 {0}' -f $Result.Failed) }
         if ($Result.Unknown -gt 0) { $parts += ('无法比较 {0}' -f $Result.Unknown) }
         if ($Result.NotInstalled -gt 0) { $parts += ('未安装 {0}' -f $Result.NotInstalled) }
         if (-not $Quiet) { Write-Host ('  检查结果: {0}' -f ($parts -join ' / ')) -ForegroundColor Gray }
@@ -49,6 +50,11 @@ function Write-WinstUpdateExitCode {
         }
         $Result.ExitCode = 1
         $Result.Ok = $false   # Ok 与 ExitCode 必须一致：调用方有按 Ok 判定成功的
+    }
+    if ($Result.Failed -gt 0) {
+        $Result.Ok = $false
+        $Result.ExitCode = 3
+        if ($Result.Failed -eq [int]$Result['InternalFailed']) { $Result.ExitCode = 1 }
     }
     if ($Result.Network) {
         $Result.Ok = $false

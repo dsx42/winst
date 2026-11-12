@@ -31,7 +31,8 @@ function Read-WinstJsonFileCached {
 
     $raw = ''
     try {
-        $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+        $raw = (New-Object Text.UTF8Encoding($false, $true)).GetString([IO.File]::ReadAllBytes($Path))
+        if ($raw.StartsWith([string][char]0xFEFF, [StringComparison]::Ordinal)) { $raw = $raw.Substring(1) }
     } catch {
         $result.Error = $_.Exception.Message
         return $result

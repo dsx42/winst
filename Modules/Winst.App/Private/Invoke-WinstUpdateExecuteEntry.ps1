@@ -3,53 +3,18 @@
 function Invoke-WinstUpdateExecuteEntry {
     <#
     .SYNOPSIS
-        执行更新：保护规则（不自动降级 / external 只报告）→ 选来源 → 复用安装流程。
+        执行更新：保护规则（不自动降级 / external 只报告）→ 按检查选定的来源复用安装流程。
     .OUTPUTS
         @{ RefreshState }
     #>
     param([hashtable]$Context, [string]$Id, $Row, $Ledger, $Snap, $EntryResult, [string]$InstalledVersion,
         [string]$DisplayName, [switch]$DownloadOnly, [switch]$Force, [switch]$Yes, [switch]$Quiet,
-        [bool]$AutoPick = $false, [switch]$FilesOnly, [switch]$ForceSystemItems, [string]$SourceName = '', [hashtable]$Result)
+        [bool]$AutoPick = $false, [switch]$FilesOnly, [switch]$ForceSystemItems, [hashtable]$Result)
 
     $latest = [string]$Snap.Latest
     $latestSource = [string]$Snap.LatestSource
     $comparable = [bool]$Snap.Comparable
     $cmp = [int]$Snap.Cmp
-
-    # 「版本号取自主包文件信息」+ 远端无新包 + 已下载包版本等于安装台账版本 = 没有升级可做。
-    # 系统安装记录没覆盖到该软件（如 VC++ 运行库只登记 MSI 子产品）时不重跑安装器；
-    # 附件确实有变化时继续往下走，由安装侧按「仅附件更新」覆盖写入。
-    $knownNoMainUpdate = $false
-    if (-not $Force -and -not $comparable -and $Snap.VersionFromPackage -and
-        ([string]$Snap.RemoteFresh -ieq 'unchanged') -and [string]$Snap.CachedPackageVersion) {
-        $ledgerVersion = [string]$Snap.LedgerVersion
-        if ($ledgerVersion -and $ledgerVersion -ine 'unknown') {
-            $samePackage = $false
-            try {
-                $samePackage = ((Compare-WinstVersion -A $ledgerVersion -B ([string]$Snap.CachedPackageVersion)) -eq 0)
-            } catch {
-                $samePackage = ($ledgerVersion -ieq [string]$Snap.CachedPackageVersion)
-            }
-            if ($samePackage) {
-                $knownNoMainUpdate = $true
-                $noopCompanionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row
-                $noopCompanions = [bool]($noopCompanionInfo -and $noopCompanionInfo.CompanionsOnly)
-                if (-not $noopCompanions) {
-                    $Result.UpToDate++
-                    $EntryResult.Action = 'latest'
-                    if (-not $Quiet) {
-                        Write-Host ''
-                        Write-Host ('  {0}: 已是最新版本（{1}；系统安装记录里没有找到该软件，按安装台账判断）。' -f $DisplayName, $ledgerVersion) -ForegroundColor Gray
-                    }
-                    return @{ RefreshState = $false }
-                }
-                if (-not $Quiet) {
-                    Write-Host ''
-                    Write-Host ('  {0}: 主包无新包（{1}）；附加文件有更新（{2} 个）: {3}' -f $DisplayName, $ledgerVersion, $noopCompanionInfo.ChangedCount, ($noopCompanionInfo.Names -join '、')) -ForegroundColor DarkYellow
-                }
-            }
-        }
-    }
 
     # —— 执行更新：保护规则 ——
     # 无法比较版本的两种按软件源里的定义安装：它们本来就没有「降级」这回事（没有可比对的版本），
@@ -58,7 +23,7 @@ function Invoke-WinstUpdateExecuteEntry {
     if (-not $comparable -or -not $latest) {
         if ($Snap.VersionFromPackage) {
             # 「版本号取自主包文件信息」的条目交给安装流程「先取包、再决定」——不强制重装
-            if (-not $Quiet -and -not $knownNoMainUpdate) {
+            if (-not $Quiet) {
                 Write-Host ''
                 Write-Host ('  {0}: 无法比较版本（版本号取自主包文件信息），更新时重新取包核对。' -f $DisplayName) -ForegroundColor DarkYellow
             }
@@ -77,6 +42,7 @@ function Invoke-WinstUpdateExecuteEntry {
         # 注意：-Force 时这一段整体被上面的条件短路掉 —— 用户明确要求重装，就不该走「只更新附加文件」
         $companionOnlyExec = $false
         $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row
+        if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
         if ($companionInfo -and $companionInfo.CompanionsOnly) {
             $companionOnlyExec = $true
             if (-not $Quiet) {
@@ -128,33 +94,7 @@ function Invoke-WinstUpdateExecuteEntry {
     }
 
     # 执行：复用安装流程（含升级提示、确认、运行中软件处理与台账写入）
-    # 来源选择：-SourceName 明确指定时优先它；否则优先**安装时选择的来源**
-    # （安装记录 manifestOrigin，安装时选哪个源、更新也默认用哪个源）；只有它**确实不比本机新**时
-    # 才回退到「有更新版本」的来源并说明。
-    $targetRow = Sort-WinstRowSources -Context $Context -Row $Row -InstalledVersion $InstalledVersion
-    $otherHasNewer = [bool]($comparable -and $latest -and ($latestSource -ine $Snap.OriginName) -and ((Compare-WinstVersion -A $latest -B $InstalledVersion) -gt 0))
-    if ($SourceName) {
-        $preferred = Set-WinstRowPreferredSource -Row $targetRow -SourceName $SourceName
-        if (([string]$preferred['Sources'][0]['Source']) -ieq $SourceName) {
-            $targetRow = $preferred
-        } else {
-            Write-Host ('  提示: 软件源「{0}」里没有 {1} 的可用版本，已改用默认来源。' -f $SourceName, $DisplayName) -ForegroundColor DarkYellow
-        }
-    } elseif ($Snap.OriginUsable -and $Snap.OriginNewer) {
-        # 安装时用的来源自己有更新版本 → 直接用它（即使别的来源版本号更高，保持这条软件的版本线稳定）
-        $preferred = Set-WinstRowPreferredSource -Row $targetRow -SourceName $Snap.OriginName
-        if (([string]$preferred['Sources'][0]['Source']) -ieq $Snap.OriginName) { $targetRow = $preferred }
-    } elseif ($Snap.OriginUsable -and $otherHasNewer) {
-        Write-Host ('  提示: 安装时用的软件源「{0}」没有比本机 {2} 更新的版本，改用软件源「{3}」的 {4}。' -f $Snap.OriginName, $Snap.OriginVersion, $InstalledVersion, $latestSource, $latest) -ForegroundColor DarkYellow
-        $preferred = Set-WinstRowPreferredSource -Row $targetRow -SourceName $latestSource
-        if (([string]$preferred['Sources'][0]['Source']) -ieq $latestSource) { $targetRow = $preferred }
-    } else {
-        if ($Snap.OriginName -and -not $Snap.OriginUsable) {
-            Write-Host ('  提示: 安装时用的软件源「{0}」现在没有可用的版本，已改用默认来源。' -f $Snap.OriginName) -ForegroundColor DarkYellow
-        }
-        $preferred = Set-WinstRowPreferredSource -Row $targetRow -SourceName $Snap.OriginName
-        if (([string]$preferred['Sources'][0]['Source']) -ieq $Snap.OriginName) { $targetRow = $preferred }
-    }
+    $targetRow = $Row
     Write-Host ''
     Write-Host ('  —— {0}（{1}）——' -f $DisplayName, $Id) -ForegroundColor Cyan
     if ($FilesOnly) {

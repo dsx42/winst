@@ -14,8 +14,8 @@ function Invoke-WinstUninstallRegistryPayload {
     $uninstallPlan = @{
         id        = $Id
         name      = $Id
-        detect    = @{ method = 'registry'; name = [string]$Targets['NameRule'] }
-        uninstall = @{ method = 'registry'; name = [string]$Targets['NameRule']; uninstallArgs = [string]$Targets['UninstallArgs'] }
+        detect    = @{ method = 'registry'; name = @($Targets['NameRule']) }
+        uninstall = @{ method = 'registry'; name = @($Targets['NameRule']); uninstallArgs = [string]$Targets['UninstallArgs'] }
     }
     $selectedRecord = Get-WinstRegistryEntryForPlan -Plan $uninstallPlan -InstallDir ([string]$Targets['InstallDir'])
     $recordDir = ''

@@ -61,13 +61,6 @@ function Resolve-WinstUninstallerCommand {
         $exeText = $resolvedExe
     }
 
-    if ($exeText -match '[\\/]' -and -not (Test-Path -LiteralPath $exeText -PathType Leaf)) {
-        $result.Missing = $true
-        $result.Exe = $exeText
-        $result.Error = ('卸载器文件不存在: {0}' -f $exeText)
-        return $result
-    }
-
     $argumentList = [string]$split.Args
     if ($ExtraArgs) {
         if ($argumentList) { $argumentList = $argumentList + ' ' + $ExtraArgs } else { $argumentList = $ExtraArgs }
@@ -124,6 +117,13 @@ function Resolve-WinstUninstallerCommand {
             $position = [int]$tokens[$i].Start + $actionOffset + 1
             $argumentList = $argumentList.Remove($position, 1).Insert($position, 'X')
         }
+    }
+
+    if ($exeText -match '[\\/]' -and -not (Test-Path -LiteralPath $exeText -PathType Leaf)) {
+        $result.Missing = $true
+        $result.Exe = $exeText
+        $result.Error = ('卸载器文件不存在: {0}' -f $exeText)
+        return $result
     }
 
     $result.Ok = $true

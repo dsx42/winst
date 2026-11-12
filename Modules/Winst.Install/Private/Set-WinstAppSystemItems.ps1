@@ -84,7 +84,10 @@ function Set-WinstAppSystemItems {
                 else { $text = Expand-PlanPlaceholders -Value $text -InstallDir $InstallDir -InstallRoot $Context.InstallRoot }
                 if (-not $text) { continue }
                 if (Test-WinstPathSegmentExists -Segments $segments -Value $text) { continue }
-                $segments += $text
+                if (-not (Test-WinstArgumentSafe -Value $text)) { throw 'PATH 项含有引号或控制字符' }
+                $pathText = $text
+                if ($text.Contains(';')) { $pathText = '"' + $text + '"' }
+                $segments += $pathText
                 $pendingPath += [ordered]@{ path = $text; scope = $scope }
                 $changed = $true
             }

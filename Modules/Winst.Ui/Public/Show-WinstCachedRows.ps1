@@ -21,7 +21,7 @@ function Show-WinstCachedRows {
     )
 
     $items = @($Items)
-    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1 } }
+    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = ([string]$Filter).Trim() } }
 
     # 可批量处理的两类：安装包过期的、已安装但可以升级的；另统计「仅下载」类型的条数（页脚提示用）
     $packageUpdatable = 0

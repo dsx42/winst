@@ -23,14 +23,15 @@ function Get-WinstPackageFileVersion {
         if ($vi) {
             # 与 fileVersion 检测同一口径：字符串是数值体的数字前缀时按字符串算，否则以数值体为准
             $rawNumber = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersionRaw)
+            if ($rawNumber -match '^0(?:\.0)*$') { $rawNumber = '' }
             if (-not $rawNumber) { $rawNumber = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersionRaw) }
+            if ($rawNumber -match '^0(?:\.0)*$') { $rawNumber = '' }
             $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersion)
             if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersion) }
             if ($rawNumber -and -not (Test-WinstNumericVersionPrefix -Prefix $raw -Value $rawNumber)) {
                 $raw = $rawNumber
             }
-            if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersionRaw) }
-            if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersionRaw) }
+            if (-not $raw) { $raw = $rawNumber }
         }
     } catch {
         return ''

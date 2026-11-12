@@ -38,5 +38,6 @@ function Resolve-InstallRoot {
             throw '软件安装位置只允许本地路径，不支持网络映射盘；网络共享只能用于安装包位置（pkgDir）。'
         }
     }
+    if (Test-WinstProtectedDirectory -Path $resolved) { throw ('软件安装位置是受保护目录：{0}' -f $resolved) }
     return $resolved
 }

@@ -26,6 +26,7 @@ function Read-WinstSourceManifestBody {
     $read = Read-WinstJsonFileCached -Path $path
     if (-not $read.Ok) { $result.Error = [string]$read.Error; return $result }
     if (-not ([string]$read.Raw).Trim()) { $result.Empty = $true; return $result }
-    $result.Entries = @(Get-ManifestEntries -Manifest $read.Value)
+    try { $result.Entries = @(Get-ManifestEntries -Manifest $read.Value) }
+    catch { $result.Error = $_.Exception.Message }
     return $result
 }

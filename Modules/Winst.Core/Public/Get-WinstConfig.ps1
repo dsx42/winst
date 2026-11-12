@@ -14,23 +14,23 @@ function Get-WinstConfig {
     $configPath = Join-WinstPath $DataRoot 'config.json'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         try {
-            $raw = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8
-            if ($raw -and $raw.Trim()) {
-                $obj = $raw | ConvertFrom-Json
-                foreach ($key in @($defaults.Keys)) {
-                    $prop = $obj.PSObject.Properties[$key]
-                    if ($prop -and $null -ne $prop.Value) {
-                        $defaults[$key] = $prop.Value
-                    }
-                }
-                # 布尔项宽容归一：手写配置里的「开 / 关」「true / false」等都还原成布尔值，
-                # 避免「关」被当成非空字符串而在业务判断里变成开启（见 Convert-WinstBoolText）。
-                foreach ($boolKey in @('pruneOldPackages', 'updateFilesOnly')) {
-                    $parsedBool = Convert-WinstBoolText -Value $defaults[$boolKey]
-                    if ($null -ne $parsedBool) { $defaults[$boolKey] = $parsedBool }
-                }
+            $read = Read-WinstJsonFileCached -Path $configPath
+            if (-not $read.Ok) { throw $read.Error }
+            $obj = $read.Value
+            if ($null -eq $obj -or ($obj -isnot [System.Collections.IDictionary] -and $obj -isnot [System.Management.Automation.PSCustomObject])) { throw '配置根必须是对象' }
+            foreach ($key in @($defaults.Keys)) {
+                $prop = $obj.PSObject.Properties[$key]
+                if (-not $prop) { continue }
+                $value = $prop.Value
+                if ($null -eq $value -or $value -is [array] -or $value -is [System.Collections.IDictionary] -or $value -is [System.Management.Automation.PSCustomObject]) { throw ('配置项类型不合法：' + $key) }
+                if ($defaults[$key] -is [string] -and $value -isnot [string]) { throw ('配置项必须是字符串：' + $key) }
+                if ($key -eq 'proxy' -and -not ([string]$value).Trim()) { $defaults[$key] = ''; continue }
+                $converted = ConvertTo-WinstConfigValue -Current $defaults[$key] -Text ([string]$value)
+                if (-not $converted.Ok) { throw ($key + '：' + $converted.Error) }
+                $defaults[$key] = $converted.Value
             }
         } catch {
+            $defaults = Get-WinstConfigDefaults -DataRoot $DataRoot
             # 配置损坏：先备份原文，再按默认值运行。
             # 不静默退回默认值——用户手写的配置失效却查不到原因，比报错更难排查。
             # 同一份坏文件只留一份 .bak（与 Read-WinstState 的备份口径一致），避免每次读都生成新文件。

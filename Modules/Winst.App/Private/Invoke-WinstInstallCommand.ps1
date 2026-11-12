@@ -71,11 +71,11 @@ function Invoke-WinstInstallCommand {
         elseif ($text -eq '--files-only') { $filesOnly = $true }
         elseif ($text -eq '--system-items') { $forceSystemItems = $true }
         elseif ($text -eq '--source') { $sourceSpecified = $true; $pendingValue = 'source' }
-        elseif ($text.StartsWith('--source=')) { $sourceSpecified = $true; $sourceName = ($text.Substring(9)).Trim() }
+        elseif ($text -like '--source=*') { $sourceSpecified = $true; $sourceName = ($text.Substring(9)).Trim() }
         elseif ($text -eq '--from') { $pendingValue = 'from' }
-        elseif ($text.StartsWith('--from=')) { $fromPath = ($text.Substring(7)).Trim() }
+        elseif ($text -like '--from=*') { $fromPath = ($text.Substring(7)).Trim() }
         elseif ($text -eq '--keep') { $pendingValue = 'keep' }
-        elseif ($text.StartsWith('--keep=')) {
+        elseif ($text -like '--keep=*') {
             $keep = @(($text.Substring(7)) -split '[,，]' | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         } elseif ($text.StartsWith('-')) {
             Write-Host ''
@@ -190,62 +190,82 @@ function Invoke-WinstInstallCommand {
     $rowById = Get-WinstCatalogRowMap -Context $Context
 
     foreach ($id in $ids) {
-        Write-Section ('{0} {1}' -f $commandName, $id)
+        try {
+            Write-Section ('{0} {1}' -f $commandName, $id)
 
-        $row = $null
-        if ($rowById.Contains($id)) { $row = $rowById[$id] }
-        if (-not $row) {
-            Write-Host ('  软件源里没有找到「{0}」这个软件。' -f $id) -ForegroundColor Yellow
-            $parameterFailed = $true
-            $failCount++
-            continue
-        }
+            $row = $null
+            if ($rowById.Contains($id)) { $row = $rowById[$id] }
+            if (-not $row) {
+                Write-Host ('  软件源里没有找到「{0}」这个软件。' -f $id) -ForegroundColor Yellow
+                $parameterFailed = $true
+                $failCount++
+                continue
+            }
 
-        # 来源：默认按「本地清单 → 内置源 → 其它按添加顺序」；--source 指定时优先它。
-        # 已安装的软件优先用「有更新版本」的来源，避免选到更旧的来源而变成「无更新可做」。
-        $installedVersion = ''
-        $ledger = Get-WinstInstalledApp -State $state -Id $id
-        if (-not $ledger) {
-            # 循环里可能刚装过（如前面某个 id 的依赖就是它）：缓存台账里查不到时重读一次，
-            # 否则会漏掉「本机已装」而按默认来源排序、把已装软件当成首次安装来提示
-            $state = Read-WinstCommandState -Context $Context
+            # 来源：默认按「本地清单 → 内置源 → 其它按添加顺序」；--source 指定时优先它。
+            # 已安装的软件优先用「有更新版本」的来源，避免选到更旧的来源而变成「无更新可做」。
+            $installedVersion = ''
             $ledger = Get-WinstInstalledApp -State $state -Id $id
-        }
-        if ($ledger) { $installedVersion = Get-EntryString -Entry $ledger -Key 'version' }
-        $targetRow = Sort-WinstRowSources -Context $Context -Row $row -InstalledVersion $installedVersion
-        if ($sourceName) {
-            $preferred = Set-WinstRowPreferredSource -Row $targetRow -SourceName $sourceName
-            if (([string]$preferred['Sources'][0]['Source']) -ieq $sourceName) {
-                $targetRow = $preferred
-            } else {
-                Write-Host ('  提示: 软件源「{0}」里没有 {1} 的可用版本，已改用默认来源。' -f $sourceName, $id) -ForegroundColor DarkYellow
+            if (-not $ledger) {
+                # 循环里可能刚装过（如前面某个 id 的依赖就是它）：缓存台账里查不到时重读一次，
+                # 否则会漏掉「本机已装」而按默认来源排序、把已装软件当成首次安装来提示
+                $state = Read-WinstCommandState -Context $Context
+                $ledger = Get-WinstInstalledApp -State $state -Id $id
             }
-        }
+            if ($ledger) { $installedVersion = Get-EntryString -Entry $ledger -Key 'version' }
+            $targetRow = Sort-WinstRowSources -Context $Context -Row $row -InstalledVersion $installedVersion
+            if ($sourceName) {
+                $selected = @($targetRow['Sources'] | Where-Object { [string]$_['Source'] -ieq $sourceName })
+                if ($selected.Count -eq 0 -or -not $selected[0]['Ok'] -or -not $selected[0]['Plan']) {
+                    $reason = '没有可用的安装计划'
+                    if ($selected.Count -gt 0 -and [string]$selected[0]['Error']) { $reason = [string]$selected[0]['Error'] }
+                    $failureNotes += ('{0}: 指定软件源「{1}」不可用：{2}' -f $id, $sourceName, $reason)
+                    $parameterFailed = $true
+                    $failCount++
+                    continue
+                }
+                $sourceRow = [ordered]@{}
+                foreach ($key in $targetRow.Keys) { $sourceRow[$key] = $targetRow[$key] }
+                $targetRow = $sourceRow
+                $targetRow['Sources'] = @($selected[0])
+            }
 
-        $one = Invoke-WinstInstallTarget -Context $Context -Row $targetRow -Force:$force -Overwrite:$overwrite `
-            -Keep $keep -DownloadOnly:$DownloadOnly -Yes:$yes -AutoPickSource:([bool]($yes -or $sourceName)) -KillRunning:$kill `
-            -FilesOnly:$filesOnly -ForceSystemItems:$forceSystemItems
-        if ($one.Cancelled) { $skipCount++; continue }
-        if (-not $one.Ok) {
-            $executionFailed = $true
-            if ($one.Network) { $networkFailed = $true }
-            $failCount++
-            # 原因已由 Invoke-WinstInstallTarget 就地打印时不再重复，避免同一屏出现两遍
-            if (-not [bool]$one.FailureShown) {
-                $reason = [string]$one.Error
-                if (-not $reason) { $reason = [string]$one.Message }
-                if (-not $reason) { $reason = '未知原因' }
-                $failureNotes += ('{0}: {1}' -f $id, $reason)
+            $one = Invoke-WinstInstallTarget -Context $Context -Row $targetRow -Force:$force -Overwrite:$overwrite `
+                -Keep $keep -DownloadOnly:$DownloadOnly -Yes:$yes -AutoPickSource:([bool]($yes -or $sourceName)) -KillRunning:$kill `
+                -FilesOnly:$filesOnly -ForceSystemItems:$forceSystemItems
+            if ($one.Cancelled) { $skipCount++; continue }
+            if (-not $one.Ok) {
+                $executionFailed = $true
+                if ($one.Network) { $networkFailed = $true }
+                $failCount++
+                # 原因已由 Invoke-WinstInstallTarget 就地打印时不再重复，避免同一屏出现两遍
+                if (-not [bool]$one.FailureShown) {
+                    $reason = [string]$one.Error
+                    if (-not $reason) { $reason = [string]$one.Message }
+                    if (-not $reason) { $reason = '未知原因' }
+                    $failureNotes += ('{0}: {1}' -f $id, $reason)
+                }
+                continue
             }
-            continue
+            if ($one.Skipped) {
+                $skipCount++
+                if ([string]$one.Message) { $skipNotes += ('{0}: {1}' -f $id, [string]$one.Message) }
+                continue
+            }
+            $wasDownload = ((Get-WinstRowType -Row $targetRow -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download')
+            $okCount++
+            if ($wasDownload) { $downloadOkCount++ }
+        } catch [System.Management.Automation.PipelineStoppedException] { throw
+        } catch {
+            $parameterFailed = $true
+            $cause = $_.Exception
+            while ($cause) {
+                if ($cause -is [Net.WebException] -or $cause.GetType().FullName -eq 'System.Net.Http.HttpRequestException') { $networkFailed = $true; break }
+                $cause = $cause.InnerException
+            }
+            $failCount++
+            $failureNotes += ('{0}: {1}' -f $id, $_.Exception.Message)
         }
-        if ($one.Skipped) {
-            $skipCount++
-            if ([string]$one.Message) { $skipNotes += ('{0}: {1}' -f $id, [string]$one.Message) }
-            continue
-        }
-        $okCount++
-        if ((Get-WinstRowType -Row $targetRow -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $downloadOkCount++ }
     }
 
     Write-Host ''

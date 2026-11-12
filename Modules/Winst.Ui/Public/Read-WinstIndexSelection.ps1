@@ -28,6 +28,7 @@ function Read-WinstIndexSelection {
     $rangeText = '1 - {0}' -f $Count
 
     while ($true) {
+        if (Test-WinstInputRedirected) { return @{ Action = 'back'; Indexes = @() } }
         $raw = $null
         try {
             $raw = Read-Host $Prompt
@@ -35,6 +36,7 @@ function Read-WinstIndexSelection {
             return @{ Action = 'back'; Indexes = @() }
         }
 
+        if ($null -eq $raw) { return @{ Action = 'back'; Indexes = @() } }
         $text = ''
         if ($null -ne $raw) { $text = ([string]$raw).Trim() }
 

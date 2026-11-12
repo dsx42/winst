@@ -24,6 +24,8 @@ function Save-WinstState {
     if ($null -eq $installed) { $installed = (New-WinstOrdinalDictionary) }
 
     Assert-WinstDistinctIds -Ids @($installed.Keys)
+    $normalized = New-WinstOrdinalDictionary
+    foreach ($id in @($installed.Keys)) { $normalized[$id] = ConvertTo-WinstInstalledEntry -Entry $installed[$id] }
     $obj = [ordered]@{
         schemaVersion = (Get-WinstStateSchemaVersion)
         installed     = $installed
@@ -46,7 +48,7 @@ function Save-WinstState {
         if ($stamp) {
             $cache[$path] = @{
                 Stamp    = $stamp
-                State    = (Copy-WinstState -State @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $installed })
+                State    = (Copy-WinstState -State @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $normalized })
                 Migrated = $false
                 NeedSave = $false
             }

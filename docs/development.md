@@ -20,7 +20,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list --of
 ## 调试与模块扩展
 
 - `WINST_DEV=1` 强制重新导入开发模块；`--verbose` 输出诊断。
-- 导入单个模块时用清单绝对路径；跨模块依赖由调用环境导入，详见各 psd1 注释，不使用 RequiredModules。
+- 导入单个模块时用清单绝对路径并加 `-DisableNameChecking`；跨模块依赖由调用环境导入，详见各 psd1 注释，不使用 RequiredModules。
 - 新模块目录与 psd1/psm1 同名，包含 Public；加载器与其它模块保持一致。
 - 新函数放 Public 或 Private，加载器自动发现；跨模块调用只用 Public。只定义函数的约束有 `WinstState.Type.ps1` 加载 .NET 状态/捕获类型这一明确例外。
 - 新状态项在 Initialize-WinstState 声明；写入遵循 [数据文件](data-files.md) 的条目级提交与缓存失效契约。
@@ -48,7 +48,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list --of
 | Markdown、测试清单 | UTF-8无BOM |
 | winst写出的JSON和list | UTF-8无BOM |
 
-构建检查 Modules 下脚本、winst.ps1、build.ps1 的 BOM/CRLF，并单独检查 install.ps1；批处理 GBK 需要编辑器和人工保证。构建不修复源文件格式。显式写脚本使用 UTF8Encoding(true)，写数据使用 UTF8Encoding(false)。
+构建检查 Modules 下脚本、winst.ps1、build.ps1 的 BOM/CRLF，并单独检查 install.ps1；批处理 GBK 需要编辑器和人工保证。非法 UTF-8 字节也会使构建失败；存在但无法解析的本地测试 manifest.json 会阻止构建。构建不修复源文件格式。显式写脚本使用 UTF8Encoding(true)，写数据使用 UTF8Encoding(false)。
 
 ## 验证
 
@@ -64,16 +64,16 @@ Get-ChildItem Modules -Recurse -File |
     }
 ```
 
-`tests/verify-review-batch*.ps1` 是无需测试框架的隔离断言脚本，各自在独立的 Windows PowerShell 5.1 进程运行：
+`tests/verify-review-*.ps1` 是无需测试框架的隔离断言脚本，各自在独立的 Windows PowerShell 5.1 进程运行：
 
 ```powershell
-Get-ChildItem tests -Filter verify-review-batch*.ps1 | Sort-Object Name | ForEach-Object {
+Get-ChildItem tests -Filter verify-review-*.ps1 | Sort-Object Name | ForEach-Object {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $_.FullName
     if ($LASTEXITCODE -ne 0) { throw ('回归失败：{0}' -f $_.Name) }
 }
 ```
 
-针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。回归脚本覆盖缓存校验、来源解析、安装生命周期和菜单分支，不能替代真实系统集成验证。
+针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。回归脚本覆盖报告涉及的路径保护、台账与缓存、来源解析、安装和菜单边界，不能替代真实系统集成验证。
 
 界面列宽以 Windows Terminal 中的常见中日韩全角字形及合成 emoji 为估算目标：代理对作为一个码点，组合符不另占列，常见 ZWJ 序列、肤色、旗帜和带变体选择符的 emoji 按一个两列字形估算。终端版本、字体和未合成序列可能显示不同宽度；传统控制台与其它终端的 emoji 对齐不作保证。隔离断言验证计算结果，实际渲染需在目标终端人工检查。
 

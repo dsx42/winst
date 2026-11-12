@@ -24,6 +24,10 @@ function Test-WinstProtectedDirectory {
     if ($full.StartsWith('\\', [StringComparison]::Ordinal)) {
         $uncSegments = @($full.Substring(2).Split('\') | Where-Object { $_ })
         if ($uncSegments.Count -le 2) { return $true }
+        # 管理共享可由文本确定卷路径；自定义远端共享不能仅凭目录名猜测映射。
+        if ($uncSegments[1] -match '^([A-Za-z])\$$') {
+            $full = $Matches[1] + ':\' + ($uncSegments[2..($uncSegments.Count - 1)] -join '\')
+        }
     }
     if ($full.Split('\').Count -lt 2) { return $true }
 
@@ -36,7 +40,7 @@ function Test-WinstProtectedDirectory {
     }
 
     $protected = @(
-        '(?i)^[A-Za-z]:\\Windows$',
+        '(?i)^[A-Za-z]:\\Windows(?:\\|$)',
         '(?i)^[A-Za-z]:\\Windows\\(System32|SysWOW64|WinSxS|System|Temp|assembly|Microsoft\.NET|servicing|Fonts|INF|Boot|diagnostics|Prefetch)$',
         '(?i)^[A-Za-z]:\\Program Files( \(x86\))?$',
         '(?i)^[A-Za-z]:\\Program Files( \(x86\))?\\(Common Files|WindowsApps|Windows Defender|Windows NT|Internet Explorer|ModifiableWindowsApps)$',

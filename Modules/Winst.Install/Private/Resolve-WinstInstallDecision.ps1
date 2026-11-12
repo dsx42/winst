@@ -43,36 +43,18 @@ function Resolve-WinstInstallDecision {
     }
 
     $detect = Get-WinstDetectedVersion -Context $Context -Plan $Plan -InstallDir $InstallDir
+    $detectMethod = Get-EntryString -Entry (Get-EntryValue -Entry $Plan -Key 'detect' -Default $null) -Key 'method'
     if ($detect.Ok) { $detected = [string]$detect.Version }
-    elseif ($Ledger -and -not [bool]$detect.QuerySucceeded) { $detected = [string]$Ledger['version'] }
+    elseif ($Ledger -and @('registry', 'appx') -contains $detectMethod -and $detect.QuerySucceeded -and $detect.Found) {
+        $ledgerVersion = Get-EntryString -Entry $Ledger -Key 'version'
+        if ($ledgerVersion -and $ledgerVersion -ine 'unknown') { $detected = $ledgerVersion }
+    }
 
     # 系统记录的完整查询确认未命中时，旧台账不能证明目标产品仍已安装；查询失败则明确中止。
-    $detectMethod = Get-EntryString -Entry (Get-EntryValue -Entry $Plan -Key 'detect' -Default $null) -Key 'method'
     if (@('registry', 'appx') -contains $detectMethod -and -not [bool]$detect.QuerySucceeded) {
         $Result.Error = [string]$detect.Note
         if (-not $Result.Error) { $Result.Error = '无法完成系统安装记录查询，请排除查询错误后重试' }
         return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = '' }
-    }
-
-    # 检测不到版本、但可以确定「没有升级可做」：版本号取自主包文件信息 + 远端无新包（FreshMain=false）
-    # + 目标版本等于安装台账版本。系统安装记录可能没覆盖到该软件（如 VC++ 运行库只登记 MSI 子产品），
-    # 这时不该重跑安装器；有附件变化就只更新附件，否则跳过。
-    if (-not $detected -and $VersionFromPackage -and -not $Force -and -not $FreshMain -and $Version -and $Ledger) {
-        $ledgerVersion = Get-EntryString -Entry $Ledger -Key 'version'
-        $sameAsLedger = $false
-        if ($ledgerVersion -and $ledgerVersion -ine 'unknown') {
-            try { $sameAsLedger = ((Compare-WinstVersion -A $ledgerVersion -B $Version) -eq 0) } catch { $sameAsLedger = $false }
-        }
-        if ($sameAsLedger) {
-            if ($CompanionsOnly -and $CompanionDownloadCount -gt 0) {
-                if (-not $Quiet) {
-                    Write-Host ('  {0} {1}：主包无变化，只更新 {2} 个附加文件（不重装）' -f $DisplayName, $ledgerVersion, $CompanionDownloadCount) -ForegroundColor Gray
-                }
-                return @{ Return = $false; Result = $null; Defer = $false; CompanionOnly = $true; Detected = $ledgerVersion }
-            }
-            return (Complete-WinstInstallSkip -Result $Result -Version $ledgerVersion `
-                -Message ('{0} 已是最新版本（{1}；系统安装记录里没有找到该软件，按安装台账判断），无需重复安装' -f $DisplayName, $ledgerVersion))
-        }
     }
 
     if ($detected -and $detected -ine 'unknown') {

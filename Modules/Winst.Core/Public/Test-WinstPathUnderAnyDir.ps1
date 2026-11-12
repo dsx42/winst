@@ -15,11 +15,11 @@ function Test-WinstPathUnderAnyDir {
         [string[]]$Dirs = @()
     )
 
-    $text = ([string]$Path).Trim().Trim('"')
+    $text = ([string]$Path).Trim().Trim('"').Replace('/', '\')
     if (-not $text) { return $false }
     $textTrim = $text.TrimEnd('\', '/')
     foreach ($dir in @($Dirs)) {
-        $one = ([string]$dir).Trim().Trim('"')
+        $one = ([string]$dir).Trim().Trim('"').Replace('/', '\')
         if (-not $one) { continue }
         $oneTrim = $one.TrimEnd('\', '/')
         if (-not $oneTrim) { continue }

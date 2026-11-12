@@ -117,7 +117,9 @@ function Invoke-InstalledList {
                 $null = Invoke-WinstUpdateCustomLoop -Context $Context -Targets @($id) -Items @($item)
                 if (Get-WinstState -Name WinstQuitRequested) { return }
             } elseif ($text -eq 'd') {
-                Write-WinstUninstallResult -Result (Invoke-WinstUninstallApp -Context $Context -Id $id)
+                $uninstalled = Invoke-WinstUninstallApp -Context $Context -Id $id
+                Write-WinstUninstallResult -Result $uninstalled
+                if ($uninstalled.RestartInitiated) { return }
             } elseif ($text -eq 'r') {
                 $sync = Sync-WinstInstalledRecord -Context $Context -Id $id
                 if ($sync.Ok) {

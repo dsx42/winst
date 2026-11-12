@@ -20,7 +20,7 @@ function Show-WinstSoftwareRows {
     )
 
     $items = @($Items)
-    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1 } }
+    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = ([string]$Filter).Trim() } }
 
     $installedCount = 0
     $cachedCount = 0

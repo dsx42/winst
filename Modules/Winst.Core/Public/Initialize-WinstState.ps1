@@ -20,7 +20,7 @@
         winst.ps1，紧接着 Winst.Core 导入之后。
 
     幂等：
-        重复执行只补仍然为 $null 的项，因此同一会话内入口跑两次也不会丢掉进程内缓存。
+        重复执行只补缺失的项与需要重建的非空缓存，因此同一会话内入口跑两次也不会丢掉进程内缓存。
 #>
 
 function Initialize-WinstState {
@@ -39,6 +39,12 @@ function Initialize-WinstState {
     param()
 
     $initialized = 0
+    foreach ($name in @('WinstScriptPath', 'WinstScriptDir')) {
+        if (-not (Test-WinstState -Name $name)) {
+            $null = Set-WinstState -Name $name -Value ''
+            $initialized++
+        }
+    }
 
     if (-not (Test-WinstState -Name 'WinstProtectedDirectoryPaths')) {
         $null = Set-WinstState -Name 'WinstProtectedDirectoryPaths' -Value $null
@@ -139,33 +145,33 @@ function Initialize-WinstState {
     }
 
     # 短 TTL 的系统快照（Winst.System）。
-    if ($null -eq (Get-WinstState -Name 'WinstRegistryEntriesCache')) {
+    if (-not (Test-WinstState -Name 'WinstRegistryEntriesCache')) {
         $null = Set-WinstState -Name 'WinstRegistryEntriesCache' -Value $null
         $initialized++
     }
 
-    if ($null -eq (Get-WinstState -Name 'WinstEnvironmentCache')) {
+    if (-not (Test-WinstState -Name 'WinstEnvironmentCache')) {
         $null = Set-WinstState -Name 'WinstEnvironmentCache' -Value $null
         $initialized++
     }
 
-    if ($null -eq (Get-WinstState -Name 'WinstAppxCache')) {
+    if (-not (Test-WinstState -Name 'WinstAppxCache')) {
         $null = Set-WinstState -Name 'WinstAppxCache' -Value $null
         $initialized++
     }
 
-    if ($null -eq (Get-WinstState -Name 'WinstProcessCache')) {
+    if (-not (Test-WinstState -Name 'WinstProcessCache')) {
         $null = Set-WinstState -Name 'WinstProcessCache' -Value $null
         $initialized++
     }
 
-    if ($null -eq (Get-WinstState -Name 'WinstLocalManifestFilesCache')) {
+    if (-not (Test-WinstState -Name 'WinstLocalManifestFilesCache')) {
         $null = Set-WinstState -Name 'WinstLocalManifestFilesCache' -Value $null
         $initialized++
     }
 
     # 引擎路径缓存（Winst.Engine）。
-    if ($null -eq (Get-WinstState -Name 'WinstEnginePathCache')) {
+    if (-not (Test-WinstState -Name 'WinstEnginePathCache')) {
         $null = Set-WinstState -Name 'WinstEnginePathCache' -Value $null
         $initialized++
     }

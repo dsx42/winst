@@ -94,7 +94,10 @@ function Invoke-WinstOldVersionCleanup {
 
     # 台账里只留没清掉的旧版本：清完就写空数组，下次进来不再提醒
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
-    if (-not $stateRead.Error) {
+    if ($stateRead.Error) {
+        $result.Ok = $false
+        $result.Notes += ('旧版本清理结果未写回台账：{0}' -f $stateRead.Error)
+    } else {
         $ledger = Get-WinstInstalledApp -State $stateRead.State -Id $id
         if ($ledger) {
             $kept = @()

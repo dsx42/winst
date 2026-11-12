@@ -14,7 +14,7 @@ function Get-VersionKindPattern {
     $k = ''
     if ($Kind) { $k = ([string]$Kind).Trim().ToLowerInvariant() }
     switch ($k) {
-        'semver' { return '(?<![0-9])(?:[vV])?(?<v>[0-9]+(?:\.[0-9]+){1,3})(?![0-9])' }
+        'semver' { return '(?<![0-9.])(?:[vV])?(?<v>[0-9]+(?:\.[0-9]+){1,3})(?![0-9]|\.[0-9])' }
         'date'   { return '(?<![0-9])(?<v>[0-9]{4}[-.][0-9]{2}[-.][0-9]{2}|[0-9]{8})(?![0-9])' }
         'digits' { return '(?<![0-9])(?<v>[0-9]{2,})(?![0-9])' }
         default  { return '' }

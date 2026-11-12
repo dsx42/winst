@@ -5,7 +5,7 @@ function Merge-WinstLedgerIdCase {
     .SYNOPSIS
         台账里存在「id 仅大小写不同、且指向同一安装目录」的重复记录时，按清单 id 合并该记录。
     .OUTPUTS
-        [bool] 是否发生了合并
+        [bool] 是否已处理该大小写冲突（同目录合并，异目录保留并提示）
     #>
     param($State, [string]$Id, $Info, [hashtable]$Counters)
 
@@ -17,6 +17,9 @@ function Merge-WinstLedgerIdCase {
             $duplicateEntry = $State['Installed'][$keyText]
             $duplicateDir = Get-EntryString -Entry $duplicateEntry -Key 'installDir'
             if ($duplicateDir -and ([string]$duplicateDir).TrimEnd('\') -ieq ([string]$Info['InstallDir']).TrimEnd('\')) { $duplicateId = $keyText; break }
+            $Counters.Kept++
+            Write-Host ('    [!] 未合并 {0}：与台账 {1} 仅大小写不同，但安装目录不同；原记录已保留。' -f $Id, $keyText) -ForegroundColor Yellow
+            return $true
         }
     }
     if (-not $duplicateId) { return $false }

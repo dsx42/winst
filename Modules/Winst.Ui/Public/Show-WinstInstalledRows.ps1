@@ -24,7 +24,7 @@ function Show-WinstInstalledRows {
     )
 
     $items = @($Items)
-    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1 } }
+    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = ([string]$Filter).Trim() } }
 
     $summary = Get-WinstInstalledSummary -Items $items -ItemNoun $ItemNoun
     $updatableCount = $summary.UpdateCount

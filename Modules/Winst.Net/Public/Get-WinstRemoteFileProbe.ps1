@@ -66,7 +66,7 @@ function Get-WinstRemoteFileProbe {
                 $finalText = ''
                 try { $finalText = [string]$resp.BaseResponse.ResponseUri } catch { }
                 if (-not $finalText) { try { $finalText = [string]$resp.BaseResponse.RequestMessage.RequestUri } catch { } }
-                if ($finalText -and ($finalText -notlike ('*' + $FinalUriMustContain + '*'))) { $attemptState = 'missing' }
+                if ($finalText -and [Uri]::UnescapeDataString($finalText).IndexOf([Uri]::UnescapeDataString($FinalUriMustContain), [StringComparison]::OrdinalIgnoreCase) -lt 0) { $attemptState = 'missing' }
             }
         } catch {
             $statusCode = 0

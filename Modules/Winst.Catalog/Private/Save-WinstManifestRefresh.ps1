@@ -14,7 +14,7 @@ function Save-WinstManifestRefresh {
     try {
         if ($WriteCache) { Write-FileAtomic -Path $CachePath -Content $Content }
         Write-ManifestMeta -PkgDir $Context.PkgDir -Name $Name -Url $TargetUrl -Version $Version `
-            -FetchedAt $FetchedAt -ResolvedAt (Get-Date).ToString('s') -Apps $Apps
+            -FetchedAt $FetchedAt -ResolvedAt ([DateTime]::UtcNow.ToString('o')) -Apps $Apps
     } catch {
         # 目标盘不可用（如映射盘在提权进程里看不到）与「真的写不进去」要分开报告：
         # 前者是可恢复的环境问题，提示用户换 UNC 路径；两者的共同点是本次解析结果仍然可用，
@@ -41,7 +41,7 @@ function Save-WinstManifestRefresh {
         $metaPath = Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $Name
         (Get-WinstState -Name WinstManifestSessionMeta)[$metaPath] = @{
             Url = $TargetUrl; Version = $Version; FetchedAt = $FetchedAt
-            ResolvedAt = (Get-Date).ToString('s'); Apps = @($Apps); HasApps = $true
+            ResolvedAt = [DateTime]::UtcNow.ToString('o'); Apps = @($Apps); HasApps = $true
         }
         if ($persistUnavailable) { (Get-WinstState -Name WinstManifestPersistUnavailable)[$metaPath] = $true }
         Reset-WinstCatalogCache

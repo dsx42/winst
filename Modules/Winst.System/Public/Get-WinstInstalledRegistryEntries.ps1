@@ -21,6 +21,7 @@ function Get-WinstInstalledRegistryEntries {
     if ([Environment]::Is64BitOperatingSystem) { $views += 'Registry64' }
     foreach ($view in $views) {
         foreach ($hive in @('LocalMachine','CurrentUser')) {
+            if ($hive -eq 'CurrentUser' -and $view -eq 'Registry64') { continue }
             $base = $null
             $root = $null
             try {

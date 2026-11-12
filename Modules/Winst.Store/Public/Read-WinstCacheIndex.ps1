@@ -33,7 +33,7 @@ function Read-WinstCacheIndex {
     # 注意：变量名不能叫 $stamp —— 别处 $stamp 表示「下载时间」（见 New-WinstCacheIndexEntryFromDir），容易混淆
     $indexFileStamp = Get-WinstFileStamp -Path $path
     $cachedIndex = (Get-WinstState -Name WinstJsonCache)[$cacheKey]
-    if ($cachedIndex -and ([string]$cachedIndex['Stamp'] -eq $indexFileStamp)) {
+    if ($indexFileStamp -and $cachedIndex -and ([string]$cachedIndex['Stamp'] -eq $indexFileStamp)) {
         $cachedResult = $cachedIndex['Value']
         $result.Rebuilt = [bool]$cachedResult.Rebuilt
         $result.Changed = [bool]$cachedResult.Changed
@@ -73,6 +73,11 @@ function Read-WinstCacheIndex {
                     foreach ($prop in $obj.PSObject.Properties) {
                         $id = [string]$prop.Name
                         if (-not $id) { continue }
+                        if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) {
+                            $result.Error += ('索引含不合法或保留 id，已跳过并禁止覆盖原文件：{0}。' -f $id)
+                            $result.CanSave = $false
+                            continue
+                        }
                         # 单条记录读坏只影响这一条：记忆里没有它时按目录内的文件重建一条（版本记空串，
                         # 安装 / 下载时自动核对并回写）；这里**不置 Changed**——原文件里那条记录可能本来是好的，
                         # 整份回写会把它一并抹掉，留着原文等下次真正需要写盘时再说
@@ -128,7 +133,7 @@ function Read-WinstCacheIndex {
     if ($result.Rebuilt) {
         foreach ($dir in @(Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue)) {
             $id = $dir.Name
-            if ($id -ieq 'manifests') { continue }
+            if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) { continue }
             $entry = New-WinstCacheIndexEntryFromDir -Dir $dir.FullName
             if ($null -ne $entry) { $result.Index[$id] = $entry }
         }
@@ -147,6 +152,6 @@ function Read-WinstCacheIndex {
     foreach ($id in @($result.Index.Keys)) {
         $cacheCopy.Index[$id] = Copy-WinstObjectShallow -InputObject $result.Index[$id]
     }
-    (Get-WinstState -Name WinstJsonCache)[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy; Raw = '' }
+    if ($indexFileStamp) { (Get-WinstState -Name WinstJsonCache)[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy; Raw = '' } }
     return $result
 }

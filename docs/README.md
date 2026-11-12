@@ -16,7 +16,7 @@ winst 的技术文档。想先上手看 [README](../README.md)，需要细节再
 
 ```
 winst.ps1            入口：设偏好 -> 按模块形态加载 -> 初始化状态 -> 调用 Winst.App
-Modules\Winst.*\     开发树：每个模块 = psd1(元数据) + psm1(加载器) + Public\ + Private\
+Modules\Winst.*\     开发树：每个模块 = psd1(元数据) + psm1(加载器) + Public\ + Private\（按需）
 Modules\Winst\       release：build.ps1 合并出的单一模块（psd1 + psm1）
 ```
 

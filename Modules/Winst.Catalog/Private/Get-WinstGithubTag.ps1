@@ -23,6 +23,11 @@ function Get-WinstGithubTag {
     $releases = @()
     $notes = @()
 
+    if (-not $ReleaseTagPrefix) {
+        try { $chosenTag = Get-GitHubLatestTag -Context $Context -Repo $Repo } catch { $chosenTag = '' }
+        if ($chosenTag) { return @{ Error = ''; Tag = $chosenTag; Releases = @(); Notes = @() } }
+    }
+
     try {
         $releases = @(Get-GitHubReleaseListTags -Context $Context -Repo $Repo)
     } catch {
@@ -40,7 +45,7 @@ function Get-WinstGithubTag {
         }
         if ($matched.Count -eq 0) {
             if ($releases.Count -eq 0) {
-                return @{ Error = ('{0} 这个仓库还没有发布任何版本；等发布后再刷新即可' -f $Repo); Tag = ''; Releases = $releases; Notes = @() }
+                return @{ Error = ('{0} 的近期发布列表中没有找到可用版本；请核对发布页后重试' -f $Repo); Tag = ''; Releases = $releases; Notes = @() }
             }
             return @{
                 Error = ('{0} 最近的 {1} 个发布里没有以 "{2}" 开头的版本；请核对 GitHub 上的 tag 命名' -f $Repo, $releases.Count, $ReleaseTagPrefix)
@@ -61,14 +66,6 @@ function Get-WinstGithubTag {
         return @{ Error = ''; Tag = [string]$best['Tag']; Releases = $releases; Notes = @() }
     }
 
-    # 未声明前缀 → 用 GitHub 自己认定的「最新正式发布」（不会命中预发布）
-    try {
-        $chosenTag = Get-GitHubLatestTag -Context $Context -Repo $Repo
-    } catch {
-        $chosenTag = ''
-    }
-    if ($chosenTag) { return @{ Error = ''; Tag = $chosenTag; Releases = $releases; Notes = @() } }
-
     # 仓库只有预发布时 releases/latest 会跳到发布列表页（取不到 tag）：退回列表里版本最高的正式发布
     $stable = @()
     foreach ($item in $releases) {
@@ -77,7 +74,7 @@ function Get-WinstGithubTag {
     }
     if ($stable.Count -eq 0) {
         if ($releases.Count -eq 0) {
-            return @{ Error = ('{0} 这个仓库还没有发布任何版本；等发布后再刷新即可' -f $Repo); Tag = ''; Releases = @(); Notes = @() }
+            return @{ Error = ('{0} 的近期发布列表中没有找到可用版本；请核对发布页后重试' -f $Repo); Tag = ''; Releases = @(); Notes = @() }
         }
         $notes += ('{0} 还没有标记为「最新」的正式发布，已改用发布日期最近的一次发布（可能是预发布）。' -f $Repo)
         return @{ Error = ''; Tag = [string]$releases[0]['Tag']; Releases = $releases; Notes = $notes }

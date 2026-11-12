@@ -75,7 +75,7 @@ function Invoke-WinstCapturedCommand {
             $result.Text = [string]$outTask.Result
         } catch {
             $result.Ok = $false
-            $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.Message)
+            $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.GetBaseException().Message)
         }
         try { if ($errTask.Wait(2000)) { $result.ErrText = [string]$errTask.Result } } catch { $result.ErrText = '' }
     } finally {

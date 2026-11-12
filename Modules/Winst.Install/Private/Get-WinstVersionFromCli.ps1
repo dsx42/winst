@@ -20,18 +20,25 @@ function Get-WinstVersionFromCli {
     if (-not $main) { $main = Get-WinstMainProgram -Plan $Plan }
     if (-not $main) { return }
     $mainPath = $main
-    if ($InstallDir -and -not [IO.Path]::IsPathRooted($mainPath)) { $mainPath = Join-WinstPath $InstallDir $mainPath }
+    if (-not (Test-WinstArgumentSafe -Value $mainPath)) { throw 'detect.exe 含有引号或控制字符' }
+    if ($mainPath -notmatch '^(?:[A-Za-z]:[\\/]|\\\\)') {
+        if (-not $InstallDir) { throw '相对 detect.exe 需要有效安装目录' }
+        $resolved = Resolve-WinstSafeChildPath -Root $InstallDir -Child $mainPath -Label 'detect.exe'
+        if (-not $resolved.Ok) { throw $resolved.Error }
+        $mainPath = [string]$resolved.Path
+    }
     if (-not (Test-Path -LiteralPath $mainPath -PathType Leaf)) { return }
 
     $Result.Found = $true
     $argsText = Get-EntryString -Entry $Detect -Key 'versionArgs'
     if (-not $argsText) { $argsText = '-v' }
+    if (-not (Test-WinstArgumentTemplateSafe -Value $argsText)) { throw 'detect.versionArgs 含有控制字符或未闭合引号' }
 
     $exePath = $mainPath
     $fullArgs = $argsText
     if ($mainPath -match '(?i)\.ps1$') {
         $exePath = 'powershell.exe'
-        $fullArgs = ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" {1}' -f $mainPath, $argsText)
+        $fullArgs = ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File {0} {1}' -f (Format-WinstCommandArgument -Value $mainPath), $argsText)
     } elseif ($mainPath -match '(?i)\.jar$') {
         # jar 本身不是可执行文件，要由 java 启动（如 PlantUML：java -jar plantuml.jar --version）
         $javaExe = Get-WinstJavaExecutable -Context $Context
@@ -41,7 +48,7 @@ function Get-WinstVersionFromCli {
             return
         }
         $exePath = $javaExe
-        $fullArgs = ('-jar "{0}" {1}' -f $mainPath, $argsText)
+        $fullArgs = ('-jar {0} {1}' -f (Format-WinstCommandArgument -Value $mainPath), $argsText)
     }
 
     # 在隔离的隐藏进程里执行（不继承当前控制台，见 Invoke-WinstCapturedCommand）：

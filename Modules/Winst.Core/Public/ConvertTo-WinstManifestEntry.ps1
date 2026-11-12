@@ -15,6 +15,7 @@ function ConvertTo-WinstManifestEntry {
     $copy = Copy-WinstManifestFields -Value $Entry -Label '条目' -Fields $entryFields -Strings $entryStrings
     $id = Get-EntryString -Entry $copy -Key 'id'
     if (-not (Test-WinstSafePathSegment -Name $id)) { throw ('软件源条目 id 不合法：' + $id) }
+    if (Test-WinstReservedPackageId -Id $id) { throw ('软件源条目 id 使用了保留目录名：' + $id) }
     $type = ConvertTo-WinstEntryType -Type (Get-EntryString -Entry $copy -Key 'type')
     if (@('portable', 'installer', 'file', 'download') -notcontains $type) { throw '条目 type 必须为 portable / installer / file / download' }
     if ($copy.Contains('stripTopDir') -and $copy['stripTopDir'] -isnot [bool] -and $copy['stripTopDir'] -isnot [string]) { throw 'stripTopDir 必须是布尔值或路径字符串' }
@@ -86,7 +87,7 @@ function ConvertTo-WinstManifestEntry {
                 'github' { @('tag', 'file', 'package', 'releaseTitle', 'releaseBody') }
                 'page' { @('url', 'page', 'package', 'header', 'json') }
             }
-            if ($effectiveFrom -and $allowedFrom -notcontains $effectiveFrom) { throw ('source.version.from 不适用于 ' + $kind + ' 来源：' + $effectiveFrom) }
+            if ($effectiveFrom -and $allowedFrom -notcontains $effectiveFrom) { throw ('source.version.from 不适用于 ' + $kind + ' 来源：' + $effectiveFrom + '；可用值：' + ($allowedFrom -join ' / ')) }
             $allowedVersion = @('versionFrom')
             switch ($effectiveFrom) {
                 'package' { $allowedVersion += 'packageVersion' }

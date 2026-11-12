@@ -3,7 +3,7 @@
 function Move-WinstItemInto {
     <#
     .SYNOPSIS
-        把解压临时目录里的条目搬进目标目录；目标已有同名目录时递归合并（覆盖模式下不先删旧目录）。
+        把解压临时目录里的条目搬进目标目录；Copy 时复制并保留来源，同名目录递归合并。
     .DESCRIPTION
         $Source 必须是文件系统对象（Get-ChildItem / Get-Item 的结果）——函数按它的 Name / FullName /
         PSIsContainer 搬运；直接传路径字符串会因这些属性为 $null 而报「LiteralPath 为 null」（见
@@ -11,7 +11,8 @@ function Move-WinstItemInto {
     #>
     param(
         [Parameter(Mandatory = $true)][System.IO.FileSystemInfo]$Source,
-        [Parameter(Mandatory = $true)][string]$DestDir
+        [Parameter(Mandatory = $true)][string]$DestDir,
+        [switch]$Copy
     )
 
     Assert-WinstSafeWritePath -Path $DestDir -Directory
@@ -28,17 +29,20 @@ function Move-WinstItemInto {
     }
     if ($Source.PSIsContainer) {
         if (Test-Path -LiteralPath $target -PathType Container) {
-            foreach ($child in @(Get-ChildItem -LiteralPath $Source.FullName -Force -ErrorAction SilentlyContinue)) {
-                Move-WinstItemInto -Source $child -DestDir $target
+            foreach ($child in @(Get-ChildItem -LiteralPath $Source.FullName -Force -ErrorAction Stop)) {
+                Move-WinstItemInto -Source $child -DestDir $target -Copy:$Copy
             }
-            try { [IO.Directory]::Delete($Source.FullName, $false) } catch { }
+            if (-not $Copy) { try { [IO.Directory]::Delete($Source.FullName, $false) } catch { } }
             return
         }
-        if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force -ErrorAction Stop }
         Assert-WinstTreeWithoutReparsePoint -Path $Source.FullName
-        Move-Item -LiteralPath $Source.FullName -Destination $target -Force -ErrorAction Stop
+        if ($Copy) { Copy-Item -LiteralPath $Source.FullName -Destination $target -Recurse -Force -ErrorAction Stop }
+        else { Move-Item -LiteralPath $Source.FullName -Destination $target -Force -ErrorAction Stop }
         return
     }
 
-    Move-Item -LiteralPath $Source.FullName -Destination $DestDir -Force -ErrorAction Stop
+    if (Test-Path -LiteralPath $target -PathType Container) { throw ('目标位置是目录，无法写入同名文件：' + $target) }
+    if ($Copy) { Copy-Item -LiteralPath $Source.FullName -Destination $target -Force -ErrorAction Stop }
+    else { Move-Item -LiteralPath $Source.FullName -Destination $DestDir -Force -ErrorAction Stop }
 }

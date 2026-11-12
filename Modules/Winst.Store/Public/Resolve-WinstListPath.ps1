@@ -28,6 +28,7 @@ function Resolve-WinstListPath {
         if (-not [IO.Path]::IsPathRooted($full)) {
             try { $full = (Join-WinstPath (Get-Location).Path $full) } catch { }
         }
+        if ($full.EndsWith('.') -or $full.EndsWith(' ')) { return @{ Ok = $false; Error = '清单文件名不能以点或空格结尾。'; Path = '' } }
         if ($full -notmatch '(?i)\.list$') { $full = $full + '.list' }
         try { $full = [IO.Path]::GetFullPath($full) } catch {
             return @{ Ok = $false; Error = '清单文件路径不合法。'; Path = '' }
@@ -35,6 +36,8 @@ function Resolve-WinstListPath {
         if (-not (Test-WinstPathUnderRoot -Path $full -Root $listsDir)) {
             return @{ Ok = $false; Error = ('清单文件只能放在 {0} 目录下（不接受 .. 或其它目录的绝对路径）。' -f $listsDir); Path = '' }
         }
+        $checked = Test-WinstListFileName -Text ([IO.Path]::GetFileName($full))
+        if (-not $checked.Ok) { return @{ Ok = $false; Error = $checked.Error; Path = '' } }
         return @{ Ok = $true; Error = ''; Path = $full }
     }
 

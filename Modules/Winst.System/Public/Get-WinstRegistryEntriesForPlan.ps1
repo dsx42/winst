@@ -25,12 +25,21 @@ function Get-WinstRegistryEntriesForPlan {
 
     $ruleText = Get-WinstRegistryNameRuleForPlan -Plan $Plan
     if (-not $ruleText) { return @() }
-    $rule = New-MatchRule -Rule $ruleText -Kind '软件名称'
-    if (-not $rule.Ok) { return @() }
+    $rules = @()
+    foreach ($text in @($ruleText)) {
+        $rule = New-MatchRule -Rule ([string]$text) -Kind '软件名称'
+        if (-not $rule.Ok) {
+            if ($null -ne $Status) { $Status.Error = $rule.Error }
+            return @()
+        }
+        $rules += $rule
+    }
 
     $hits = @()
     foreach ($entry in @(Get-WinstInstalledRegistryEntries -Status $Status)) {
-        if (Test-CompiledMatchRule -Rule $rule -Text ([string]$entry['DisplayName'])) { $hits += $entry }
+        foreach ($rule in $rules) {
+            if (Test-CompiledMatchRule -Rule $rule -Text ([string]$entry['DisplayName'])) { $hits += $entry; break }
+        }
     }
     if ($hits.Count -eq 0) { return @() }
 

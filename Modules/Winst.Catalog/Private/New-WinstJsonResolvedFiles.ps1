@@ -83,9 +83,11 @@ function New-WinstJsonResolvedFiles {
         $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $Source -MainVersion $Version
         if (-not $fileVersion.Ok) { return @{ Error = [string]$fileVersion.Error; Files = $files } }
         foreach ($listedNote in @($fileVersion.Notes)) { $Result.Notes += [string]$listedNote }
+        $fileUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
+        Assert-WinstHttpUrl -Url $fileUrl
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
             -OwnVersion ([bool]$fileVersion.Own) `
-            -Url (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version)
+            -Url $fileUrl
     }
 
     return @{ Error = ''; Files = $files }

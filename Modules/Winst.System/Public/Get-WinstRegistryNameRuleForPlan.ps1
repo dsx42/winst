@@ -9,7 +9,7 @@ function Get-WinstRegistryNameRuleForPlan {
     param($Plan)
 
     $detect = Get-EntryValue -Entry $Plan -Key 'detect' -Default $null
-    $nameRule = Get-EntryString -Entry $detect -Key 'name'
+    $nameRule = Get-EntryValue -Entry $detect -Key 'name' -Default $null
     if ($nameRule) { return $nameRule }
     # 名称规则未声明：只有「以注册表为准」（installer 的默认检测方式）时才按条目名称推导，
     # 避免对刻意不用注册表检测的条目误配到同名软件

@@ -32,8 +32,9 @@ function Get-WinstPageIframeAnchors {
             $href = ([string]$anchor['Href']).Trim()
             if (-not $href -or $href -match '^(?i)(javascript:|mailto:|#)') { continue }
             try { $href = ([Uri]::new([Uri]$iframeUrl, $href)).AbsoluteUri } catch { }
-            $anchor['Href'] = $href
-            $anchors += $anchor
+            $copy = Copy-WinstObjectShallow -InputObject $anchor
+            $copy['Href'] = $href
+            $anchors += $copy
         }
         $Result.Notes += ('主页面没有命中下载链接，已跟随 iframe（{0}）' -f $iframeUrl)
     }

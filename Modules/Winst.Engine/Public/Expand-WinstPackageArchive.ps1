@@ -6,14 +6,15 @@ function Expand-WinstPackageArchive {
         解压压缩包到独立空暂存目录：7z.exe（7-Zip-CLI 引擎）→ 系统 tar.exe → Expand-Archive（仅 zip）。
     .DESCRIPTION
         目标必须是调用方拥有的独立空目录。工具失败后清理本次残留，再尝试下一工具；
-        全部失败时返回各工具错误，成功后由调用方负责交付内容并清理暂存目录。
+        全部失败时返回各工具错误，成功后由调用方负责交付内容并清理暂存目录。指定 SevenZipPath 时只用该程序。
     .OUTPUTS
         @{ Ok; Tool; Error }
     #>
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$ArchivePath,
-        [Parameter(Mandatory = $true)][string]$DestDir
+        [Parameter(Mandatory = $true)][string]$DestDir,
+        [string]$SevenZipPath = ''
     )
 
     $result = @{ Ok = $false; Tool = ''; Error = '' }
@@ -35,7 +36,7 @@ function Expand-WinstPackageArchive {
     }
 
     $errors = New-Object 'System.Collections.Generic.List[string]'
-    $expand = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors
+    $expand = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors -SevenZipPath $SevenZipPath
     if ($expand.Ok) {
         $result.Ok = $true
         $result.Tool = $expand.Tool

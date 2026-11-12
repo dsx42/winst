@@ -8,11 +8,9 @@ function Invoke-WinstRunUninstaller {
     param([Parameter(Mandatory = $true)][hashtable]$Context, [Parameter(Mandatory = $true)]$Plan, [switch]$Quiet)
 
     $result = @{ Ok=$false; Missing=$false; Cancelled=$false; NeedRestart=$false; RestartInitiated=$false; Error=''; Command=''; ExitCode=0 }
-    $rule = New-MatchRule -Rule (Get-WinstRegistryNameRuleForPlan -Plan $Plan) -Kind '软件名称'
-    if (-not $rule.Ok) { $result.Error = $rule.Error; return $result }
     $status = @{}
-    $hits = @(Get-WinstInstalledRegistryEntries -Status $status | Where-Object {
-        (Test-CompiledMatchRule -Rule $rule -Text ([string]$_['DisplayName'])) -and [string]$_['UninstallString']
+    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -Status $status | Where-Object {
+        [string]$_['UninstallString']
     } | Sort-Object @{Expression={Test-WinstRegistryEntryIsMsi -Entry $_}}, @{Expression={[string]$_['DisplayName']}})
     if (-not $status.Ok) { $result.Error = $status.Error; return $result }
     if ($hits.Count -eq 0) { $result.Missing=$true; $result.Error='系统安装记录里没有找到这个软件的卸载程序'; return $result }

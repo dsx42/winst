@@ -9,6 +9,7 @@ function New-WinstPageResolvedFiles {
     #>
     param($Context, $Source, $Item, $Declared, [string]$DownloadUrl, [string]$Version, [string]$PageHash, $Result)
 
+    Assert-WinstHttpUrl -Url $DownloadUrl
     $resolvedFiles = @(New-ResolvedFileFromDeclaration -Item $Item -Url $DownloadUrl -Version $Version -MainFile -HashOverride $PageHash)
     if ($PageHash) {
         # hashFrom: "page" 是提取指令不是校验算法：解析结果里已带上提取到的 hash，把指令清掉，
@@ -30,6 +31,7 @@ function New-WinstPageResolvedFiles {
         if (-not $extraVersion.Ok) { return @{ Error = [string]$extraVersion.Error; Files = $resolvedFiles } }
         foreach ($listedNote in @($extraVersion.Notes)) { $Result.Notes += [string]$listedNote }
         $extraUrl = Expand-VersionPlaceholder -Text $extraLocator.Url -Version $extraVersion.Version
+        Assert-WinstHttpUrl -Url $extraUrl
         if ($extraUrl -match '\{version(Major|Minor)?\}') {
             return @{ Error = ('配套文件的下载地址里的版本号无法替换: {0}' -f $extraLocator.Url); Files = $resolvedFiles }
         }

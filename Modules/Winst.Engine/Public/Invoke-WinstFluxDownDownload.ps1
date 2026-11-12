@@ -35,11 +35,12 @@ function Invoke-WinstFluxDownDownload {
     }
 
     # 地址 / 文件名都来自清单，而命令行是拼成一个字符串传给引擎的：
-    # 值里含引号会截断参数、注入新开关。地址必须是绝对 URI（http / https / ftp 等）且不含引号；
+    # 值里含引号会截断参数、注入新开关。地址必须是绝对 URI（http / https / ftp / magnet）且不含引号；
     # 目录 / 代理这类本机配置里的引号按 Windows argv 规则转义成 \"
     $parsedUrl = $null
-    if (-not [Uri]::TryCreate([string]$Url, [UriKind]::Absolute, [ref]$parsedUrl) -or ([string]$Url).Contains('"')) {
-        $result.Error = ('下载地址不合法（需要绝对地址，且不能含引号）：{0}' -f $Url)
+    if (-not [Uri]::TryCreate([string]$Url, [UriKind]::Absolute, [ref]$parsedUrl) -or
+        @('http', 'https', 'ftp', 'magnet') -notcontains $parsedUrl.Scheme -or -not (Test-WinstArgumentSafe -Value $Url)) {
+        $result.Error = ('下载地址不合法（仅支持 http / https / ftp / magnet 绝对地址，且不能含引号或控制字符）：{0}' -f $Url)
         return $result
     }
     # 文件名只允许单个路径段：清单可控的值不能靠 "..\..\" 写到 DestDir 之外

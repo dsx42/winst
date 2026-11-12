@@ -44,6 +44,9 @@ function Read-WinstState {
                 $result.State = (Copy-WinstState -State $cached['State'])
                 $result.Migrated = [bool]$cached['Migrated']
                 $result.NeedSave = [bool]$cached['NeedSave']
+                $result.Reset = [bool]$cached['Reset']
+                $result.Error = [string]$cached['Error']
+                $result.BackupPath = [string]$cached['BackupPath']
                 return $result
             }
         }
@@ -58,7 +61,6 @@ function Read-WinstState {
         $result.Error = ('读取安装台账失败: {0}' -f $_.Exception.Message)
         return $result
     }
-    if (-not $raw -or -not $raw.Trim()) { return $result }
 
     $obj = $null
     try {
@@ -87,6 +89,13 @@ function Read-WinstState {
         $result.Reset = $true
         $result.NeedSave = $true
         $result.Error = ('安装台账无法解析，已重建空台账（原文件备份为 {0}）' -f (Split-Path -Leaf $backup))
+        if ($stamp) {
+            (Get-WinstState -Name WinstStateReadCache)[$path] = @{
+                Stamp = $stamp; State = (Copy-WinstState -State $result.State)
+                Migrated = $false; NeedSave = $true; Reset = $true
+                Error = $result.Error; BackupPath = $result.BackupPath
+            }
+        }
         return $result
     }
 
@@ -131,18 +140,21 @@ function Read-WinstState {
             foreach ($key in @($ip.Value.Keys)) {
                 $id = [string]$key
                 if (-not $id) { continue }
-                $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $ip.Value[$key])
+                try { $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $ip.Value[$key]) }
+                catch { $result.Error += ('安装条目 {0} 无效：{1}。' -f $id, $_.Exception.Message) }
             }
         } else {
             foreach ($prop in $ip.Value.PSObject.Properties) {
                 $id = [string]$prop.Name
                 if (-not $id) { continue }
-                $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $prop.Value)
+                try { $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $prop.Value) }
+                catch { $result.Error += ('安装条目 {0} 无效：{1}。' -f $id, $_.Exception.Message) }
             }
         }
     }
 
     $result.State = @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $installed }
+    if ($result.Error) { $result.NeedSave = $false; return $result }
 
     # —— 写入读缓存（缓存归一化结果；NeedSave / Migrated 一并记住，命中时行为与首次一致） ——
     # 存**副本**、返回原对象：缓存里的那份一旦被调用方就地改到（如 repair 更正版本、

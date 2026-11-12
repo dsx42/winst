@@ -39,14 +39,14 @@ function Get-WinstCachedOverview {
     $rowById = Get-WinstCatalogRowMap -Context $Context
     $result.RowById = $rowById
 
-    $entryByCiId = Get-WinstCacheEntryMap -CacheIndex $cacheIndex
+    $entryById = Get-WinstCacheEntryMap -CacheIndex $cacheIndex
     $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir
 
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($idText in @($packageDirs.Keys)) {
         $cacheInfo = $packageDirs[$idText]
         $cacheVersion = ''
-        if ($entryByCiId.ContainsKey($idText)) { $cacheVersion = Get-EntryString -Entry $entryByCiId[$idText] -Key 'version' }
+        if ($entryById.Contains($idText)) { $cacheVersion = Get-EntryString -Entry $entryById[$idText] -Key 'version' }
 
         $ledger = Get-WinstInstalledApp -State $stateRead.State -Id $idText
         $row = $null

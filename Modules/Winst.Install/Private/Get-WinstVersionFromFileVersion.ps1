@@ -35,7 +35,9 @@ function Get-WinstVersionFromFileVersion {
                 # 「3, 71, 1, 0」（版本资源的 FILEVERSION 原样写法），不归一会判不出前缀关系，
                 # 保留下来又会把版本识别成 `71`（见 ConvertTo-WinstFileVersionText）。
                 $rawNumber = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersionRaw)
+                if ($rawNumber -match '^0(?:\.0)*$') { $rawNumber = '' }
                 if (-not $rawNumber) { $rawNumber = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersionRaw) }
+                if ($rawNumber -match '^0(?:\.0)*$') { $rawNumber = '' }
                 $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersion)
                 if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersion) }
                 if ($rawNumber -and (Test-WinstNumericVersionPrefix -Prefix $raw -Value $rawNumber)) {
@@ -43,8 +45,7 @@ function Get-WinstVersionFromFileVersion {
                 } elseif ($rawNumber) {
                     $raw = $rawNumber
                 }
-                if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersionRaw) }
-                if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersionRaw) }
+                if (-not $raw) { $raw = $rawNumber }
             }
         } catch { $raw = '' }
         $value = Get-WinstVersionFromText -Text $raw -Kind $Kind -Between $Between

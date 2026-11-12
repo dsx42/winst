@@ -32,7 +32,7 @@ function Get-WinstSoftwareOverview {
     }
     $result.CacheIndex = $cacheIndex
 
-    $entryByCiId = Get-WinstCacheEntryMap -CacheIndex $cacheIndex
+    $entryById = Get-WinstCacheEntryMap -CacheIndex $cacheIndex
     $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir
 
     $items = New-Object 'System.Collections.Generic.List[object]'
@@ -46,13 +46,13 @@ function Get-WinstSoftwareOverview {
         $cacheFiles = @()
         $sizeBytes = [long]0
         $cacheVersion = ''
-        if ($packageDirs.ContainsKey($id)) {
+        if ($packageDirs.Contains($id)) {
             $cacheInfo = $packageDirs[$id]
             $cacheDir = [string]$cacheInfo['Path']
             $cacheFiles = @($cacheInfo['Files'])
             $sizeBytes = [long]$cacheInfo['SizeBytes']
         }
-        if ($entryByCiId.ContainsKey($id)) { $cacheVersion = Get-EntryString -Entry $entryByCiId[$id] -Key 'version' }
+        if ($entryById.Contains($id)) { $cacheVersion = Get-EntryString -Entry $entryById[$id] -Key 'version' }
 
         $items.Add((New-WinstSoftwareItem -Context $Context -Id $id -Row $row -Ledger $ledger `
             -CacheDir $cacheDir -CacheFiles $cacheFiles -CacheSizeBytes $sizeBytes -CacheVersion $cacheVersion -CacheIndex $cacheIndex))

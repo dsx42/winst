@@ -10,6 +10,7 @@ function Resolve-WinstExternalVersion {
     $uri = (Get-EntryString -Entry $Source -Key 'versionUrl').Trim()
     if (-not $uri) { throw 'source.versionUrl 必填（独立版本地址）' }
     if ($uri -match '\{version(Major|Minor)?\}') { throw 'source.versionUrl 不支持版本占位符' }
+    Assert-WinstHttpUrl -Url $uri -Label 'source.versionUrl'
     if ($VersionFrom -eq 'header') {
         $value = Get-WinstRemoteHeader -Context $Context -Uri $uri -Name (Get-EntryString -Entry $Source -Key 'versionHeader')
     } else {

@@ -8,7 +8,7 @@ function Test-WinstPathSegmentExists {
     param([string[]]$Segments, [string]$Value)
 
     foreach ($segment in @($Segments)) {
-        if (([string]$segment).Trim().Trim('"') -ieq ([string]$Value).Trim()) { return $true }
+        if (([string]$segment).Trim().Trim('"') -ieq ([string]$Value).Trim().Trim('"')) { return $true }
     }
     return $false
 }

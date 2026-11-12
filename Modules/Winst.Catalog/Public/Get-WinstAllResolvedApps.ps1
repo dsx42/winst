@@ -30,7 +30,8 @@ function Get-WinstAllResolvedApps {
         if ($apps.Count -eq 0 -and -not $offline -and -not $dryRun -and -not (Get-WinstState -Name WinstCatalogRefreshed).ContainsKey($name)) {
             (Get-WinstState -Name WinstCatalogRefreshed)[$name] = $true
             Write-Host ('  正在读取软件源 {0} 的软件清单 …' -f $name) -ForegroundColor Gray
-            $null = Update-ManifestSource -Context $Context -Source $source
+            $refresh = Update-ManifestSource -Context $Context -Source $source
+            if (-not $refresh.Success) { Write-Host ('  软件源 {0} 刷新失败：{1}' -f $name, $refresh.Message) -ForegroundColor Yellow }
             $apps = @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $name)
         }
         foreach ($app in $apps) { $all.Add(@{ Source = $name; App = $app }) }

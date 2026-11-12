@@ -26,7 +26,13 @@ function Remove-WinstOrphanRegistryRecord {
     }
     try {
         $props = Read-WinstUninstallRegistryEntry -KeyPath $KeyPath
-        if (-not $props -or (Test-WinstUninstallerUsable -Entry $props)) { $result.Skipped = $true; return $result }
+        if (-not $props) { $result.Skipped = $true; return $result }
+        $resolved = Resolve-WinstUninstallerCommand -CommandLine (Get-EntryString -Entry $props -Key 'UninstallString')
+        if (-not $resolved.Missing) {
+            $result.Skipped = $true
+            if (-not $resolved.Ok) { $result.Error = ('无法确认卸载器文件已不存在，已保留安装记录：{0}' -f $resolved.Error) }
+            return $result
+        }
         $displayName = Get-EntryString -Entry $props -Key 'DisplayName'
         $parent = Open-WinstUninstallRegistryKey -KeyPath $KeyPath -Writable -Parent
         if ($null -eq $parent) { $result.Skipped = $true; return $result }

@@ -81,8 +81,6 @@ function Read-WinstSharePathInput {
         }
 
         $password = ''
-        $authWarning = Get-EntryString -Entry $auth -Key 'Warning'
-        if ($authWarning) { Write-Host ('  提示：' + $authWarning) -ForegroundColor DarkYellow }
         if ($user) {
             if (Test-WinstInputRedirected) {
                 $result.Error = '当前输入被重定向，无法安全地输入密码。请在交互式终端里重新运行 winst（设置 → 安装包位置）。'
@@ -127,6 +125,8 @@ function Read-WinstSharePathInput {
         Write-Host ('  正在用账号 {0} 认证网络共享 …' -f $user) -ForegroundColor Gray
         $auth = Set-WinstUncCredential -Server $server -User $user -Password $password -Path $value
         $password = ''
+        $authWarning = Get-EntryString -Entry $auth -Key 'Warning'
+        if ($authWarning) { Write-Host ('  提示：' + $authWarning) -ForegroundColor DarkYellow }
         if ($auth.Ok) {
             Write-Host '  认证成功，凭据已交给系统凭据管理器保存。' -ForegroundColor Green
             $result.Ok = $true

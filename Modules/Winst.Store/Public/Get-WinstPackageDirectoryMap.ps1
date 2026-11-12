@@ -7,10 +7,10 @@ function Get-WinstPackageDirectoryMap {
     #>
     param([string]$PkgDir)
 
-    $map = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
+    $map = New-WinstOrdinalDictionary
     if (-not $PkgDir -or -not (Test-Path -LiteralPath $PkgDir -PathType Container)) { return $map }
     foreach ($dir in @(Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue)) {
-        if ($dir.Name -ieq 'manifests') { continue }
+        if (Test-WinstReservedPackageId -Id $dir.Name) { continue }
         $names = New-Object 'System.Collections.Generic.List[string]'
         $size = [long]0
         foreach ($file in @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)) {

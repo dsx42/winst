@@ -99,15 +99,15 @@ PowerShell 的各模块有独立 `$script:` 作用域。`Winst.Core` 用 `Add-Ty
 
 安装流程可能嵌套安装或更新引擎、winst 自身。台账通过 `Save-WinstInstalledAppEntry` 重读最新文件后只覆盖目标条目，缓存索引通过 `Save-WinstCacheIndex -Update` 在共享文件锁内重读并修改本次条目，避免旧快照抹掉嵌套流程或其它机器写入的记录。
 
-winst 自更新先把 release 树放入暂存目录，再替换安装目录；`Modules\` 整棵替换并逐文件核对，保留 `lists\` 与 `*.list`。更新后的代码在下次启动生效，当前进程继续使用已加载模块。
+winst 自更新先把 release 树放入 Temp 下的随机暂存目录，检查必需文件、模块布局及脚本语法，保留 `lists\` 与 `*.list`，再在原安装位置清理并复制新树，完整替换 `Modules\`。它与绿色软件、引擎共用落位流程：不改旧目录名、不备份、不回滚，不计算暂存或落位文件摘要；清理或复制失败明确报错，目录可能不完整。这是减少整树读写的设计取舍，下载包的 checksum 校验仍保留。更新后的代码在下次启动生效，当前进程继续使用已加载模块。
 
 ## 入口
 
 `winst.ps1` 负责：
 
-1. 设置 `Set-StrictMode -Version 2`、`$ErrorActionPreference = 'Stop'`、静默进度和 TLS 1.2。
-2. 记录根目录，按模块形态导入模块；`WINST_DEV=1` 时加 `-Force`。
-3. 调用 `Initialize-WinstState`，再调用 `Invoke-WinstApplication`。
+1. 设置 `Set-StrictMode -Version 2`、`$ErrorActionPreference = 'Stop'` 与静默进度。
+2. 模块导入前尝试提权；有效帮助 / 版本调用与 `WINST_NO_ELEVATE=1` 免提权，提权失败退出 `1`。记录根目录，按模块形态导入模块；`WINST_DEV=1` 时加 `-Force`。
+3. 初始化状态与脚本位置，设置 TLS 1.2，再调用 `Invoke-WinstApplication`。
 4. 应用层记录脚本位置、做单进程校验，再解析 CLI、分发命令或进入菜单。
 5. 将结果映射为进程退出码；未捕获异常写 stderr 并退出 1。
 
@@ -120,7 +120,7 @@ winst 自更新先把 release 树放入暂存目录，再替换安装目录；`M
 - **不做静默兜底**：来源解析、校验或必需字段失败时明确报错，不猜地址或版本。
 - **失败隔离**：批量操作逐项 `try/catch`，单项失败不中断其余。
 - **路径安全**：清单提供的 id、文件名和相对路径先校验再拼接；递归删除检查目标根、受保护目录与重解析点。
-- **文件格式**：`.ps1` / `.psm1` / `.psd1` 为 UTF-8 with BOM（`install.ps1` 例外，见下），`build.cmd` 为 GBK，统一 CRLF；`build.ps1` 校验脚本编码与换行。
+- **文件格式**：`.ps1` / `.psm1` / `.psd1` 为 UTF-8 with BOM（`install.ps1` 例外，见下），`build.cmd` / `winst.cmd` 为 GBK，统一 CRLF；`build.ps1` 校验脚本编码与换行，不检查 cmd 编码。
 - **`install.ps1` 例外**：经 `irm | iex` 执行，必须 UTF-8 **无** BOM 且不写 `#Requires`（前导 U+FEFF 会被 `iex` 当成命令名的一部分而报错）；`build.ps1` 校验这两点。
 - **文档与注释**：使用中文，只描述当前实现。
 - **id 比较区分大小写**：台账、缓存索引、清单合并统一用 Ordinal 字典（`New-WinstOrdinalDictionary`）。

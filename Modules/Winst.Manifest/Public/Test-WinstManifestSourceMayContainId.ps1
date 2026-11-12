@@ -15,7 +15,9 @@ function Test-WinstManifestSourceMayContainId {
     if (-not $path) { return $true }
     $read = Read-WinstJsonFileCached -Path $path
     if (-not $read.Ok -or $null -eq $read.Value) { return $true }
-    foreach ($entry in @(Get-ManifestEntries -Manifest $read.Value)) {
+    try { $entries = @(Get-ManifestEntries -Manifest $read.Value) }
+    catch { return $true }
+    foreach ($entry in $entries) {
         if ((Get-EntryString -Entry $entry -Key 'id') -ceq $Id) { return $true }
     }
     $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name

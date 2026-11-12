@@ -64,10 +64,7 @@ function Invoke-WinstPackageDownloadLoop {
                 Error = $offlineError
             }
         }
-        # 校验码不一致 / 旧包损坏：仅在确定可以联网重取后删除；离线失败必须保留原文件。
-        if (Test-Path -LiteralPath $target -PathType Leaf) {
-            Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
-        }
+        $hadTarget = Test-Path -LiteralPath $target -PathType Leaf
         if (-not $engineReady) {
             $engine = Confirm-WinstDownloadEngine -Context $Context -Quiet:$Quiet
             if (-not $engine.Ok) {
@@ -75,7 +72,7 @@ function Invoke-WinstPackageDownloadLoop {
             }
             $engineReady = $true
             # 引导下载引擎时可能已把本包一并取下（引擎引导包与目标包常是同一个文件），避免重复下载
-            if (Test-Path -LiteralPath $target -PathType Leaf) {
+            if (-not $hadTarget -and (Test-Path -LiteralPath $target -PathType Leaf)) {
                 $recheck = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl'] `
                     -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
                 if ($recheck.Ok) {
@@ -87,86 +84,101 @@ function Invoke-WinstPackageDownloadLoop {
             }
         }
 
-        # 下载前先清掉本目标的残留（上次失败留下的 .fdownloading、引擎改名产出的「名称 (1).zip」）：
-        # 不清的话引擎看到同名文件会把这次输出改成「名称 (1).zip」，winst 按期望名找不到就永远重试
-        $residue = @(Remove-WinstDownloadResidue -Dir $PkgDir -Name $name)
-        if ($residue.Count -gt 0 -and -not $Quiet) {
-            Write-Host ('    已清理上次未完成的下载残留: {0}' -f ($residue -join '、')) -ForegroundColor DarkGray
-        }
-        if (-not $Quiet) { Write-Host ('    正在下载 {0} …' -f $name) -ForegroundColor Gray }
-        $beforeFiles = @(Get-ChildItem -LiteralPath $PkgDir -File -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
-        if ($isDownloadEngine) {
-            $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $target
-        } else {
-            $dl = Invoke-WinstPackageDownload -Context $Context -Url $url -DestDir $PkgDir -FileName $name
-        }
-        if (-not $dl.Ok) {
-            # 带时效的地址过期后必然下载失败：
-            # 重新解析该条目的来源、用新地址再试一次。只认「同一个文件」（名字与版本都要对得上），
-            # 免得软件源已经换了新版本时把新版本当成目标版本下载；只试一次，不写回解析锁。
-            $live = Get-WinstLiveResolvedFileUrl -Context $Context -Id $Id -PreferSource $SourceName -Index $fileSeq -FileName $name
-            $retryUrl = ''
-            if ($live.Ok -and $live.Url -and ([string]$live.Url -cne $url) -and ([string]$live.Name -ieq $name)) {
-                $sameVersion = $true
-                if ([string]$live.Version -and $Version) {
-                    $sameVersion = ((Compare-WinstVersion -A ([string]$live.Version) -B $Version) -eq 0)
-                }
-                if ($sameVersion) { $retryUrl = [string]$live.Url }
-            }
-            if ($retryUrl) {
-                if (-not $Quiet) { Write-Host '    下载地址可能已失效，已重新从软件源取回下载地址，正在重试 …' -ForegroundColor DarkYellow }
-                if ($isDownloadEngine) {
-                    $retryDl = Save-WinstFileWithHttp -Context $Context -Uri $retryUrl -OutFile $target
-                } else {
-                    $retryDl = Invoke-WinstPackageDownload -Context $Context -Url $retryUrl -DestDir $PkgDir -FileName $name
-                }
-                if ($retryDl.Ok) {
-                    $dl = $retryDl
-                    $url = $retryUrl
-                    # 索引 fileMeta 记新地址：下次按「地址变化」判定自然会重新取
-                    $filePlan['Url'] = $retryUrl
-                } else {
-                    $dl = @{ Ok = $false; Error = ('{0}；重新解析软件源后重试仍失败：{1}' -f $dl.Error, $retryDl.Error) }
-                }
-            } elseif ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
-                if ($live.Ok) {
-                    Write-Host ('  [verbose] 重新解析软件源后地址没有变化（或已换版本），不重试: {0}' -f [string]$live.Name) -ForegroundColor DarkGray
-                } else {
-                    Write-Host ('  [verbose] 重新解析软件源失败：{0}' -f [string]$live.Error) -ForegroundColor DarkGray
-                }
+        # 同卷暂存并校验成功后才替换缓存，刷新失败保留原来的离线副本。
+        $commitTarget = $target
+        $downloadDir = Join-WinstPath $PkgDir ('winst-download-' + [guid]::NewGuid().ToString('N'))
+        try {
+            Assert-WinstSafeWritePath -Path $commitTarget
+            Assert-WinstSafeWritePath -Path $downloadDir
+            $null = New-Item -ItemType Directory -Path $downloadDir -ErrorAction Stop
+            $target = Join-WinstPath $downloadDir $name
+            if (-not $Quiet) { Write-Host ('    正在下载 {0} …' -f $name) -ForegroundColor Gray }
+            $beforeFiles = @(Get-ChildItem -LiteralPath $downloadDir -File -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
+            if ($isDownloadEngine) {
+                $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $target
+            } else {
+                $dl = Invoke-WinstPackageDownload -Context $Context -Url $url -DestDir $downloadDir -FileName $name
             }
             if (-not $dl.Ok) {
-                return @{ Ok = $false; Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error); Network = $true; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+                # 带时效的地址过期后必然下载失败：
+                # 重新解析该条目的来源、用新地址再试一次。只认「同一个文件」（名字与版本都要对得上），
+                # 免得软件源已经换了新版本时把新版本当成目标版本下载；只试一次，不写回解析锁。
+                $live = Get-WinstLiveResolvedFileUrl -Context $Context -Id $Id -PreferSource $SourceName -Index $fileSeq -FileName $name
+                $retryUrl = ''
+                if ($live.Ok -and $live.Url -and ([string]$live.Url -cne $url) -and ([string]$live.Name -ieq $name)) {
+                    $sameVersion = $true
+                    if ([string]$live.Version -and $Version) {
+                        $sameVersion = ((Compare-WinstVersion -A ([string]$live.Version) -B $Version) -eq 0)
+                    }
+                    if ($sameVersion) { $retryUrl = [string]$live.Url }
+                }
+                if ($retryUrl) {
+                    if (-not $Quiet) { Write-Host '    下载地址可能已失效，已重新从软件源取回下载地址，正在重试 …' -ForegroundColor DarkYellow }
+                    if ($isDownloadEngine) {
+                        $retryDl = Save-WinstFileWithHttp -Context $Context -Uri $retryUrl -OutFile $target
+                    } else {
+                        $retryDl = Invoke-WinstPackageDownload -Context $Context -Url $retryUrl -DestDir $downloadDir -FileName $name
+                    }
+                    if ($retryDl.Ok) {
+                        $dl = $retryDl
+                        $url = $retryUrl
+                    } else {
+                        $dl = @{ Ok = $false; Error = ('{0}；重新解析软件源后重试仍失败：{1}' -f $dl.Error, $retryDl.Error) }
+                    }
+                } elseif ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
+                    if ($live.Ok) {
+                        Write-Host ('  [verbose] 重新解析软件源后地址没有变化（或已换版本），不重试: {0}' -f [string]$live.Name) -ForegroundColor DarkGray
+                    } else {
+                        Write-Host ('  [verbose] 重新解析软件源失败：{0}' -f [string]$live.Error) -ForegroundColor DarkGray
+                    }
+                }
+                if (-not $dl.Ok) {
+                    return @{ Ok = $false; Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error); Network = $true; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+                }
+            }
+            if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+                # 引擎在目标名被占用时会把输出改名成「名称 (1).zip」：只认本次新出现的那个文件并归位
+                $adopt = Resolve-WinstDownloadedFile -Dir $downloadDir -Name $name -BeforeFiles $beforeFiles
+                if ([string]$adopt.Note -and -not $Quiet) { Write-Host ('    {0}' -f [string]$adopt.Note) -ForegroundColor DarkYellow }
+                if (-not [string]$adopt.Path) {
+                    return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+                }
+            }
+            # 防御性读取：Invoke-WinstPackageDownload 的每条返回路径都会带 Retried，
+            # 这里仍按「可能没有」处理，避免调用方换成别处的结果形状时报错。
+            $wasRetried = $false
+            if ($dl -is [System.Collections.IDictionary] -and $dl.Contains('Retried')) {
+                $wasRetried = [bool]$dl['Retried']
+            }
+            if ($wasRetried -and -not $Quiet) {
+                Write-Host '    多段并发下载失败，已改用单连接重试并成功。' -ForegroundColor DarkYellow
+            }
+            $check = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl'] `
+                -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
+            if (-not $check.Ok) {
+                # 刚下载的包校验不通过：删掉坏包并报错（软件源里的包本身有问题）
+                Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+                return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); Network = [bool]$check.Network; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+            }
+            Assert-WinstSafeWritePath -Path $commitTarget
+            if (Test-Path -LiteralPath $commitTarget -PathType Leaf) {
+                [IO.File]::Replace($target, $commitTarget, [System.Management.Automation.Language.NullString]::Value)
+            } else {
+                [IO.File]::Move($target, $commitTarget)
+            }
+            $filePlan['Url'] = $url
+            Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
+            $downloaded += $commitTarget
+            $downloadedNames += $name
+            $downloadedAny = $true
+        } catch {
+            return @{ Ok = $false; Error = ('下载缓存写入失败：{0}' -f $_.Exception.Message); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
+        } finally {
+            if (Test-Path -LiteralPath $downloadDir -PathType Container) {
+                try { Clear-WinstInstallDir -Dir $downloadDir }
+                catch { Write-Warning ('下载临时目录未能清理：{0}（{1}）' -f $downloadDir, $_.Exception.Message) }
             }
         }
-        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
-            # 引擎在目标名被占用时会把输出改名成「名称 (1).zip」：只认本次新出现的那个文件并归位
-            $adopt = Resolve-WinstDownloadedFile -Dir $PkgDir -Name $name -BeforeFiles $beforeFiles
-            if ([string]$adopt.Note -and -not $Quiet) { Write-Host ('    {0}' -f [string]$adopt.Note) -ForegroundColor DarkYellow }
-            if (-not [string]$adopt.Path) {
-                return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
-            }
-        }
-        # 防御性读取：Invoke-WinstPackageDownload 的每条返回路径都会带 Retried，
-        # 这里仍按「可能没有」处理，避免调用方换成别处的结果形状时报错。
-        $wasRetried = $false
-        if ($dl -is [System.Collections.IDictionary] -and $dl.Contains('Retried')) {
-            $wasRetried = [bool]$dl['Retried']
-        }
-        if ($wasRetried -and -not $Quiet) {
-            Write-Host '    多段并发下载失败，已改用单连接重试并成功。' -ForegroundColor DarkYellow
-        }
-        $check = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl'] `
-            -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
-        if (-not $check.Ok) {
-            # 刚下载的包校验不通过：删掉坏包并报错（软件源里的包本身有问题）
-            Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
-            return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); Network = [bool]$check.Network; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
-        }
-        Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
-        $downloaded += $target
-        $downloadedNames += $name
-        $downloadedAny = $true
     }
 
     return @{ Ok = $true; Error = ''; Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }

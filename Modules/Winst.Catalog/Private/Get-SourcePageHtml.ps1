@@ -10,6 +10,8 @@ function Get-SourcePageHtml {
     param([hashtable]$Context, $Source, [string]$PageUrl, [string]$Label = '页面')
 
     $result = @{ Ok = $false; Html = ''; Anchors = @(); Notes = @(); Error = '' }
+    try { Assert-WinstHttpUrl -Url $PageUrl -Label $Label }
+    catch { $result.Error = $_.Exception.Message; return $result }
     if (-not $PageUrl) {
         $result.Error = ('没有填写{0}地址（source.pageUrl）' -f $Label)
         return $result

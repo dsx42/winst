@@ -26,7 +26,7 @@ function Resolve-WinstBundleTarget {
         if (-not $text) { $text = $defaultTarget }
         $TargetDir = $text
     }
-    if ($TargetDir -match '^[a-zA-Z]:(?![\\/])') { throw '目标目录不能是盘符相对路径，请指定完整路径。' }
+    if ($TargetDir -match '^[a-zA-Z]:(?![\\/])') { throw (New-Object System.ArgumentException('目标目录不能是盘符相对路径，请指定完整路径。')) }
     $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TargetDir)
     return [IO.Path]::GetFullPath($resolved)
 }

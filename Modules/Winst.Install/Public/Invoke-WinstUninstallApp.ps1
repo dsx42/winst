@@ -70,53 +70,56 @@ function Invoke-WinstUninstallApp {
     # 卸载过程共享的可变状态（备注 / 残留目录 / 是否「只移除记录」；结果对象用于 Missing / NeedRestart）
     $runState = @{ Notes = @(); Leftovers = @(); ForceRemove = [bool]$Force; Result = $result }
 
-    # —— 运行中检测 ——
-    $running = Confirm-WinstUninstallRunning -Context $Context -Id $Id -Ledger $ledger -Targets $targets `
-        -Yes:$Yes -Kill:$Kill -Quiet:$Quiet
-    if (-not $running.Ok) {
-        if ($running.Cancelled) {
-            $result.Cancelled = $true
+    try {
+        # —— 运行中检测 ——
+        $running = Confirm-WinstUninstallRunning -Context $Context -Id $Id -Ledger $ledger -Targets $targets `
+            -Yes:$Yes -Kill:$Kill -Quiet:$Quiet
+        if (-not $running.Ok) {
+            if ($running.Cancelled) {
+                $result.Cancelled = $true
+                return $result
+            }
+            $result.Error = [string]$running.Error
             return $result
         }
-        $result.Error = [string]$running.Error
-        return $result
-    }
-    foreach ($note in @($running.Notes)) { $runState.Notes += $note }
+        foreach ($note in @($running.Notes)) { $runState.Notes += $note }
 
-    # —— ⓪ 卸载命令 ——
-    $pre = Invoke-WinstPreUninstallCommands -Context $Context -Id $Id -Targets $targets -ForceRemove ([bool]$Force) -Quiet:$Quiet
-    foreach ($note in @($pre.Notes)) { $runState.Notes += $note }
-    if (-not $pre.Ok) {
-        $result.Error = [string]$pre.Error
-        return $result
-    }
+        # —— ⓪ 卸载命令 ——
+        $pre = Invoke-WinstPreUninstallCommands -Context $Context -Id $Id -Targets $targets -ForceRemove ([bool]$Force) -Quiet:$Quiet
+        foreach ($note in @($pre.Notes)) { $runState.Notes += $note }
+        if (-not $pre.Ok) {
+            $result.Error = [string]$pre.Error
+            return $result
+        }
 
-    # —— ① 删除程序本体 ——
-    $payload = Invoke-WinstRemovePayload -Context $Context -Id $Id -Targets $targets -Ledger $ledger -RunState $runState -Yes:$Yes -Quiet:$Quiet
-    if ($payload.Abort) {
-        $result.Error = [string]$payload.Error
-        return $result
-    }
+        # —— ① 删除程序本体 ——
+        $payload = Invoke-WinstRemovePayload -Context $Context -Id $Id -Targets $targets -Ledger $ledger -RunState $runState -Yes:$Yes -Quiet:$Quiet
+        if ($payload.Abort) {
+            $result.Error = [string]$payload.Error
+            return $result
+        }
 
-    # —— ② 回收 winst 写入的系统项 ——
-    try {
-        Remove-WinstAppliedSystemItems -Context $Context -State $state -Id $Id -Targets $targets -RunState $runState -Quiet:$Quiet
-    } catch {
-        $result.Error = ('移交共享系统项登记失败，已保留安装记录：{0}' -f $_.Exception.Message)
-        return $result
-    }
+        # —— ② 回收 winst 写入的系统项 ——
+        try {
+            Remove-WinstAppliedSystemItems -Context $Context -State $state -Id $Id -Targets $targets -RunState $runState -Quiet:$Quiet
+        } catch {
+            $result.Error = ('移交共享系统项登记失败，已保留安装记录：{0}' -f $_.Exception.Message)
+            return $result
+        }
 
-    # —— ③ 移除安装记录 ——
-    $ledgerResult = Remove-WinstUninstallLedgerEntry -Context $Context -Id $Id
-    if ($ledgerResult.Error) {
-        $result.Error = [string]$ledgerResult.Error
-        return $result
-    }
+        # —— ③ 移除安装记录 ——
+        $ledgerResult = Remove-WinstUninstallLedgerEntry -Context $Context -Id $Id
+        if ($ledgerResult.Error) {
+            $result.Error = [string]$ledgerResult.Error
+            return $result
+        }
 
-    $result.Ok = $true
-    $result.Removed = $true
-    $result.Leftovers = @($runState.Leftovers)
-    $result.Notes = @($runState.Notes)
-    $result.Message = Format-WinstUninstallMessage -Id $Id -Targets $targets
-    return $result
+        $result.Ok = $true
+        $result.Removed = $true
+        $result.Message = Format-WinstUninstallMessage -Id $Id -Targets $targets
+        return $result
+    } finally {
+        $result.Leftovers = @($runState.Leftovers)
+        $result.Notes = @($runState.Notes)
+    }
 }

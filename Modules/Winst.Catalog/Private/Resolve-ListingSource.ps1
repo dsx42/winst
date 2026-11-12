@@ -135,6 +135,7 @@ function Resolve-ListingSource {
         $mainVersion = Get-SourceFileVersion -Item $declared[0] -Version $normalized
         if (-not $mainVersion.Ok) { $result.Error = $mainVersion.Error; return $result }
         $probeUrl = Expand-VersionPlaceholder -Text $mainTemplate -Version $mainVersion.Version
+        Assert-WinstHttpUrl -Url $probeUrl
 
         $state = 'skipped'
         if (-not $skipCheck) {
@@ -196,8 +197,10 @@ function Resolve-ListingSource {
         # 主包（第 1 项）的版本就是它自己的；配套文件只有独立取版（versionListUrl）时才算自己的版本
         $ownVersion = [bool]($index -eq 1)
         if (-not $ownVersion) { $ownVersion = [bool]$fileVersion.Own }
+        $fileUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
+        Assert-WinstHttpUrl -Url $fileUrl
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
-            -OwnVersion $ownVersion -Url (Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version)
+            -OwnVersion $ownVersion -Url $fileUrl
     }
 
     $result.Ok = $true

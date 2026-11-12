@@ -35,6 +35,7 @@ function Get-WinstPackageFilePlans {
     )
 
     $plans = @()
+    if (-not (Test-WinstSafePathSegment -Name $Id) -or (Test-WinstReservedPackageId -Id $Id)) { throw ('软件 id 不合法或使用了保留目录名：' + $Id) }
     $dir = Join-WinstPath $Context.PkgDir $Id
     $entry = $null
     if ($Index -and $Index.Contains($Id)) { $entry = $Index[$Id] }

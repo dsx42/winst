@@ -39,7 +39,7 @@ function Resolve-ManifestApps {
     $skipped = 0
     $index = 0
     # per-app 解析时间戳（ISO 's'，与 sidecar resolvedAt 同口径）：按需刷新据此判断单条版本信息的新旧
-    $resolvedNow = (Get-Date).ToString('s')
+    $resolvedNow = [DateTime]::UtcNow.ToString('o')
 
     foreach ($entry in $entryList) {
         $id = Get-EntryString -Entry $entry -Key 'id'

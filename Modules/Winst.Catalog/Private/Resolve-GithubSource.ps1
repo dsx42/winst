@@ -38,6 +38,7 @@ function Resolve-GithubSource {
     foreach ($note in @($tagResult.Notes)) { $result.Notes += [string]$note }
     $chosenTag = [string]$tagResult.Tag
     $releases = @($tagResult.Releases)
+    $commonNotes = @($result.Notes)
 
     $declared = @(Get-SourceFileDeclarations -Source $source)
     if ($declared.Count -eq 0) {
@@ -67,7 +68,7 @@ function Resolve-GithubSource {
             if (-not $retry.Ok) { continue }
 
             # 回退成功：沿用这次的结果，并把「为什么不是最新发布」说清楚
-            foreach ($note in @($probe.Notes)) { $result.Notes += [string]$note }
+            $result.Notes = @($commonNotes) + @($probe.Notes)
             $result.Notes += ('最新发布 {0} 里还没有这个文件，已改用更早的发布 {1}（版本 {2}）' -f $chosenTag, $fallbackTag, [string]$retry.ResultVersion)
             $result.Ok = $true
             $result.Tag = $fallbackTag

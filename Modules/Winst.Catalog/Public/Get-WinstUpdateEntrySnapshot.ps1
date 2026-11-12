@@ -38,7 +38,7 @@ function Get-WinstUpdateEntrySnapshot {
     #   ② 所有来源都解析失败 → 没有任何可用地址，标记 ResolutionError 排除在「可更新」外。
     $hasUsableSource = $false
     foreach ($candidate in @($Row['Sources'])) {
-        if ($candidate['Ok']) { $hasUsableSource = $true; break }
+        if ($candidate['Ok'] -and $candidate['Plan']) { $hasUsableSource = $true; break }
     }
 
     # 安装时用的来源（更新默认用它）：供「是否可更新」判断与执行阶段共用
@@ -61,10 +61,10 @@ function Get-WinstUpdateEntrySnapshot {
     if ($comparable -and $latest) { $cmp = Compare-WinstVersion -A $latest -B $InstalledVersion }
 
     # 安装来源自己有比本机更新的版本 → 同样算「可更新」（不同来源对同一版本的写法可能不同）
-    $originUsable = [bool]($originEntry -and $originEntry['Ok'] -and $originVersion)
+    $originUsable = [bool]($originEntry -and $originEntry['Ok'] -and $originEntry['Plan'])
     $originNewer = $false
     if ($originUsable) {
-        if ($comparable) {
+        if ($comparable -and $originVersion -and $originVersion -ine 'unknown') {
             $originNewer = ((Compare-WinstVersion -A $originVersion -B $InstalledVersion) -gt 0)
         } else {
             $originNewer = $true

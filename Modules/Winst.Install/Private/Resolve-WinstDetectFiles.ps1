@@ -28,6 +28,12 @@ function Resolve-WinstDetectFiles {
     $glob = Expand-PlanPlaceholders -Value (Get-EntryString -Entry $Detect -Key 'pathGlob') `
         -InstallDir $InstallDir -InstallRoot $Context.InstallRoot
     if (-not $glob) { return $result }
+    if ($glob -notmatch '^(?:[A-Za-z]:[\\/]|\\\\)') {
+        if (-not $InstallDir) { throw '相对 detect.pathGlob 需要有效安装目录' }
+        $resolved = Resolve-WinstSafeChildPattern -Root $InstallDir -Child $glob -Label 'detect.pathGlob'
+        if (-not $resolved.Ok) { throw $resolved.Error }
+        $glob = [string]$resolved.Path
+    }
 
     $hits = @()
     try { $hits = @(Get-Item -Path $glob -Force -ErrorAction SilentlyContinue) } catch { $hits = @() }

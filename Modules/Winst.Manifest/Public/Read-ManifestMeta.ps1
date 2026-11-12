@@ -8,13 +8,14 @@ function Read-ManifestMeta {
         @{ Url; Version; FetchedAt; ResolvedAt; Apps; HasApps } 或 $null
     .DESCRIPTION
         Apps 为逐软件的「解析锁」：刷新时按各来源解析出的
-        最新版本与下载 / 安装 / 卸载全流程实际内容。无该字段时 HasApps 为 $false，视为无锁。
+        最新版本与下载 / 安装 / 卸载全流程实际内容。Apps 及其嵌套内容为只读共享数据。
+        无该字段时 HasApps 为 $false，视为无锁。
     #>
     param([string]$PkgDir, [string]$Name)
 
     $path = Get-ManifestMetaPath -PkgDir $PkgDir -Name $Name
     $sessionMeta = Get-WinstState -Name WinstManifestSessionMeta
-    if ($null -ne $sessionMeta -and $sessionMeta.ContainsKey($path)) { return $sessionMeta[$path] }
+    if ($null -ne $sessionMeta -and $sessionMeta.ContainsKey($path)) { return (Copy-WinstObjectShallow -InputObject $sessionMeta[$path]) }
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
 
     try {

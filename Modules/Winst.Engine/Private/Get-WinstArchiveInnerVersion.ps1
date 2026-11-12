@@ -51,12 +51,18 @@ function Get-WinstArchiveInnerVersion {
             }
             $extractDir = Join-WinstPath $workDir 'inner'
             $null = New-Item -ItemType Directory -Path $extractDir -Force
-            $null = & $SevenZip x $PackagePath $innerEntry "-o$extractDir" -y 2>&1
-            if ($LASTEXITCODE -notin @(0, 1)) {
-                $result.Error = ('取不出内层压缩包 {0}（7z 退出码 {1}）' -f $innerEntry, $LASTEXITCODE)
+            $resolved = Resolve-WinstSafeChildPath -Root $extractDir -Child $innerEntry -Label '内层压缩包路径'
+            if (-not $resolved.Ok) { throw $resolved.Error }
+            foreach ($value in @($SevenZip, $PackagePath, $innerEntry, $extractDir)) {
+                if (-not (Test-WinstArgumentSafe -Value $value)) { throw '7-Zip 参数含有引号或控制字符' }
+            }
+            $arguments = 'x {0} {1} {2} -y -bso0 -bse0 -bsp0' -f (Format-WinstCommandArgument -Value $PackagePath), (Format-WinstCommandArgument -Value $innerEntry), (Format-WinstCommandArgument -Value ('-o' + $extractDir))
+            $run = Invoke-WinstCapturedCommand -FilePath $SevenZip -Arguments $arguments -NoTimeout -TailOutput -MaxOutputChars 65536
+            if (-not $run.Ok -or $run.ExitCode -notin @(0, 1)) {
+                $result.Error = ('取不出内层压缩包 {0}（7z 退出码 {1}）：{2}' -f $innerEntry, $run.ExitCode, $run.Error)
                 return $result
             }
-            $innerFile = Join-WinstPath $extractDir ([string]$innerEntry)
+            $innerFile = [string]$resolved.Path
             if (-not (Test-Path -LiteralPath $innerFile -PathType Leaf)) {
                 $result.Error = ('内层压缩包取出后不在预期位置: {0}' -f $innerFile)
                 return $result

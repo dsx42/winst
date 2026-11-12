@@ -34,6 +34,10 @@ function Split-WinstSafeChildSegments {
 
     $text = ([string]$Child).Trim()
     if (-not $text) { $result.Error = ('{0}为空' -f $Label); return $result }
+    if ($Child -match '[\x00-\x1F"<>|]' -or (-not $AllowWildcard -and $Child -match '[*?]')) {
+        $result.Error = ('{0}含有不支持的字符：{1}' -f $Label, $Child)
+        return $result
+    }
     if ([IO.Path]::IsPathRooted($text) -or $text -match '^[A-Za-z]:' -or $text.StartsWith('\\')) {
         $result.Error = ('{0}不能是绝对路径或网络路径：{1}' -f $Label, $Child)
         return $result

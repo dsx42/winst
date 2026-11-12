@@ -41,7 +41,8 @@ function Remove-WinstAppliedSystemItems {
         $scope = Get-EntryString -Entry $item -Key 'scope'
         if ($scope -ne 'Machine') { $scope = 'User' }
 
-        if ($null -eq (Get-EntryValue -Entry $item -Key 'existed' -Default $null)) {
+        if ($null -eq (Get-EntryValue -Entry $item -Key 'existed' -Default $null) -or
+            ((Get-EntryBool -Entry $item -Key 'existed') -and $null -eq (Get-EntryValue -Entry $item -Key 'previous' -Default $null))) {
             $RunState.Notes += ('环境变量 {0} 缺少安装前的恢复记录，已保留，请按需手动处理' -f $name)
             continue
         }

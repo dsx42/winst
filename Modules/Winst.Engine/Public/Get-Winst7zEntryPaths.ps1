@@ -21,12 +21,17 @@ function Get-Winst7zEntryPaths {
 
     $output = $null
     try {
-        $output = @(& $SevenZip l -slt $ArchivePath 2>&1)
+        foreach ($value in @($SevenZip, $ArchivePath)) {
+            if (-not (Test-WinstArgumentSafe -Value $value)) { throw '7-Zip 路径含有引号或控制字符' }
+        }
+        $run = Invoke-WinstCapturedCommand -FilePath $SevenZip -Arguments ('l -slt -sccUTF-8 {0}' -f (Format-WinstCommandArgument -Value $ArchivePath)) -NoTimeout
+        if (-not $run.Ok) { throw $run.Error }
+        $output = @(([string]$run.Text) -split '\r?\n')
     } catch {
         $result.Error = ('列不出压缩包内容（{0}）' -f $_.Exception.Message)
         return $result
     }
-    $exitCode = $LASTEXITCODE
+    $exitCode = $run.ExitCode
     if ($exitCode -notin @(0, 1)) {
         # 7z 退出码：0 成功 / 1 警告（列表仍可用）/ 2 起为致命错误
         $detail = ''

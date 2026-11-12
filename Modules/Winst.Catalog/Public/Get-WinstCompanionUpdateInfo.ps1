@@ -33,6 +33,7 @@ function Get-WinstCompanionUpdateInfo {
     if ($null -ne $FilePlans) { $plans = @($FilePlans) }
     else { try {
         $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+        if ($indexRead.Error) { $result.Error = [string]$indexRead.Error; return $result }
         # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）时主包沿用缓存，
         # 主包要重取（远端有新包 / 没比出结论）就不是「仅配套文件更新」
         $companionFreshMain = [bool](Get-EntryBool -Entry $Plan -Key 'versionFromPackage')
@@ -47,6 +48,7 @@ function Get-WinstCompanionUpdateInfo {
         return $result
     } }
     if ($plans.Count -lt 2) { return $result }
+    if ($plans.Count -ne $files.Count) { $result.Error = '附件下载计划与文件定义数量不一致'; return $result }
     $result.Checked = $true
     $mainNeedsDownload = [bool]$plans[0]['NeedDownload']
 
@@ -56,9 +58,11 @@ function Get-WinstCompanionUpdateInfo {
     $installDir = Get-EntryString -Entry $ledger -Key 'installDir'
     $previousRules = Get-EntryValue -Entry $ledger -Key 'appliedFileRules' -Default $null
     for ($i = 1; $i -lt $plans.Count; $i++) {
+        $name = Get-EntryString -Entry $plans[$i] -Key 'Name'
+        if (-not $name -or -not (Test-WinstSafePathSegment -Name $name -MaxLength 255)) { $result.Error = '附件下载计划缺少合法文件名'; return $result }
         $needsLanding = $false
         $dest = Get-EntryString -Entry $files[$i] -Key 'dest'
-        if ($ledger -and $installDir -and $dest) {
+        if ($type -ne 'installer' -and $ledger -and $installDir -and $dest) {
             $safe = Resolve-WinstSafeChildPath -Root $installDir -Child $dest -Label '附加文件的落位路径'
             if (-not $safe.Ok) { $result.Error = [string]$safe.Error; return $result }
             if (Test-WinstPathHasReparsePoint -Path $safe.Path -Root $installDir) {
