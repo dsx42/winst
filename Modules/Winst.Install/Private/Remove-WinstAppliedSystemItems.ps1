@@ -7,8 +7,6 @@ function Remove-WinstAppliedSystemItems {
     #>
     param([hashtable]$Context, $State, [string]$Id, $Targets, [hashtable]$RunState, [switch]$Quiet)
 
-    $entry = Get-WinstInstalledApp -State $State -Id $Id
-    $shortcutHashes = Get-EntryValue -Entry $entry -Key 'appliedShortcutHashes'
     foreach ($item in @($Targets['Shortcuts'])) {
         $link = [string]$item
         if (-not $link) { continue }
@@ -20,11 +18,6 @@ function Remove-WinstAppliedSystemItems {
         }
         if ($shared) {
             $RunState.Notes += ('快捷方式仍被其它已装软件引用，已保留：{0}' -f $link)
-            continue
-        }
-        $expected = Get-EntryString -Entry $shortcutHashes -Key $link
-        if (-not $expected -or $expected -cne (Get-WinstFileHash -Path $link)) {
-            $RunState.Notes += ('快捷方式缺少内容快照或已被修改，已保留，请按需手动处理：{0}' -f $link)
             continue
         }
         $r = Remove-WinstShortcutFile -LinkPath $link

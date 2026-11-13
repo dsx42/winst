@@ -38,7 +38,22 @@ function New-ResolvedFileFromDeclaration {
     $hashFile = Expand-VersionPlaceholder -Text (Get-EntryString -Entry $Item -Key 'hashFile') -Version $Version
     # {urlQuery:参数名}：从本文件解析出的下载地址查询串里取参数值（如校验接口与主包地址共享 file 参数），
     # 校验地址随解析结果自动更新，清单里无需重复版本号
-    $hashFile = Expand-UrlQueryPlaceholder -Text $hashFile -Url $Url
+    $hashFile = (Expand-UrlQueryPlaceholder -Text $hashFile -Url $Url).Trim()
+    if ($hashFile -and -not $HashFileOverride) {
+        $hashUri = $null
+        if (-not [Uri]::TryCreate($hashFile, [UriKind]::Absolute, [ref]$hashUri)) {
+            $hashFileName = [Uri]::UnescapeDataString($hashFile)
+            if ($hashFileName -match '[\\/:?#\x00-\x1F\x7F]' -or @('.', '..') -contains $hashFileName) {
+                throw 'checksum.file 必须是完整 HTTP(S) 地址或不含路径、查询串、片段的文件名'
+            }
+            Assert-WinstHttpUrl -Url $Url -Label 'checksum.file 使用文件名时，本文件下载地址'
+            if (-not [Uri]::TryCreate([Uri]$Url, $hashFile, [ref]$hashUri)) {
+                throw ('checksum.file 无法按本文件下载地址补全：' + $hashFile)
+            }
+            $hashFile = $hashUri.AbsoluteUri
+        }
+        Assert-WinstHttpUrl -Url $hashFile -Label 'checksum.file '
+    }
     if ($HashFileOverride) { $hashFile = $HashFileOverride }
     $hashFrom = (Get-EntryString -Entry $Item -Key 'hashFrom').Trim()
     if ($HashFromOverride) { $hashFrom = $HashFromOverride }

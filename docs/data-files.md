@@ -108,7 +108,7 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
 - `appliedFiles` 记录附加文件落位路径；`appliedFileRules` 是内部文件名到落位规则 JSON 文本的字典，规则包含 `dest` / `extract` / `stripTopDir`。只更新附件时，有规则基线、目标存在且包未重新下载的附件不重复落位；旧记录缺少基线时重新落位一次。该字段不属于第三方清单。`managed` 为 `winst` 或 `external`，外部登记的实际写入项为空；卸载程序仍可按当前清单定位，环境变量、PATH、快捷方式以实际登记为准。
 - `uninstall` 保存安装时的卸载操作；源条目删除或修改后，已登记软件仍可使用快照。`nameRule` 可以是字符串或字符串数组。
 - 卸载及共享系统项判断只读取 `manifestOrigin` 对应来源的解析锁；来源未知、已移除或该来源没有可用计划时只使用台账快照，不采用其它同 id 来源的定义。
-- `appliedShortcutHashes` 保存快捷方式文件 SHA256，路径对应 `appliedShortcuts`。实际创建或修正时记录摘要；复用其它条目的链接时，仅在台账登记与当前摘要一致时保存相同路径及摘要作为共享引用。已有且无需改写的用户链接不认领；卸载时其它条目仍引用、内容摘要不符或旧记录没有摘要的链接均保留并提示。该字段由 winst 写入，不是清单字段。
+- `appliedShortcutHashes` 保存快捷方式文件 SHA256，路径对应 `appliedShortcuts`。实际创建或修正时记录摘要；复用其它条目的链接时，仅在台账登记与当前摘要一致时保存相同路径及摘要作为共享引用。已有且无需改写的用户链接不认领；卸载按 `appliedShortcuts` 登记的路径直接删除链接，不检查内容摘要或是否被修改；其它已装条目仍引用的链接保留并提示，最后一个引用者卸载时删除。该字段由 winst 写入，不是清单字段。
 - `oldVersions` 记录与当前版本并存的同产品低版本，结构为 `{ version; detail; recordKey }`；`recordKey` 使用 `Registry32::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\<键名>` 或 `Registry64::...` 标识视图，用户级记录的根为 `HKEY_CURRENT_USER`。回读与删除使用同一视图；兼容旧提供程序路径，其中 `WOW6432Node` 指向 32 位视图，其余路径在 64 位系统指向 64 位视图。卸载入口选择与各检测方式的行为见 [安装流程](install-flows.md#版本检测)。有效检测命中时更新并清退消失版本，检测未完成或版本未知时保留已有记录。
 - `installed` 的 id 使用 Ordinal 比较；写入拒绝仅大小写不同的冲突身份，避免共享 Windows 目录或产生不可解析的 JSON 属性。
 - `download` 类型不写安装台账。
