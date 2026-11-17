@@ -65,7 +65,7 @@ function Install-WinstPortablePayload {
     } catch {
         return @{ Ok = $false; Error = ('准备安装目录失败：' + $_.Exception.Message) }
     } finally {
-        if ($stage -and (Test-WinstPathUnderRoot -Path $stage -Root $tempPath) -and (Test-Path -LiteralPath $stage -PathType Container)) {
+        if ($stage) {
             Clear-WinstInstallDir -Dir $stage -AllowedRoot $tempPath
         }
     }

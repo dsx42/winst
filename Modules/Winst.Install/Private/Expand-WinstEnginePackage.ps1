@@ -48,7 +48,7 @@ function Expand-WinstEnginePackage {
     } catch {
         return @{ Ok = $false; Error = ('安装引擎失败：{0}' -f $_.Exception.Message) }
     } finally {
-        if ($stage -and (Test-Path -LiteralPath $stage)) {
+        if ($stage) {
             Clear-WinstInstallDir -Dir $stage -AllowedRoot $tempPath
         }
     }

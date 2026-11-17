@@ -9,13 +9,13 @@ function Move-WinstArchiveSelection {
 
     Assert-WinstSafeWritePath -Path $Path
     Assert-WinstSafeWritePath -Path $DestDir -Directory
-    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-    if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) {
-        $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
+    $item = Get-WinstFileSystemItem -Path $Path -ErrorAction Stop
+    if (-not (Test-WinstFileSystemPath -Path $DestDir -PathType Container)) {
+        $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $DestDir))
     }
     if ($item.PSIsContainer) {
         Assert-WinstTreeWithoutReparsePoint -Path $Path
-        foreach ($child in @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction Stop)) {
+        foreach ($child in @(Get-WinstChildItem -Path $Path -ErrorAction Stop)) {
             Move-WinstItemInto -Source $child -DestDir $DestDir -Copy:$Copy
         }
     } else {

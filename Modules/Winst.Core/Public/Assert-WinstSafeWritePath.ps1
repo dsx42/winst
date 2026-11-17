@@ -7,7 +7,7 @@ function Assert-WinstSafeWritePath {
     #>
     param([Parameter(Mandatory = $true)][string]$Path, [switch]$Directory)
 
-    $full = [IO.Path]::GetFullPath($Path)
+    $full = ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $Path)
     if (($Directory -and (Test-WinstProtectedDirectory -Path $full)) -or
         (Test-WinstPathHasReparsePoint -Path $full -Root ([IO.Path]::GetPathRoot($full)))) {
         throw ('拒绝写入受保护位置或经过重解析点的路径：{0}' -f $Path)

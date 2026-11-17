@@ -5,18 +5,18 @@ function Expand-WinstArchiveWithTool {
     .SYNOPSIS
         按引擎、系统 tar、系统 ZIP 的顺序解压到空暂存目录，重试前清除本次失败残留；指定 7-Zip 时只用该程序。
     .OUTPUTS
-        @{ Ok; Tool }
+        @{ Ok; Tool; ValidationFailed }
     #>
     param([hashtable]$Context, [Parameter(Mandatory = $true)][string]$ArchivePath,
         [Parameter(Mandatory = $true)][string]$DestDir, [Parameter(Mandatory = $true)]$Errors, [string]$SevenZipPath = '')
 
-    $result = @{ Ok = $false; Tool = '' }
+    $result = @{ Ok = $false; Tool = ''; ValidationFailed = $false }
     try {
-        $DestDir = [IO.Path]::GetFullPath($DestDir)
+        $DestDir = (ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $DestDir))
         Assert-WinstSafeWritePath -Path $DestDir -Directory
-        if (Test-Path -LiteralPath $DestDir) {
-            if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
-            if (Get-ChildItem -LiteralPath $DestDir -Force -ErrorAction Stop | Select-Object -First 1) {
+        if (Test-WinstFileSystemPath -Path $DestDir) {
+            if (-not (Test-WinstFileSystemPath -Path $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
+            if (Get-WinstChildItem -Path $DestDir -ErrorAction Stop | Select-Object -First 1) {
                 throw '解压暂存目录必须为空，拒绝覆盖已有文件'
             }
         }
@@ -41,8 +41,9 @@ function Expand-WinstArchiveWithTool {
     }
 
     foreach ($tool in $tools) {
+        $extracted = $false
         try {
-            $null = New-Item -ItemType Directory -Path $DestDir -Force -ErrorAction Stop
+            $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $DestDir))
             if ($tool.Name -eq 'Expand-Archive') {
                 Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestDir -Force -ErrorAction Stop
             } else {
@@ -57,12 +58,20 @@ function Expand-WinstArchiveWithTool {
                     throw ('退出码 {0}：{1} {2}' -f $run.ExitCode, $run.Error, $run.ErrText)
                 }
             }
-            Assert-WinstTreeWithoutReparsePoint -Path $DestDir
-            $result.Ok = $true
-            $result.Tool = $tool.Name
-            return $result
+            $extracted = $true
         } catch {
             $Errors.Add(('{0} 解压失败：{1}' -f $tool.Name, $_.Exception.Message))
+        }
+        if ($extracted) {
+            try {
+                Assert-WinstTreeWithoutReparsePoint -Path $DestDir
+                $result.Ok = $true
+                $result.Tool = $tool.Name
+                return $result
+            } catch {
+                $result.ValidationFailed = $true
+                $Errors.Add(('{0} 解压后安全检查失败：{1}' -f $tool.Name, $_.Exception.Message))
+            }
         }
         try {
             Clear-WinstInstallDir -Dir $DestDir -Strict
@@ -70,6 +79,8 @@ function Expand-WinstArchiveWithTool {
             $Errors.Add(('清理解压失败残留失败：{0}' -f $_.Exception.Message))
             return $result
         }
+        # 安全检查失败不尝试其它解压器，避免绕过已发现的问题。
+        if ($extracted) { return $result }
     }
     return $result
 }

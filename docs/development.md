@@ -64,18 +64,9 @@ Get-ChildItem Modules -Recurse -File |
     }
 ```
 
-`tests/verify-review-*.ps1` 是无需测试框架的隔离断言脚本，各自在独立的 Windows PowerShell 5.1 进程运行：
+针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。
 
-```powershell
-Get-ChildItem tests -Filter verify-review-*.ps1 | Sort-Object Name | ForEach-Object {
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $_.FullName
-    if ($LASTEXITCODE -ne 0) { throw ('回归失败：{0}' -f $_.Name) }
-}
-```
-
-针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。回归脚本覆盖报告涉及的路径保护、台账与缓存、来源解析、安装和菜单边界，不能替代真实系统集成验证。
-
-界面列宽以 Windows Terminal 中的常见中日韩全角字形及合成 emoji 为估算目标：代理对作为一个码点，组合符不另占列，常见 ZWJ 序列、肤色、旗帜和带变体选择符的 emoji 按一个两列字形估算。终端版本、字体和未合成序列可能显示不同宽度；传统控制台与其它终端的 emoji 对齐不作保证。隔离断言验证计算结果，实际渲染需在目标终端人工检查。
+界面列宽以 Windows Terminal 中的常见中日韩全角字形及合成 emoji 为估算目标：代理对作为一个码点，组合符不另占列，常见 ZWJ 序列、肤色、旗帜和带变体选择符的 emoji 按一个两列字形估算。终端版本、字体和未合成序列可能显示不同宽度；传统控制台与其它终端的 emoji 对齐不作保证，实际渲染需在目标终端人工检查。
 
 ## 构建
 

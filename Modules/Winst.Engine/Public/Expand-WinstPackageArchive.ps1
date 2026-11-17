@@ -8,7 +8,7 @@ function Expand-WinstPackageArchive {
         目标必须是调用方拥有的独立空目录。工具失败后清理本次残留，再尝试下一工具；
         全部失败时返回各工具错误，成功后由调用方负责交付内容并清理暂存目录。指定 SevenZipPath 时只用该程序。
     .OUTPUTS
-        @{ Ok; Tool; Error }
+        @{ Ok; Tool; Error; ValidationFailed }
     #>
     param(
         [hashtable]$Context,
@@ -17,16 +17,16 @@ function Expand-WinstPackageArchive {
         [string]$SevenZipPath = ''
     )
 
-    $result = @{ Ok = $false; Tool = ''; Error = '' }
-    if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
+    $result = @{ Ok = $false; Tool = ''; Error = ''; ValidationFailed = $false }
+    if (-not (Test-WinstFileSystemPath -Path $ArchivePath -PathType Leaf)) {
         $result.Error = ('找不到压缩包：{0}' -f $ArchivePath)
         return $result
     }
     try {
         Assert-WinstSafeWritePath -Path $DestDir -Directory
-        if (Test-Path -LiteralPath $DestDir) {
-            if (-not (Test-Path -LiteralPath $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
-            if (Get-ChildItem -LiteralPath $DestDir -Force -ErrorAction Stop | Select-Object -First 1) {
+        if (Test-WinstFileSystemPath -Path $DestDir) {
+            if (-not (Test-WinstFileSystemPath -Path $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
+            if (Get-WinstChildItem -Path $DestDir -ErrorAction Stop | Select-Object -First 1) {
                 throw '解压暂存目录必须为空，拒绝覆盖已有文件'
             }
         }
@@ -37,6 +37,7 @@ function Expand-WinstPackageArchive {
 
     $errors = New-Object 'System.Collections.Generic.List[string]'
     $expand = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors -SevenZipPath $SevenZipPath
+    $result.ValidationFailed = $expand.ValidationFailed
     if ($expand.Ok) {
         $result.Ok = $true
         $result.Tool = $expand.Tool

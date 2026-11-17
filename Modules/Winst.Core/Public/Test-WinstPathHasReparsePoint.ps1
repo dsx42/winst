@@ -13,8 +13,8 @@ function Test-WinstPathHasReparsePoint {
     $fullPath = ''
     $fullRoot = ''
     try {
-        $fullPath = [IO.Path]::GetFullPath($Path)
-        $fullRoot = [IO.Path]::GetFullPath($Root)
+        $fullPath = ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $Path)
+        $fullRoot = ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $Root)
         # 盘根必须保留尾反斜杠：`D:` 表示当前驱动器工作目录，不等于 `D:\`。
         $rootOfRoot = [IO.Path]::GetPathRoot($fullRoot)
         if ($fullRoot -ine $rootOfRoot) { $fullRoot = $fullRoot.TrimEnd('\', '/') }

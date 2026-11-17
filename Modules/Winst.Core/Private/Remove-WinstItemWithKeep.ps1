@@ -12,28 +12,31 @@ function Remove-WinstItemWithKeep {
     )
 
     # 调用方枚举后到真正处理之间，条目可能被换成重解析点；处理前重新读取属性。
-    $Item = Get-Item -LiteralPath $Item.FullName -Force -ErrorAction Stop
+    $Item = Get-WinstFileSystemItem -Path $Item.FullName
 
     $relative = ''
-    try { $relative = $Item.FullName.Substring($Base.Length).TrimStart('\') } catch { $relative = $Item.Name }
+    $baseFull = [IO.Path]::GetFullPath((ConvertTo-WinstPlainDevicePath -Path $Base)).TrimEnd('\')
+    if (-not (Test-WinstPathUnderRoot -Path $Item.FullName -Root $baseFull)) {
+        throw ('清理条目不在指定目录下：{0}' -f $Item.FullName)
+    }
+    $relative = $Item.FullName.Substring($baseFull.Length).TrimStart('\')
     if (Test-WinstKeepMatch -RelativePath $relative -Name $Item.Name -Keep $Keep) { return }
 
     # 重解析点（junction / 符号链接）只删链接本身：Remove-Item -Recurse 会跟随链接把目标目录里的内容删掉
     if (Test-WinstReparsePoint -Path $Item.FullName) {
-        if ($Item.PSIsContainer) { [IO.Directory]::Delete($Item.FullName, $false) }
-        else { [IO.File]::Delete($Item.FullName) }
+        Remove-WinstFileSystemItem -Path $Item.FullName
         return
     }
 
     if ($Item.PSIsContainer) {
-        foreach ($child in @(Get-ChildItem -LiteralPath $Item.FullName -Force -ErrorAction Stop)) {
+        foreach ($child in @(Get-WinstChildItem -Path $Item.FullName)) {
             Remove-WinstItemWithKeep -Item $child -Base $Base -Keep $Keep
         }
-        $remain = @(Get-ChildItem -LiteralPath $Item.FullName -Force -ErrorAction Stop)
+        $remain = @(Get-WinstChildItem -Path $Item.FullName)
         if ($remain.Count -eq 0) {
-            [IO.Directory]::Delete($Item.FullName, $false)
+            Remove-WinstFileSystemItem -Path $Item.FullName
         }
     } else {
-        Remove-Item -LiteralPath $Item.FullName -Force -ErrorAction Stop
+        Remove-WinstFileSystemItem -Path $Item.FullName
     }
 }

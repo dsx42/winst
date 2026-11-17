@@ -25,13 +25,13 @@ function Expand-WinstArchiveLayout {
     $result = @{ Ok = $false; Error = ''; TempRoot = ''; SourceDir = ''; ExtractFailed = $false }
     $tempRoot = ''
     try {
-        $target = [IO.Path]::GetFullPath($DestDir).TrimEnd('\', '/')
+        $target = (ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $DestDir)).TrimEnd('\', '/')
         Assert-WinstSafeWritePath -Path $target -Directory
         $parent = [IO.Path]::GetTempPath()
         Assert-WinstSafeWritePath -Path $parent
         $instanceLock = Get-WinstState -Name WinstInstanceLock
         if ($null -ne $instanceLock -and
-                [IO.Path]::GetFullPath($parent).TrimEnd('\', '/') -ine $instanceLock.TempRoot.TrimEnd('\', '/')) {
+                (ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $parent)).TrimEnd('\', '/') -ine $instanceLock.TempRoot.TrimEnd('\', '/')) {
             throw '运行期间 Temp 已改变，与持有的暂存锁不一致，请重新启动 winst'
         }
         $stage = Join-WinstPath $parent '.winst-stage'
@@ -44,14 +44,14 @@ function Expand-WinstArchiveLayout {
             throw '解压暂存目录与安装目录必须互不重叠'
         }
         $tempRoot = $stage
-        if (Test-Path -LiteralPath $tempRoot -ErrorAction Stop) {
-            if (-not (Test-Path -LiteralPath $tempRoot -PathType Container)) { throw '解压暂存路径不是目录' }
+        if (Test-WinstFileSystemPath -Path $tempRoot -ErrorAction Stop) {
+            if (-not (Test-WinstFileSystemPath -Path $tempRoot -PathType Container)) { throw '解压暂存路径不是目录' }
             Write-Host ('    提示: 发现暂存残留，正在清理：{0}' -f $tempRoot) -ForegroundColor Yellow
             Clear-WinstInstallDir -Dir $tempRoot -AllowedRoot $parent -Strict
         }
-        $null = New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop
+        $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $tempRoot))
         $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -SevenZipPath $SevenZipPath
-        if (-not $expand.Ok) { $result.ExtractFailed = $true; $result.Error = $expand.Error; return $result }
+        if (-not $expand.Ok) { $result.ExtractFailed = -not $expand.ValidationFailed; $result.Error = $expand.Error; return $result }
         Assert-WinstTreeWithoutReparsePoint -Path $tempRoot
 
         $selected = New-Object 'System.Collections.Generic.List[string]'
@@ -60,7 +60,7 @@ function Expand-WinstArchiveLayout {
             if (-not $text) { continue }
             $safe = Resolve-WinstSafeChildPath -Root $tempRoot -Child $text -Label '软件源里的解压路径'
             if (-not $safe.Ok) { $result.Error = $safe.Error; return $result }
-            if (-not (Test-Path -LiteralPath $safe.Path)) { throw ('压缩包缺少所需路径：' + $text) }
+            if (-not (Test-WinstFileSystemPath -Path $safe.Path)) { throw ('压缩包缺少所需路径：' + $text) }
             if (-not $selected.Contains([string]$safe.Path)) { $selected.Add([string]$safe.Path) }
         }
         if ($selected.Count -eq 0) {
@@ -69,10 +69,10 @@ function Expand-WinstArchiveLayout {
                 $safe = Resolve-WinstSafeChildPath -Root $tempRoot -Child $StripTopDir -Label '软件源里的解压路径'
                 if (-not $safe.Ok) { $result.Error = $safe.Error; return $result }
                 $source = [string]$safe.Path
-                if (-not (Test-Path -LiteralPath $source)) { throw ('压缩包里没有所需路径：' + $StripTopDir) }
-                if ((Test-Path -LiteralPath $source -PathType Leaf) -and (Test-WinstArchiveFileByExtension -Path $source)) {
+                if (-not (Test-WinstFileSystemPath -Path $source)) { throw ('压缩包里没有所需路径：' + $StripTopDir) }
+                if ((Test-WinstFileSystemPath -Path $source -PathType Leaf) -and (Test-WinstArchiveFileByExtension -Path $source)) {
                     $inner = Join-WinstPath $tempRoot '.winst-inner'
-                    if (Test-Path -LiteralPath $inner -ErrorAction Stop) {
+                    if (Test-WinstFileSystemPath -Path $inner -ErrorAction Stop) {
                         throw '压缩包包含内层解压保留名称 .winst-inner，无法创建工作目录'
                     }
                     $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $source -DestDir $inner -SevenZipPath $SevenZipPath
@@ -81,37 +81,37 @@ function Expand-WinstArchiveLayout {
                     $source = $inner
                 }
             } elseif ($StripTopDir -eq $true) {
-                $top = @(Get-ChildItem -LiteralPath $tempRoot -Force -ErrorAction Stop)
+                $top = @(Get-WinstChildItem -Path $tempRoot -ErrorAction Stop)
                 if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $source = $top[0].FullName }
             }
             $selected.Add($source)
         }
 
-        if ($selected.Count -eq 1 -and (Test-Path -LiteralPath $selected[0] -PathType Container)) {
+        if ($selected.Count -eq 1 -and (Test-WinstFileSystemPath -Path $selected[0] -PathType Container)) {
             $sourceDir = $selected[0]
         } else {
             $fileParent = [IO.Path]::GetDirectoryName($selected[0])
             $sameParentFiles = $true
             foreach ($path in $selected) {
-                if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or [IO.Path]::GetDirectoryName($path) -ine $fileParent) {
+                if (-not (Test-WinstFileSystemPath -Path $path -PathType Leaf) -or [IO.Path]::GetDirectoryName($path) -ine $fileParent) {
                     $sameParentFiles = $false
                     break
                 }
             }
             if ($sameParentFiles) {
                 $sourceDir = $fileParent
-                foreach ($item in @(Get-ChildItem -LiteralPath $sourceDir -Force -ErrorAction Stop)) {
+                foreach ($item in @(Get-WinstChildItem -Path $sourceDir -ErrorAction Stop)) {
                     if (@($selected) -contains $item.FullName) { continue }
                     if ($item.PSIsContainer) { Clear-WinstInstallDir -Dir $item.FullName -Strict }
-                    else { Remove-Item -LiteralPath $item.FullName -Force -ErrorAction Stop }
+                    else { Remove-WinstFileSystemItem -Path $item.FullName -ErrorAction Stop }
                 }
             } else {
                 # 多个目录取内容时必须合并布局；只在本次临时树内移动，不复制整树。
                 $sourceDir = Join-WinstPath $tempRoot '.winst-layout'
-                if (Test-Path -LiteralPath $sourceDir -ErrorAction Stop) {
+                if (Test-WinstFileSystemPath -Path $sourceDir -ErrorAction Stop) {
                     throw '压缩包包含布局合并保留名称 .winst-layout，无法创建工作目录'
                 }
-                $null = New-Item -ItemType Directory -Path $sourceDir -ErrorAction Stop
+                $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $sourceDir))
                 foreach ($path in $selected) {
                     if ($path -ieq $tempRoot) { throw '解压选择不能同时包含整个临时目录和其中的条目' }
                     $moved = Move-WinstArchiveSelection -Path $path -DestDir $sourceDir
@@ -120,7 +120,7 @@ function Expand-WinstArchiveLayout {
             }
         }
         Assert-WinstTreeWithoutReparsePoint -Path $sourceDir
-        if (-not (Get-ChildItem -LiteralPath $sourceDir -File -Recurse -Force -ErrorAction Stop | Select-Object -First 1)) {
+        if (-not (Get-WinstChildItem -Path $sourceDir -File -Recurse -ErrorAction Stop | Select-Object -First 1)) {
             throw '解压结果没有文件，拒绝清理安装目录'
         }
         $result.TempRoot = $tempRoot
@@ -131,7 +131,7 @@ function Expand-WinstArchiveLayout {
         $result.Error = ('解压失败：' + $_.Exception.Message)
         return $result
     } finally {
-        if (-not $result.Ok -and $tempRoot -and (Test-Path -LiteralPath $tempRoot)) {
+        if (-not $result.Ok -and $tempRoot) {
             Clear-WinstInstallDir -Dir $tempRoot -AllowedRoot $parent
         }
     }

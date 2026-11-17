@@ -12,12 +12,12 @@ function Assert-WinstTreeWithoutReparsePoint {
     $pending.Push($Path)
     while ($pending.Count -gt 0) {
         $current = $pending.Pop()
-        $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+        $item = Get-WinstFileSystemItem -Path $current
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw ('目录树含有重解析点，已拒绝处理：{0}' -f $current)
         }
         if ($item.PSIsContainer) {
-            foreach ($child in @(Get-ChildItem -LiteralPath $current -Force -ErrorAction Stop)) {
+            foreach ($child in @(Get-WinstChildItem -Path $current)) {
                 $pending.Push($child.FullName)
             }
         }
