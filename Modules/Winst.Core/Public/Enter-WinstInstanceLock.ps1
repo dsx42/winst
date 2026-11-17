@@ -3,69 +3,70 @@
 function Enter-WinstInstanceLock {
     <#
     .SYNOPSIS
-        取得单进程锁；已被别的 winst 持有时返回 Ok = $false 与占用者信息。
+        同时锁住数据目录和 Temp；任一锁被占用时返回失败与占用者信息。
     .DESCRIPTION
-        用「独占句柄」表达占用，而不是「文件存在」：
-
-        - 本函数打开锁文件时请求 FileAccess.ReadWrite，且只允许 FileShare.Read，
-          因此第二个 winst 再想以同样方式打开就会被系统拒绝 —— 这就是互斥。
-        - 允许 FileShare.Read 是为了让占用者信息可被读取：拿不到锁的一方
-          仍能以只读方式打开文件，从而报出「正在运行的是哪个 PID」。
-        - 进程被强杀时句柄由系统回收，锁不会残留成「永远在运行」，
-          因此不需要超时 / 陈旧锁清理。
-
-        取得的句柄必须一直持有到进程结束，否则锁会被提前释放：
-        句柄存在 WinstInstanceLock 状态项里（静态字典持有引用，
-        不会被 GC 回收掉句柄）。
+        以 FileAccess.ReadWrite / FileShare.Read 打开两个锁文件，允许读取占用者信息，
+        拒绝其它实例写入。Temp 锁放在 .winst-stage 外，避免暂存清理影响锁。
+        句柄及对应 Temp 保存在 WinstInstanceLock，业务与暂存清理结束后统一释放；
+        申请失败时释放已取得的句柄，进程被强杀时由系统回收。
     .PARAMETER Path
-        锁文件路径，默认 Get-WinstInstanceLockPath。
+        数据目录锁路径，默认 Get-WinstInstanceLockPath；Temp 锁始终按实际 Temp 申请。
     .OUTPUTS
-        @{ Ok; Path; OwnerPid; OwnerPath; Error }
+        @{ Ok; Busy; Path; OwnerPid; OwnerPath; Error }
     #>
     param([string]$Path = '')
 
     if (-not $Path) { $Path = Get-WinstInstanceLockPath }
-
     $result = @{ Ok = $false; Busy = $false; Path = $Path; OwnerPid = 0; OwnerPath = ''; Error = '' }
-
-    $dir = Split-Path -Parent $Path
-    if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
-        try { $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop } catch { }
+    if ($null -ne (Get-WinstState -Name WinstInstanceLock)) {
+        $result.Error = '当前进程已经持有实例锁，不能重复申请'
+        return $result
     }
 
-    $stream = $null
+    $streams = New-Object 'System.Collections.Generic.List[System.IO.FileStream]'
     try {
-        $stream = [IO.File]::Open($Path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read)
+        $tempPath = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+        foreach ($lockPath in @($Path, (Join-WinstPath $tempPath '.winst-stage.lock'))) {
+            $result.Path = $lockPath
+            Assert-WinstSafeWritePath -Path $lockPath
+            $dir = Split-Path -Parent $lockPath
+            if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
+                $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop
+            }
+            $stream = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read)
+            $streams.Add($stream)
+
+            try {
+                $lines = @(
+                    ('pid={0}' -f $PID)
+                    ('startedAt={0}' -f (Get-Date).ToString('s'))
+                    ('path={0}' -f [string](Get-WinstState -Name WinstScriptPath))
+                )
+                $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`r`n") + "`r`n")
+                $stream.SetLength(0)
+                $stream.Write($bytes, 0, $bytes.Length)
+                $stream.Flush()
+            } catch {
+                # 占用者信息仅用于诊断；写入失败不影响已取得的互斥句柄。
+            }
+        }
+        $null = Set-WinstState -Name WinstInstanceLock -Value @{ Streams = $streams.ToArray(); TempRoot = $tempPath }
+        $result.Ok = $true
+        return $result
     } catch {
         $cause = $_.Exception.GetBaseException()
         $result.Busy = ($cause -is [IO.IOException] -and ($cause.HResult -band 0xffff) -in @(32,33))
         if ($result.Busy) {
-            $owner = Read-WinstInstanceLockInfo -Path $Path
+            $owner = Read-WinstInstanceLockInfo -Path $result.Path
             $result.OwnerPid = [int]$owner.Pid
             $result.OwnerPath = [string]$owner.Path
         }
         $result.Error = $_.Exception.Message
         return $result
+    } finally {
+        # 入口在申请失败时直接返回，不会进入业务的 finally。
+        if (-not $result.Ok) {
+            foreach ($stream in $streams) { $stream.Dispose() }
+        }
     }
-
-    # 抢到了：把自己的信息写进去（仅供下一台机器 / 下一个进程诊断用）
-    try {
-        $selfPath = [string](Get-WinstState -Name WinstScriptPath)
-        $lines = @(
-            ('pid={0}' -f $PID)
-            ('startedAt={0}' -f (Get-Date).ToString('s'))
-            ('path={0}' -f $selfPath)
-        )
-        $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`r`n") + "`r`n")
-        $stream.SetLength(0)
-        $stream.Write($bytes, 0, $bytes.Length)
-        $stream.Flush()
-    } catch {
-        # 写不进占用者信息不影响互斥本身：句柄已经拿到，锁就是成立的
-    }
-
-    # 句柄挂到状态里：局部变量被回收会让锁提前释放
-    $null = Set-WinstState -Name WinstInstanceLock -Value $stream
-    $result.Ok = $true
-    return $result
 }

@@ -138,7 +138,7 @@ function Initialize-WinstState {
         $initialized++
     }
 
-    # 单进程锁的独占文件句柄（Winst.Core）。必须挂在状态里：局部变量被回收会让锁提前释放。
+    # 实例锁的句柄集合及对应 Temp（Winst.Core），持有到业务与暂存清理结束。
     if (-not (Test-WinstState -Name 'WinstInstanceLock')) {
         $null = Set-WinstState -Name 'WinstInstanceLock' -Value $null
         $initialized++

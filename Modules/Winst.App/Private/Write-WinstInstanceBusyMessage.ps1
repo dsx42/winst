@@ -16,7 +16,7 @@ function Write-WinstInstanceBusyMessage {
     }
     Write-Host ''
     Write-Host '  已经有一个 winst 正在运行，本次启动已退出。' -ForegroundColor Yellow
-    Write-Host '  同时开两个 winst 会并发改写安装记录与安装包缓存，可能把记录写坏，因此只允许一个。' -ForegroundColor Gray
+    Write-Host '  另一个实例正在使用相同的数据目录或临时目录，请等待它结束，避免安装记录或暂存文件被覆盖。' -ForegroundColor Gray
 
     $pidText = [int]$Instance.OwnerPid
     if ($pidText -gt 0) {

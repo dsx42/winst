@@ -3,7 +3,7 @@
 function Expand-WinstArchiveLayout {
     <#
     .SYNOPSIS
-        在系统 Temp 下的随机目录完整解压并整理布局，不修改目标目录。
+        在系统 Temp 下的 .winst-stage 完整解压并整理布局，不修改目标目录。
     .DESCRIPTION
         extractFiles 优先于 stripTopDir；目录取内容，文件取自身。
         stripTopDir 指定内层压缩包时先展开内层；其余目录选择只切换路径。
@@ -29,8 +29,26 @@ function Expand-WinstArchiveLayout {
         Assert-WinstSafeWritePath -Path $target -Directory
         $parent = [IO.Path]::GetTempPath()
         Assert-WinstSafeWritePath -Path $parent
-        $tempRoot = Join-WinstPath $parent ('.winst-stage-' + [Guid]::NewGuid().ToString('N'))
-        Assert-WinstSafeWritePath -Path $tempRoot -Directory
+        $instanceLock = Get-WinstState -Name WinstInstanceLock
+        if ($null -ne $instanceLock -and
+                [IO.Path]::GetFullPath($parent).TrimEnd('\', '/') -ine $instanceLock.TempRoot.TrimEnd('\', '/')) {
+            throw '运行期间 Temp 已改变，与持有的暂存锁不一致，请重新启动 winst'
+        }
+        $stage = Join-WinstPath $parent '.winst-stage'
+        Assert-WinstSafeWritePath -Path $stage -Directory
+        if (Test-WinstPathUnderRoot -Path $ArchivePath -Root $stage -AllowEqual) {
+            throw '输入压缩包不能位于专用暂存目录 .winst-stage 内'
+        }
+        if ((Test-WinstPathUnderRoot -Path $target -Root $stage -AllowEqual) -or
+                (Test-WinstPathUnderRoot -Path $stage -Root $target)) {
+            throw '解压暂存目录与安装目录必须互不重叠'
+        }
+        $tempRoot = $stage
+        if (Test-Path -LiteralPath $tempRoot -ErrorAction Stop) {
+            if (-not (Test-Path -LiteralPath $tempRoot -PathType Container)) { throw '解压暂存路径不是目录' }
+            Write-Host ('    提示: 发现暂存残留，正在清理：{0}' -f $tempRoot) -ForegroundColor Yellow
+            Clear-WinstInstallDir -Dir $tempRoot -AllowedRoot $parent -Strict
+        }
         $null = New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop
         $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -SevenZipPath $SevenZipPath
         if (-not $expand.Ok) { $result.ExtractFailed = $true; $result.Error = $expand.Error; return $result }
@@ -53,7 +71,10 @@ function Expand-WinstArchiveLayout {
                 $source = [string]$safe.Path
                 if (-not (Test-Path -LiteralPath $source)) { throw ('压缩包里没有所需路径：' + $StripTopDir) }
                 if ((Test-Path -LiteralPath $source -PathType Leaf) -and (Test-WinstArchiveFileByExtension -Path $source)) {
-                    $inner = Join-WinstPath $tempRoot ('.winst-inner-' + [Guid]::NewGuid().ToString('N'))
+                    $inner = Join-WinstPath $tempRoot '.winst-inner'
+                    if (Test-Path -LiteralPath $inner -ErrorAction Stop) {
+                        throw '压缩包包含内层解压保留名称 .winst-inner，无法创建工作目录'
+                    }
                     $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $source -DestDir $inner -SevenZipPath $SevenZipPath
                     if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
                     Assert-WinstTreeWithoutReparsePoint -Path $inner
@@ -86,7 +107,10 @@ function Expand-WinstArchiveLayout {
                 }
             } else {
                 # 多个目录取内容时必须合并布局；只在本次临时树内移动，不复制整树。
-                $sourceDir = Join-WinstPath $tempRoot ('.winst-layout-' + [Guid]::NewGuid().ToString('N'))
+                $sourceDir = Join-WinstPath $tempRoot '.winst-layout'
+                if (Test-Path -LiteralPath $sourceDir -ErrorAction Stop) {
+                    throw '压缩包包含布局合并保留名称 .winst-layout，无法创建工作目录'
+                }
                 $null = New-Item -ItemType Directory -Path $sourceDir -ErrorAction Stop
                 foreach ($path in $selected) {
                     if ($path -ieq $tempRoot) { throw '解压选择不能同时包含整个临时目录和其中的条目' }

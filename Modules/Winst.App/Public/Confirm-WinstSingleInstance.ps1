@@ -3,10 +3,11 @@
 function Confirm-WinstSingleInstance {
     <#
     .SYNOPSIS
-        单进程校验：同一份数据目录只允许一个 winst 在跑，已有实例时提示并拒绝启动。
+        单进程校验：共享数据目录或 Temp 的实例不能并发，已有实例时提示并拒绝启动。
     .DESCRIPTION
         为什么要拦：两次 winst 同时写同一份 state.json / winst.json / sources.json 时，
         后完成者会覆盖前者（写入是「临时文件 + 替换」的整份覆盖），并发装两个软件的结果是其中一条记录丢失。
+        共享 Temp 也会相互覆盖暂存文件，因此同时申请数据目录锁和 Temp 锁。
         锁用独占句柄实现（见 Enter-WinstInstanceLock），进程被强杀不会留下永久占用。
 
         自动放行的两种情况：

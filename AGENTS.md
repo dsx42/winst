@@ -45,7 +45,9 @@ App         Core、Logging、Ui、Version、Manifest、Store、Install、Catalog
 
 ## 安装暂存与 clean 设计
 
-- 解压与安装暂存统一放在 `[IO.Path]::GetTempPath()` 下的随机目录，不放在安装目录同级；绿色软件、引擎、包内安装器、解压附件及 winst 自更新遵循此规则。
+- 解压与安装暂存统一放在 `[IO.Path]::GetTempPath()` 下，不放在安装目录同级。绿色软件、引擎、包内安装器和解压附件通过 `Expand-WinstArchiveLayout` 使用固定 `.winst-stage`；winst 自身安装及 UNC 安装包本地复制使用随机目录。
+- 入口同时持有数据目录的 `winst.lock` 与 Temp 下的 `.winst-stage.lock`，直到业务及暂存清理结束；任一锁冲突均拒绝启动，申请失败释放已取得的锁。固定暂存根按单实例、串行安装使用，只存可丢弃的中间文件；不得包含输入压缩包，也不得与最终安装目录重叠。开始解压前提示并严格清理已有 `.winst-stage`，清理失败立即停止；交付结束或失败后清理该根目录。解压前检查当前 Temp 与持锁目录一致，变化时明确失败，不触碰暂存目录。
+- 内层解压使用 `.winst-stage\.winst-inner`，多个选中路径需要合并时使用 `.winst-stage\.winst-layout`；均按需创建，包内已存在同名文件或目录时明确报错，不清空复用包内同名路径。
 - 绿色软件、引擎和 winst 自更新的 clean 流程：完整暂存并检查布局、非空和路径安全 → 原安装位置按保留规则清理 → 复制新文件。旧目录不改名、不备份、不回滚；暂存和落位文件不计算摘要，下载包的 checksum 校验仍保留。
 - 这是减少整树读写的明确设计，不应仅因缺少备份、回滚或落位摘要而报告缺陷。清理开始前失败保留旧目录；清理失败不开始复制；清理或复制失败必须明确报错，允许留下不完整目录供重装处理。
 
@@ -80,7 +82,7 @@ $env:CI='1'; cmd /c build.cmd
 
 - 目标运行时是 `powershell` 5.1（`CompatiblePSEditions = Desktop`），不要拿 pwsh 7 的行为当基准。
 - 开发树冷启动慢（逐个 `Import-Module`），别反复跑完整入口；改完模块可设 `WINST_DEV=1` 强制重新导入。
-- 实验前隔离：`WINST_HOME` / `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 指到 `%TEMP%` 下；`list` / `search` / `info` / `update` 会联网，`--offline` 可避免。
+- 实验前隔离：`WINST_HOME` / `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 指到 `%TEMP%` 下；并行实验还须分别设置 `TEMP` / `TMP` 到独立目录；`list` / `search` / `info` / `update` 会联网，`--offline` 可避免。
 
 ## 关键位置
 

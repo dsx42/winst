@@ -8,7 +8,7 @@
     ----
     1. 记录脚本位置（WinstScriptDir / WinstScriptPath），
        供本地清单发现与离线自安装定位正在运行的脚本。
-    2. 单进程校验：同一份数据目录只允许一个 winst 在跑。
+    2. 单进程校验：共享数据目录或 Temp 的实例不能并发。
     3. 交给 Invoke-WinstEntry 做 CLI 解析、命令分发或进入菜单。
     4. 把返回值统一成单一 ExitCode 字段，winst.ps1 只需读一个属性；
        退出前释放单进程锁。

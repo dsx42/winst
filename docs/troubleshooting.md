@@ -6,7 +6,7 @@
 
 | 现象 | 排查和处理 |
 |---|---|
-| 提示已有 winst 在运行 | 检查提示的 PID；同一 WINST_HOME 只运行一个写操作，不删除锁文件强行并发 |
+| 提示已有 winst 在运行 | 检查提示的 PID；共用 WINST_HOME 或 Temp 的实例只能运行一个，不删除锁文件强行并发 |
 | 管理员启动被拒绝 | 确认 UAC 和系统策略；只读排障可设置 WINST_NO_ELEVATE=1，版本/帮助自动不提权 |
 | 中文乱码 | PowerShell 源文件使用 UTF-8 BOM，build.cmd/winst.cmd 使用 GBK；按 [开发文档](development.md) 检查格式 |
 | 菜单里粘贴路径被拒绝 | 软件搜索框需要软件名或 id；目录在设置中填写，本地 winst 包使用 install winst --from |

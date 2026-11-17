@@ -13,7 +13,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 -v
 powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list --offline
 ```
 
-实验目录应为本次独立目录。安装、更新、卸载和修复会修改台账及系统项，不能直接用真实用户数据验证删除分支。网络请求可通过 `--offline` 禁止，预览边界见 [CLI](cli.md#预览边界)。
+实验目录应为本次独立目录；并行运行时还须分别将 `TEMP` / `TMP` 设置到各自的独立目录，共用数据目录或 Temp 都会被入口锁拦截。安装、更新、卸载和修复会修改台账及系统项，不能直接用真实用户数据验证删除分支。网络请求可通过 `--offline` 禁止，预览边界见 [CLI](cli.md#预览边界)。
 
 根目录 `manifest.json` 是不跟踪的本地测试副本；正式软件源由独立的 `dsx42/winst-manifest` 仓库维护。构建会把本地副本复制到 `dist/winst`，但不放进 zip。不要把本地测试改动作为正式源发布。
 
@@ -35,7 +35,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list --of
 | WINST_PKG_DIR | 包缓存、软件源列表和解析数据位置 |
 | WINST_DEV | 为1时强制重新导入模块 |
 | WINST_NO_ELEVATE | 为1时不自动提权，适用于隔离验证或排障 |
-| WINST_NO_LOCK | 为1时跳过单进程锁；仅排障用，不能据此并发修改数据 |
+| WINST_NO_LOCK | 为1时跳过数据目录锁和 Temp 锁；仅排障用，不支持并发安装或修改数据 |
 | CI | 为1时构建不等待回车 |
 
 ## 文件格式
