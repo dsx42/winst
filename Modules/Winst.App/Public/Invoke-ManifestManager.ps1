@@ -38,8 +38,7 @@ function Invoke-ManifestManager {
         # —— a：刷新全部软件源 ——
         if ($text -ieq 'a') {
             Write-Host ''
-            $refresh = Invoke-ManifestRefreshAll -Context $Context
-            if ($refresh.Aborted) { & $pause; continue }
+            $null = Invoke-ManifestRefreshAll -Context $Context
             & $pause
             continue
         }
@@ -61,7 +60,6 @@ function Invoke-ManifestManager {
             }
 
             $source = $sources[$number - 1]
-            $removed = $false
             while ($true) {
                 Clear-ScreenSafe
                 $actions = Show-ManifestSourceDetail -Context $Context -Source $source
@@ -90,7 +88,6 @@ function Invoke-ManifestManager {
                     }
                     $remove = Invoke-ManifestRemoveSource -Context $Context -Source $source
                     if ($remove.Removed -or $remove.Cancelled) {
-                        if ($remove.Removed) { $removed = $true }
                         & $pause
                         break
                     }
@@ -103,18 +100,12 @@ function Invoke-ManifestManager {
                 & $pause
             }
 
-            # 删掉后这个源已不存在，直接回列表重绘（不再按旧编号找它）
-            if ($removed) { continue }
             continue
         }
 
         # —— 输入地址：新建软件源 ——
         $added = Invoke-ManifestAddSource -Context $Context -RepoOrUrl $text
         if ($added.Cancelled) { continue }
-        if ($added.Ok) {
-            & $pause
-            continue
-        }
         & $pause
     }
 }

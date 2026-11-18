@@ -10,7 +10,7 @@ function Get-FileNameFromUrl {
     #>
     param([string]$Url)
 
-    if ($null -eq $Url -or -not $Url) { return '' }
+    if (-not $Url) { return '' }
     $text = ([string]$Url).Trim()
     $cut = $text.IndexOfAny([char[]]@('?', '#'))
     if ($cut -ge 0) { $text = $text.Substring(0, $cut) }

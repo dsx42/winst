@@ -7,8 +7,8 @@ function Get-WinstRemoteValidators {
     .OUTPUTS
         @{ Ok; ETag; LastModified; Size; Headers; Error }
     .DESCRIPTION
-        元数据类请求：与 HEAD 可用性探测共用「直连 → 代理重试」链，并把结果按 URL 记入进程内
-        TTL 缓存——同一批安装 / 更新里同一个地址只请求一次。
+        元数据类请求：与 HEAD 可用性探测共用「直连 → 代理重试」链。成功结果按 URL、请求头、超时和
+        代理尝试序列记入进程内 TTL 缓存；匹配同一次代理尝试时也复用探测的成功响应。
         站点不支持 HEAD、超时、代理失败、4xx/5xx 时 Ok = $false 并给出原因；**这一点不视为失败**：
         调用方按 8.4 的兜底策略继续（check 按重取处理、其余退到 TTL 兜底），不否定缓存（见 12）。
     #>
@@ -19,48 +19,27 @@ function Get-WinstRemoteValidators {
     )
 
     $result = @{ Ok = $false; ETag = ''; LastModified = ''; Size = $null; Headers = @{}; Error = '' }
-    if (-not $Uri) { $result.Error = '缺少地址'; return $result }
-
-    if (-not (Get-WinstState -Name WinstHttpCache)) {
-        $null = Set-WinstState -Name WinstHttpCache -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
-    }
-    $cacheKey = 'validators|' + $Uri
-    if ((Get-WinstState -Name WinstHttpCache).ContainsKey($cacheKey)) {
-        $cachedItem = (Get-WinstState -Name WinstHttpCache)[$cacheKey]
-        $age = ([DateTime]::Now - [DateTime]$cachedItem['At']).TotalSeconds
-        if ($age -le (Get-WinstHttpCacheTtlSec)) { return $cachedItem['Value'] }
-        (Get-WinstState -Name WinstHttpCache).Remove($cacheKey)
-    }
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
+    $requestHeaders = Get-WinstBrowserHeaders
+    $requestKey = Get-WinstHttpCacheKey -Uri $Uri -Headers $requestHeaders -Method 'Head'
+    $cacheKey = 'validators|' + (Get-WinstHeadCacheKey -RequestKey $requestKey -TimeoutSec $TimeoutSec -ProxyAttempts $attempts)
+    $cached = Get-WinstHttpCacheEntry -Key $cacheKey
+    if ($cached) { return $cached.Value }
+
     $lastError = ''
     foreach ($currentProxy in $attempts) {
         try {
-            $params = New-WinstHttpRequestParameters -Uri $Uri -Method 'Head' -TimeoutSec $TimeoutSec -Headers (Get-WinstBrowserHeaders) -Proxy $currentProxy
-            $response = Invoke-WebRequest @params
+            $head = Invoke-WinstCachedHeadRequest -Uri $Uri -TimeoutSec $TimeoutSec -Headers $requestHeaders -Proxy $currentProxy -RequestKey $requestKey
 
-            $etag = ''
-            $lastModified = ''
-            $size = $null
-            $headers = $null
-            try { $headers = $response.Headers } catch { $headers = $null }
-            if ($headers) {
-                foreach ($key in @($headers.Keys)) { $result.Headers[[string]$key] = [string]$headers[$key] }
-                foreach ($key in @($headers.Keys)) {
-                    $text = ([string]$headers[$key]).Trim()
-                    if ([string]$key -ieq 'ETag') { $etag = $text }
-                    elseif ([string]$key -ieq 'Last-Modified') { $lastModified = $text }
-                    elseif ([string]$key -ieq 'Content-Length') {
-                        $length = 0L
-                        if ([long]::TryParse($text, [ref]$length)) { $size = $length }
-                    }
-                }
+            foreach ($key in $head.Headers.Keys) {
+                $result.Headers[$key] = [string]$head.Headers[$key]
             }
-
+            $result.ETag = ([string]$result.Headers['ETag']).Trim()
+            $result.LastModified = ([string]$result.Headers['Last-Modified']).Trim()
+            $length = 0L
+            if ([long]::TryParse([string]$result.Headers['Content-Length'], [ref]$length)) { $result.Size = $length }
             $result.Ok = $true
-            $result.ETag = $etag
-            $result.LastModified = $lastModified
-            $result.Size = $size
             $lastError = ''
             break
         } catch {
@@ -83,6 +62,6 @@ function Get-WinstRemoteValidators {
         Write-Host ('  [verbose] 确认远端文件是否变化 {0} → {1}' -f $Uri, $note) -ForegroundColor DarkGray
     }
 
-    if ($result.Ok) { (Get-WinstState -Name WinstHttpCache)[$cacheKey] = @{ At = [DateTime]::Now; Value = $result } }
+    if ($result.Ok) { Set-WinstHttpCacheEntry -Key $cacheKey -Entry @{ At = $head.At; Value = $result } }
     return $result
 }

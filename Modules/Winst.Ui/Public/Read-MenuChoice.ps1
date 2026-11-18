@@ -26,10 +26,11 @@ function Read-MenuChoice {
         $value = ''
         if ($null -ne $raw) { $value = ([string]$raw).Trim() }
 
-        if (-not $value -and $EmptyAsBack -and -not (Test-WinstInputRedirected)) { return 'b' }
         if (-not $value) {
+            $redirected = Test-WinstInputRedirected
+            if ($EmptyAsBack -and -not $redirected) { return 'b' }
             $emptyStreak++
-            if ((Test-WinstInputRedirected) -or $emptyStreak -ge 5) {
+            if ($redirected -or $emptyStreak -ge 5) {
                 Write-Host ''
                 Write-Host '  未检测到键盘输入，已退出菜单。' -ForegroundColor Yellow
                 return 'q'

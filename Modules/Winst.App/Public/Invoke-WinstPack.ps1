@@ -56,7 +56,6 @@ function Invoke-WinstPack {
     $ListPath = [string]$pick.ListPath
     $loaded = $pick.Loaded
     $lookup = $loaded.Lookup
-    $sourceCacheIndex = $pick.SourceCacheIndex
 
     # —— ② 列出清单软件 ③ 目标目录 ④ 需求清单 ——
     try {
@@ -83,7 +82,6 @@ function Invoke-WinstPack {
         $loaded = Get-WinstListItems -Context $Context -Path $ListPath
         if (-not $loaded.Ok) { $result.Error = [string]$loaded.Error; return $result }
         $lookup = $loaded.Lookup
-        $sourceCacheIndex = $lookup['CacheIndex']
         $requirements = Get-WinstPackItemList -Context $Context -Lookup $lookup -Items $loaded.Items
         $plan = @($requirements.Plan)
         $missing = Resolve-WinstBundleMissingPackages -Context $Context -Plan $plan -Lookup $lookup -Offline -DryRun -SkipMissing -NonInteractive
@@ -113,7 +111,7 @@ function Invoke-WinstPack {
     # —— ⑦ 复制安装包 + 生成套件索引 ——
     $kitAppsDir = Join-WinstPath $TargetDir 'apps'
     $packages = Copy-WinstBundlePackages -CopyItems $confirm.CopyItems -KitAppsDir $kitAppsDir `
-        -SourceCacheIndex $sourceCacheIndex -TargetDir $TargetDir -DryRun:$dryRun
+        -SourceCacheIndex $lookup.CacheIndex -TargetDir $TargetDir -DryRun:$dryRun
     $copied = [int]$packages.Copied
     $skipped = [int]$packages.Skipped
 

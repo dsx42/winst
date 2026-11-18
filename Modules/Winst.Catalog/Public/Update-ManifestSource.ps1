@@ -31,107 +31,102 @@ function Update-ManifestSource {
     $url = Get-EntryString -Entry $Source -Key 'url'
     $isLocal = Get-EntryBool -Entry $Source -Key 'isLocal'
 
-    # 软件源刷新后条目（含依赖关系）可能变化：置空依赖索引，下次使用时按新清单重建
-    $null = Set-WinstState -Name WinstDependencyIndex -Value ($null)
+    $save = $null
+    try {
+        $result = New-WinstManifestRefreshResult -Name $name -IsLocal:$isLocal
 
-    $result = New-WinstManifestRefreshResult -Name $name -IsLocal:$isLocal
+        if (-not $name) { $result.Message = '软件源名称缺失'; return $result }
+        if (-not $isLocal -and -not $url) { $result.Message = '软件源地址为空'; return $result }
 
-    if (-not $name) { $result.Message = '软件源名称缺失'; return $result }
-    if (-not $isLocal -and -not $url) { $result.Message = '软件源地址为空'; return $result }
+        $cachePath = Get-ManifestCachePath -PkgDir $Context.PkgDir -Name $name
+        $hasCache = $false
+        if ($cachePath) { $hasCache = Test-Path -LiteralPath $cachePath -PathType Leaf }
 
-    $cachePath = Get-ManifestCachePath -PkgDir $Context.PkgDir -Name $name
-    $hasCache = $false
-    if ($cachePath) { $hasCache = Test-Path -LiteralPath $cachePath -PathType Leaf }
+        $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name
+        $cachedVersion = ''
+        if ($meta -and $meta.Version) { $cachedVersion = [string]$meta.Version }
 
-    $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name
-    $cachedVersion = ''
-    if ($meta -and $meta.Version) { $cachedVersion = [string]$meta.Version }
+        # 清单的「取得时刻」：在真正取值之前捕获，写进 meta.json 的 fetchedAt
+        $fetchedAt = (Get-Date).ToString('s')
 
-    # 清单的「取得时刻」：在真正取值之前捕获，写进 meta.json 的 fetchedAt
-    $fetchedAt = (Get-Date).ToString('s')
-
-    # —— 取清单（本地 / 远程，含 {version} 指示地址与缓存复用） ——
-    $payload = Get-WinstManifestPayload -Context $Context -Source $Source -Url $url -IsLocal:$isLocal `
-        -CachePath $cachePath -HasCache:$hasCache -CachedVersion $cachedVersion -Force:$Force
-    if (-not $payload.Ok) {
-        $result.Message = [string]$payload.Message
-        $result.Network = [bool]$payload.Network
+        # —— 取清单（本地 / 远程，含 {version} 指示地址与缓存复用） ——
+        $payload = Get-WinstManifestPayload -Context $Context -Source $Source -Url $url -IsLocal:$isLocal `
+            -CachePath $cachePath -HasCache:$hasCache -CachedVersion $cachedVersion -Force:$Force
+        if (-not $payload.Ok) {
+            $result.Message = [string]$payload.Message
+            $result.Network = [bool]$payload.Network
+            $result.Files = @($payload.Files)
+            return $result
+        }
+        $entries = @($payload.Entries)
+        $content = [string]$payload.Content
+        $targetUrl = [string]$payload.TargetUrl
+        $manifestVersion = [string]$payload.ManifestVersion
+        $reusedFromCache = [bool]$payload.ReusedFromCache
+        $writeCache = [bool]$payload.WriteCache
         $result.Files = @($payload.Files)
-        return $result
-    }
-    $entries = @($payload.Entries)
-    $content = [string]$payload.Content
-    $targetUrl = [string]$payload.TargetUrl
-    $manifestVersion = [string]$payload.ManifestVersion
-    $reusedFromCache = [bool]$payload.ReusedFromCache
-    $writeCache = [bool]$payload.WriteCache
-    $result.Files = @($payload.Files)
 
-    # —— 按需解析的 id 集合（含「从未解析过」的补齐） ——
-    $onlySet = Get-WinstResolveFilter -Entries $entries -OnlyIds $OnlyIds -Meta $meta -IncludeUnresolved:$IncludeUnresolved
+        # —— 按需解析的 id 集合（含「从未解析过」的补齐） ——
+        $onlySet = Get-WinstResolveFilter -Entries $entries -OnlyIds $OnlyIds -Meta $meta -IncludeUnresolved:$IncludeUnresolved
 
-    # —— 解析：逐条目解析最新版本与实际内容（失败隔离） ——
-    $resolve = Invoke-WinstManifestResolve -Context $Context -Name $name -Entries $entries -OnlySet $onlySet
-    $apps = @($resolve.Apps)
-    $succeeded = [int]$resolve.Succeeded
-    $failed = [int]$resolve.Failed
+        # —— 解析：逐条目解析最新版本与实际内容（失败隔离） ——
+        $resolve = Invoke-WinstManifestResolve -Context $Context -Name $name -Entries $entries -OnlySet $onlySet
+        $apps = @($resolve.Apps)
+        $succeeded = [int]$resolve.Succeeded
+        $failed = [int]$resolve.Failed
 
-    # —— 失败不覆盖成功结果 ——
-    $retain = Merge-WinstFailedAppResults -Apps $apps -Meta $meta -Failed $failed -Succeeded $succeeded
-    $apps = @($retain.Apps)
-    $succeeded = [int]$retain.Succeeded
-    $failed = [int]$retain.Failed
-    $retained = [int]$retain.Retained
-    $retainedReasons = @($retain.Reasons)
+        # —— 失败不覆盖成功结果 ——
+        $retain = Merge-WinstFailedAppResults -Apps $apps -Meta $meta -Failed $failed -Succeeded $succeeded
+        $apps = @($retain.Apps)
+        $succeeded = [int]$retain.Succeeded
+        $failed = [int]$retain.Failed
+        $retained = [int]$retain.Retained
+        $retainedReasons = @($retain.Reasons)
 
-    # —— 按需解析：未解析条目沿用 sidecar 缓存（清单中已移除的仍自然清退） ——
-    $resolvedCount = 0
-    if ($onlySet) {
-        $merge = Merge-WinstOnDemandApps -Apps $apps -Entries $entries -Meta $meta
-        $apps = @($merge.Apps)
-        $resolvedCount = [int]$merge.Resolved
-    }
+        # —— 按需解析：未解析条目沿用 sidecar 缓存（清单中已移除的仍自然清退） ——
+        $resolvedCount = 0
+        if ($onlySet) {
+            $merge = Merge-WinstOnDemandApps -Apps $apps -Entries $entries -Meta $meta
+            $apps = @($merge.Apps)
+            $resolvedCount = [int]$merge.Resolved
+        }
 
-    $retainNote = ''
-    if ($retained -gt 0) {
-        $retainNote = ('；本次检测失败 {0} 个，已保留上次成功结果' -f $retained)
-    }
+        $retainNote = ''
+        if ($retained -gt 0) {
+            $retainNote = ('；本次检测失败 {0} 个，已保留上次成功结果' -f $retained)
+        }
 
-    $result.Apps = $apps
-    $result.Resolved = $succeeded
-    $result.ResolveFailed = $failed
-    $result.Retained = $retained
-    $result.RetainedReasons = @($retainedReasons)
-    $result.Total = $entries.Count
-
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) {
-        $result.Success = $true
-        $result.Version = $manifestVersion
-        $result.Message = ('（预览）共 {0} 个软件，可用 {1} / 有误 {2}{3}（未保存）' -f $entries.Count, $succeeded, $failed, $retainNote)
-        return $result
-    }
-
-    $save = Save-WinstManifestRefresh -Context $Context -Name $name -CachePath $cachePath -Content $content `
-        -WriteCache:$writeCache -TargetUrl $targetUrl -Version $manifestVersion -Apps $apps -FetchedAt $fetchedAt
-    if ($save.Error) {
-        $result.Message = [string]$save.Error
-        # 写盘失败（如目标盘在提权进程里不可见）时解析本身是成功的：把结果一并带出去，
-        # 调用方据此照常展示本次拿到的数据，且**不要**因为「没写成功」就认为需要重新刷新——
-        # 否则每次列表 / 检查 / 安装都会重跑一遍同样的网络请求与解析。
         $result.Apps = $apps
         $result.Resolved = $succeeded
         $result.ResolveFailed = $failed
         $result.Retained = $retained
         $result.RetainedReasons = @($retainedReasons)
         $result.Total = $entries.Count
-        if ($save.PersistUnavailable) { $result.PersistUnavailable = $true }
-        return $result
-    }
 
-    $result.Success = $true
-    $result.Version = $manifestVersion
-    $result.Message = Format-WinstManifestRefreshMessage -IsLocal:$isLocal -ReusedFromCache:$reusedFromCache `
-        -Version $manifestVersion -EntryCount $entries.Count -Succeeded $succeeded -Failed $failed `
-        -ResolvedCount $resolvedCount -OnDemand:([bool]$onlySet) -RetainNote $retainNote
-    return $result
+        $options = Get-WinstState -Name WinstOptions
+        if ($options -and $options.DryRun) {
+            $result.Success = $true
+            $result.Version = $manifestVersion
+            $result.Message = ('（预览）共 {0} 个软件，可用 {1} / 有误 {2}{3}（未保存）' -f $entries.Count, $succeeded, $failed, $retainNote)
+            return $result
+        }
+
+        $save = Save-WinstManifestRefresh -Context $Context -Name $name -CachePath $cachePath -Content $content `
+            -WriteCache:$writeCache -TargetUrl $targetUrl -Version $manifestVersion -Apps $apps -FetchedAt $fetchedAt
+        if ($save.Error) {
+            $result.Message = [string]$save.Error
+            if ($save.PersistUnavailable) { $result.PersistUnavailable = $true }
+            return $result
+        }
+
+        $result.Success = $true
+        $result.Version = $manifestVersion
+        $result.Message = Format-WinstManifestRefreshMessage -IsLocal:$isLocal -ReusedFromCache:$reusedFromCache `
+            -Version $manifestVersion -EntryCount $entries.Count -Succeeded $succeeded -Failed $failed `
+            -ResolvedCount $resolvedCount -OnDemand:([bool]$onlySet) -RetainNote $retainNote
+        return $result
+    } finally {
+        # 提前返回或抛错时也让下次依赖查询重建索引，持久化和会话回退由写入方失效。
+        if ($null -eq $save) { $null = Remove-WinstState -Name WinstDependencyIndex }
+    }
 }

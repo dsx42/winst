@@ -23,26 +23,11 @@ function Get-WinstJsonSourceSpec {
     if (-not $versionRule.Ok) { return @{ Error = [string]$versionRule.Error } }
     $selection = Get-WinstJsonSelectionSpec -Source $source -Label 'JSON 来源'
     if ($selection.Error) { return @{ Error = $selection.Error } }
-    $follow = $null
-    $hasFollow = $false
-    foreach ($pair in @(Get-WinstEntryPairs -Entry $source)) {
-        if ([string]$pair[0] -ieq 'follow') { $follow = $pair[1]; $hasFollow = $true; break }
-    }
+    $follow = $source['follow']
     $followSelection = $null
-    if ($hasFollow) {
-        if ($follow -isnot [System.Collections.IDictionary] -and $follow -isnot [pscustomobject]) {
-            return @{ Error = 'source.follow 必须是对象' }
-        }
-        $hasFollowApiUrl = $false
-        $hasFollowUrlKey = $false
-        foreach ($pair in @(Get-WinstEntryPairs -Entry $follow)) {
-            if (@('itemsKey', 'versionKey', 'versionFilter', 'sort', 'urlKey', 'apiUrl') -notcontains [string]$pair[0]) {
-                return @{ Error = ('source.follow 不支持字段：' + [string]$pair[0]) }
-            }
-            if ($pair[1] -isnot [string]) { return @{ Error = ('source.follow.' + [string]$pair[0] + ' 必须是字符串') } }
-            if ([string]$pair[0] -ieq 'apiUrl') { $hasFollowApiUrl = $true }
-            if ([string]$pair[0] -ieq 'urlKey') { $hasFollowUrlKey = $true }
-        }
+    if ($null -ne $follow) {
+        $hasFollowApiUrl = $follow.Contains('apiUrl')
+        $hasFollowUrlKey = $follow.Contains('urlKey')
         if ($hasFollowApiUrl -eq $hasFollowUrlKey) {
             return @{ Error = 'source.follow.apiUrl 与 urlKey 必须且只能填写一个' }
         }
@@ -76,12 +61,6 @@ function Get-WinstJsonSourceSpec {
             }
         }
     }
-    foreach ($pair in @(Get-WinstEntryPairs -Entry $declared[0])) {
-        if (@('itemsKey', 'hashFileMatch') -contains [string]$pair[0] -and $pair[1] -isnot [string]) {
-            return @{ Error = ('files[0].' + [string]$pair[0] + ' 必须是字符串') }
-        }
-    }
-
     $hashFileRule = $null
     $hashFileMatch = (Get-EntryString -Entry $declared[0] -Key 'hashFileMatch').Trim()
     if ($hashFileMatch) {

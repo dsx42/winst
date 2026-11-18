@@ -12,7 +12,6 @@ function Format-WinstCommandArgument {
     #>
     param([string]$Value)
 
-    if ($null -eq $Value) { return '""' }
     $text = [string]$Value
     if ($text -eq '') { return '""' }
     if ($text -notmatch '[\s"]') { return $text }

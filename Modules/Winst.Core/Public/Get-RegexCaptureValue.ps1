@@ -14,12 +14,12 @@ function Get-RegexCaptureValue {
     )
 
     $result = @{ Hit = $false; Value = '' }
-    if ($null -eq $Text -or -not $Text) { return $result }
-    if ($null -eq $Pattern -or -not $Pattern) { return $result }
+    if (-not $Text) { return $result }
+    if (-not $Pattern) { return $result }
 
     $m = $null
     try {
-        $m = [regex]::Match([string]$Text, $Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
+        $m = [regex]::Match($Text, $Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
     } catch {
         throw ('正则提取失败或超时: {0}（{1}）' -f $Pattern, $_.Exception.Message)
     }

@@ -20,9 +20,11 @@ function Read-WinstList {
 
     $seen = New-WinstOrdinalDictionary
     # 逐行数组追加是 O(n²)：几千行的清单会明显变慢，统一改 List
-    $entries = New-Object 'System.Collections.Generic.List[object]'
-    $comments = New-Object 'System.Collections.Generic.List[string]'
-    $bad = New-Object 'System.Collections.Generic.List[string]'
+    if (-not $CountOnly) {
+        $entries = New-Object 'System.Collections.Generic.List[object]'
+        $comments = New-Object 'System.Collections.Generic.List[string]'
+        $bad = New-Object 'System.Collections.Generic.List[string]'
+    }
     try {
         foreach ($line in [IO.File]::ReadLines($Path, [Text.Encoding]::UTF8)) {
             $text = [string]$line
@@ -31,17 +33,19 @@ function Read-WinstList {
             if ($trimmed.StartsWith('#')) { if (-not $CountOnly) { $comments.Add($trimmed) }; continue }
 
             $id = $trimmed
-            $version = ''
             $pos = $trimmed.IndexOf('==')
             if ($pos -ge 0) {
                 $id = $trimmed.Substring(0, $pos).Trim()
-                $version = $trimmed.Substring($pos + 2).Trim()
             }
             # id 会进入台账 / 依赖解析 / 缓存目录：单层名字、长度与保留设备名在这里就挡住，坏行计入 BadLines
             if (-not $id -or -not (Test-WinstSafePathSegment -Name $id)) { if (-not $CountOnly) { $bad.Add($trimmed) }; continue }
             if ($seen.Contains($id)) { continue }
             $seen[$id] = $true
-            if (-not $CountOnly) { $entries.Add([ordered]@{ Id = $id; Version = $version; Raw = $trimmed }) }
+            if (-not $CountOnly) {
+                $version = ''
+                if ($pos -ge 0) { $version = $trimmed.Substring($pos + 2).Trim() }
+                $entries.Add([ordered]@{ Id = $id; Version = $version; Raw = $trimmed })
+            }
         }
     } catch {
         $result.Error = ('读取清单失败：{0}' -f $_.Exception.Message)
@@ -49,6 +53,7 @@ function Read-WinstList {
     }
     $result.Count = $seen.Count
 
+    if ($CountOnly) { $result.Ok = $true; return $result }
     $result.Entries = @($entries.ToArray())
     $result.CommentLines = @($comments.ToArray())
     $result.BadLines = @($bad.ToArray())

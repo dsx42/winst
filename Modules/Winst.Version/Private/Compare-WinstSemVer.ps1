@@ -3,20 +3,9 @@
 function Compare-WinstSemVer {
     <#
     .SYNOPSIS
-        按 SemVer 的数字核心及预发布标识规则比较结构化版本。
+        比较数字核心相同的两个版本的非空预发布标识。
     #>
-    param($A, $B)
-
-    foreach ($key in @('Major', 'Minor', 'Patch')) {
-        $cmp = Compare-WinstNumericText -A ([string]$A[$key]) -B ([string]$B[$key])
-        if ($cmp -ne 0) { return $cmp }
-    }
-
-    $preA = @($A.PreRelease)
-    $preB = @($B.PreRelease)
-    if ($preA.Count -eq 0 -and $preB.Count -eq 0) { return 0 }
-    if ($preA.Count -eq 0) { return 1 }
-    if ($preB.Count -eq 0) { return -1 }
+    param([string[]]$PreA, [string[]]$PreB)
 
     $count = [Math]::Min($preA.Count, $preB.Count)
     for ($i = 0; $i -lt $count; $i++) {

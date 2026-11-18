@@ -5,7 +5,7 @@ function Update-WinstInstallDirAfterInstall {
     .SYNOPSIS
         安装后回读系统安装记录取实际安装目录（读不到时沿用台账路径，占位路径按读不到处理）。
     .OUTPUTS
-        @{ Ok; Error; InstallDir }
+        实际安装目录或空字符串。
     #>
     param([hashtable]$Context, $Plan, [string]$InstallDir, $Ledger, [string]$Id, [string]$InstallArgs, [switch]$Quiet)
 
@@ -28,7 +28,7 @@ function Update-WinstInstallDirAfterInstall {
         if ($actual.Dir -ine $assumedDir -and -not $Quiet) {
             Write-Host ('    实际安装目录: {0}' -f $actual.Dir) -ForegroundColor Gray
         }
-        return @{ Ok = $true; Error = ''; InstallDir = $actual.Dir }
+        return $actual.Dir
     }
 
     # 探测不到时沿用安装记录里已有的路径，避免把原本正确的路径抹掉
@@ -42,10 +42,10 @@ function Update-WinstInstallDirAfterInstall {
     }
     if ($keptDir) {
         if (-not $Quiet) { Write-Host ('    本次读不到实际安装目录，沿用安装记录里的路径: {0}' -f $keptDir) -ForegroundColor DarkGray }
-        return @{ Ok = $true; Error = ''; InstallDir = $keptDir }
+        return $keptDir
     }
     if (-not $Quiet) {
         Write-Host '    暂时读不到实际安装目录（安装命令里没指定路径，系统安装记录里也没有），安装记录里的路径留空；下次进入「已装软件」时会自动重新扫描并补上。' -ForegroundColor DarkGray
     }
-    return @{ Ok = $true; Error = ''; InstallDir = '' }
+    return ''
 }

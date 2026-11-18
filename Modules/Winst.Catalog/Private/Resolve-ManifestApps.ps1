@@ -4,80 +4,41 @@ function Resolve-ManifestApps {
     <#
     .SYNOPSIS
         对清单内条目做解析，生成解析锁条目数组（失败隔离，单条失败不影响其余）。
-    .DESCRIPTION
-        -OnlyIds 只解析命中的条目：未命中的条目跳过，由
-        Update-ManifestSource 合并 sidecar 既有缓存。
     .OUTPUTS
-        @{ Apps = <计划数组>; Succeeded = <int>; Failed = <int>; Skipped = <int> }
+        @{ Apps = <计划数组>; Succeeded = <int>; Failed = <int> }
     #>
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
         [Parameter(Mandatory = $true)]
         [string]$ManifestOrigin,
-        $Entries,
-        [string[]]$OnlyIds = @()
+        [object[]]$Entries
     )
-
-    $entryList = @($Entries)
-    $onlySet = $null
-    if (@($OnlyIds).Count -gt 0) { $onlySet = Get-WinstIdFilterSet -Ids $OnlyIds }
-
-    # 进度分母用「本次要解析的条目数」：按需解析时不该显示整份清单的总数
-    $targetTotal = $entryList.Count
-    if ($onlySet) {
-        $targetTotal = 0
-        foreach ($one in $entryList) {
-            $oneId = Get-EntryString -Entry $one -Key 'id'
-            if ($oneId -and $onlySet.ContainsKey($oneId)) { $targetTotal++ }
-        }
-    }
 
     $apps = New-Object 'System.Collections.Generic.List[object]'
     $succeeded = 0
     $failed = 0
-    $skipped = 0
     $index = 0
-    # per-app 解析时间戳（ISO 's'，与 sidecar resolvedAt 同口径）：按需刷新据此判断单条版本信息的新旧
+    # 按需刷新根据逐条目的 UTC 时间判断版本信息是否过期。
     $resolvedNow = [DateTime]::UtcNow.ToString('o')
 
-    foreach ($entry in $entryList) {
+    foreach ($entry in $Entries) {
         $id = Get-EntryString -Entry $entry -Key 'id'
-        if ($onlySet) {
-            if (-not $id -or -not $onlySet.ContainsKey($id)) { $skipped++; continue }
-        }
+
         $index++
         $displayName = Get-EntryString -Entry $entry -Key 'name'
         if (-not $displayName) { $displayName = $id }
 
         $plan = $null
         try {
-            $resolve = Resolve-AppSource -Context $Context -Entry $entry
-            $plan = New-ResolvedAppPlan -ManifestOrigin $ManifestOrigin -Entry $entry -Resolve $resolve -PkgDir $Context.PkgDir -Context $Context
+            $plan = New-WinstCatalogAppPlan -ManifestOrigin $ManifestOrigin -Entry $entry -PkgDir $Context.PkgDir -Context $Context
         } catch {
-            $plan = [ordered]@{
-                id             = $id
-                name           = $displayName
-                description    = (Get-EntryString -Entry $entry -Key 'description')
-                type           = (Get-EntryString -Entry $entry -Key 'type')
-                version        = ''
-                manifestOrigin = $ManifestOrigin
-                ok             = $false
-                error          = $_.Exception.Message
-                notes          = @()
-                download       = [ordered]@{ kind = ''; repo = ''; tag = ''; files = @() }
-                install        = [ordered]@{ method = '' }
-                postInstallCopy = @()
-                env            = [ordered]@{}
-                addToPath      = @()
-                shortcuts      = [ordered]@{ desktop = $false; startMenu = $false }
-                postInstall    = @()
-                detect         = [ordered]@{ method = 'none' }
-                uninstall      = [ordered]@{ method = '' }
-                resolvedAt     = $resolvedNow
-            }
+            $reason = $_.Exception.Message
+            $plan = (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry @{ id = $id; name = $displayName
+                type = (Get-EntryString -Entry $entry -Key 'type'); description = (Get-EntryString -Entry $entry -Key 'description') }).Plan
+            $plan['error'] = $reason
         }
-        try { $plan['resolvedAt'] = $resolvedNow } catch { }
+        $plan['resolvedAt'] = $resolvedNow
 
         if ($plan['ok']) { $succeeded++ } else { $failed++ }
 
@@ -98,11 +59,11 @@ function Resolve-ManifestApps {
             $versionSlotText = '新版本'
             if ($lineColor -eq 'DarkGray') { $lineColor = 'Yellow' }
         }
-        Write-Host ('    [{0}/{1}] {2}  {3}  {4}' -f $index, $targetTotal, $displayName, $versionSlotText, $mark) -NoNewline -ForegroundColor $lineColor
+        Write-Host ('    [{0}/{1}] {2}  {3}  {4}' -f $index, $Entries.Count, $displayName, $versionSlotText, $mark) -NoNewline -ForegroundColor $lineColor
         Write-Host ''
 
         $apps.Add($plan)
     }
 
-    return @{ Apps = @($apps.ToArray()); Succeeded = $succeeded; Failed = $failed; Skipped = $skipped }
+    return @{ Apps = @($apps.ToArray()); Succeeded = $succeeded; Failed = $failed }
 }

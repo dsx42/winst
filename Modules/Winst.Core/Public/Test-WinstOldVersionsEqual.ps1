@@ -5,8 +5,8 @@ function Test-WinstOldVersionsEqual {
     .SYNOPSIS
         比较两组「旧版本登记」是否等价（按版本号 + 卸载键，不区分大小写）。
     .DESCRIPTION
-        两侧的键名大小写不同（检测结果用小写 `version` / `recordKey`，展示视图与台账用大写），
-        这里两种都认，避免同一份数据因为键名写法不同被判成「有改动」并反复写盘。
+        台账字段为 version / recordKey，检测结果字段为 Version / RecordKey。
+        传入区分大小写的字典时，优先读取非空的台账字段。
     .OUTPUTS
         [bool]
     #>

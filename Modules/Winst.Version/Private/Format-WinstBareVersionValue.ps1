@@ -15,9 +15,7 @@ function Format-WinstBareVersionValue {
     $one = ([string]$Text).Trim()
     if (-not $one) { return '' }
     # 多行 / 过长 / 含空白的都不是「一个版本号」，而是文档或文件名
-    if ($one -match '[\r\n\t]') { return '' }
     if ($one.Length -gt 64) { return '' }
-    if ($one -match '\s') { return '' }
-    if ($one -notmatch '^[vV]?[0-9][0-9A-Za-z._+\-~]*$') { return '' }
+    if ($one -notmatch '^[vV]?[0-9][0-9A-Za-z._+\-~]*\z') { return '' }
     return $one
 }

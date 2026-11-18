@@ -13,10 +13,9 @@ function Copy-WinstBundlePackages {
         $SourceCacheIndex,
         # 越界护栏的根：必须在参数里显式传入。若从调用方局部变量隐式取值（PowerShell 动态作用域），
         # 换调用方 / 改名就会让 -AllowedRoot 变空，只剩受保护目录黑名单。
-        [string]$TargetDir = '',
+        [Parameter(Mandatory = $true)][string]$TargetDir,
         [switch]$DryRun
     )
-    if (-not $TargetDir) { $TargetDir = $KitAppsDir }
 
     $kitIndex = New-WinstOrdinalDictionary
     if (Test-Path -LiteralPath $KitAppsDir -PathType Container) {
@@ -65,8 +64,12 @@ function Copy-WinstBundlePackages {
                 if ($sourceFile.PSIsContainer) { throw ('缓存成员不是文件：{0}' -f $fileName) }
                 Assert-WinstSafeWritePath -Path $targetPath
                 $identical = $false
-                if ($sameVersion -and (Test-Path -LiteralPath $targetPath -PathType Leaf) -and
-                    $sourceFile.Length -eq (Get-Item -LiteralPath $targetPath -Force -ErrorAction Stop).Length) {
+                $targetFile = $null
+                if ($sameVersion) {
+                    try { $targetFile = Get-Item -LiteralPath $targetPath -Force -ErrorAction Stop }
+                    catch [System.Management.Automation.ItemNotFoundException] { }
+                }
+                if ($targetFile -and -not $targetFile.PSIsContainer -and $sourceFile.Length -eq $targetFile.Length) {
                     $sourceHash = Get-WinstFileHash -Path $sourcePath -Algorithm SHA256
                     $targetHash = Get-WinstFileHash -Path $targetPath -Algorithm SHA256
                     if (-not $sourceHash -or -not $targetHash) { throw ('无法比较套件文件：{0}' -f $fileName) }

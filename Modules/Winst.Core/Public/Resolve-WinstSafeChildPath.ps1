@@ -16,6 +16,5 @@ function Resolve-WinstSafeChildPath {
         [string]$Label = '路径'
     )
 
-    $checked = Split-WinstSafeChildSegments -Root $Root -Child $Child -Label $Label
-    return @{ Ok = [bool]$checked.Ok; Path = [string]$checked.Path; Error = [string]$checked.Error }
+    Split-WinstSafeChildSegments -Root $Root -Child $Child -Label $Label
 }

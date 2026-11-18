@@ -48,7 +48,7 @@ function Test-WinstFileIntegrity {
     $result.ChecksumHashFrom = [string]$expected.HashFrom
     $result.ChecksumFingerprint = [string]$expected.Fingerprint
 
-    $algorithm = Get-HashAlgorithmFromDigestLength -Length ([string]$expected.Hash).Length
+    $algorithm = $expected.Algorithm
     $result.Algorithm = $algorithm
 
     $actual = ''

@@ -18,57 +18,27 @@ function Read-WinstCommandLine {
     if ($InitialOptions) { foreach ($key in @($InitialOptions.Keys)) { $options[$key] = $InitialOptions[$key] } }
     $command = ''
     $rest = @()
-    $waitingFor = ''
+    $optionKeys = @{ '--install-root' = 'InstallRoot'; '--pkg-dir' = 'PkgDir'; '--proxy' = 'Proxy' }
     $error = ''
 
-    foreach ($one in @($Tokens)) {
-        $text = [string]$one
-
-        if ($waitingFor) {
-            $text = $text.Trim()
-            if (-not $text -or $text.StartsWith('-')) {
-                # 非开关 token 仍按「值优先」解释（`--pkg-dir list` 的 list 仍是路径）。
-                $name = @{ installRoot = 'install-root'; pkgDir = 'pkg-dir'; proxy = 'proxy' }[$waitingFor]
-                $error = ('--{0} 缺少取值，请写成 --{0} <值> 或 --{0}=<值>。' -f $name)
-                break
-            } else {
-                if ($waitingFor -eq 'installRoot') { $options.InstallRoot = $text }
-                elseif ($waitingFor -eq 'pkgDir') { $options.PkgDir = $text }
-                elseif ($waitingFor -eq 'proxy') { $options.Proxy = $text }
-                $waitingFor = ''
-                continue
-            }
-        }
-
-        # 先检查命令参数的相邻取值，防止摘除全局开关后把后面的普通参数补成取值。
-        if ($rest.Count -gt 0) {
-            $previous = [string]$rest[-1]
-            $needsValue = (($command -in @('install', 'download')) -and ($previous -in @('--source', '--from', '--keep'))) -or
-                (($command -eq 'update') -and ($previous -eq '--source'))
-            if ($needsValue -and (-not $text.Trim() -or $text.StartsWith('-'))) {
-                $error = ('{0} 缺少取值，请写成 {0} <值> 或 {0}=<值>。' -f $previous)
-                break
-            }
-        }
-
-        # —— 全局参数：写在命令之前或之后都识别（`winst --pkg-dir x list` = `winst list --pkg-dir x`）——
-        if ($text -ieq '--install-root') { $waitingFor = 'installRoot'; continue }
-        if ($text -ieq '--pkg-dir') { $waitingFor = 'pkgDir'; continue }
-        if ($text -ieq '--proxy') { $waitingFor = 'proxy'; continue }
-        # -like 不区分大小写，与上面 -ieq 的口径一致（StartsWith 默认区分大小写，--PKG-DIR=x 会被漏掉）
-        if ($text -like '--install-root=*') {
-            $options.InstallRoot = ($text.Substring(15)).Trim()
-            if (-not $options.InstallRoot) { $error = '--install-root 缺少取值，请写成 --install-root <值> 或 --install-root=<值>。'; break }
+    for ($i = 0; $null -ne $Tokens -and $i -lt $Tokens.Length; $i++) {
+        $text = [string]$Tokens[$i]
+        $option = ($text -split '=', 2)[0]
+        if ($optionKeys.ContainsKey($option)) {
+            $value = Read-WinstCliOptionValue -Tokens $Tokens -Index ([ref]$i)
+            if (-not $value) { $error = ('{0} 缺少取值，请写成 {0} <值> 或 {0}=<值>。' -f $option); break }
+            $options[$optionKeys[$option]] = $value
             continue
         }
-        if ($text -like '--pkg-dir=*') {
-            $options.PkgDir = ($text.Substring(10)).Trim()
-            if (-not $options.PkgDir) { $error = '--pkg-dir 缺少取值，请写成 --pkg-dir <值> 或 --pkg-dir=<值>。'; break }
-            continue
-        }
-        if ($text -like '--proxy=*') {
-            $options.Proxy = ($text.Substring(8)).Trim()
-            if (-not $options.Proxy) { $error = '--proxy 缺少取值，请写成 --proxy <值> 或 --proxy=<值>。'; break }
+        # 在摘走全局开关前检查子命令的相邻取值，防止把后面的 id 补成取值。
+        if ((($command -in @('install', 'download')) -and ($option -in @('--source','--from','--keep'))) -or
+            ($command -eq 'update' -and $option -eq '--source')) {
+            $start = $i
+            if (-not (Read-WinstCliOptionValue -Tokens $Tokens -Index ([ref]$i))) {
+                $error = ('{0} 缺少取值，请写成 {0} <值> 或 {0}=<值>。' -f $option)
+                break
+            }
+            $rest += $Tokens[$start..$i]
             continue
         }
         if ($text -ieq '--offline') { $options.Offline = $true; continue }
@@ -94,11 +64,6 @@ function Read-WinstCommandLine {
 
         # 命令之后的开关：全局参数已在上方摘走，其余原样交给该命令自己解析（如 update --check、list --cached）
         $rest += $text
-    }
-
-    if ($waitingFor -and -not $error) {
-        $name = @{ installRoot = 'install-root'; pkgDir = 'pkg-dir'; proxy = 'proxy' }[$waitingFor]
-        $error = ('--{0} 缺少取值，请写成 --{0} <值> 或 --{0}=<值>。' -f $name)
     }
 
     return @{ Options = $options; Command = $command; Arguments = @($rest); Error = $error }

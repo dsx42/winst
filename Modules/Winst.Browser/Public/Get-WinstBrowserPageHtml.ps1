@@ -39,13 +39,6 @@ function Get-WinstBrowserPageHtml {
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
     $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
-    $exe = Get-WinstSystemBrowserExe
-    if (-not $exe) {
-        $result.Error = '系统里没有找到 Microsoft Edge（Windows 自带的浏览器内核，无头抓取只用它）'
-        return $result
-    }
-    $result.Engine = Split-Path -Leaf $exe
-
     # 提权与否决定先走哪条通道（见上方说明）：提权进程里 --dump-dom 的 stdout 是空的，先试它只会白等一轮
     $isElevated = $false
     try {
@@ -55,10 +48,10 @@ function Get-WinstBrowserPageHtml {
 
     if ($isElevated) {
         $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec -Deadline $deadline
+        $result.Engine = [string]$viaDevTools.Engine
         if ($viaDevTools.Ok) {
             $result.Html = [string]$viaDevTools.Html
             $result.Ok = $true
-            $result.Engine = [string]$viaDevTools.Engine
             return $result
         }
         # 提权进程里 --dump-dom 必然拿不到输出（浏览器会降权重启、重定向的管道不跟着走）：
@@ -66,6 +59,13 @@ function Get-WinstBrowserPageHtml {
         $result.Error = ('DevTools 抓取失败：{0}。提权进程里不能再用 --dump-dom（浏览器会降权重启、stdout 收不到内容）；请确认系统 Edge 可用，或检查 proxy / proxyMode 设置。' -f [string]$viaDevTools.Error)
         return $result
     }
+
+    $exe = Get-WinstSystemBrowserExe
+    if (-not $exe) {
+        $result.Error = '系统里没有找到 Microsoft Edge（Windows 自带的浏览器内核，无头抓取只用它）'
+        return $result
+    }
+    $result.Engine = Split-Path -Leaf $exe
 
     $ua = ''
     $headers = Get-WinstBrowserHeaders

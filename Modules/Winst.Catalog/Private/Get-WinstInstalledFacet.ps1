@@ -21,7 +21,7 @@ function Get-WinstInstalledFacet {
             $state = 'missing'
         } else {
             $verdict = Get-WinstUpdateVerdict -BestVersion ([string]$Facts.BestVersion) -CurrentVersion $version `
-                -VersionFromPackage ([bool]$Facts.VersionFromPackage) -RemoteFresh ([string]$Facts.RemoteFresh) -Row $Facts.Row
+                -VersionFromPackage ([bool]$Facts.VersionFromPackage) -RemoteFresh ([string]$Facts.RemoteFresh) -Row $Facts.Row -BestSource $Facts.BestSource
             $state = $verdict.State
             $hint = $verdict.Hint
             $hasUpdate = $verdict.HasUpdate

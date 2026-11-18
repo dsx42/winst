@@ -10,26 +10,23 @@ function New-WinstPortableBlocks {
     param($Entry, [string]$Version, [string]$Type, [string]$DisplayName, $FileList, $CopyList, [bool]$Desktop, [bool]$StartMenu)
 
     $notes = @()
-    $stripTopDir = ConvertTo-WinstStripTopDirValue `
-        -Value (Get-EntryValue -Entry $Entry -Key 'stripTopDir' -Default $null)
-
-    $portableMode = (Get-EntryString -Entry $Entry -Key 'portableMode').Trim().ToLowerInvariant()
-    if (-not $portableMode) { $portableMode = 'clean' }
-    if ($Type -eq 'portable' -and @('clean', 'overwrite') -notcontains $portableMode) {
-        throw ('不支持的 portableMode：{0}；可用值为 clean / overwrite' -f $portableMode)
-    }
-
-    $keepList = @()
-    foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'keep')) {
-        if ($null -eq $item) { continue }
-        $text = Expand-VersionPlaceholder -Text ([string]$item) -Version $Version
-        if ($text.Trim()) { $keepList += $text.Trim() }
-    }
-
-    $primaryName = ''
-    if (@($FileList).Count -gt 0) { $primaryName = Get-EntryString -Entry $FileList[0] -Key 'name' }
-
     if ($Type -eq 'portable') {
+        $stripTopDir = ConvertTo-WinstStripTopDirValue `
+            -Value (Get-EntryValue -Entry $Entry -Key 'stripTopDir' -Default $null)
+
+        $portableMode = (Get-EntryString -Entry $Entry -Key 'portableMode').Trim().ToLowerInvariant()
+        if (-not $portableMode) { $portableMode = 'clean' }
+        if (@('clean', 'overwrite') -notcontains $portableMode) {
+            throw ('不支持的 portableMode：{0}；可用值为 clean / overwrite' -f $portableMode)
+        }
+
+        $keepList = @()
+        foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'keep')) {
+            if ($null -eq $item) { continue }
+            $text = Expand-VersionPlaceholder -Text ([string]$item) -Version $Version
+            if ($text.Trim()) { $keepList += $text.Trim() }
+        }
+
         # extractFiles：只从主包里取这几个相对路径（文件 / 目录）——引擎包用它"只取 7z.exe + 7z.dll"，
         # 不必把官方 7-Zip 安装包里的 GUI / 语言文件一起落地
         $extractFiles = @()
@@ -47,6 +44,8 @@ function New-WinstPortableBlocks {
         }
     } else {
         # file（exe 同义）：主程序 = 主包落位文件；被 postInstallCopy 改名后即改名结果
+        $primaryName = ''
+        if (@($FileList).Count -gt 0) { $primaryName = Get-EntryString -Entry $FileList[0] -Key 'name' }
         $mainExe = $primaryName
         foreach ($rule in @($CopyList)) {
             if (-not [bool]$rule['move']) { continue }

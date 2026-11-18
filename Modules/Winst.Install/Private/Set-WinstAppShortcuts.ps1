@@ -19,7 +19,7 @@ function Set-WinstAppShortcuts {
         所有失败都写进 Notes 返回，不抛异常——快捷方式建不出来不该让整次安装失败。
 
     .OUTPUTS
-        @{ Applied; Repaired; Notes; Hashes }
+        @{ Applied; Notes; Hashes }
     #>
     param(
         [Parameter(Mandatory = $true)]$Plan,
@@ -30,19 +30,18 @@ function Set-WinstAppShortcuts {
     )
 
     $applied = @()
-    $repaired = @()
     $notes = @()
     $hashes = @{}
 
     $shortcutPaths = @(Get-WinstShortcutPaths -Plan $Plan)
     if ($shortcutPaths.Count -eq 0) {
-        return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
+        return @{ Applied = $applied; Notes = $notes; Hashes = $hashes }
     }
 
     $resolved = Resolve-WinstShortcutTarget -Plan $Plan -InstallDir $InstallDir
     if (-not $resolved.Target) {
         if ($resolved.Note) { $notes += $resolved.Note }
-        return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
+        return @{ Applied = $applied; Notes = $notes; Hashes = $hashes }
     }
 
     $read = $null
@@ -73,20 +72,7 @@ function Set-WinstAppShortcuts {
                 }
                 continue
             }
-            try {
-                New-WinstShortcutFile -LinkPath $link -TargetPath $resolved.Target `
-                    -WorkingDirectory $resolved.WorkingDirectory -Description $resolved.DisplayName
-                $applied += $link
-                $hashes[$link] = Get-WinstFileHash -Path $link
-                $repaired += $link
-                $notes += ('快捷方式指向不正确，已修正: {0}' -f $link)
-            } catch {
-                $notes += ('修正快捷方式失败（{0}）：{1}' -f $link, $_.Exception.Message)
-            }
-            continue
-        }
-
-        if ($ExistingOnly) {
+        } elseif ($ExistingOnly) {
             # 用户删掉了 / 从没建过：只更新文件的口径下不补建，也不刷提示（每次更新都提一遍太吵）
             continue
         }
@@ -96,10 +82,12 @@ function Set-WinstAppShortcuts {
                 -WorkingDirectory $resolved.WorkingDirectory -Description $resolved.DisplayName
             $applied += $link
             $hashes[$link] = Get-WinstFileHash -Path $link
+            if ($exists) { $notes += ('快捷方式指向不正确，已修正: {0}' -f $link) }
         } catch {
-            $notes += ('创建快捷方式失败（{0}）：{1}' -f $link, $_.Exception.Message)
+            $action = if ($exists) { '修正' } else { '创建' }
+            $notes += ('{0}快捷方式失败（{1}）：{2}' -f $action, $link, $_.Exception.Message)
         }
     }
 
-    return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
+    return @{ Applied = $applied; Notes = $notes; Hashes = $hashes }
 }

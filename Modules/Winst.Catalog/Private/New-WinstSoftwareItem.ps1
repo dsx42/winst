@@ -34,10 +34,10 @@ function New-WinstSoftwareItem {
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
     $installedFacet = Get-WinstInstalledFacet -Ledger $Ledger -Facts $facts
     $cacheHas = [bool](@($CacheFiles).Count -gt 0)
-    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -CacheFiles $CacheFiles -Evaluate:$cacheHas
+    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -Evaluate:$cacheHas
 
     return [ordered]@{
-        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Row $Row -Ledger $Ledger -CacheIndex $CacheIndex)
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Plan (Get-EntryValue -Entry $facts.Chosen -Key 'Plan') -Ledger $Ledger -CacheIndex $CacheIndex)
         Id                   = $Id
         DisplayName          = [string]$facts.DisplayName
         Group                = [string]$facts.Group

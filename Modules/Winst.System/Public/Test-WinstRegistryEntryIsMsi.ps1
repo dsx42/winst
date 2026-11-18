@@ -13,16 +13,7 @@ function Test-WinstRegistryEntryIsMsi {
     #>
     param($Entry)
 
-    $command = ''
-    if ($null -ne $Entry) {
-        if ($Entry -is [System.Collections.IDictionary]) {
-            if ($Entry.Contains('UninstallString')) { $command = [string]$Entry['UninstallString'] }
-        } else {
-            $prop = $Entry.PSObject.Properties['UninstallString']
-            if ($prop -and $null -ne $prop.Value) { $command = [string]$prop.Value }
-        }
-    }
-    $command = $command.Trim()
+    $command = (Get-EntryString -Entry $Entry -Key 'UninstallString').Trim()
     if (-not $command) { return $false }
     $parsed = Split-WinstCommandLine -Text $command
     if (-not $parsed.Ok) { return $false }

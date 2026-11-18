@@ -7,7 +7,7 @@ function Get-WinstBrowserClickedLink {
     .DESCRIPTION
         给「下载地址不写在页面里、点了按钮才生成」的站点用（如 Google Chrome 的下载页：地址在点击时由页面脚本
         拼出来、直接触发下载）。流程：打开 pageUrl → 依次执行 click 的每一步（定位元素 + 派发真实鼠标点击）→
-        监听浏览器上报的下载事件拿到地址；地址到手后**不执行后续点击**，下载照旧交给 FluxDown。
+        监听浏览器上报的下载事件取得地址。取得地址后结束取址点击，下载交给 FluxDown。
         每步可以带一点容错：这一步没找到可点的元素就跳过并在 --verbose / 备注里说明——真正判定成败的是
         「最后有没有拿到下载地址」，拿不到就报明原因，并列出点击期间观察到的「像安装包」的请求地址便于排查。
         若调用方传入 HashClickSpecs（软件源 source.hashClick）且 WantPageHash，取址成功后再按该序列点控件，

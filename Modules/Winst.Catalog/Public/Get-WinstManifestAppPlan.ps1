@@ -78,10 +78,9 @@ function Get-WinstManifestAppPlan {
         foreach ($entry in @($bundle.Entries)) {
             if ((Get-EntryString -Entry $entry -Key 'id') -cne $Id) { continue }
             try {
-                $resolve = Resolve-AppSource -Context $Context -Entry $entry
                 # 必须带 -Context：按包内结构读版本要用引擎路径、远端新鲜度探测要用代理序列，
                 # 少了它 versionFromPackage 条目会退化成「引擎不可用 + 取缓存索引版本」。
-                $plan = New-ResolvedAppPlan -ManifestOrigin $sname -Entry $entry -Resolve $resolve -PkgDir $Context.PkgDir -Context $Context
+                $plan = New-WinstCatalogAppPlan -ManifestOrigin $sname -Entry $entry -PkgDir $Context.PkgDir -Context $Context
             } catch {
                 $lastError = $_.Exception.Message
                 continue

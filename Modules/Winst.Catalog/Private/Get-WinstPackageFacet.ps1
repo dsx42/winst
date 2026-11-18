@@ -8,7 +8,6 @@ function Get-WinstPackageFacet {
     param(
         [Parameter(Mandatory = $true)]$Facts,
         [string]$CacheVersion = '',
-        [string[]]$CacheFiles = @(),
         [switch]$Evaluate
     )
 
@@ -27,8 +26,6 @@ function Get-WinstPackageFacet {
     if ($CacheVersion) { $versionText = $CacheVersion }
 
     return [ordered]@{
-        Has         = [bool](@($CacheFiles).Count -gt 0)
-        Version     = $CacheVersion
         VersionText = $versionText
         State       = $state
         Hint        = $hint

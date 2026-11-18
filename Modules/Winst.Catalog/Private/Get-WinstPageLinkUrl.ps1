@@ -62,9 +62,11 @@ function Get-WinstPageLinkUrl {
     }
 
     $downloadUrl = [string]$absoluteUrls[0]
-    try { Assert-WinstHttpUrl -Url $downloadUrl }
-    catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = $html; PageHash = '' } }
     $pageHash = ''
+    if ($null -ne $ThenClickSpec -or $null -ne $ThenLinkSpec) {
+        try { Assert-WinstHttpUrl -Url $downloadUrl }
+        catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = $html; PageHash = '' } }
+    }
 
     if ($null -ne $ThenClickSpec) {
         $thenClick = Get-WinstThenClickUrl -Context $Context -Source $Source -PageUrl $PageUrl -IntermediateUrl $downloadUrl `

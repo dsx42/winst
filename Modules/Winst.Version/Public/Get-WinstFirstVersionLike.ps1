@@ -8,7 +8,7 @@ function Get-WinstFirstVersionLike {
     param([string]$Text)
 
     if (-not $Text) { return '' }
-    foreach ($kind in @('semver', 'date', 'digits')) {
+    foreach ($kind in (Get-VersionKindList)) {
         $v = Get-VersionValue -Text $Text -Kind $kind
         if ($v) { return $v }
     }

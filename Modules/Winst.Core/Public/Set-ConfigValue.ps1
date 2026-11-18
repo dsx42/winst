@@ -42,12 +42,9 @@ function Set-ConfigValue {
     # 需要认证时必须走设置菜单——凭据要先验证再交给系统凭据管理器，这一步需要交互。
     if ($Key -eq 'installRoot') {
         $pathValue = ([string]$converted.Value).Trim().Trim('"').Trim()
-        try {
-            if (-not $pathValue) { throw '路径不能为空' }
-            $null = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options @{ InstallRoot = $pathValue } -Config $Context.Config
-        } catch {
+        if (-not $pathValue) {
             Write-Host ''
-            Write-Host ('  输入无效：{0}，未做修改。' -f $_.Exception.Message) -ForegroundColor Yellow
+            Write-Host '  输入无效：路径不能为空，未做修改。' -ForegroundColor Yellow
             return $false
         }
         $converted.Value = $pathValue
@@ -71,8 +68,11 @@ function Set-ConfigValue {
     $nextConfig[$Key] = $converted.Value
     try {
         # 提交前构造有效上下文，避免保存后才发现路径配置不可解析。
-        $null = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $nextConfig
-        $null = Resolve-PkgDir -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $nextConfig
+        $nextContext = New-WinstContext -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $nextConfig
+        # 用户输入被参数或环境变量覆盖时，仍需验证实际要写入的安装路径。
+        if ($Key -eq 'installRoot' -and $nextContext.InstallRootSource -ne 'config') {
+            $null = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options @{ InstallRoot = $pathValue }
+        }
         Save-WinstConfig -DataRoot $Context.DataRoot -Config $nextConfig
     } catch {
         Write-Host ''
@@ -81,7 +81,7 @@ function Set-ConfigValue {
         Write-Host '  已取消。' -ForegroundColor DarkGray
         return $false
     }
-    Update-WinstContext -Context $Context
+    Update-WinstContext -Context $Context -NextContext $nextContext
 
     if ($Quiet) { return $true }
 

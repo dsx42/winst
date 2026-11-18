@@ -8,8 +8,8 @@
     ----
     1. 记录脚本位置（WinstScriptDir / WinstScriptPath），
        供本地清单发现与离线自安装定位正在运行的脚本。
-    2. 单进程校验：共享数据目录或 Temp 的实例不能并发。
-    3. 交给 Invoke-WinstEntry 做 CLI 解析、命令分发或进入菜单。
+    2. 解析命令行，按解析结果检查实例锁。
+    3. 将解析结果交给 Invoke-WinstEntry，分发命令或进入菜单。
     4. 把返回值统一成单一 ExitCode 字段，winst.ps1 只需读一个属性；
        退出前释放单进程锁。
 
@@ -31,13 +31,16 @@
 function Invoke-WinstApplication {
     <#
     .SYNOPSIS
-        运行 winst：单进程校验 → 解析命令行 → 分发命令或进入菜单。
+        运行 winst：解析命令行 → 单进程校验 → 分发命令或进入菜单。
 
     .PARAMETER Root
         包含 winst.ps1 与 Modules 目录的路径。
 
     .PARAMETER Arguments
         原始命令行 token，与 $args 收到的一致。
+
+    .PARAMETER Parsed
+        入口已解析的参数，可供提权、实例锁与命令分发共用。
 
     .PARAMETER ScriptPath
         正在运行的 winst.ps1 完整路径，默认 <Root>\winst.ps1。
@@ -53,7 +56,9 @@ function Invoke-WinstApplication {
 
         [string[]]$Arguments = @(),
 
-        [string]$ScriptPath = ''
+        [string]$ScriptPath = '',
+
+        $Parsed = $null
     )
 
     $result = [pscustomobject]@{
@@ -72,7 +77,7 @@ function Invoke-WinstApplication {
     $null = Set-WinstScriptLocation -ScriptPath $ScriptPath -Directory $Root
 
     # —— 单进程校验：抢不到锁就提示并退出，不进任何业务逻辑 ——
-    $parsed = Read-WinstCommandLine -Tokens $Arguments
+    if ($null -eq $Parsed) { $Parsed = Read-WinstCommandLine -Tokens $Arguments }
     $instance = Confirm-WinstSingleInstance -Parsed $parsed
     if (-not $instance.Allowed) {
         Write-WinstInstanceBusyMessage -Instance $instance
@@ -82,21 +87,10 @@ function Invoke-WinstApplication {
     }
 
     try {
-        $exitCode = Invoke-WinstEntry -Parsed $parsed
-
-        if ($null -eq $exitCode) {
-            $result.ExitCode = 0
-        } else {
-            $result.ExitCode = [int]$exitCode
-        }
+        $result.ExitCode = [int](Invoke-WinstEntry -Parsed $parsed)
 
         $result.Ok = ($result.ExitCode -eq 0 -or $result.ExitCode -eq 4)
         return $result
-    } catch {
-        $result.Ok = $false
-        $result.ExitCode = 1
-        $result.Message = $_.Exception.Message
-        throw
     } finally {
         # 只读调用没有抢锁（Skipped），这里也就不用放；Exit-WinstInstanceLock 自己会判空
         Exit-WinstInstanceLock

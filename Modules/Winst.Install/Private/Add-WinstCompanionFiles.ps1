@@ -9,27 +9,25 @@ function Add-WinstCompanionFiles {
         （含上次落位、这次不再声明的旧附件）——用户只要附件更新，不该顺手清掉别的东西。
         完整安装仍按老规则清理过期附件。
     .OUTPUTS
-        @{ Error; Files; Rules; UpdatedNames; Removed; KeptDirs }
+        @{ Error; Files; Rules; UpdatedNames }
     #>
     param([hashtable]$Context, $Files, [string]$PkgDir, [string]$InstallDir, $Ledger, [string]$Method,
         [switch]$CompanionOnly, [switch]$Quiet, [string[]]$ChangedNames = @())
 
-    $staleRemoved = @()
-    $staleDirs = @()
     if ($Method -eq 'installer') {
-        return @{ Error = ''; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @(); Removed = @(); KeptDirs = @() }
+        return @{ Error = ''; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @() }
     }
 
     $previousRules = Get-EntryValue -Entry $Ledger -Key 'appliedFileRules' -Default $null
     $landing = Copy-WinstCompanionFiles -Context $Context -Files $Files -PkgDir $PkgDir -InstallDir $InstallDir `
         -OnlyChanged:$CompanionOnly -ChangedNames $ChangedNames -PreviousRules $previousRules
-    if (-not $landing.Ok) { return @{ Error = [string]$landing.Error; Files = @(); Removed = @(); KeptDirs = @() } }
+    if (-not $landing.Ok) { return @{ Error = [string]$landing.Error; Files = @() } }
     $appliedFiles = @($landing.Files)
     if ($CompanionOnly) {
         foreach ($previous in @(Get-EntryArray -Entry $Ledger -Key 'appliedFiles')) {
             if ($appliedFiles -notcontains [string]$previous) { $appliedFiles += [string]$previous }
         }
-        return @{ Error = ''; Files = $appliedFiles; Rules = $landing.Rules; UpdatedNames = @($landing.UpdatedNames); Removed = @(); KeptDirs = @() }
+        return @{ Error = ''; Files = $appliedFiles; Rules = $landing.Rules; UpdatedNames = @($landing.UpdatedNames) }
     }
 
     $previousApplied = @()
@@ -46,5 +44,5 @@ function Add-WinstCompanionFiles {
             Write-Host ('    提示: 旧目录未自动删除（里面可能还有其它文件），需要时请手动清理: {0}' -f ($staleDirs -join '、')) -ForegroundColor DarkYellow
         }
     }
-    return @{ Error = ''; Files = $appliedFiles; Rules = $landing.Rules; UpdatedNames = @($landing.UpdatedNames); Removed = $staleRemoved; KeptDirs = $staleDirs }
+    return @{ Error = ''; Files = $appliedFiles; Rules = $landing.Rules; UpdatedNames = @($landing.UpdatedNames) }
 }

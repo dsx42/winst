@@ -17,7 +17,6 @@ function Invoke-AdvancedMenu {
 
     # '1' / '2' 会进入子菜单：子菜单返回后直接重绘本菜单，不追加「按回车返回菜单」
     $result = Invoke-MenuLoop -Render $render -Context $Context `
-        -Choices @('1', '2', '3', 'b', 'q') `
-        -Actions $actions -NavigationChoices @('1', '2') -CanGoBack
+        -Actions $actions -NoPauseChoices @('1', '2') -CanGoBack
     if ($result -eq 'quit') { Set-WinstQuit }
 }

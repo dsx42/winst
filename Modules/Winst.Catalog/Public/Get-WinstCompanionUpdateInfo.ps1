@@ -5,7 +5,7 @@ function Get-WinstCompanionUpdateInfo {
     .SYNOPSIS
         判断「主包命中缓存、只有配套文件有变化」，供更新前的提示与确认使用。
     .OUTPUTS
-        @{ Checked; CompanionsOnly; ChangedCount; Names; RequiresLanding; Error }
+        @{ Checked; CompanionsOnly; ChangedCount; Names; RequiresLanding; Error; PrimaryCacheError }
     .DESCRIPTION
         内部走与安装流程同一套逐文件判定（Get-WinstPackageFilePlans -CheckValidators），因此
         校验器请求共用进程内 TTL 缓存、不会重复联网；`--offline` / `--dry-run` 下不发任何请求
@@ -17,10 +17,11 @@ function Get-WinstCompanionUpdateInfo {
         [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
         $FilePlans = $null,
-        [switch]$Prepare
+        [switch]$Prepare,
+        [switch]$ConfirmMainBeforeUse
     )
 
-    $result = @{ Checked = $false; CompanionsOnly = $false; ChangedCount = 0; Names = @(); RequiresLanding = $false; Error = ''; Plan = $Plan; FilePlans = @() }
+    $result = @{ Checked = $false; CompanionsOnly = $false; ChangedCount = 0; Names = @(); RequiresLanding = $false; Error = ''; PrimaryCacheError = ''; Plan = $Plan; FilePlans = @() }
     if ($null -eq $Plan) { return $result }
     $type = (Get-EntryString -Entry $Plan -Key 'type').Trim().ToLowerInvariant()
     if ($type -eq 'download') { return $result }
@@ -50,7 +51,7 @@ function Get-WinstCompanionUpdateInfo {
             $companionFreshMain = $false
         }
         $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $indexRead.Index -Id $id -Files $files -CheckValidators `
-            -FreshMain:$companionFreshMain)
+            -FreshMain:$companionFreshMain -ConfirmMainBeforeUse:($Prepare -or $ConfirmMainBeforeUse))
     } catch {
         $result.Error = $_.Exception.Message
         return $result
@@ -100,6 +101,19 @@ function Get-WinstCompanionUpdateInfo {
             $result.Names += [string]$plans[$i]['Name']
         }
     }
-    if ($result.ChangedCount -gt 0 -and -not $mainNeedsDownload) { $result.CompanionsOnly = $true }
+    if ($result.ChangedCount -gt 0) {
+        if (-not $mainNeedsDownload) { $result.CompanionsOnly = $true }
+        elseif ($Prepare) {
+            $options = Get-WinstState -Name WinstOptions
+            $primary = $plans[0]
+            if (-not ($options -and $options.DryRun) -and
+                    ($primary['ValidationError'] -or $primary['ExpectedHash'] -or ($options -and $options.Offline))) {
+                $reason = [string]$primary['ValidationError']
+                if (-not $reason) { $reason = [string]$primary['Hint'] }
+                if (-not $reason) { $reason = [string]$primary['Reason'] }
+                $result.PrimaryCacheError = ('主包 {0} 无法复用，已停止配套文件更新：{1}' -f $primary['Name'], $reason)
+            }
+        }
+    }
     return $result
 }

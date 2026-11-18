@@ -13,8 +13,8 @@ function Install-WinstPortablePayload {
     try { Assert-WinstSafeWritePath -Path $InstallDir -Directory }
     catch { return @{ Ok = $false; Error = $_.Exception.Message } }
 
-    $isExtractEngine = ((Get-EntryString -Entry $Plan -Key 'id') -ceq (Get-WinstExtractEngineId))
-    if (-not $isExtractEngine) {
+    $id = Get-EntryString -Entry $Plan -Key 'id'
+    if ($id -cne (Get-WinstExtractEngineId)) {
         $engine = Confirm-WinstExtractEngine -Context $Context -Quiet:$Quiet
         if (-not $engine.Ok) {
             return @{ Ok = $false; Error = ('解压引擎不可用：{0}' -f $engine.Error) }
@@ -34,6 +34,14 @@ function Install-WinstPortablePayload {
         }
     }
 
+    $clean = $portableMode -eq 'clean'
+    if (Get-WinstEngineMainExe -Id $id) {
+        $delivery = Expand-WinstEnginePackage -Context $Context -Id $id -Plan $Plan -InstallDir $InstallDir `
+            -ArchivePath $PrimaryPath -Clean:$clean -Keep $keepList -Quiet:$Quiet
+        $delivery['PostInstallCopyApplied'] = $delivery.Ok
+        return $delivery
+    }
+
     $stage = ''
     $tempPath = [IO.Path]::GetTempPath()
     try {
@@ -44,26 +52,13 @@ function Install-WinstPortablePayload {
 
         $stripTopDir = Get-EntryValue -Entry $Install -Key 'stripTopDir' -Default $true
         $extractFiles = @(Get-EntryArray -Entry $Install -Key 'extractFiles')
-        $existing = ''
-        if ($isExtractEngine) { $existing = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
-        $id = Get-EntryString -Entry $Plan -Key 'id'
-        $isEngine = [bool](Get-WinstEngineMainExe -Id $id)
-        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target -StripTopDir $stripTopDir -ExtractFiles $extractFiles -SevenZipPath $existing `
-            -Deliver:(-not $isEngine) -Clean:($portableMode -eq 'clean') -Keep $keepList
-        if (-not $layout.Ok -and $isExtractEngine -and -not $existing -and (Get-EntryBool -Entry $layout -Key 'ExtractFailed')) {
-            $directError = [string]$layout.Error
-            $layout = Initialize-WinstSevenZipFromSystem -Context $Context -Plan $Plan -ArchivePath $PrimaryPath -InstallDir $target -Quiet:$Quiet
-            if (-not $layout.Ok) { $layout.Error = $directError + '；' + $layout.Error }
-        }
+        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target `
+            -StripTopDir $stripTopDir -ExtractFiles $extractFiles -Deliver -Clean:$clean -Keep $keepList
         if (-not $layout.Ok) {
             return @{ Ok = $false; Error = ('解压 {0} 失败：{1}' -f (Split-Path -Leaf $PrimaryPath), $layout.Error) }
         }
         $stage = [string]$layout.TempRoot
-        if (-not $isEngine) { return @{ Ok = $true; Error = ''; PostInstallCopyApplied = $false } }
-        Initialize-WinstEngineStage -Id $id -Plan $Plan -SourceDir ([string]$layout.SourceDir)
-        $move = Move-WinstStagedInstall -StageDir $stage -SourceDir ([string]$layout.SourceDir) -InstallDir $target -Clean:($portableMode -eq 'clean') -Keep $keepList
-        $move['PostInstallCopyApplied'] = $isEngine
-        return $move
+        return @{ Ok = $true; Error = ''; PostInstallCopyApplied = $false }
     } catch {
         return @{ Ok = $false; Error = ('准备安装目录失败：' + $_.Exception.Message) }
     } finally {

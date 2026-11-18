@@ -32,12 +32,10 @@ function Update-WinstStaleSources {
     )
 
     $result = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { $result.Skipped = $true; return $result }
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { $result.Skipped = $true; return $result }
+    $options = Get-WinstState -Name WinstOptions
+    if ($options -and ($options.Offline -or $options.DryRun)) { $result.Skipped = $true; return $result }
 
     $persistUnavailable = Get-WinstState -Name WinstManifestPersistUnavailable
-    if ($null -eq $persistUnavailable) { $persistUnavailable = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal) }
-    $persistNoted = @()
 
     $ttl = 24
     try { $ttl = [int](Get-ConfigValue -Config $Context.Config -Key 'manifestTTLHours') } catch { $ttl = 24 }
@@ -50,101 +48,46 @@ function Update-WinstStaleSources {
     $now = Get-Date
     $hasOnlyIds = (@($OnlyIds).Count -gt 0)
     $staleSources = @()
-    $resolveIdsBySource = @{}
     foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = [string]$source['name']
         try {
-        $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name
-
-        # 本进程内已经确认「解析成功但写不进盘」的源：不要再来一遍。
-        # 有效期与解析锁都靠落盘文件判断，写不进去就永远是过期状态，
-        # 不拦的话每次列表 / 检查 / 安装都会重跑同样的网络请求与解析。
-        if ($persistUnavailable.ContainsKey((Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $name))) {
-            if ($persistNoted -notcontains $name) {
-                $persistNoted += $name
+            if ($persistUnavailable.ContainsKey((Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $name))) {
                 $result.Failed++
                 $result.Errors += ('{0}: 上次刷新已取到最新数据，但缓存写不进去（目标盘当前不可用，或缓存目录不允许写入）；本会话内不再重复刷新。' -f $name)
+                continue
             }
-            continue
-        }
 
-        # per-app 解析时间（判断单条版本信息是否过期）：只依赖解析锁缓存（meta.Apps 的 per-app resolvedAt），
-        # 不读清单缓存文件——展示集合全部有效时零额外开销
-        $resolvedAtById = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
-        $lookup = @{}
-        if ($meta -and $meta.HasApps -and (-not $Force -or ($HonorEntryTtl -and $hasOnlyIds))) {
-            foreach ($oldApp in @($meta.Apps)) {
-                $oldId = Get-EntryString -Entry $oldApp -Key 'id'
-                if ($oldId -and -not $resolvedAtById.ContainsKey($oldId)) {
-                    $resolvedAtById[$oldId] = Get-EntryString -Entry $oldApp -Key 'resolvedAt'
-                }
-            }
-        }
-
-        if ($Force) {
-            $ids = @($OnlyIds)
-            # 没有解析锁（新换的共享目录、旧版本留下的 sidecar）时不做条目过滤：
-            # 按「本源没有任何条目记录」直接全解析，否则这些 id 会被当成「不属于本源」而永远不刷新
-            if ($HonorEntryTtl -and $hasOnlyIds -and $meta -and $meta.HasApps) {
-                # 共享 pkgDir（UNC）下的「检查更新」：条目还在有效期内就沿用解析锁——
-                # 一台机器刷新过，其它机器在 manifestTTLHours 内不必把同一批条目重新联网解析一遍。
-                # 归属判断与按需刷新同一口径：解析锁缺失的 id 要按清单正文确认；正文不可用或过期则刷新确认
-                $ids = @()
-                foreach ($id in @($OnlyIds)) {
-                    if (-not $resolvedAtById.ContainsKey($id)) {
-                        if (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id -Lookup $lookup) { $ids += $id }
-                        continue
+            $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $name
+            $ids = $OnlyIds
+            if (-not $Force -or ($HonorEntryTtl -and $hasOnlyIds -and $meta -and $meta.HasApps)) {
+                $resolvedAtById = New-WinstOrdinalDictionary
+                if ($meta -and $meta.HasApps) {
+                    foreach ($app in @($meta.Apps)) {
+                        $id = Get-EntryString -Entry $app -Key 'id'
+                        if ($id -and -not $resolvedAtById.Contains($id)) {
+                            $resolvedAtById[$id] = Get-EntryString -Entry $app -Key 'resolvedAt'
+                        }
                     }
-                    if (Test-WinstResolvedAtStale -ResolvedAt $resolvedAtById[$id] -Now $now -TtlHours $ttl) { $ids += $id }
                 }
-                # 一条都没过期：整个源跳过（不重下清单本体、不解析、不写 sidecar）
-                if ($ids.Count -eq 0) { continue }
-            }
-            $staleSources += $source
-            if ($ids.Count -gt 0) { $resolveIdsBySource[$name] = $ids }
-            continue
-        }
-
-        $manifestStale = $true
-        if ($ttl -gt 0 -and $meta -and $meta.FetchedAt) {
-            $stamp = [datetime]::MinValue
-            if ([datetime]::TryParse([string]$meta.FetchedAt, [ref]$stamp)) {
-                if (($now - $stamp).TotalHours -lt $ttl) { $manifestStale = $false }
-            }
-        }
-
-        $needed = @()
-        if ($hasOnlyIds) {
-            # 解析锁可能是部分结果，缺失不能证明软件不属于本源；检查正文或刷新确认。
-            foreach ($id in @($OnlyIds)) {
-                if (-not $resolvedAtById.ContainsKey($id)) {
-                    if (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id -Lookup $lookup) {
-                        $needed += $id
+                $candidates = $OnlyIds
+                if (-not $hasOnlyIds) { $candidates = $resolvedAtById.Keys }
+                $lookup = @{}
+                $ids = @(foreach ($id in $candidates) {
+                    if ($resolvedAtById.Contains($id)) {
+                        if (Test-WinstResolvedAtStale -ResolvedAt $resolvedAtById[$id] -Now $now -TtlHours $ttl) { $id }
+                    } elseif (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id -Lookup $lookup) {
+                        $id
                     }
-                    continue
-                }
-                if (Test-WinstResolvedAtStale -ResolvedAt $resolvedAtById[$id] -Now $now -TtlHours $ttl) {
-                    $needed += $id
-                }
-            }
-            if ($needed.Count -eq 0) { continue }
-            $staleSources += $source
-            $resolveIdsBySource[$name] = $needed
-        } else {
-            foreach ($oldId in @($resolvedAtById.Keys)) {
-                if (Test-WinstResolvedAtStale -ResolvedAt $resolvedAtById[$oldId] -Now $now -TtlHours $ttl) {
-                    $needed += [string]$oldId
+                })
+                if ($ids.Count -eq 0) {
+                    if ($hasOnlyIds) { continue }
+                    # 候选均有效时，仅源本体过期才全量刷新以发现新增软件。
+                    $stamp = [datetime]::MinValue
+                    if ($ttl -gt 0 -and $meta -and [datetime]::TryParse([string]$meta.FetchedAt, [ref]$stamp) -and
+                        ($now - $stamp).TotalHours -lt $ttl) { continue }
                 }
             }
-            if ($needed.Count -gt 0) {
-                $staleSources += $source
-                $resolveIdsBySource[$name] = $needed
-            } elseif ($manifestStale) {
-                # 版本信息都还新鲜，但清单本体超期：整源刷新（全量解析，旧语义），顺带发现新增软件
-                $staleSources += $source
-                $resolveIdsBySource[$name] = @()
-            }
-        }
+            $staleSources += @{ Source = $source; Ids = $ids }
         } catch {
             $result.Failed++
             $result.Errors += ('{0}: {1}' -f $name, $_.Exception.Message)
@@ -159,20 +102,18 @@ function Update-WinstStaleSources {
             Write-Host ('  正在更新软件源（版本信息超过 {0} 小时的按需刷新）…' -f $ttl) -ForegroundColor Gray
         }
     }
-    foreach ($source in $staleSources) {
+    foreach ($pending in $staleSources) {
+        $source = $pending.Source
         $name = [string]$source['name']
-        $onlyIds = @()
-        if ($resolveIdsBySource.ContainsKey($name)) { $onlyIds = @($resolveIdsBySource[$name]) }
+        $ids = $pending.Ids
         if (-not $Quiet) { Write-Host ('    刷新软件源 {0} …' -f $name) -ForegroundColor Gray }
-        $r = Update-ManifestSource -Context $Context -Source $source -Force:$Force -OnlyIds $onlyIds -IncludeUnresolved:(-not $hasOnlyIds -and $onlyIds.Count -gt 0)
+        $r = Update-ManifestSource -Context $Context -Source $source -Force:$Force -OnlyIds $ids -IncludeUnresolved:(-not $hasOnlyIds -and $ids.Count -gt 0)
         $result.Network = $result.Network -or [bool]$r.Network
         if ($r.Success) {
             $result.Refreshed++
         } else {
             $result.Failed++
             $result.Errors += ('{0}: {1}' -f $name, $r.Message)
-            # 解析成功、只是写不进盘：记下来，本进程内不再为同一个源重复刷新
-            if ([bool]$r.PersistUnavailable) { $persistUnavailable[(Get-ManifestMetaPath -PkgDir $Context.PkgDir -Name $name)] = $true }
         }
     }
     return $result

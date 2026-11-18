@@ -22,6 +22,7 @@ function Get-WinstFileSystemItem {
     $root = [IO.Path]::GetPathRoot($full)
     if ($full -ine $root) { $full = $full.TrimEnd('\') }
     return [pscustomobject]@{
+        ExtendedPath = $extended
         FullName = $full
         Name = [IO.Path]::GetFileName($full.TrimEnd('\'))
         Attributes = $attributes

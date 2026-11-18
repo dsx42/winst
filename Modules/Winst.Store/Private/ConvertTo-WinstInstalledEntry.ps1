@@ -11,11 +11,6 @@ function ConvertTo-WinstInstalledEntry {
     param($Entry)
 
     if ($null -eq $Entry -or ($Entry -isnot [System.Collections.IDictionary] -and $Entry -isnot [System.Management.Automation.PSCustomObject])) { throw '安装条目必须是对象' }
-    foreach ($key in @('appliedShortcutHashes', 'appliedFileVersions', 'appliedFileRules')) {
-        $value = Get-EntryValue -Entry $Entry -Key $key -Default @{}
-        if ($null -eq $value -or ($value -isnot [System.Collections.IDictionary] -and $value -isnot [System.Management.Automation.PSCustomObject])) { throw ('安装条目的 ' + $key + ' 必须是对象') }
-    }
-
     $result = [ordered]@{
         version          = (Get-EntryString -Entry $Entry -Key 'version')
         type             = (Get-EntryString -Entry $Entry -Key 'type')
@@ -28,12 +23,17 @@ function ConvertTo-WinstInstalledEntry {
         appliedEnv       = @()
         appliedPath      = @()
         appliedShortcuts = @()
-        appliedShortcutHashes = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedShortcutHashes' -Default @{}))
-        appliedFileVersions = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedFileVersions' -Default @{}))
+        appliedShortcutHashes = $null
+        appliedFileVersions = $null
         appliedFiles     = @()
-        appliedFileRules = (Copy-WinstObjectShallow -InputObject (Get-EntryValue -Entry $Entry -Key 'appliedFileRules' -Default @{}))
+        appliedFileRules = $null
         oldVersions      = @()
-        uninstall        = (ConvertTo-WinstUninstallSnapshot -Block $null)
+        uninstall        = (ConvertTo-WinstUninstallSnapshot -Block (Get-EntryValue -Entry $Entry -Key 'uninstall'))
+    }
+    foreach ($key in @('appliedShortcutHashes', 'appliedFileVersions', 'appliedFileRules')) {
+        $value = Get-EntryValue -Entry $Entry -Key $key -Default @{}
+        if ($null -eq $value -or ($value -isnot [System.Collections.IDictionary] -and $value -isnot [System.Management.Automation.PSCustomObject])) { throw ('安装条目的 ' + $key + ' 必须是对象') }
+        $result[$key] = Copy-WinstObjectShallow -InputObject $value
     }
     if (-not $result['managed']) { $result['managed'] = 'winst' }
 
@@ -48,9 +48,6 @@ function ConvertTo-WinstInstalledEntry {
             recordKey = (Get-EntryString -Entry $item -Key 'recordKey')
         }
     }
-
-    # 卸载操作快照（安装时写入；老记录没有这个字段时留空，卸载时回退到软件源里的定义）
-    $result['uninstall'] = (ConvertTo-WinstUninstallSnapshot -Block (Get-EntryValue -Entry $Entry -Key 'uninstall' -Default $null))
 
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'appliedEnv')) {
         $name = ''

@@ -13,8 +13,8 @@ function Compare-WinstVersion {
     #>
     param([string]$A, [string]$B)
 
-    $sa = ConvertTo-WinstVersionCore -Value $A
-    $sb = ConvertTo-WinstVersionCore -Value $B
+    $sa = Get-NormalizedVersionString -Value $A
+    $sb = Get-NormalizedVersionString -Value $B
 
     # 严格和宽松写法共用同一套规则，避免相同核心段因另一侧写法而改变比较关系。
     $idx = $sa.IndexOf('+')
@@ -49,8 +49,7 @@ function Compare-WinstVersion {
     if ($hasPreA -and -not $hasPreB) { return -1 }
     if (-not $hasPreA -and $hasPreB) { return 1 }
     if ($hasPreA -and $hasPreB) {
-        return (Compare-WinstSemVer -A @{ Major = '0'; Minor = '0'; Patch = '0'; PreRelease = @($preA.Split('.')) } `
-            -B @{ Major = '0'; Minor = '0'; Patch = '0'; PreRelease = @($preB.Split('.')) })
+        return (Compare-WinstSemVer -PreA $preA.Split('.') -PreB $preB.Split('.'))
     }
     return 0
 }

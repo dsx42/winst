@@ -115,16 +115,7 @@ HTTP 默认请求继承系统代理与 PAC；`off` 只禁用 winst 配置的显�
 
 数据文件格式见 [docs/data-files.md](docs/data-files.md)。
 
-## 文档
-
-- [docs/README.md](docs/README.md) — 文档索引
-- [docs/architecture.md](docs/architecture.md) — 模块划分、依赖关系、代码约定
-- [docs/cli.md](docs/cli.md) — 命令行接口、退出码
-- [docs/manifest.md](docs/manifest.md) — 软件源与清单条目 schema
-- [docs/data-files.md](docs/data-files.md) — config / state / 缓存索引 / 清单文件
-- [docs/install-flows.md](docs/install-flows.md) — 安装、更新、卸载、修复流程与版本检测
-- [docs/development.md](docs/development.md) — 开发与打包发布
-- [docs/troubleshooting.md](docs/troubleshooting.md) — 常见问题
+完整的命令、清单规范和安装流程见[文档索引](docs/README.md)。
 
 ## 开发与发布
 

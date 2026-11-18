@@ -35,10 +35,9 @@ function Save-WinstCacheIndex {
             }
         }
         # 拿锁前的快照不能作为写入基线，即使远端文件戳恰好没有变化。
-        Clear-WinstJsonCache -Path $path
         $stored = $null
         $read = Read-WinstCacheIndex -PkgDir $PkgDir -StoredValue ([ref]$stored)
-        if (-not $read.CanSave) { throw $read.BackupError }
+        if (-not $read.CanSave) { throw $read.Error }
         $index = $read.Index
         if ($PSBoundParameters.ContainsKey('UpdateIds')) {
             $selected = New-WinstOrdinalDictionary
@@ -75,7 +74,13 @@ function Save-WinstCacheIndex {
         Assert-WinstDistinctIds -Ids @($index.Keys)
         if ($changed) {
             Write-FileAtomic -Path $path -Content (ConvertTo-WinstJson -InputObject $index -Depth 8)
+        } else {
+            # 即使无需落盘，锁内重读也可能看到了同戳的外部更新。
+            Clear-WinstJsonCache -Path $path
         }
+    } catch {
+        if ($null -ne $stream) { Clear-WinstJsonCache -Path $path }
+        throw
     } finally {
         if ($null -ne $stream) { $stream.Dispose() }
     }

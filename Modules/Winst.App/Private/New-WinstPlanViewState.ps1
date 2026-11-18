@@ -25,7 +25,7 @@ function New-WinstPlanViewState {
     if (-not $displayName) { $displayName = $id }
     $type = ConvertTo-WinstEntryType -Type (Get-EntryString -Entry $Plan -Key 'type')
     # 仅下载类型（download）：这类软件只有「下载软件包」与「删除已下载的软件包」两件事
-    $isDownloadPlanType = (([string]$type).Trim().ToLowerInvariant() -eq 'download')
+    $isDownloadPlanType = ($type -eq 'download')
     $packageNoun = '安装包'
     if ($isDownloadPlanType) { $packageNoun = '软件包' }
 
@@ -46,13 +46,13 @@ function New-WinstPlanViewState {
 
     $shortcutName = ''
     $shortcuts = Get-EntryValue -Entry $Plan -Key 'shortcuts' -Default $null
-    if ((Get-EntryBool -Entry $shortcuts -Key 'desktop') -or (Get-EntryBool -Entry $shortcuts -Key 'startMenu')) {
-        $shortcutName = ConvertTo-ShortcutName -Name $displayName
-    }
+    $desktopOn = Get-EntryBool -Entry $shortcuts -Key 'desktop'
+    $startMenuOn = Get-EntryBool -Entry $shortcuts -Key 'startMenu'
+    if ($desktopOn -or $startMenuOn) { $shortcutName = ConvertTo-ShortcutName -Name $displayName }
     $desktopLink = ''
-    if ($DesktopDir -and $shortcutName) { $desktopLink = Join-WinstPath $DesktopDir $shortcutName }
+    if ($desktopOn -and $DesktopDir -and $shortcutName) { $desktopLink = Join-WinstPath $DesktopDir $shortcutName }
     $startMenuLink = ''
-    if ($StartMenuDir -and $shortcutName) { $startMenuLink = Join-WinstPath $StartMenuDir $shortcutName }
+    if ($startMenuOn -and $StartMenuDir -and $shortcutName) { $startMenuLink = Join-WinstPath $StartMenuDir $shortcutName }
 
     $position = ''
     if ($Total -gt 0) { $position = ('[{0}/{1}] ' -f $Index, $Total) }

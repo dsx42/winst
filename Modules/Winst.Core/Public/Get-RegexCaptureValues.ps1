@@ -12,11 +12,11 @@ function Get-RegexCaptureValues {
     )
 
     $values = New-Object 'System.Collections.Generic.List[string]'
-    if ($null -eq $Text -or -not $Text) { return $values.ToArray() }
-    if ($null -eq $Pattern -or -not $Pattern) { return $values.ToArray() }
+    if (-not $Text) { return $values.ToArray() }
+    if (-not $Pattern) { return $values.ToArray() }
 
     try {
-        foreach ($m in [regex]::Matches([string]$Text, $Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))) {
+        foreach ($m in [regex]::Matches($Text, $Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))) {
             $value = [string]$m.Value
             if ($GroupName -and $m.Groups[$GroupName].Success) {
                 $value = [string]$m.Groups[$GroupName].Value

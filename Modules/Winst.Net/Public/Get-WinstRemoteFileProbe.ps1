@@ -6,8 +6,8 @@ function Get-WinstRemoteFileProbe {
         探测远程文件是否存在（HEAD 请求），连「为什么判不出来」一起返回。
     .DESCRIPTION
         用于校验解析出的安装包地址是否真的可以下载（历史问题：版本列表页会提前出现尚未发布正式包的版本目录，
-        如 python.org 的 3.15.0 目录此时只有 alpha 包）。代理行为与其它元数据请求一致，结果按 URL、完整请求头
-        与最终地址校验条件记入进程内 TTL 缓存；只缓存确定存在 / 不存在的结果。
+        如 python.org 的 3.15.0 目录此时只有 alpha 包）。代理行为与其它元数据请求一致，结果按 URL、请求头、
+        超时、代理尝试序列和最终地址校验条件记入进程内 TTL 缓存；只缓存确定存在 / 不存在的结果。
         FinalUriMustContain：传入版本号时，200 还要再核对「重定向后的最终地址仍然包含它」——部分站点
         （如 SourceForge 的 /download）对不存在的文件不回 404，而是 302 回项目文件根目录并返回 200 的
         HTML 错误页，只看状态码会误判成存在。
@@ -32,40 +32,27 @@ function Get-WinstRemoteFileProbe {
         [string]$FinalUriMustContain = ''
     )
 
-    if (-not (Get-WinstState -Name WinstHttpCache)) {
-        $null = Set-WinstState -Name WinstHttpCache -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
-    }
-
-    # 缓存键同时体现完整请求头与最终地址校验条件，避免同一 URL 的不同请求共用结果。
-    $cacheKey = 'probe|' + (Get-WinstHttpCacheKey -Uri $Uri -Headers $Headers -Method 'Head')
-    if ($FinalUriMustContain) { $cacheKey += ('|seg:' + $FinalUriMustContain) }
-    if ((Get-WinstState -Name WinstHttpCache).ContainsKey($cacheKey)) {
-        $cachedItem = (Get-WinstState -Name WinstHttpCache)[$cacheKey]
-        $age = ([DateTime]::Now - [DateTime]$cachedItem['At']).TotalSeconds
-        if ($age -le (Get-WinstHttpCacheTtlSec)) {
-            return @{ State = [string]$cachedItem['State']; Detail = [string]$cachedItem['Detail'] }
-        }
-        (Get-WinstState -Name WinstHttpCache).Remove($cacheKey)
-    }
-
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
+    $requestKey = Get-WinstHttpCacheKey -Uri $Uri -Headers $Headers -Method 'Head'
+    $cacheKey = 'probe|{0}:{1}|{2}' -f $FinalUriMustContain.Length, $FinalUriMustContain,
+        (Get-WinstHeadCacheKey -RequestKey $requestKey -TimeoutSec $TimeoutSec -ProxyAttempts $attempts)
+    $cached = Get-WinstHttpCacheEntry -Key $cacheKey
+    if ($cached) { return @{ State = $cached.State; Detail = $cached.Detail } }
 
     $state = 'unknown'
     $detail = ''
     foreach ($currentProxy in $attempts) {
         $attemptState = 'unknown'
         $attemptDetail = ''
+        $head = $null
         try {
-            $params = New-WinstHttpRequestParameters -Uri $Uri -Method 'Head' -TimeoutSec $TimeoutSec -Headers $Headers -Proxy $currentProxy
-            $resp = Invoke-WebRequest @params
+            $head = Invoke-WinstCachedHeadRequest -Uri $Uri -TimeoutSec $TimeoutSec -Headers $Headers -Proxy $currentProxy -RequestKey $requestKey
             $attemptState = 'ok'
             # 200 ≠ 存在：SourceForge 的 /download 对不存在的文件 302 回项目文件根目录（200 的 HTML
             # 错误页）。声明了 FinalUriMustContain 时核对最终地址仍包含该段，否则按不存在处理，
             # 让调用方继续尝试下一个候选（版本号从 URL 上取，重定向后的镜像地址仍带着它）
             if ($FinalUriMustContain) {
-                $finalText = ''
-                try { $finalText = [string]$resp.BaseResponse.ResponseUri } catch { }
-                if (-not $finalText) { try { $finalText = [string]$resp.BaseResponse.RequestMessage.RequestUri } catch { } }
+                $finalText = $head.FinalUri
                 if ($finalText -and [Uri]::UnescapeDataString($finalText).IndexOf([Uri]::UnescapeDataString($FinalUriMustContain), [StringComparison]::OrdinalIgnoreCase) -lt 0) { $attemptState = 'missing' }
             }
         } catch {
@@ -109,7 +96,8 @@ function Get-WinstRemoteFileProbe {
     }
 
     if ($state -eq 'ok' -or $state -eq 'missing') {
-        (Get-WinstState -Name WinstHttpCache)[$cacheKey] = @{ At = [DateTime]::Now; State = $state; Detail = $detail }
+        $at = if ($head) { $head.At } else { [DateTime]::Now }
+        Set-WinstHttpCacheEntry -Key $cacheKey -Entry @{ At = $at; State = $state; Detail = $detail }
     }
     return @{ State = $state; Detail = $detail }
 }

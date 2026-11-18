@@ -10,7 +10,6 @@ function Get-WinstVersionFromMarkerFile {
     #>
     param(
         [hashtable]$Context,
-        $Plan,
         $Detect,
         [string]$InstallDir = '',
         [string]$Kind = '',

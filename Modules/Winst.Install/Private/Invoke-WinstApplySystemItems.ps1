@@ -27,7 +27,7 @@ function Invoke-WinstApplySystemItems {
     param([hashtable]$Context, $Plan, [string]$InstallDir, [switch]$FilesOnly, [switch]$ForceSystemItems,
         $Ledger, [switch]$Quiet, [switch]$SkipCopy)
 
-    $systemItems = @{ AppliedEnv = @(); AppliedPath = @(); AppliedShortcuts = @(); RepairedShortcuts = @(); Notes = @(); ShortcutHashes = @{} }
+    $systemItems = @{ AppliedEnv = @(); AppliedPath = @(); AppliedShortcuts = @(); Notes = @(); ShortcutHashes = @{} }
     if (-not $InstallDir) { return @{ Items = $systemItems; Skipped = $false; Error = '' } }
 
     $systemItemsSkipped = $false
@@ -59,7 +59,6 @@ function Invoke-WinstApplySystemItems {
                 -OwnedShortcuts @(Get-EntryArray -Entry $Ledger -Key 'appliedShortcuts')
             $systemItems.ShortcutHashes = $shortcuts.Hashes
             $systemItems.AppliedShortcuts = @($shortcuts.Applied)
-            $systemItems.RepairedShortcuts = @($shortcuts.Repaired)
             if (-not $Quiet) {
                 foreach ($note in @($shortcuts.Notes)) {
                     if ($note -like '*已保留*') { continue }

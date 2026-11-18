@@ -19,8 +19,7 @@ function Get-WinstInstalledDeclaredItems {
     $installDir = Get-EntryString -Entry $Entry -Key 'installDir'
     $scope = Get-WinstInstallScope -InstallDir $installDir
 
-    $envItems = @()
-    $envSeen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
+    $envItems = New-Object System.Collections.Specialized.OrderedDictionary ([StringComparer]::OrdinalIgnoreCase)
     $pathItems = @()
     $pathSeen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
 
@@ -30,9 +29,8 @@ function Get-WinstInstalledDeclaredItems {
         $itemScope = Get-EntryString -Entry $item -Key 'scope'
         if ($itemScope -ne 'Machine') { $itemScope = 'User' }
         $key = $name + '|' + $itemScope
-        if ($envSeen.ContainsKey($key)) { continue }
-        $envSeen[$key] = $true
-        $envItems += [ordered]@{ name = $name; scope = $itemScope; value = $null }
+        if ($envItems.Contains($key)) { continue }
+        $envItems[$key] = [ordered]@{ name = $name; scope = $itemScope; value = $null }
     }
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'appliedPath')) {
         $path = Get-EntryString -Entry $item -Key 'path'
@@ -52,18 +50,11 @@ function Get-WinstInstalledDeclaredItems {
             if (-not $name) { continue }
             $value = Expand-PlanPlaceholders -Value ([string]$pair['Value']) -InstallDir $installDir -InstallRoot $Context.InstallRoot
             $key = $name + '|' + $scope
-            if ($envSeen.ContainsKey($key)) {
-                # 同名的已登记项补上「软件源声明的值」，卸载时据此恢复
-                for ($i = 0; $i -lt $envItems.Count; $i++) {
-                    if (([string]$envItems[$i]['name']) -ieq $name -and ([string]$envItems[$i]['scope']) -ieq $scope) {
-                        $envItems[$i]['value'] = $value
-                        break
-                    }
-                }
+            if ($envItems.Contains($key)) {
+                $envItems[$key]['value'] = $value
                 continue
             }
-            $envSeen[$key] = $true
-            $envItems += [ordered]@{ name = $name; scope = $scope; value = $value }
+            $envItems[$key] = [ordered]@{ name = $name; scope = $scope; value = $value }
         }
         foreach ($item in @(Get-EntryArray -Entry $plan -Key 'addToPath')) {
             $text = [string]$item
@@ -78,5 +69,5 @@ function Get-WinstInstalledDeclaredItems {
         }
     }
 
-    return @{ Env = @($envItems); PathItems = @($pathItems) }
+    return @{ Env = @($envItems.Values); PathItems = @($pathItems) }
 }

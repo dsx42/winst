@@ -20,8 +20,7 @@ function Get-SourceFileLocator {
     $pattern = (Get-EntryString -Entry $Item -Key 'file').Trim()
     $urlKey = (Get-EntryString -Entry $Item -Key 'urlKey').Trim()
     $urlXPath = (Get-EntryString -Entry $Item -Key 'urlXPath').Trim()
-    $kindText = ''
-    if ($Kind) { $kindText = ([string]$Kind).Trim().ToLowerInvariant() }
+    $kindText = $Kind.Trim().ToLowerInvariant()
 
     $result = @{ Url = $url; File = $pattern; UrlKey = $urlKey; UrlXPath = $urlXPath; Error = '' }
     if ($urlXPath -and ($kindText -ne 'xml' -or $url -or $urlKey -or $pattern)) {
@@ -29,23 +28,14 @@ function Get-SourceFileLocator {
         return $result
     }
     if ($url -and $urlKey) {
-        $result.Url = ''
-        $result.File = ''
-        $result.UrlKey = ''
         $result.Error = '同一个文件不能同时填写 url（下载地址）与 urlKey（接口字段），请二选一'
         return $result
     }
     if ($url -and $pattern) {
-        $result.Url = ''
-        $result.File = ''
-        $result.UrlKey = ''
         $result.Error = '同一个文件不能同时填写 url（下载地址）和 file（文件名匹配规则），请二选一'
         return $result
     }
     if ($urlKey -and @('json', 'xml') -notcontains $kindText) {
-        $result.Url = ''
-        $result.File = ''
-        $result.UrlKey = ''
         $result.Error = 'urlKey（接口字段）只能用在 JSON / XML 接口源（source.kind: json / xml）里；其它来源请写 url 或 file'
         return $result
     }
@@ -54,9 +44,6 @@ function Get-SourceFileLocator {
         return $result
     }
     if ($kindText -eq 'json' -and $pattern -and -not $urlKey) {
-        $result.Url = ''
-        $result.File = ''
-        $result.UrlKey = ''
         $result.Error = 'JSON 接口源里只写 file（文件名匹配规则）无法定位安装包，请同时写出它在接口里的字段名（urlKey）'
         return $result
     }

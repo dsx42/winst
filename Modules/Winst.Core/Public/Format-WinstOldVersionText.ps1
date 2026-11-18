@@ -5,8 +5,8 @@ function Format-WinstOldVersionText {
     .SYNOPSIS
         把「旧版本登记」拼成一行文本（如 `10.0.13、10.0.12`）。
     .DESCRIPTION
-        检测结果里的条目用小写键（`version`），展示视图里的条目用大写键（`Version`）：
-        两种形态都要认，否则同一个函数在一处能出文本、在另一处返回空串。
+        台账字段为 version，检测结果和展示视图字段为 Version。
+        传入区分大小写的字典时，优先读取非空的 version。
     .OUTPUTS
         [string] 没有旧版本时返回空串
     #>

@@ -39,7 +39,7 @@ function Get-WinstPageClickedUrl {
     $html = [string]$clicked.Html
     $pageHash = [string]$clicked.PageHash
 
-    $clickUrls = @(Get-DistinctValues -Values @($clicked.DownloadUrls))
+    $clickUrls = @($clicked.DownloadUrls)
     if ($FileRule) {
         $clickUrls = @(Select-WinstUrlByFileRule -Urls $clickUrls -FileRule $FileRule)
         if ($clickUrls.Count -eq 0) {

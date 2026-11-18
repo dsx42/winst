@@ -41,7 +41,6 @@ function Test-WinstProtectedDirectory {
 
     $protected = @(
         '(?i)^[A-Za-z]:\\Windows(?:\\|$)',
-        '(?i)^[A-Za-z]:\\Windows\\(System32|SysWOW64|WinSxS|System|Temp|assembly|Microsoft\.NET|servicing|Fonts|INF|Boot|diagnostics|Prefetch)$',
         '(?i)^[A-Za-z]:\\Program Files( \(x86\))?$',
         '(?i)^[A-Za-z]:\\Program Files( \(x86\))?\\(Common Files|WindowsApps|Windows Defender|Windows NT|Internet Explorer|ModifiableWindowsApps)$',
         '(?i)^[A-Za-z]:\\ProgramData$',

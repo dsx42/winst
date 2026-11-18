@@ -20,8 +20,7 @@ function Update-WinstInstalledAppFields {
         [Parameter(Mandatory = $true)][hashtable]$Fields
     )
 
-    $copy = [ordered]@{}
-    foreach ($pair in @(Get-WinstEntryPairs -Entry $Entry)) { $copy[[string]$pair[0]] = $pair[1] }
+    $copy = Copy-WinstObjectShallow -InputObject $Entry
     foreach ($key in @($Fields.Keys)) { $copy[[string]$key] = $Fields[$key] }
     return (Save-WinstInstalledAppEntry -InstallRoot $InstallRoot -Id $Id -Entry $copy)
 }

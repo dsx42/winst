@@ -24,60 +24,32 @@ function Invoke-WinstInstallCommand {
     $filesOnly = $false
     $forceSystemItems = $false
     $sourceName = ''
-    $sourceSpecified = $false
     $fromPath = ''
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
 
-    # 带值开关（--source / --keep / --from）：值就地消费，不会把与取值同名的 id 一起收下，
-    # 也能发现「开关没给值」
-    $pendingValue = ''
-    foreach ($token in @($Arguments)) {
-        $text = [string]$token
-
-        if ($pendingValue) {
-            if (-not $text.Trim() -or $text.StartsWith('-')) {
-                # 下一个 token 是开关（如 `install x --keep --force`）：不能把它当成取值吞掉，
-                # 缺少取值必须中止，避免丢失 --keep 后仍执行清理安装。
-                $missingName = '--source'
-                if ($pendingValue -eq 'keep') { $missingName = '--keep' }
-                if ($pendingValue -eq 'from') { $missingName = '--from' }
-                Write-Host ('  参数缺少取值：{0}' -f $missingName) -ForegroundColor Yellow
+    for ($i = 0; $i -lt $Arguments.Count; $i++) {
+        $text = $Arguments[$i]
+        $option = ($text -split '=', 2)[0]
+        if ($option -in @('--source','--from','--keep')) {
+            $value = Read-WinstCliOptionValue -Tokens $Arguments -Index ([ref]$i)
+            if (-not $value) {
+                Write-Host ('  参数缺少取值：{0}' -f $option) -ForegroundColor Yellow
                 return 1
-            } else {
-                if ($pendingValue -eq 'source') {
-                    $sourceName = $text.Trim()
-                } elseif ($pendingValue -eq 'from') {
-                    $fromPath = $text.Trim()
-                } else {
-                    $keep = @($text -split '[,，]' | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
-                }
-                if ($pendingValue -eq 'keep' -and $keep.Count -eq 0) {
-                    Write-Host '  --keep 必须指定至少一个保留路径。' -ForegroundColor Yellow
-                    return 1
-                }
-                $pendingValue = ''
-                continue
             }
+            if ($option -eq '--source') { $sourceName = $value }
+            elseif ($option -eq '--from') { $fromPath = $value }
+            else {
+                $keep = @($value -split '[,，]' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+                if ($keep.Count -eq 0) { Write-Host '  --keep 必须指定至少一个保留路径。' -ForegroundColor Yellow; return 1 }
+            }
+            continue
         }
-
-        if ($text -match '^--(from|keep)=\s*$' -or $text -match '^--keep=[,，\s]*$') {
-            Write-Host ('  参数缺少取值：{0}' -f $text) -ForegroundColor Yellow
-            return 1
-        }
-
         if ($text -eq '--force') { $force = $true }
         elseif ($text -eq '--overwrite') { $overwrite = $true }
         elseif ($text -eq '--kill') { $kill = $true }
         elseif ($text -eq '--files-only') { $filesOnly = $true }
         elseif ($text -eq '--system-items') { $forceSystemItems = $true }
-        elseif ($text -eq '--source') { $sourceSpecified = $true; $pendingValue = 'source' }
-        elseif ($text -like '--source=*') { $sourceSpecified = $true; $sourceName = ($text.Substring(9)).Trim() }
-        elseif ($text -eq '--from') { $pendingValue = 'from' }
-        elseif ($text -like '--from=*') { $fromPath = ($text.Substring(7)).Trim() }
-        elseif ($text -eq '--keep') { $pendingValue = 'keep' }
-        elseif ($text -like '--keep=*') {
-            $keep = @(($text.Substring(7)) -split '[,，]' | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
-        } elseif ($text.StartsWith('-')) {
+        elseif ($text.StartsWith('-')) {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow
             return 1
@@ -85,18 +57,6 @@ function Invoke-WinstInstallCommand {
             $ids += $text
         }
     }
-
-    # 开关写在末尾、没给值：明确报错，不静默按默认来源 / 不保留任何文件
-    if ($pendingValue) {
-        $missing = '--source'
-        if ($pendingValue -eq 'keep') { $missing = '--keep' }
-        if ($pendingValue -eq 'from') { $missing = '--from' }
-        Write-Host ''
-        Write-Host ('  {0} 缺少取值，请写成 {0} <值> 或 {0}=<值>。' -f $missing) -ForegroundColor Yellow
-        return 1
-    }
-
-    if ($sourceSpecified -and -not (Test-WinstCliRequiredValue -Name '--source' -Value $sourceName)) { return 1 }
 
     # ---------------------------------------------------------------- 本地包
     # 从本地包（release zip 或已解压目录）安装 winst 自身。
@@ -161,7 +121,7 @@ function Invoke-WinstInstallCommand {
         Write-Host '  可选参数: --force（相同版本也重装 / 降级）/ --overwrite / --keep a,b / --kill（结束正在运行的该软件）/ --yes' -ForegroundColor Gray
         Write-Host '            --files-only（环境变量 / PATH 保持原样，快捷方式只修正不新建；首次安装也不补系统项）' -ForegroundColor Gray
         Write-Host '            --system-items（完整更新：覆盖已存在的环境变量 / 快捷方式）' -ForegroundColor Gray
-        Write-Host '            --source <名称>（指定软件源）' -ForegroundColor Gray
+        Write-Host '            --source <名称>（只使用指定软件源）' -ForegroundColor Gray
         Write-Host '            --from <路径>（从本地 winst 安装包安装 winst 自身：zip 或解压目录；不走软件源、不联网）' -ForegroundColor Gray
         Write-Host '  说明: 软件源里是更新版本时直接按更新安装（无需 --force）；只有版本相同时才会跳过。' -ForegroundColor Gray
         Write-Host '  说明: 「仅下载软件包」类型的软件只下载到安装包位置（等同 winst download），不安装到电脑；--force / --overwrite / --keep 对它不适用。' -ForegroundColor Gray
@@ -189,6 +149,7 @@ function Invoke-WinstInstallCommand {
     # 用 Ordinal（区分大小写）字典，与 id 精确匹配语义一致。
     $rowById = Get-WinstCatalogRowMap -Context $Context
 
+    $sourceLookup = @{}
     foreach ($id in $ids) {
         try {
             Write-Section ('{0} {1}' -f $commandName, $id)
@@ -202,8 +163,8 @@ function Invoke-WinstInstallCommand {
                 continue
             }
 
-            # 来源：默认按「本地清单 → 内置源 → 其它按添加顺序」；--source 指定时优先它。
-            # 已安装的软件优先用「有更新版本」的来源，避免选到更旧的来源而变成「无更新可做」。
+            # 指定 --source 时只使用指定的软件源。自动选源按「本地清单 → 内置源 → 其他源按添加顺序」排序。
+            # 已安装的软件优先用有更新版本的来源。
             $installedVersion = ''
             $ledger = Get-WinstInstalledApp -State $state -Id $id
             if (-not $ledger) {
@@ -213,7 +174,7 @@ function Invoke-WinstInstallCommand {
                 $ledger = Get-WinstInstalledApp -State $state -Id $id
             }
             if ($ledger) { $installedVersion = Get-EntryString -Entry $ledger -Key 'version' }
-            $targetRow = Sort-WinstRowSources -Context $Context -Row $row -InstalledVersion $installedVersion
+            $targetRow = Sort-WinstRowSources -Lookup $sourceLookup -Context $Context -Row $row -InstalledVersion $installedVersion
             if ($sourceName) {
                 $selected = @($targetRow['Sources'] | Where-Object { [string]$_['Source'] -ieq $sourceName })
                 if ($selected.Count -eq 0 -or -not $selected[0]['Ok'] -or -not $selected[0]['Plan']) {
@@ -224,9 +185,7 @@ function Invoke-WinstInstallCommand {
                     $failCount++
                     continue
                 }
-                $sourceRow = [ordered]@{}
-                foreach ($key in $targetRow.Keys) { $sourceRow[$key] = $targetRow[$key] }
-                $targetRow = $sourceRow
+                $targetRow = Copy-WinstObjectShallow -InputObject $targetRow
                 $targetRow['Sources'] = @($selected[0])
             }
 

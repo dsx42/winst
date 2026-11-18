@@ -109,11 +109,9 @@ function Invoke-WinstUninstallCommand {
     Write-Host ''
     if ($dryRun) {
         Write-Host ('  汇总: 预览 {0} / 失败 {1}（预览模式未做任何修改）' -f $previewCount, ($failCount + $paramFail)) -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Gray' })
-        if ($failCount -gt 0) { return 3 }
-        if ($paramFail -gt 0) { return 1 }
-        return 0
+    } else {
+        Write-Host ('  汇总: 已卸载 {0} / 跳过 {1} / 失败 {2}' -f $okCount, $skipCount, ($failCount + $paramFail)) -ForegroundColor $(if (($failCount + $paramFail) -gt 0) { 'Yellow' } else { 'Gray' })
     }
-    Write-Host ('  汇总: 已卸载 {0} / 跳过 {1} / 失败 {2}' -f $okCount, $skipCount, ($failCount + $paramFail)) -ForegroundColor $(if (($failCount + $paramFail) -gt 0) { 'Yellow' } else { 'Gray' })
 
     if ($failCount -gt 0) { return 3 }
     if ($paramFail -gt 0) { return 1 }

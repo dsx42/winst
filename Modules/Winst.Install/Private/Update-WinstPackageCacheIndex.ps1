@@ -51,7 +51,8 @@ function Update-WinstPackageCacheIndex {
             # 包内派生版本可能在下载校验后才确定，来源指纹必须绑定最终写入解析锁的版本。
             if ($filePlan['ChecksumHashFile']) {
                 $filePlan['ChecksumFingerprint'] = Get-WinstChecksumDeclarationFingerprint -FileName $name `
-                    -FileDecl $filePlan['Decl'] -FileUrl ([string]$filePlan['Url']) -FileVersion ([string]$filePlan['FileVersion'])
+                    -HashFile ([string]$filePlan['ChecksumHashFile']) -HashFrom ([string]$filePlan['ChecksumHashFrom']) `
+                    -FileUrl ([string]$filePlan['Url']) -FileVersion ([string]$filePlan['FileVersion'])
             }
             $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
                 -ExpectedHash ([string]$filePlan['ExpectedHash']) -ExpectedAlgorithm ([string]$filePlan['ExpectedAlgorithm']) `

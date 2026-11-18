@@ -14,7 +14,6 @@ function Update-WinstLedgerFromScan {
     foreach ($id in @($Found.Keys)) {
         $info = $Found[$id]
         $existing = Get-WinstInstalledApp -State $State -Id $id
-        $oldVersions = @(Merge-WinstScanOldVersions -Info $info -CurrentVersion ([string]$info['Version']))
         if ($existing) {
             $existingVersion = Get-EntryString -Entry $existing -Key 'version'
             if (-not $existingVersion) { $existingVersion = 'unknown' }
@@ -77,6 +76,7 @@ function Update-WinstLedgerFromScan {
                     }
                 }
             }
+            $oldVersions = @(Merge-WinstScanOldVersions -Info $info -CurrentVersion ([string]$info['Version']))
             $savedOld = @(Get-EntryArray -Entry $existing -Key 'oldVersions')
             $oldChanged = -not (Test-WinstOldVersionsEqual -A $savedOld -B $oldVersions)
 

@@ -24,6 +24,5 @@ function Invoke-MainMenu {
     # '4' 已装软件 / '5' 已下载包 / '6' 软件列表：列表里按 b 直接回主菜单，不要求按一次回车
     # '8' 高级功能 / '0' 设置 会进入子菜单：子菜单返回后直接重绘本菜单
     $null = Invoke-MenuLoop -Render $render -Context $context `
-        -Choices @('1', '2', '3', '4', '5', '6', '7', '8', '0', 'q') `
-        -Actions $actions -NavigationChoices @('4', '5', '6', '8', '0') -NoPauseChoices @('1', '3')
+        -Actions $actions -NoPauseChoices @('1', '3', '4', '5', '6', '8', '0')
 }

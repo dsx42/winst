@@ -1,75 +1,8 @@
 ﻿#Requires -Version 5.1
 <#
-    build.ps1  (仓库根)
-
-    把 Modules\ 下的模块打成「单一模块」形态，产出 release 压缩包。
-
-    用法
-    ----
-        build.cmd                             双击 / cmd 里直接跑
-        build.cmd -NoPause                    构建后直接返回
-        $env:CI='1'; cmd /c build.cmd         非交互环境（不等待）
-
-    版本号
-    ------
-    唯一来源是 Modules\Winst.Core\Public\WinstConstants.ps1 的 Get-WinstProductVersion。
-    发版前由开发者自己改那个文件；构建只读取它、打印它来自哪个文件，
-    不写回任何东西。tag 必须与它一致（v<版本>）。
-
-    为什么打成一个模块
-    ------------------
-    Windows PowerShell 5.1 每次 Import-Module 都要建一次会话状态、读一次清单，
-    再逐个点源函数文件。开发树逐模块导入、逐文件加载，冷启动存在额外开销。
-    release 合并为一个 .psm1，只需一次 Import-Module，省去重复扫描与导出解析。
-
-    模块来源与顺序
-    --------------
-    不维护任何清单：Modules\ 下每个「目录名与清单同名」的子目录就是一个模块
-    （Modules\Winst.Foo\Winst.Foo.psd1），按目录名排序处理。新增 / 删除 / 重命名
-    模块只需要动磁盘上的目录，本脚本和 winst.ps1 都不用改。
-
-    顺序不影响正确性：函数文件只定义函数，加载期没有互相调用。合并时若出现同名
-    函数则直接构建失败——那才是唯一会让顺序变得要紧的情况。
-
-    合并规则
-    --------
-        1. 模块按目录名排序
-        2. 每个模块先 Private\ 再 Public\，各自按路径排序（与 .psm1 加载器一致）
-        3. 函数之间没有重名才允许合并（重名会静默覆盖，直接构建失败）
-        4. 导出名单在构建期算好，release 里不再做 AST 扫描
-        5. 每个文件开头的 #Requires 去掉，只在文件顶部保留一条
-
-    产物
-    ----
-        dist\winst\             可直接运行的发布树（这就是 zip 的内容，未压缩）
-        dist\winst.zip          从 dist\winst\ 压缩得到
-        dist\winst.zip.sha512   sha512sums 格式：<摘要>  winst.zip
-
-    发布树内容
-    ----------
-        winst.ps1  winst.cmd  LICENSE  Modules\Winst\
-
-    LICENSE 是 GPLv3 原文，随分发必须保留；README.md 面向仓库访客，不进 release。
-
-    dist\winst\ 保留在磁盘上：测产物时直接跑 dist\winst\winst.cmd，
-    不必先解压。它比 zip 多一个仓库的 manifest.json（本地测试用，见下），
-    除此之外两者内容一致。
-
-    测试用清单
-    ----------
-    打包之前把仓库根目录的 manifest.json 复制到构建树：产物目录因此可以
-    直接当「脚本同目录」来测本地软件源条目，不必额外拷文件。
-    打压缩包时按条目名跳过它，**不进 winst.zip**，release 资产保持干净。
-
-    构建校验（任一失败即中止；全部通过后才把产物放进 dist\）
-    ----------------------------------------------------
-        - Modules\ 下每个子目录都必须能作为模块识别（必须有同名 .psd1；.psm1 与 Public\ 随后另行校验）
-        - 源文件必须 UTF-8 with BOM + CRLF；缺 BOM 或用 LF 直接报错并列出文件
-          （5.1 按系统 ANSI 读无 BOM 文件，中文会静默乱码；构建不做自动修正）
-        - 合并结果能通过 5.1 语法解析
-        - 构建树在临时目录里能直接 `winst.ps1 -v` 起来，且报出的版本等于产品版本
-        - 压缩包不含 manifest.json / docs\ / build.* / install.ps1，且没有单一顶层目录
-        - 全部通过才把产物放进 dist\（dist\ 在构建开始时已清空）
+    将开发模块合并为发布树，运行入口冒烟，生成 winst.zip 和 SHA512。
+    源脚本须为 UTF-8 BOM + CRLF，引导脚本 install.ps1 使用无 BOM 的 UTF-8。
+    运行 build.cmd 即可构建。CI=1 或 -NoPause 可跳过结尾等待。
 #>
 
 [CmdletBinding()]
@@ -141,43 +74,6 @@ function Get-ProductVersion {
     return [string]$value
 }
 
-function Get-ProductVersionSourceRelative {
-    <#
-    .SYNOPSIS
-        版本来源文件相对仓库根的路径，用于提示。
-    #>
-    return $constantsPath.Substring($repo.Length + 1)
-}
-
-function Get-WinstModuleDirectory {
-    <#
-    .SYNOPSIS
-        列出 Modules\ 下的模块目录，按目录名排序。
-
-    .DESCRIPTION
-        一个目录算模块的条件：目录名与其中的清单同名，
-        即 Modules\Winst.Foo\Winst.Foo.psd1。
-
-    .OUTPUTS
-        [System.IO.DirectoryInfo][]
-    #>
-    $result = New-Object 'System.Collections.Generic.List[object]'
-
-    foreach ($dir in @(Get-ChildItem -LiteralPath $modulesDir -Directory -ErrorAction Stop | Sort-Object -Property Name)) {
-        $manifest = Join-Path $dir.FullName ($dir.Name + '.psd1')
-        if (Test-Path -LiteralPath $manifest -PathType Leaf) {
-            $result.Add($dir)
-        } else {
-            throw ('Modules\{0} 不是模块目录：缺少同名清单 {0}.psd1' -f $dir.Name)
-        }
-    }
-
-    if ($result.Count -eq 0) {
-        throw ('{0} 下没有任何模块目录' -f $modulesDir)
-    }
-    return $result
-}
-
 function Get-FunctionNameFromText {
     <#
     .SYNOPSIS
@@ -233,14 +129,7 @@ function Get-SourceScriptFile {
 
     $scriptFiles = @(Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction Stop |
             Where-Object { @('.ps1', '.psm1', '.psd1') -contains $_.Extension.ToLowerInvariant() })
-    foreach ($path in @($AdditionalFile)) {
-        if (-not $path) { continue }
-        $file = Get-Item -LiteralPath $path -Force -ErrorAction Stop
-        if (@('.ps1', '.psm1', '.psd1') -notcontains $file.Extension.ToLowerInvariant()) {
-            throw ('附加源文件不是 PowerShell 脚本：{0}' -f $file.FullName)
-        }
-        $scriptFiles += $file
-    }
+    $scriptFiles += @(Get-Item -LiteralPath $AdditionalFile -ErrorAction Stop)
 
     foreach ($file in @($scriptFiles | Sort-Object -Property FullName)) {
 
@@ -341,11 +230,9 @@ function New-BundleText {
     }
 
     foreach ($moduleDir in $Modules) {
-        $moduleName = $moduleDir.Name
-
         foreach ($role in @('Private', 'Public')) {
             $roleDir = Join-Path $moduleDir.FullName $role
-            if (-not (Test-Path -LiteralPath $roleDir -PathType Container)) { continue }
+            if ($role -eq 'Private' -and -not (Test-Path -LiteralPath $roleDir -PathType Container)) { continue }
 
             foreach ($file in @(Get-ChildItem -LiteralPath $roleDir -Filter '*.ps1' -File -Recurse -ErrorAction Stop |
                         Sort-Object -Property FullName)) {
@@ -378,9 +265,6 @@ function New-BundleText {
             }
         }
 
-        if (-not (Test-Path -LiteralPath (Join-Path $moduleDir.FullName 'Public') -PathType Container)) {
-            throw ('模块 {0} 没有 Public\ 目录，合并后不会有任何可导出的函数' -f $moduleName)
-        }
     }
 
     if ($duplicates.Count -gt 0) {
@@ -473,26 +357,25 @@ function Write-Utf8BomFile {
     #>
     param([string]$Path, [string]$Text)
 
-    $parent = Split-Path -Parent $Path
-    if ($parent -and -not (Test-Path -LiteralPath $parent -PathType Container)) {
-        $null = New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop
-    }
-
-    $normalized = $Text
-    [IO.File]::WriteAllText($Path, $normalized, (New-Object System.Text.UTF8Encoding($true)))
+    [IO.File]::WriteAllText($Path, $Text, (New-Object System.Text.UTF8Encoding($true)))
 }
 
 # -------------------------------------------------------------- 1. 版本与模块
 
 try {
     $version = Get-ProductVersion
-    $modules = Get-WinstModuleDirectory
+    $versionSource = $constantsPath.Substring($repo.Length + 1)
+    $modules = @(Get-ChildItem -LiteralPath $modulesDir -Directory -ErrorAction Stop | Sort-Object Name)
+    if ($modules.Count -eq 0) { throw ('{0} 下没有任何模块目录' -f $modulesDir) }
 
-    Write-Host ('  产品版本   : {0}（来自 {1} -> Get-WinstProductVersion）' -f $version, (Get-ProductVersionSourceRelative)) -ForegroundColor Gray
+    Write-Host ('  产品版本   : {0}（来自 {1} -> Get-WinstProductVersion）' -f $version, $versionSource) -ForegroundColor Gray
     Write-Host ('  模块       : {0} 个（按目录名排序）' -f $modules.Count) -ForegroundColor Gray
 
     # ------------------------------------------------- 模块目录结构一致性
     $problems = New-Object 'System.Collections.Generic.List[string]'
+    if (-not (Test-Path -LiteralPath (Join-Path $modulesDir 'Import-WinstFunctionFiles.ps1') -PathType Leaf)) {
+        $problems.Add('Modules 缺少开发树加载器 Import-WinstFunctionFiles.ps1')
+    }
     foreach ($dir in $modules) {
         foreach ($suffix in @('.psd1', '.psm1')) {
             $expected = Join-Path $dir.FullName ($dir.Name + $suffix)
@@ -503,31 +386,6 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path $dir.FullName 'Public') -PathType Container)) {
             $problems.Add(('模块 {0} 缺少 Public\ 目录' -f $dir.Name))
         }
-    }
-
-    # ------------------------------------------------------------ 加载器一致性
-    # 各模块的 .psm1 是同一份加载器，只差模块名。改加载器必须每个模块一起改：
-    # 漏一处只有那个模块的加载行为不同，平时看不出来——构建时挡住。
-    $loaderShapes = @{}
-    foreach ($dir in $modules) {
-        $loaderPath = Join-Path $dir.FullName ($dir.Name + '.psm1')
-        if (-not (Test-Path -LiteralPath $loaderPath -PathType Leaf)) { continue }
-        $loaderText = [IO.File]::ReadAllText($loaderPath).Replace($dir.Name, '<module>')
-        $hash = [Security.Cryptography.SHA256]::Create()
-        try {
-            $shape = [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($loaderText)))
-        } finally {
-            $hash.Dispose()
-        }
-        if (-not $loaderShapes.ContainsKey($shape)) {
-            $loaderShapes[$shape] = New-Object 'System.Collections.Generic.List[string]'
-        }
-        $loaderShapes[$shape].Add($dir.Name + '.psm1')
-    }
-    if ($loaderShapes.Count -gt 1) {
-        $loaderGroups = @($loaderShapes.Values | ForEach-Object { '    ' + ($_.ToArray() -join '、') })
-        $problems.Add(('各模块的 .psm1 加载器必须完全相同（只允许模块名不同），当前有 {0} 种写法：{1}{2}' -f
-                $loaderShapes.Count, [Environment]::NewLine, ($loaderGroups -join [Environment]::NewLine)))
     }
 
     if ($problems.Count -gt 0) {
@@ -662,16 +520,6 @@ try {
 
     Write-Host ('  冒烟启动   : winst.ps1 -v -> {0}' -f $probeText.Trim()) -ForegroundColor Gray
 
-    # ------------------------------------------------- 5. 复制测试用清单
-    # 发布树与压缩包都从这棵树来，所以清单必须在打包之前就位：
-    # 产物目录因此可以直接当「脚本同目录」测本地软件源条目，不必额外拷文件。
-    # 它只是本地测试数据，打包时跳过（见下一步），release 资产保持干净。
-    $repoManifestPath = Join-Path $repo 'manifest.json'
-    $testManifestPath = Join-Path $staging 'manifest.json'
-    if (Test-Path -LiteralPath $repoManifestPath -PathType Leaf) {
-        Copy-Item -LiteralPath $repoManifestPath -Destination $testManifestPath -Force -ErrorAction Stop
-    }
-
     # ------------------------------------------------------------ 6. 打压缩包
     # 压缩的是刚冒烟通过的构建树。产物先落在临时文件里，
     # 全部校验通过后才放进 dist\。
@@ -683,19 +531,13 @@ try {
         $null = New-Item -ItemType Directory -Path $dist -Force -ErrorAction Stop
     }
 
-    if (Test-Path -LiteralPath $zipTemp -PathType Leaf) {
-        Remove-Item -LiteralPath $zipTemp -Force -ErrorAction Stop
-    }
-
+    $members = $payload + @(('Modules/{0}/{0}.psd1' -f $bundleName), ('Modules/{0}/{0}.psm1' -f $bundleName))
     $archive = [IO.Compression.ZipFile]::Open($zipTemp, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        foreach ($file in @(Get-ChildItem -LiteralPath $staging -Recurse -File -ErrorAction Stop | Sort-Object -Property FullName)) {
-            $entryName = $file.FullName.Substring($staging.Length + 1).Replace('\', '/')
-            # 测试用清单不进 release：它只用于在产物目录里测本地软件源
-            if ($entryName -eq 'manifest.json') { continue }
+        foreach ($entryName in $members) {
             $null = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
                 $archive,
-                $file.FullName,
+                (Join-Path $staging $entryName),
                 $entryName,
                 [IO.Compression.CompressionLevel]::Optimal)
         }
@@ -711,38 +553,12 @@ try {
         $archive.Dispose()
     }
 
-    foreach ($required in @(
-            'winst.ps1'
-            'winst.cmd'
-            'LICENSE'
-            ('Modules/{0}/{0}.psd1' -f $bundleName)
-            ('Modules/{0}/{0}.psm1' -f $bundleName))) {
-        if ($entries -notcontains $required) {
-            throw ('压缩包里缺少必需条目：{0}' -f $required)
-        }
+    if (Compare-Object -ReferenceObject $members -DifferenceObject $entries -CaseSensitive) {
+        throw ('压缩包成员与发布清单不一致：{0}' -f ($entries -join '、'))
     }
 
-    foreach ($forbidden in @('manifest.json', 'build.cmd', 'build.ps1', 'install.ps1', 'README.md')) {
-        if ($entries -contains $forbidden) {
-            throw ('压缩包里不该有 {0}：它不是运行时文件' -f $forbidden)
-        }
-    }
-    if (@($entries | Where-Object { $_ -like 'docs/*' }).Count -gt 0) {
-        throw '压缩包里不该有 docs\：文档不进 release'
-    }
-
-    # 解压后应直接得到 winst 目录内容，不能再套一层 winst\。
-    $top = @($entries | ForEach-Object { ($_ -split '/')[0] } | Sort-Object -Unique)
-    if ($top.Count -eq 1 -and $top[0] -match '^winst') {
-        throw ('压缩包多套了一层顶层目录：{0}' -f $top[0])
-    }
-
-    # -------------------------------------------------- 7. 落地发布树与压缩包
-    # dist\ 在构建开始时已清空，这里直接放本次产物。
-    # 先放树再放 zip，这样 dist\winst\ 与 dist\winst.zip 永远对得上。
-
-    if (-not (Test-Path -LiteralPath $dist -PathType Container)) {
-        $null = New-Item -ItemType Directory -Path $dist -Force -ErrorAction Stop
+    if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+        Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $staging 'manifest.json') -ErrorAction Stop
     }
 
     Move-Item -LiteralPath $staging -Destination $releaseDir -Force -ErrorAction Stop
@@ -792,7 +608,7 @@ Write-Host ('  sha512     : {0}' -f $hash) -ForegroundColor DarkGray
 Write-Host ('  校验文件   : {0}' -f $sidecar) -ForegroundColor Gray
 Write-Host ''
 Write-Host ('  试跑产物   : {0}' -f (Join-Path $releaseDir 'winst.cmd')) -ForegroundColor Cyan
-Write-Host ('  版本号来源 : {0} -> Get-WinstProductVersion（发版前自行修改，tag 用 v{1}）' -f (Get-ProductVersionSourceRelative), $version) -ForegroundColor Cyan
+Write-Host ('  版本号来源 : {0} -> Get-WinstProductVersion（发版前自行修改，tag 用 v{1}）' -f $versionSource, $version) -ForegroundColor Cyan
 Write-Host ('  下一步     : 把 dist\winst.zip 与 dist\winst.zip.sha512 作为 release 资产上传。') -ForegroundColor Cyan
 Write-Host ''
 

@@ -12,25 +12,12 @@ function Test-AnchorMatches {
 
     if ($null -eq $Spec) { return $true }
 
-    $className = (Get-EntryString -Entry $Spec -Key 'class').Trim()
-    if ($className) {
-        $anchorClass = Get-EntryString -Entry $Anchor -Key 'Class'
-        if (-not $anchorClass) { return $false }
-        if ($anchorClass.IndexOf($className, [StringComparison]::OrdinalIgnoreCase) -lt 0) { return $false }
-    }
-
-    $id = (Get-EntryString -Entry $Spec -Key 'id').Trim()
-    if ($id) {
-        $anchorId = Get-EntryString -Entry $Anchor -Key 'Id'
-        if (-not $anchorId) { return $false }
-        if ($anchorId.IndexOf($id, [StringComparison]::OrdinalIgnoreCase) -lt 0) { return $false }
-    }
-
-    $text = (Get-EntryString -Entry $Spec -Key 'text').Trim()
-    if ($text) {
-        $anchorText = Get-EntryString -Entry $Anchor -Key 'Text'
-        if (-not $anchorText) { return $false }
-        if ($anchorText.IndexOf($text, [StringComparison]::OrdinalIgnoreCase) -lt 0) { return $false }
+    foreach ($field in @('Class', 'Id', 'Text')) {
+        $needle = (Get-EntryString -Entry $Spec -Key $field.ToLowerInvariant()).Trim()
+        if ($needle) {
+            $value = Get-EntryString -Entry $Anchor -Key $field
+            if ($value.IndexOf($needle, [StringComparison]::OrdinalIgnoreCase) -lt 0) { return $false }
+        }
     }
 
     $href = (Get-EntryString -Entry $Spec -Key 'href').Trim()

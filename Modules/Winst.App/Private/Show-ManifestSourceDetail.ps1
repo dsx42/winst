@@ -7,7 +7,7 @@ function Show-ManifestSourceDetail {
     .DESCRIPTION
         内置源与本地清单不可删除，详情页据此只列刷新；删除项由调用方决定是否显示。
     .OUTPUTS
-        @{ CanRefresh; CanRemove }——本页实际给出的操作
+        @{ CanRemove }——本页实际给出的操作
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -38,5 +38,5 @@ function Show-ManifestSourceDetail {
     Write-Host '  回车 / b = 返回列表，q = 退出程序' -ForegroundColor DarkGray
     Write-Host ''
 
-    return @{ CanRefresh = $true; CanRemove = $canRemove }
+    return @{ CanRemove = $canRemove }
 }

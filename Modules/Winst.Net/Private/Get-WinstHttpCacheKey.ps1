@@ -14,10 +14,11 @@ function Get-WinstHttpCacheKey {
     $verb = 'GET'
     if ($Method) { $verb = ([string]$Method).Trim().ToUpperInvariant() }
 
-    $key = $verb + '|' + [string]$Uri
+    $key = '{0}|{1}:{2}' -f $verb, $Uri.Length, $Uri
     if ($Headers -and $Headers.Count -gt 0) {
-        foreach ($name in @($Headers.Keys | Sort-Object)) {
-            $key += '|' + [string]$name + '=' + [string]$Headers[$name]
+        foreach ($name in @($Headers.Keys | Sort-Object -CaseSensitive)) {
+            $value = [string]$Headers[$name]
+            $key += '|{0}:{1}{2}:{3}' -f ([string]$name).Length, $name, $value.Length, $value
         }
     }
     return $key

@@ -16,10 +16,9 @@ function Get-GitHubLatestTag {
         [Parameter(Mandatory = $true)][string]$Repo
     )
 
-    if (-not $Repo) { return '' }
     $url = 'https://github.com/{0}/releases/latest' -f $Repo
     # ① 先试 HEAD：读到跳转目标最省流量，不必把整个 release 页面下载下来
-    $response = Invoke-WinstHttpRequest -Uri $url -Context $Context -Method 'Head'
+    $response = Invoke-WinstHttpRequest -Uri $url -Context $Context -Method 'Head' -TextOnly
 
     $finalUri = ''
     if ($response) { $finalUri = [string]$response.FinalUri }

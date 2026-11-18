@@ -15,18 +15,17 @@ function New-WinstGithubResolvedFiles {
     .OUTPUTS
         @{ Error; Files; MissingFile }
     #>
-    param([hashtable]$Context, $Source, $Declared, [string]$Repo, [string]$ChosenTag, [string]$Version, $Result)
+    param([hashtable]$Context, $Source, $FileSpecs, [string]$Repo, [string]$ChosenTag, [string]$Version, $Result)
 
     $skipCheck = Get-EntryBool -Entry $Source -Key 'skipExistsCheck'
     $assetNames = $null   # 懒加载：只有需要按文件名匹配时才抓取该发布的资产列表
     $files = @()
     $index = 0
 
-    foreach ($item in @($Declared)) {
+    foreach ($fileSpec in $FileSpecs) {
         $index++
-        $locator = Get-SourceFileLocator -Item $item -Kind 'github'
-        if ($locator.Error) { return @{ Error = [string]$locator.Error; Files = $files; MissingFile = $false } }
-
+        $item = $fileSpec.Item
+        $locator = $fileSpec.Locator
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $Result
 
         # ② 文件名匹配规则（file，通配写法）：抓取该发布的文件列表后匹配

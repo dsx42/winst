@@ -9,17 +9,8 @@ function New-WinstPlanSystemBlock {
 
     $envMap = [ordered]@{}
     $envObj = Get-EntryValue -Entry $Entry -Key 'env' -Default $null
-    if ($envObj -is [System.Collections.IDictionary]) {
-        foreach ($key in @($envObj.Keys)) {
-            $value = $envObj[$key]
-            if ($null -eq $value) { continue }
-            $envMap[[string]$key] = Expand-VersionPlaceholder -Text ([string]$value) -Version $Version
-        }
-    } elseif ($null -ne $envObj) {
-        foreach ($prop in @($envObj.PSObject.Properties)) {
-            if ($null -eq $prop.Value) { continue }
-            $envMap[[string]$prop.Name] = Expand-VersionPlaceholder -Text ([string]$prop.Value) -Version $Version
-        }
+    foreach ($pair in @(Get-WinstEntryPairs -Entry $envObj)) {
+        $envMap[[string]$pair[0]] = Expand-VersionPlaceholder -Text ([string]$pair[1]) -Version $Version
     }
 
     $pathList = @()

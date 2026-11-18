@@ -18,14 +18,7 @@ function Test-WinstUninstallerUsable {
     #>
     param($Entry)
 
-    if ($null -eq $Entry) { return $false }
-    $commandLine = ''
-    if ($Entry -is [System.Collections.IDictionary]) {
-        if ($Entry.Contains('UninstallString')) { $commandLine = [string]$Entry['UninstallString'] }
-    } else {
-        $prop = $Entry.PSObject.Properties['UninstallString']
-        if ($prop -and $null -ne $prop.Value) { $commandLine = [string]$prop.Value }
-    }
+    $commandLine = Get-EntryString -Entry $Entry -Key 'UninstallString'
     if (-not $commandLine.Trim()) { return $false }
 
     $resolved = Resolve-WinstUninstallerCommand -CommandLine $commandLine

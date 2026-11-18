@@ -5,7 +5,7 @@ function Get-WinstListItems {
     .SYNOPSIS
         读取清单文件并产出条目视图数组（含 Lookup，便于调用方复用同一份数据）。
     .OUTPUTS
-        @{ Ok; Error; Warning; Path; Exists; Entries; CommentLines; BadLines; Items; Lookup }
+        @{ Ok; Error; Warning; Exists; BadLines; Items; Lookup }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -14,8 +14,8 @@ function Get-WinstListItems {
         [switch]$ListOnly
     )
 
-    $result = @{ Ok = $false; Error = ''; Warning = ''; Path = $Path; Exists = $false
-                 Entries = @(); CommentLines = @(); BadLines = @(); Items = @(); Lookup = $null; Refresh = $null }
+    $result = @{ Ok = $false; Error = ''; Warning = ''; Exists = $false
+                 BadLines = @(); Items = @(); Lookup = $null; Refresh = $null }
 
     $read = Read-WinstList -Path $Path
     if (-not $read.Ok) {
@@ -23,8 +23,6 @@ function Get-WinstListItems {
         return $result
     }
     $result.Exists = $read.Exists
-    $result.Entries = @($read.Entries)
-    $result.CommentLines = @($read.CommentLines)
     $result.BadLines = @($read.BadLines)
 
     $ids = @(foreach ($entry in $read.Entries) { [string]$entry['Id'] })

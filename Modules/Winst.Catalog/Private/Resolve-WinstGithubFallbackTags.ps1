@@ -29,8 +29,11 @@ function Resolve-WinstGithubFallbackTags {
     }
 
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
-    $pool = @()
-    $sequence = 0
+    $sorted = New-Object 'System.Collections.Generic.List[object]'
+    $chosenVersion = $ChosenTag
+    if ($ReleaseTagPrefix -and $ChosenTag.StartsWith($ReleaseTagPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        $chosenVersion = $ChosenTag.Substring($ReleaseTagPrefix.Length)
+    }
     foreach ($item in $releaseItems) {
         $tag = Get-EntryString -Entry $item -Key 'Tag'
         if (-not $tag -or $tag -ceq $ChosenTag -or -not $seen.Add($tag)) { continue }
@@ -39,19 +42,11 @@ function Resolve-WinstGithubFallbackTags {
         $key = Get-WinstVersionSortKey -Version $tag
         if (-not $key) { continue }
         $candidateVersion = $tag
-        $chosenVersion = $ChosenTag
         if ($ReleaseTagPrefix) {
             $candidateVersion = $candidateVersion.Substring($ReleaseTagPrefix.Length)
-            if ($chosenVersion.StartsWith($ReleaseTagPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-                $chosenVersion = $chosenVersion.Substring($ReleaseTagPrefix.Length)
-            }
         }
         if ((Compare-WinstVersion -A $candidateVersion -B $chosenVersion) -ge 0) { continue }
-        $sequence++
-        $pool += @{ Tag = $tag; Version = $candidateVersion; Sequence = $sequence }
-    }
-    $sorted = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($item in $pool) {
+        $item = @{ Tag = $tag; Version = $candidateVersion }
         $at = 0
         while ($at -lt $sorted.Count -and (Compare-WinstVersion -A $item.Version -B $sorted[$at].Version) -le 0) { $at++ }
         $sorted.Insert($at, $item)

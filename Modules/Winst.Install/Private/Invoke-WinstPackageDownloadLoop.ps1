@@ -8,7 +8,7 @@ function Invoke-WinstPackageDownloadLoop {
         @{ Ok; Error; Network; Downloaded; Names; Any }
     #>
     param([hashtable]$Context, $Plans, [string]$PkgDir, [string]$Id, [string]$DisplayName, [string]$SourceName,
-        [string]$Version, [switch]$Offline, [switch]$Quiet, [hashtable]$InputLease)
+        [string]$Version, [switch]$Offline, [switch]$Quiet, [hashtable]$InputLease, [switch]$CompanionOnly)
 
     $downloaded = @()
     $downloadedNames = @()
@@ -33,7 +33,9 @@ function Invoke-WinstPackageDownloadLoop {
             Write-Host ('    提示: {0}' -f [string]$filePlan['Hint']) -ForegroundColor DarkYellow
         }
 
-        Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan -Offline:$Offline
+        if (-not $CompanionOnly -or $fileSeq -gt 0) {
+            Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan -Offline:$Offline
+        }
         if ($filePlan['ValidationError']) {
             return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); Network = [bool]$filePlan['ValidationNetwork']; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
         }
@@ -140,13 +142,10 @@ function Invoke-WinstPackageDownloadLoop {
                     return @{ Ok = $false; Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error); Network = $true; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
                 }
             }
-            if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
-                # 引擎在目标名被占用时会把输出改名成「名称 (1).zip」：只认本次新出现的那个文件并归位
-                $adopt = Resolve-WinstDownloadedFile -Dir $downloadDir -Name $name -BeforeFiles @()
-                if ([string]$adopt.Note -and -not $Quiet) { Write-Host ('    {0}' -f [string]$adopt.Note) -ForegroundColor DarkYellow }
-                if (-not [string]$adopt.Path) {
-                    return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
-                }
+            $adopt = Resolve-WinstDownloadedFile -Dir $downloadDir -Name $name
+            if ([string]$adopt.Note -and -not $Quiet) { Write-Host ('    {0}' -f [string]$adopt.Note) -ForegroundColor DarkYellow }
+            if (-not [string]$adopt.Path) {
+                return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }
             }
             # 防御性读取：Invoke-WinstPackageDownload 的每条返回路径都会带 Retried，
             # 这里仍按「可能没有」处理，避免调用方换成别处的结果形状时报错。

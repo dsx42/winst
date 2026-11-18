@@ -40,7 +40,8 @@ function Read-WinstCacheIndex {
     $cacheKey = 'cache-index|' + $path
     # 注意：变量名不能叫 $stamp —— 别处 $stamp 表示「下载时间」（见 New-WinstCacheIndexEntryFromDir），容易混淆
     $indexFileStamp = Get-WinstFileStamp -Path $path
-    $cachedIndex = (Get-WinstState -Name WinstJsonCache)[$cacheKey]
+    $cache = Get-WinstState -Name WinstJsonCache
+    $cachedIndex = $cache[$cacheKey]
     if ($null -eq $StoredValue -and $indexFileStamp -and $cachedIndex -and ([string]$cachedIndex['Stamp'] -eq $indexFileStamp)) {
         $cachedResult = $cachedIndex['Value']
         $result.Rebuilt = [bool]$cachedResult.Rebuilt
@@ -57,19 +58,9 @@ function Read-WinstCacheIndex {
             }
             return $result
         }
-        # 一次枚举拿到现存 id 集合，替代「逐 id 一次 Test-Path」：
-        # 后者在几百个 id 时是数百次独立 stat（实测 300 条约 112 ms，一次枚举约 8 ms）。
-        # 等价性：id 目录存在 ⇔ 名字出现在 -Directory 枚举结果里；
-        # 用 OrdinalIgnoreCase 对齐 Windows 文件系统「不区分大小写」的实际行为。
-        $existingIds = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
-        if (Test-Path -LiteralPath $PkgDir -PathType Container) {
-            foreach ($dir in @(Get-ChildItem -LiteralPath $PkgDir -Directory -Force -ErrorAction SilentlyContinue)) {
-                $existingIds[[string]$dir.Name] = $true
-            }
-        }
-
+        $existingIds = Get-WinstPackageDirectorySet -PkgDir $PkgDir
         foreach ($id in @($cachedResult.Index.Keys)) {
-            if ($existingIds.ContainsKey([string]$id)) {
+            if ($existingIds.Contains([string]$id)) {
                 # 按条目复制：调用方会就地修改 Index 里的条目，共享引用等于改到缓存本体
                 $result.Index[$id] = Copy-WinstObjectShallow -InputObject $cachedResult.Index[$id]
             } else {
@@ -83,8 +74,9 @@ function Read-WinstCacheIndex {
     if (Test-Path -LiteralPath $path -PathType Leaf) {
         try {
             $sourceKey = 'index-entries|' + $path
-            $source = (Get-WinstState -Name WinstJsonCache)[$sourceKey]
-            if ($null -ne $wanted -and $source -and $indexFileStamp -and $source.Stamp -eq $indexFileStamp) {
+            $source = $null
+            if ($null -ne $wanted -and $null -eq $StoredValue) { $source = $cache[$sourceKey] }
+            if ($source -and $indexFileStamp -and $source.Stamp -eq $indexFileStamp) {
                 $obj = $source.Object
             } else {
                 $obj = $null
@@ -94,7 +86,7 @@ function Read-WinstCacheIndex {
             if ($null -ne $obj -and $obj.GetType() -eq [System.Management.Automation.PSCustomObject]) {
                 if ($null -ne $StoredValue) { $StoredValue.Value = $obj }
                 if ($null -ne $wanted -and $indexFileStamp) {
-                    (Get-WinstState -Name WinstJsonCache)[$sourceKey] = @{ Stamp = $indexFileStamp; Object = $obj }
+                    $cache[$sourceKey] = @{ Stamp = $indexFileStamp; Object = $obj }
                 }
                 $properties = if ($null -ne $wanted) {
                     foreach ($id in $wanted.Keys) {
@@ -141,9 +133,10 @@ function Read-WinstCacheIndex {
                 Assert-WinstSafeWritePath -Path $backup
                 $originalHash = Get-WinstFileHash -Path $path
                 if (-not $originalHash) { throw '无法读取损坏索引的原始内容' }
-                $needCopy = $originalHash -cne (Get-WinstFileHash -Path $backup)
-                if ($needCopy) { Copy-Item -LiteralPath $path -Destination $backup -Force -ErrorAction Stop }
-                if ($originalHash -cne (Get-WinstFileHash -Path $backup)) { throw '备份内容与原索引不一致' }
+                if ($originalHash -cne (Get-WinstFileHash -Path $backup)) {
+                    Copy-Item -LiteralPath $path -Destination $backup -Force -ErrorAction Stop
+                    if ($originalHash -cne (Get-WinstFileHash -Path $backup)) { throw '备份内容与原索引不一致' }
+                }
             } catch {
                 $result.CanSave = $false
                 $result.BackupError = ('备份损坏索引失败，禁止覆盖原文件 {0}：{1}' -f $path, $_.Exception.Message)
@@ -153,9 +146,14 @@ function Read-WinstCacheIndex {
     }
 
     # 索引里指向已不存在目录的条目：清除（下次写入时一并落盘）
+    $existingIds = $null
+    if ($null -eq $wanted -and $result.Index.Count -gt 0) {
+        $existingIds = Get-WinstPackageDirectorySet -PkgDir $PkgDir
+    }
     foreach ($id in @($result.Index.Keys)) {
-        $dir = Join-WinstPath $PkgDir $id
-        if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+        if ($null -ne $existingIds) { $exists = $existingIds.Contains([string]$id) }
+        else { $exists = Test-Path -LiteralPath (Join-WinstPath $PkgDir $id) -PathType Container }
+        if (-not $exists) {
             $result.Index.Remove($id)
             $result.Changed = $true
         }
@@ -192,6 +190,6 @@ function Read-WinstCacheIndex {
     foreach ($id in @($result.Index.Keys)) {
         $cacheCopy.Index[$id] = Copy-WinstObjectShallow -InputObject $result.Index[$id]
     }
-    if ($indexFileStamp) { (Get-WinstState -Name WinstJsonCache)[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy; Raw = '' } }
+    $cache[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy; Raw = '' }
     return $result
 }

@@ -12,12 +12,12 @@ function Enter-WinstInstanceLock {
     .PARAMETER Path
         数据目录锁路径，默认 Get-WinstInstanceLockPath；Temp 锁始终按实际 Temp 申请。
     .OUTPUTS
-        @{ Ok; Busy; Path; OwnerPid; OwnerPath; Error }
+        @{ Ok; Busy; Path; OwnerPid; OwnerPath; OwnerStartedAt; Error }
     #>
     param([string]$Path = '')
 
     if (-not $Path) { $Path = Get-WinstInstanceLockPath }
-    $result = @{ Ok = $false; Busy = $false; Path = $Path; OwnerPid = 0; OwnerPath = ''; Error = '' }
+    $result = @{ Ok = $false; Busy = $false; Path = $Path; OwnerPid = 0; OwnerPath = ''; OwnerStartedAt = ''; Error = '' }
     if ($null -ne (Get-WinstState -Name WinstInstanceLock)) {
         $result.Error = '当前进程已经持有实例锁，不能重复申请'
         return $result
@@ -60,6 +60,7 @@ function Enter-WinstInstanceLock {
             $owner = Read-WinstInstanceLockInfo -Path $result.Path
             $result.OwnerPid = [int]$owner.Pid
             $result.OwnerPath = [string]$owner.Path
+            $result.OwnerStartedAt = [string]$owner.StartedAt
         }
         $result.Error = $_.Exception.Message
         return $result

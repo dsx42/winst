@@ -22,7 +22,6 @@
     #
     # 本模块调用到（运行时才需要）：
     #   Winst.Core
-    #   Winst.Logging
 
     PrivateData = @{
         PSData = @{

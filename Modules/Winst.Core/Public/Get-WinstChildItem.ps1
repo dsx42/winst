@@ -19,7 +19,7 @@ function Get-WinstChildItem {
         if (($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw ('拒绝枚举重解析目录：{0}' -f $directory.FullName)
         }
-        $extended = ConvertTo-WinstExtendedPath -Path $directory.FullName
+        $extended = $directory.ExtendedPath
         foreach ($childPath in [IO.Directory]::EnumerateFileSystemEntries($extended)) {
             $child = Get-WinstFileSystemItem -Path $childPath
             if ($Recurse -and ($child.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {

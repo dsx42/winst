@@ -10,7 +10,6 @@ function Get-WinstVersionFromJsonFile {
     #>
     param(
         [hashtable]$Context,
-        $Plan,
         $Detect,
         [string]$InstallDir = '',
         [string]$Kind = '',

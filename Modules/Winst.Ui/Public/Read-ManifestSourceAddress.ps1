@@ -23,13 +23,7 @@ function Read-ManifestSourceAddress {
         $clip = ''
         try {
             $clip = ConvertTo-WinstTrimmedInput -Value (Get-Clipboard -Raw -ErrorAction Stop)
-        } catch {
-            try {
-                $clip = ConvertTo-WinstTrimmedInput -Value ((Get-Clipboard -ErrorAction Stop) -join '')
-            } catch {
-                $clip = ''
-            }
-        }
+        } catch { $clip = '' }
         if (-not $clip) {
             Write-Host '  剪贴板为空或不可用，请直接输入地址。' -ForegroundColor Yellow
             continue

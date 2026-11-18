@@ -9,16 +9,8 @@ function Set-WinstFileRefreshDecision {
         auto / check 继续走校验器。offline 与「不发请求的三种情形」在这里短路（只读视图零联网由构造保证，
         不要在这里加任何网络调用。
     #>
-    param($Plan, [hashtable]$Context, $Meta, $Refresh, [string]$Name, [string]$Target,
+    param($Plan, [hashtable]$Context, $Meta, $Refresh, [string]$Name, [string]$Target, $Criteria,
         [switch]$Offline, [switch]$DryRun, [switch]$CanCheckRemote)
-
-    $lastChecked = [datetime]::MinValue
-    $hasLastChecked = $false
-    if ($Meta.LastCheckedAt) {
-        if ([datetime]::TryParse([string]$Meta.LastCheckedAt, [ref]$lastChecked)) { $hasLastChecked = $true }
-    }
-    $ageHours = 0
-    if ($hasLastChecked) { $ageHours = [int][Math]::Floor(((Get-Date) - $lastChecked).TotalHours) }
 
     if ($Offline) {
         # 严格离线：校验器请求整段跳过，各档都退化为「缓存里有就用」
@@ -36,6 +28,14 @@ function Set-WinstFileRefreshDecision {
         $Plan['Reason'] = '已声明每次重新取（refresh: always）'
         return
     }
+    $lastChecked = [datetime]::MinValue
+    $hasLastChecked = $false
+    if ($Meta.LastCheckedAt) {
+        if ([datetime]::TryParse([string]$Meta.LastCheckedAt, [ref]$lastChecked)) { $hasLastChecked = $true }
+    }
+    $ageHours = 0
+    if ($hasLastChecked) { $ageHours = [int][Math]::Floor(((Get-Date) - $lastChecked).TotalHours) }
+
     if ($Refresh.Mode -eq 'ttl' -and $hasLastChecked -and $ageHours -lt $Refresh.MaxAgeHours) {
         $Plan['NeedDownload'] = $false
         $Plan['Reason'] = ('已缓存（{0} 小时前确认过，未超过 {1} 小时）' -f $ageHours, $Refresh.MaxAgeHours)
@@ -53,6 +53,6 @@ function Set-WinstFileRefreshDecision {
         return
     }
 
-    Set-WinstFileValidatorDecision -Plan $Plan -Context $Context -Meta $Meta -Refresh $Refresh `
+    Set-WinstFileValidatorDecision -Criteria $Criteria -Plan $Plan -Context $Context -Meta $Meta -Refresh $Refresh `
         -Name $Name -Target $Target -HasLastChecked:$hasLastChecked -AgeHours $ageHours
 }

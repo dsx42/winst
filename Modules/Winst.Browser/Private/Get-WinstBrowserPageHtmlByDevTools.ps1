@@ -22,7 +22,7 @@ function Get-WinstBrowserPageHtmlByDevTools {
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Url,
         [int]$TimeoutSec = 60,
-        [datetime]$Deadline = [datetime]::MaxValue
+        [Parameter(Mandatory = $true)][datetime]$Deadline
     )
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
@@ -33,8 +33,6 @@ function Get-WinstBrowserPageHtmlByDevTools {
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
-    $localDeadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
-    if ($localDeadline -lt $Deadline) { $Deadline = $localDeadline }
     foreach ($proxyUrl in $attempts) {
         if ([datetime]::UtcNow -ge $Deadline) { $lastError = '浏览器操作已达到整体超时限制'; break }
         $session = $null
@@ -47,8 +45,7 @@ function Get-WinstBrowserPageHtmlByDevTools {
 
             # 等 loadEventFired，最多 25 秒；页面长轮询时可能一直不给，超时也继续取 DOM
             $loadDeadline = [DateTime]::UtcNow.AddSeconds(25)
-            $hardDeadline = $Deadline
-            if ($hardDeadline -lt $loadDeadline) { $loadDeadline = $hardDeadline }
+            if ($Deadline -lt $loadDeadline) { $loadDeadline = $Deadline }
             while (-not $session.LoadEventFired -and [DateTime]::UtcNow -lt $loadDeadline) {
                 Wait-WinstDevToolsMessages -Session $session -Milliseconds 100
             }

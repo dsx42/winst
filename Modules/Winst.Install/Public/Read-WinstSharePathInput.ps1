@@ -60,15 +60,7 @@ function Read-WinstSharePathInput {
     }
 
     $value = [string]$parsed.Path
-    if (-not $value.StartsWith('\\')) {
-        $result.Ok = $true
-        $result.Path = $value
-        return $result
-    }
-
-    $serverParts = @($value.Substring(2) -split '\\' | Where-Object { $_ -ne '' })
-    $server = ''
-    if ($serverParts.Count -gt 0) { $server = [string]$serverParts[0] }
+    $server = ($value.Substring(2) -split '\\', 2)[0]
 
     # -------------------------------------------------- ②③ 账号 / 密码（可重试）
     while ($true) {

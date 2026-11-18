@@ -20,7 +20,6 @@ function Invoke-WinstUpdateCommand {
     $filesOnly = $false
     $forceSystemItems = $false
     $sourceName = ''
-    $sourceSpecified = $false
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
 
     $usage = '  用法: winst update [--check] [--download-only] [--force] [--files-only|--system-items] [--source <名称>] [<id>...|--all]'
@@ -33,20 +32,10 @@ function Invoke-WinstUpdateCommand {
         elseif ($text -eq '--force') { $force = $true }
         elseif ($text -eq '--files-only') { $filesOnly = $true }
         elseif ($text -eq '--system-items') { $forceSystemItems = $true }
-        elseif ($text -eq '--source') {
-            $sourceSpecified = $true
-            # 值就地消费；下一个 token 是开关或已到末尾时明确报错，不静默按默认来源执行
-            if ((($i + 1) -lt @($Arguments).Count) -and -not (([string]$Arguments[$i + 1]).StartsWith('-'))) {
-                $sourceName = ([string]$Arguments[$i + 1]).Trim()
-                $i++
-            } else {
-                Write-Host ''
-                Write-Host '  --source 缺少取值，请写成 --source <名称> 或 --source=<名称>。' -ForegroundColor Yellow
-                Write-Host $usage -ForegroundColor Gray
-                return 1
-            }
+        elseif (($text -split '=', 2)[0] -eq '--source') {
+            $sourceName = Read-WinstCliOptionValue -Tokens $Arguments -Index ([ref]$i)
+            if (-not $sourceName) { Write-Host '  --source 缺少取值。' -ForegroundColor Yellow; return 1 }
         }
-        elseif ($text.StartsWith('--source=')) { $sourceSpecified = $true; $sourceName = ($text.Substring(9)).Trim() }
         elseif ($text.StartsWith('-')) {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow
@@ -57,8 +46,7 @@ function Invoke-WinstUpdateCommand {
         }
     }
 
-    if ($sourceSpecified -and -not (Test-WinstCliRequiredValue -Name '--source' -Value $sourceName)) { return 1 }
-    if ($sourceSpecified -and $ids.Count -eq 0) {
+    if ($sourceName -and $ids.Count -eq 0) {
         Write-Host '  --source 必须与具体软件 id 一起使用。' -ForegroundColor Yellow
         return 1
     }
@@ -72,12 +60,6 @@ function Invoke-WinstUpdateCommand {
     if ($all -and $ids.Count -gt 0) {
         Write-Host ''
         Write-Host '  参数冲突: --all 与具体软件 id 不能同时使用。' -ForegroundColor Yellow
-        Write-Host $usage -ForegroundColor Gray
-        return 1
-    }
-    if ($all -and $sourceName) {
-        Write-Host ''
-        Write-Host '  参数冲突: --source 只对指定 id 的更新生效，不能与 --all 同时使用。' -ForegroundColor Yellow
         Write-Host $usage -ForegroundColor Gray
         return 1
     }

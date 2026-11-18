@@ -16,8 +16,8 @@ function Resolve-PageSource {
         指定的位置识别，默认从下载地址识别）→ 回退条目里的 version；声明 versionFrom: "package" 时以上都不做
         。
         files[] 第一条 = 主包：用于在多个候选链接里挑出要下载的文件（file 通配），并可声明校验信息；
-        校验值随版本更新的站点可声明 files[0].hashFrom: "page"（优先按文件名就近提取；就近失败且声明了
-        source.hashClick 时，在 click / thenClick 会话里再按 hashClick 点控件读可见摘要）；
+        校验值随版本更新的站点可声明 files[0].hashFrom: "page"。取址成功后在同一会话执行已声明的
+        source.hashClick。摘要优先按文件名从页面快照就近提取，提取失败时使用点击取得的摘要。
         第 2 条起 = 配套文件：写成带 {version} 的完整地址（url）+ dest，与其它来源一致。
         本函数只做编排，校验 / 取址 / 版本 / 落位各由独立函数承担。
     #>

@@ -15,7 +15,7 @@ function Resolve-WinstGithubSourceForTag {
     param(
         [hashtable]$Context,
         $Source,
-        $Entry,
+        $FileSpecs,
         [string]$Repo,
         [string]$Tag,
         $Releases,
@@ -32,7 +32,7 @@ function Resolve-WinstGithubSourceForTag {
         return $out
     }
 
-    $versionInfo = Resolve-WinstGithubVersion -Context $Context -Source $Source -Entry $Entry -Repo $Repo `
+    $versionInfo = Resolve-WinstGithubVersion -Context $Context -Source $Source -Repo $Repo `
         -ChosenTag $Tag -Releases $Releases -Version $version
     if ($versionInfo.Error) {
         $out.Error = [string]$versionInfo.Error
@@ -44,13 +44,7 @@ function Resolve-WinstGithubSourceForTag {
     $versionKind = [string]$versionInfo.VersionKind
     $versionBetween = @($versionInfo.VersionBetween)
 
-    $declared = @(Get-SourceFileDeclarations -Source $Source)
-    if ($declared.Count -eq 0) {
-        $out.Error = '软件源里没有填写要下载的文件（source.files）'
-        return $out
-    }
-
-    $filesResult = New-WinstGithubResolvedFiles -Context $Context -Source $Source -Declared $declared -Repo $Repo `
+    $filesResult = New-WinstGithubResolvedFiles -Context $Context -Source $Source -FileSpecs $FileSpecs -Repo $Repo `
         -ChosenTag $Tag -Version $version -Result $Result
     if ($filesResult.Error) {
         $out.Error = [string]$filesResult.Error

@@ -28,18 +28,8 @@ function Read-WinstIndexSelection {
     $rangeText = '1 - {0}' -f $Count
 
     while ($true) {
-        if (Test-WinstInputRedirected) { return @{ Action = 'back'; Indexes = @() } }
-        $raw = $null
-        try {
-            $raw = Read-Host $Prompt
-        } catch {
-            return @{ Action = 'back'; Indexes = @() }
-        }
-
-        if ($null -eq $raw) { return @{ Action = 'back'; Indexes = @() } }
-        $text = ''
-        if ($null -ne $raw) { $text = ([string]$raw).Trim() }
-
+        $text = Read-WinstAnswerText -Prompt $Prompt
+        if ($null -eq $text) { return @{ Action = 'back'; Indexes = @() } }
         if (-not $text) {
             if ($AllowEmpty) { return @{ Action = 'empty'; Indexes = @() } }
             Write-Host ('  请输入编号（可选 {0}）。' -f $rangeText) -ForegroundColor Yellow

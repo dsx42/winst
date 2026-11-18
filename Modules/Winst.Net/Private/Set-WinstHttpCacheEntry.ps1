@@ -5,16 +5,8 @@ function Set-WinstHttpCacheEntry {
     .SYNOPSIS
         写入进程内 TTL 缓存（仅内存，进程退出即失效，不做磁盘缓存）。
     #>
-    param(
-        [string]$Key,
-        [string]$Content,
-        $Links,
-        [string]$FinalUri = ''
-    )
+    param([string]$Key, [hashtable]$Entry)
 
-    if (-not (Get-WinstState -Name WinstHttpCache)) {
-        $null = Set-WinstState -Name WinstHttpCache -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
-    }
     $cache = Get-WinstState -Name WinstHttpCache
     $now = [DateTime]::Now
     $sweepAt = Get-WinstState -Name WinstHttpCacheSweepAt
@@ -26,10 +18,6 @@ function Set-WinstHttpCacheEntry {
         }
         $null = Set-WinstState -Name WinstHttpCacheSweepAt -Value $now.AddSeconds($ttl)
     }
-    $cache[$Key] = @{
-        At       = $now
-        Content  = $Content
-        Links    = $Links
-        FinalUri = $FinalUri
-    }
+    if (-not $Entry.ContainsKey('At')) { $Entry.At = $now }
+    $cache[$Key] = $Entry
 }

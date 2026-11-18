@@ -48,12 +48,7 @@ function Resolve-WinstUpdateTargets {
         Write-WinstRefreshErrors -Errors $refresh.Errors
     }
 
-    $rowById = New-WinstOrdinalDictionary
-    foreach ($row in @(Get-WinstSearchCatalog -Context $Context)) {
-        $rowId = [string]$row['Id']
-        if (-not $rowId) { continue }
-        if (-not $rowById.Contains($rowId)) { $rowById[$rowId] = $row }
-    }
+    $rowById = Get-WinstCatalogRowMap -Context $Context
 
     return @{ Empty = $false; State = $state; TargetIds = $targetIds; Explicit = $explicit; RowById = $rowById }
 }

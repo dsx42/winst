@@ -11,7 +11,7 @@ function Get-WinstUpgradeHint {
     param($Row, [string]$InstalledVersion, [switch]$WithSource)
 
     if (-not $InstalledVersion) { return '' }
-    $candidate = Get-WinstRowBestEntry -Row $Row
+    $candidate = Get-WinstRowBestSourceEntry -Row $Row
     if (-not $candidate) { return '' }
     if ((Compare-WinstVersion -A ([string]$candidate['Version']) -B $InstalledVersion) -gt 0) {
         if ($WithSource -and $candidate['Source']) {

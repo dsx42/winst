@@ -77,7 +77,6 @@ function Invoke-SettingsMenu {
     }
 
     $result = Invoke-MenuLoop -Render $render -Context $Context `
-        -Choices @('1', '2', '3', '4', '5', '6', '7', 'b', 'q') `
         -Actions $actions -CanGoBack
     if ($result -eq 'quit') { Set-WinstQuit }
 }

@@ -43,7 +43,7 @@ function New-MatchRule {
     }
 
     try {
-        $null = [regex]::new($result.Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
+        $result.Regex = [regex]::new($result.Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
         $result.Ok = $true
     } catch {
         $result.Error = ('匹配规则写错了（{0}）: {1}' -f $text, $_.Exception.Message)

@@ -10,13 +10,14 @@ function Clear-WinstJsonCache {
     #>
     param([string]$Path)
 
-    if (-not (Get-WinstState -Name WinstJsonCache)) { return }
-    if (-not $Path) { (Get-WinstState -Name WinstJsonCache).Clear(); return }
+    $cache = Get-WinstState -Name WinstJsonCache
+    if (-not $cache) { return }
+    if (-not $Path) { $cache.Clear(); return }
     try {
-        (Get-WinstState -Name WinstJsonCache).Remove([string]$Path)
+        $cache.Remove([string]$Path)
         # 缓存索引把「整个 Read-WinstCacheIndex 结果」挂在派生键下，写索引文件时一并失效
-        (Get-WinstState -Name WinstJsonCache).Remove('cache-index|' + [string]$Path)
-        (Get-WinstState -Name WinstJsonCache).Remove('index-entries|' + [string]$Path)
-        (Get-WinstState -Name WinstJsonCache).Remove('list-count|' + [string]$Path)
+        $cache.Remove('cache-index|' + [string]$Path)
+        $cache.Remove('index-entries|' + [string]$Path)
+        $cache.Remove('list-count|' + [string]$Path)
     } catch { }
 }

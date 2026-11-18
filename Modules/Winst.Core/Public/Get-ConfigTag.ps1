@@ -15,30 +15,10 @@ function Get-ConfigTag {
         [string]$Key
     )
 
-    # 选项对象可能是 hashtable 或 PSCustomObject：统一按「键是否存在」取值，
-    # 避免 Set-StrictMode -Version 2 下访问不存在的成员抛异常
-    $options = Get-WinstState -Name WinstOptions
-    $optionInstallRoot = [string](Get-EntryString -Entry $options -Key 'InstallRoot')
-    $optionPkgDir = [string](Get-EntryString -Entry $options -Key 'PkgDir')
-
-    if ($Key -eq 'installRoot') {
-        if ($optionInstallRoot) { return '[参数]' }
-        if ($env:WINST_INSTALL_ROOT -and $env:WINST_INSTALL_ROOT.Trim()) { return '[环境变量]' }
-        $current = Get-ConfigValue -Config $Context.Config -Key 'installRoot'
-        if (Test-ConfigValueIsDefault -Value $current -Default '%USERPROFILE%\winst') { return '[默认]' }
-        return '[自定义]'
-    }
-
-    if ($Key -eq 'pkgDir') {
-        if ($optionPkgDir) { return '[参数]' }
-        if ($env:WINST_PKG_DIR -and $env:WINST_PKG_DIR.Trim()) { return '[环境变量]' }
-        if ((Get-WinstState -Name WinstScriptDir)) {
-            $scriptApps = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'apps'
-            if (Test-Path -LiteralPath $scriptApps -PathType Container) { return '[U盘]' }
-        }
-        $current = Get-ConfigValue -Config $Context.Config -Key 'pkgDir'
-        if (Test-ConfigValueIsDefault -Value $current -Default (Join-WinstPath $Context.DataRoot 'apps')) { return '[默认]' }
-        return '[自定义]'
+    switch ($Context[$Key + 'Source']) {
+        'param'  { return '[参数]' }
+        'env'    { return '[环境变量]' }
+        'script' { return '[U盘]' }
     }
 
     $defaults = Get-WinstConfigDefaults -DataRoot $Context.DataRoot

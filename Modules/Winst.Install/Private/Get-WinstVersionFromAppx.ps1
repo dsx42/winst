@@ -12,10 +12,7 @@ function Get-WinstVersionFromAppx {
         安装 / 更新后由 Remove-WinstAppxOutdatedPackages 负责清理真正该清的残留包。
     #>
     param(
-        [hashtable]$Context,
-        $Plan,
         $Detect,
-        [string]$InstallDir = '',
         [string]$Kind = '',
         $Between = @(),
         [hashtable]$Result

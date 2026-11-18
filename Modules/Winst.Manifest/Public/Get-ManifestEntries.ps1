@@ -7,7 +7,6 @@ function Get-ManifestEntries {
     #>
     param($Manifest)
 
-    $result = New-Object 'System.Collections.Generic.List[object]'
     $entries = $null
     if ($Manifest -is [System.Array]) {
         $entries = $Manifest
@@ -21,7 +20,6 @@ function Get-ManifestEntries {
     if ($null -eq $entries) { throw '清单必须是条目数组、含 id 的单条目或含 apps 数组的对象' }
     foreach ($item in $entries) {
         if (($item -isnot [System.Management.Automation.PSCustomObject] -and $item -isnot [System.Collections.IDictionary]) -or -not (Get-EntryString -Entry $item -Key 'id')) { throw '清单数组中的每项必须是含 id 的条目对象' }
-        $result.Add($item)
     }
-    return @($result.ToArray())
+    return $entries
 }

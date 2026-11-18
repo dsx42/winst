@@ -22,7 +22,7 @@ function Get-WinstThenClickUrl {
     if (-not $clicked.Ok) {
         return @{ Ok = $false; Error = ('已在 {1} 上找到中间页地址 {0}，但打开它点按钮取下载地址失败：{2}' -f $IntermediateUrl, $PageUrl, $clicked.Error); Url = ''; PageHash = '' }
     }
-    $thenUrls = @(Get-DistinctValues -Values @($clicked.DownloadUrls))
+    $thenUrls = @($clicked.DownloadUrls)
     if ($FileRule) {
         $thenUrls = @(Select-WinstUrlByFileRule -Urls $thenUrls -FileRule $FileRule)
         if ($thenUrls.Count -eq 0) {

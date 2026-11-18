@@ -3,38 +3,36 @@
 function Write-WinstUpdateCheckList {
     <#
     .SYNOPSIS
-        渲染检查结果（总览 / 可更新行 / 无法比较段 / 输入提示），返回选择性更新需要的数据。
+        渲染检查结果（总览 / 可更新项 / 无法比较项 / 失败项 / 输入提示），返回选择性更新需要的数据。
     .OUTPUTS
         @{ ShouldPrompt; UpdatableIds; EntryTexts }
     #>
     param([hashtable]$Context, $Check)
 
-    # 检查结果分两段展示：
-    #   ① 可以更新：绿色 + 编号，含「主包无变化、只有附加文件有更新」的条目；
-    #   ② 无法比较且无从下手：黄色 + 原因（软件源里没有这个软件 / 本机版本比软件源里的更新）；
-    #      解析阶段就失败的条目（ResolutionError）改用红色。
-    if (@($Check.Entries).Count -eq 0) {
+    $entries = @($Check.Entries)
+    if ($entries.Count -eq 0) {
         Write-Host ''
         Write-Host '  没有可检查更新的软件。' -ForegroundColor Gray
         return @{ ShouldPrompt = $false; UpdatableIds = @(); EntryTexts = @() }
     }
-    $buckets = Get-WinstUpdateCheckBuckets -Entries $Check.Entries
+    $buckets = Get-WinstUpdateCheckBuckets -Entries $entries
     $updatableIds = @($buckets.UpdatableIds)
     $updateEntries = @($buckets.UpdateEntries)
     $uncomparable = @($buckets.Uncomparable)
+    $failedEntries = @($buckets.FailedEntries)
+    $complete = $failedEntries.Count -eq 0 -and (Get-EntryBool -Entry $Check -Key 'Ok' -Default $true)
 
-    if ($updatableIds.Count -eq 0 -and $uncomparable.Count -eq 0) {
+    if ($complete -and $buckets.LatestCount -eq $entries.Count) {
         Write-Host ''
         Write-Host '  已安装的软件都是最新版本，没有需要更新的。' -ForegroundColor Green
         return @{ ShouldPrompt = $false; UpdatableIds = @(); EntryTexts = @() }
     }
 
     # 总览一行：-Quiet 已抑制 Invoke-WinstUpdateTargets 内部的同一行，这里由菜单统一给出（同一屏只说一次）
-    $latestCount = 0
-    foreach ($one in @($Check.Entries)) { if ([string]$one['Action'] -eq 'latest') { $latestCount++ } }
     $overviewParts = @()
     $overviewParts += ('可更新 {0}' -f $updatableIds.Count)
-    $overviewParts += ('已是最新 {0}' -f $latestCount)
+    $overviewParts += ('已是最新 {0}' -f $buckets.LatestCount)
+    if ($failedEntries.Count -gt 0) { $overviewParts += ('失败 {0}' -f $failedEntries.Count) }
     if ($uncomparable.Count -gt 0) { $overviewParts += ('无法比较 {0}' -f $uncomparable.Count) }
     Write-Host ''
     Write-Host ('  检查结果: {0}' -f ($overviewParts -join ' / ')) -ForegroundColor Gray
@@ -73,7 +71,7 @@ function Write-WinstUpdateCheckList {
             $entryTexts += $rowText
             Write-Host ('  {0}) {1}' -f ($i + 1), $rowText) -ForegroundColor $rowColor
         }
-    } else {
+    } elseif ($complete) {
         Write-Host '  没有可以更新的软件。' -ForegroundColor Gray
     }
 
@@ -100,6 +98,14 @@ function Write-WinstUpdateCheckList {
         }
         if ($hasNewer) {
             Write-Host '    本机版本更新的是正常的，不用处理；要重装 / 降级到软件源里的版本，可到「安装软件」里搜这个软件，按提示确认强制重装。' -ForegroundColor DarkGray
+        }
+    }
+
+    if ($failedEntries.Count -gt 0) {
+        Write-Host ''
+        Write-Host '  以下软件检查失败' -ForegroundColor Red
+        foreach ($one in $failedEntries) {
+            Write-Host ('    - {0}（{1}）' -f [string]$one['Name'], [string]$one['Message']) -ForegroundColor Red
         }
     }
 

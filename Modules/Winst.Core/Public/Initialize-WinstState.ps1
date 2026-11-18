@@ -39,170 +39,65 @@ function Initialize-WinstState {
     param()
 
     $initialized = 0
-    foreach ($name in @('WinstScriptPath', 'WinstScriptDir')) {
+    $defaults = @{
+        WinstScriptPath = ''
+        WinstScriptDir = ''
+        WinstProtectedDirectoryPaths = $null
+        WinstMenuMode = $false
+        WinstQuitRequested = $false
+        WinstSkipMenuPause = $false
+        WinstOptions = $null
+        WinstConfigCorruptReported = $false
+        WinstAllAppsCache = $null
+        WinstSearchCatalogCache = $null
+        WinstDependencyIndex = $null
+        WinstInstanceLock = $null
+        WinstRegistryEntriesCache = $null
+        WinstEnvironmentCache = $null
+        WinstAppxCache = $null
+        WinstProcessCache = $null
+        WinstLocalManifestFilesCache = $null
+        WinstEnginePathCache = $null
+    }
+    foreach ($name in $defaults.Keys) {
         if (-not (Test-WinstState -Name $name)) {
-            $null = Set-WinstState -Name $name -Value ''
+            $null = Set-WinstState -Name $name -Value $defaults[$name]
             $initialized++
         }
     }
 
-    if (-not (Test-WinstState -Name 'WinstProtectedDirectoryPaths')) {
-        $null = Set-WinstState -Name 'WinstProtectedDirectoryPaths' -Value $null
-        $initialized++
+    $comparers = @{
+        WinstHttpCache = [StringComparer]::Ordinal
+        WinstJsonCache = [StringComparer]::OrdinalIgnoreCase
+        WinstCatalogRefreshed = [StringComparer]::Ordinal
+        WinstManifestPersistUnavailable = [StringComparer]::Ordinal
+        WinstManifestSessionMeta = [StringComparer]::OrdinalIgnoreCase
+        WinstStateReadCache = [StringComparer]::OrdinalIgnoreCase
+        WinstEngineUpdateChecked = [StringComparer]::Ordinal
+    }
+    foreach ($name in $comparers.Keys) {
+        if ($null -eq (Get-WinstState -Name $name)) {
+            $null = Set-WinstState -Name $name -Value (New-Object System.Collections.Hashtable ($comparers[$name]))
+            $initialized++
+        }
     }
 
-    # ------------------------------------------------------------ 标志
-    # 菜单 / CLI 的控制流。
-    if (-not (Test-WinstState -Name 'WinstMenuMode')) {
-        $null = Set-WinstState -Name 'WinstMenuMode' -Value $false
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstQuitRequested')) {
-        $null = Set-WinstState -Name 'WinstQuitRequested' -Value $false
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstSkipMenuPause')) {
-        $null = Set-WinstState -Name 'WinstSkipMenuPause' -Value $false
-        $initialized++
-    }
-
-    # 全局选项集合，多个模块都会读。
-    if (-not (Test-WinstState -Name 'WinstOptions')) {
-        $null = Set-WinstState -Name 'WinstOptions' -Value $null
-        $initialized++
-    }
-
-    # 配置损坏的提示只打一次：Get-WinstConfig 每次 Update-WinstContext 都会跑，
-    # 不记标记会在同一次运行里反复刷同一句提示。
-    if (-not (Test-WinstState -Name 'WinstConfigCorruptReported')) {
-        $null = Set-WinstState -Name 'WinstConfigCorruptReported' -Value $false
-        $initialized++
-    }
-
-    # ------------------------------------------------------------ 缓存
-    # HTTP 响应缓存（Winst.Net）。
     if ($null -eq (Get-WinstState -Name 'WinstHttpCacheSweepAt')) {
         $null = Set-WinstState -Name 'WinstHttpCacheSweepAt' -Value ([DateTime]::MinValue)
-    }
-    if ($null -eq (Get-WinstState -Name 'WinstHttpCache')) {
-        $null = Set-WinstState -Name 'WinstHttpCache' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
         $initialized++
     }
-
-    # JSON 解析缓存（Winst.Core）。
-    if ($null -eq (Get-WinstState -Name 'WinstJsonCache')) {
-        $null = Set-WinstState -Name 'WinstJsonCache' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase))
-        $initialized++
-    }
-
-    # 目录聚合缓存（Winst.Catalog）。
-    # 三个条目初始化成 $null 表示「尚无缓存」；Get-WinstState 用 -NoEnumerate 输出，
-    # 因此空数组 / 空字典是有效缓存值，与 $null 可区分。
-    if (-not (Test-WinstState -Name 'WinstAllAppsCache')) {
-        $null = Set-WinstState -Name 'WinstAllAppsCache' -Value $null
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstSearchCatalogCache')) {
-        $null = Set-WinstState -Name 'WinstSearchCatalogCache' -Value $null
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstDependencyIndex')) {
-        $null = Set-WinstState -Name 'WinstDependencyIndex' -Value $null
-        $initialized++
-    }
-
-    if ($null -eq (Get-WinstState -Name 'WinstCatalogRefreshed')) {
-        $null = Set-WinstState -Name 'WinstCatalogRefreshed' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
-        $initialized++
-    }
-
-    # 本次进程内「解析成功但落盘不可用」的软件源（目标盘不可见 / 只读）：
-    # 源有效期靠 meta.json 判断，写不进去就永远是「过期」，于是每次列表 / 检查 / 安装都会
-    # 重跑一遍同样的网络请求与解析。记下来，同一进程内不再为同一个源重复刷新。
-    if ($null -eq (Get-WinstState -Name 'WinstManifestPersistUnavailable')) {
-        $null = Set-WinstState -Name 'WinstManifestPersistUnavailable' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
-        $initialized++
-    }
-
-    # 未能写入 sidecar 的解析结果，以 sidecar 完整路径隔离不同 pkgDir。
-    if ($null -eq (Get-WinstState -Name 'WinstManifestSessionMeta')) {
-        $null = Set-WinstState -Name 'WinstManifestSessionMeta' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase))
-        $initialized++
-    }
-
-    # 台账读缓存（Winst.Store）：按文件戳缓存解析 + 归一化后的台账，写入侧 Save-WinstState 负责刷新。
-    # 台账在一次操作里会被反复读，一次完整解析在几十条记录时是百毫秒级。
-    if ($null -eq (Get-WinstState -Name 'WinstStateReadCache')) {
-        $null = Set-WinstState -Name 'WinstStateReadCache' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase))
-        $initialized++
-    }
-
-    # 实例锁的句柄集合及对应 Temp（Winst.Core），持有到业务与暂存清理结束。
-    if (-not (Test-WinstState -Name 'WinstInstanceLock')) {
-        $null = Set-WinstState -Name 'WinstInstanceLock' -Value $null
-        $initialized++
-    }
-
-    # 短 TTL 的系统快照（Winst.System）。
-    if (-not (Test-WinstState -Name 'WinstRegistryEntriesCache')) {
-        $null = Set-WinstState -Name 'WinstRegistryEntriesCache' -Value $null
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstEnvironmentCache')) {
-        $null = Set-WinstState -Name 'WinstEnvironmentCache' -Value $null
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstAppxCache')) {
-        $null = Set-WinstState -Name 'WinstAppxCache' -Value $null
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstProcessCache')) {
-        $null = Set-WinstState -Name 'WinstProcessCache' -Value $null
-        $initialized++
-    }
-
-    if (-not (Test-WinstState -Name 'WinstLocalManifestFilesCache')) {
-        $null = Set-WinstState -Name 'WinstLocalManifestFilesCache' -Value $null
-        $initialized++
-    }
-
-    # 引擎路径缓存（Winst.Engine）。
-    if (-not (Test-WinstState -Name 'WinstEnginePathCache')) {
-        $null = Set-WinstState -Name 'WinstEnginePathCache' -Value $null
-        $initialized++
-    }
-
-    # 当前安装目标及其祖先，防止依赖检查重复安装正在处理的引擎。
     if ($null -eq (Get-WinstState -Name 'WinstInstallingAppIds')) {
         $null = Set-WinstState -Name 'WinstInstallingAppIds' -Value @()
         $initialized++
     }
-
-    # 进程级「已检查过」标记（Winst.Install）。
-    if ($null -eq (Get-WinstState -Name 'WinstEngineUpdateChecked')) {
-        $null = Set-WinstState -Name 'WinstEngineUpdateChecked' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
-        $initialized++
-    }
-
     if ($null -eq (Get-WinstState -Name 'WinstSelfChecked')) {
         $null = Set-WinstState -Name 'WinstSelfChecked' -Value $false
         $initialized++
     }
-
-    # 浏览器临时配置目录路径（Winst.Browser）。
     if ($null -eq (Get-WinstState -Name 'WinstBrowserProfileDir')) {
         $null = Set-WinstState -Name 'WinstBrowserProfileDir' -Value ''
         $initialized++
     }
-
-    # SettingChange P/Invoke 就绪标志（Winst.System）。
     if ($null -eq (Get-WinstState -Name 'WinstSettingChangeReady')) {
         $null = Set-WinstState -Name 'WinstSettingChangeReady' -Value $false
         $initialized++
@@ -214,7 +109,7 @@ function Initialize-WinstState {
 function Set-WinstScriptLocation {
     <#
     .SYNOPSIS
-        Record where winst itself is running from.
+        记录当前运行的脚本路径和目录。
 
     .DESCRIPTION
         有两处调用依赖它，且都不可缺：
@@ -239,7 +134,7 @@ function Set-WinstScriptLocation {
         winst.ps1 所在目录（「脚本目录」）。
 
     .OUTPUTS
-        [hashtable] the values that were stored
+        [hashtable] 已记录的位置
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]

@@ -16,7 +16,7 @@ function Get-WinstManifestPayload {
     }
 
     if ($IsLocal) {
-        $local = Read-LocalManifestBundle -Context $Context -Source $Source
+        $local = Read-LocalManifestBundle -Source $Source
         foreach ($note in @($local.Notes)) {
             Write-Host ('  提示: {0}' -f $note) -ForegroundColor DarkYellow
         }

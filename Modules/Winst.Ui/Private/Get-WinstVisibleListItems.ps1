@@ -16,8 +16,7 @@ function Get-WinstVisibleListItems {
     $all = @($Items)
     $visible = New-Object 'System.Collections.Generic.List[object]'
     $indexes = New-Object 'System.Collections.Generic.List[int]'
-    $keyword = ''
-    if ($null -ne $Filter) { $keyword = ([string]$Filter).Trim() }
+    $keyword = $Filter.Trim()
 
     for ($i = 0; $i -lt $all.Count; $i++) {
         if ($keyword -and -not (Test-WinstListItemKeyword -Item $all[$i] -Keyword $keyword)) { continue }

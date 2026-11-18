@@ -55,11 +55,6 @@ function Confirm-WinstSingleInstance {
     $result.Busy = Get-EntryBool -Entry $lock -Key 'Busy'
     $result.Error = Get-EntryString -Entry $lock -Key 'Error'
     $result.OwnerPath = [string]$lock['OwnerPath']
-    try {
-        $owner = Read-WinstInstanceLockInfo -Path $result.LockPath
-        $result.OwnerStartedAt = [string](Get-EntryString -Entry $owner -Key 'StartedAt')
-    } catch {
-        $result.OwnerStartedAt = ''
-    }
+    $result.OwnerStartedAt = [string]$lock['OwnerStartedAt']
     return $result
 }

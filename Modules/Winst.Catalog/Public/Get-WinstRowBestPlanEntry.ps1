@@ -10,10 +10,9 @@ function Get-WinstRowBestPlanEntry {
     .OUTPUTS
         @{ Source; Version; Ok; Error; Plan } 或 $null
     #>
-    param($Row)
+    param($Row, $Best = (Get-WinstRowBestSourceEntry -Row $Row))
 
     if (-not $Row) { return $null }
-    $best = Get-WinstRowBestSourceEntry -Row $Row
     if ($best) { return $best }
     foreach ($candidate in @($Row['Sources'])) {
         if ($candidate['Ok'] -and $candidate['Plan']) { return $candidate }

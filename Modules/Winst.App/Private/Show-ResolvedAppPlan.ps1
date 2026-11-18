@@ -47,9 +47,7 @@ function Show-ResolvedAppPlan {
         Write-WinstCompanionVersions -Item @{ CompanionVersionLines = $lines }
     }
 
-    # 校验说明的展示名取自 Get-WinstHashRule（Winst.Store），由这里传入委托，
-    # 使 Write-WinstPlanDownloadStage 本身不必依赖 Store
-    Write-WinstPlanDownloadStage -Plan $Plan -View $view -HashRuleFor { param($kind) Get-WinstHashRule -Kind $kind }
+    Write-WinstPlanDownloadStage -Plan $Plan -View $view
 
     # 仅下载类型：只显示「下载（软件包）」与「删除已下载的软件包」，
     # 安装 / 复制 / 环境变量 / 安装后命令 / 版本检测这几段对它都不存在，直接跳过。

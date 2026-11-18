@@ -31,7 +31,6 @@ function Test-WinstNameContainsVersion {
     foreach ($m in $numbers) {
         $nameSegments = @($m.Groups['version'].Value -split '\.')
         $count = [Math]::Min($nameSegments.Count, $targetSegments.Count)
-        if ($count -lt 1) { continue }
         $same = $true
         for ($i = 0; $i -lt $count; $i++) {
             if ([string]$nameSegments[$i] -ne [string]$targetSegments[$i]) { $same = $false; break }

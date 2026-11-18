@@ -19,24 +19,23 @@ Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` 
 - 函数文件**只定义函数**，加载期不能执行逻辑（唯一例外：`WinstState.Type.ps1` 的 `Add-Type`）。
 - 导出只由目录决定：`Public\` 导出、`Private\` 不导出；跨模块使用一律放 `Public\`。约定一个文件一个函数（`WinstConstants.ps1`、`WinstState.ps1` 这类集中定义的除外）。
 - 依赖单向，**刻意不用 `RequiredModules`**（会去 `PSModulePath` 找模块，破坏「解压到任意目录即可运行」）。依赖写在各 `.psd1` 头部注释里，必须与代码实际调用一致。
-- 模块由 `Modules\` 下的目录自动发现（目录名 = 清单名），没有集中的模块列表；`winst.ps1` 按模块目录个数判定「开发树 / release 单一模块」。
+- 模块由 `Modules\` 下的目录自动发现（目录名 = 清单名），没有集中的模块列表；`winst.ps1` 按发现的清单逐个导入，release 只含单一模块。
 
 ## 分层
 
 ```
 Core        零依赖：上下文、配置、路径安全、原子 IO、JSON、状态、字段读取、纯格式化
-Logging     无依赖
 Version     Core
 Net         Core
-Ui          Core、Logging（只放显示 / 读输入的原语）
+Ui          Core（只放显示 / 读输入的原语）
 System      Core、Version
 Manifest    Core、Version
 Store       Core、Version、Net、System
 Browser     Core、Net
 Engine      Core、Net、Store、Version
 Catalog     Core、Net、Browser、Version、Manifest、Store、Engine
-Install     Core、Logging、Ui、Version、Manifest、Store、System、Net、Engine、Catalog
-App         Core、Logging、Ui、Version、Manifest、Store、Install、Catalog
+Install     Core、Ui、Version、Manifest、Store、System、Net、Engine、Catalog
+App         Core、Ui、Version、Manifest、Store、Install、Catalog
 ```
 
 - 纯函数（字符串 / 路径 / 字段解析，不读盘不联网）放 `Core`；删文件的原语（`Clear-WinstInstallDir`）也在 `Core`，但它们不是纯函数。

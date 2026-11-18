@@ -23,12 +23,14 @@ function Resolve-WinstInstallDecision {
         [switch]$Quiet,
         [switch]$Force,
         [switch]$DryRun,
+        [switch]$Offline,
         [switch]$VersionFromPackage,
         [switch]$FreshMain,
         [string]$PlanFreshState = '',
         [switch]$VersionFromCachedPackage,
         [int]$CompanionDownloadCount = 0,
         [switch]$CompanionsOnly,
+        $PrimaryFilePlan,
         [switch]$IsDownloadType,
         $Ledger,
         [string]$SourceName = ''
@@ -91,6 +93,21 @@ function Resolve-WinstInstallDecision {
             if (-not $Ledger) {
                 Register-WinstExternalInstallRecord -Context $Context -Plan $Plan -Type $Type -InstallDir $InstallDir `
                     -Id $Id -Version $detected -SourceName $SourceName -Result $Result -OldVersions @($detect.OldVersions) -LocationKnown
+            }
+            if ($CompanionDownloadCount -gt 0 -and $Ledger -and -not $DryRun) {
+                # 主包通过当前校验才可仅更新配套文件。
+                if ($CompanionsOnly) {
+                    Confirm-WinstCachedFilePlan -Context $Context -FilePlan $PrimaryFilePlan -Offline:$Offline
+                }
+                if ($PrimaryFilePlan['ValidationError'] -or
+                        ($PrimaryFilePlan['NeedDownload'] -and ($CompanionsOnly -or $Offline -or $PrimaryFilePlan['ExpectedHash']))) {
+                    $reason = [string]$PrimaryFilePlan['ValidationError']
+                    if (-not $reason) { $reason = [string]$PrimaryFilePlan['Hint'] }
+                    if (-not $reason) { $reason = [string]$PrimaryFilePlan['Reason'] }
+                    $Result.Error = ('主包 {0} 无法复用，已停止配套文件更新：{1}' -f $PrimaryFilePlan['Name'], $reason)
+                    $Result.Network = [bool]$PrimaryFilePlan['ValidationNetwork']
+                    return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = $detected }
+                }
             }
             $same = Resolve-WinstSameVersionAction -Install $Install -InstallDir $InstallDir -DisplayName $DisplayName `
                 -Detected $detected -CompanionDownloadCount $CompanionDownloadCount -HasCompanionUpdate:$CompanionsOnly `

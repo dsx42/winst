@@ -230,7 +230,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `extractFiles` 非空时不必再写 `stripTopDir`。配套文件使用自己的 `extract: true`、`dest` 与 `stripTopDir`，其剥顶层默认是 `false`，不会继承主包的默认 `true`。路径选择与数据保留是两件事：`portableMode` / `keep` 决定如何处理旧安装目录。
 
-解压使用系统 Temp 下的固定 `.winst-stage`，按单实例、串行安装复用。入口同时持有数据目录锁和 Temp 共享锁，直到交付与暂存清理结束；与已有实例共用数据目录或 Temp 时拒绝启动。持锁期间 Temp 改变时，后续解压明确失败，不触碰暂存目录。开始解压前提示并清理已有暂存残留，清理失败即停止。暂存根不得包含输入压缩包，也不得与最终安装目录重叠。需要展开内层压缩包时，在暂存根下创建 `.winst-inner`；需要合并多个选中路径时，创建 `.winst-layout`。如果外层包根下已存在对应的同名文件或目录，分别报「压缩包包含内层解压保留名称 .winst-inner，无法创建工作目录」或「压缩包包含布局合并保留名称 .winst-layout，无法创建工作目录」，不清空复用包内同名路径；没有进入对应处理分支时，这些名称可以作为普通包内路径使用。
+展开内层压缩包时，外层包根目录须留出 `.winst-inner`。合并多个选中路径时须留出 `.winst-layout`。已有对应的同名文件或目录会报保留名称冲突。未使用相应功能时可正常使用该名称。[安装流程](install-flows.md#2-主包与配套文件落位)
 
 ### 进程占用检测
 
@@ -279,7 +279,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 ## 下载来源
 
-`source.kind` 必填，大小写不敏感。`source.files[]` 第一项是主包，后续项是配套文件；`files` 必须是数组，不能为 JSON `null` 或单个对象；每项可写对象，或写字符串作为 `url` 简写。也可省略 `files`，直接写 `source.url` 表示唯一主包；`files` 与 `source.url` 不能同时声明，即使 `files` 为空也报错。page 源不能靠 `source.url` 提供主包地址，因为它只接受页面提取；json 主包必须写 `urlKey`，xml 主包必须写 `urlKey` 或 `urlXPath`，两者都不能用字符串简写或 `source.url` 替代。`skipExistsCheck` 默认 `false`，对 direct / github / listing / page / json / xml 有效；magnet 不做 HTTP 地址探测，也不接受 `skipExistsCheck`。
+`source.kind` 必填，大小写不敏感。各来源可用的主包和配套文件字段见[文件级属性](#文件级属性)。`source.files[]` 第一项是主包，后续项是配套文件；`files` 必须是数组，不能为 JSON `null` 或单个对象；每项可写对象，或写字符串作为 `url` 简写。也可省略 `files`，直接写 `source.url` 表示唯一主包；`files` 与 `source.url` 不能同时声明，即使 `files` 为空也报错。page 源不能靠 `source.url` 提供主包地址，因为它只接受页面提取；json 主包必须写 `urlKey`，xml 主包必须写 `urlKey` 或 `urlXPath`，两者都不能用字符串简写或 `source.url` 替代。`skipExistsCheck` 默认 `false`，对 direct / github / listing / page / json / xml 有效；magnet 不做 HTTP 地址探测，也不接受 `skipExistsCheck`。
 
 | kind | 用途 | `version.from` 可用值 |
 |---|---|---|
@@ -311,7 +311,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 - `version.from` 只接受 `page` / `package` / `header` / `json`；写别的值会报错。`page` 必须配 `version.url` 以及 `version.kind` / `version.between` 至少一项，无法识别即报错；`fetchWith` 可选 `iwr`（默认）/ `browser`。
 - `source.version.package` 只能配合 `version.from: "package"`，写法见「包内版本派生」。
 - 每个文件都必须写完整地址 `url`；只写文件名通配 `file` 无法定位。地址中的 `{version}` / `{versionMajor}` / `{versionMinor}` 无法展开为版本时即报错。
-- 刷新时会探测主包地址一次；`404` / `410` 判为条目解析失败。
+- 刷新时默认探测主包地址一次。探测确认缺失时条目解析失败，响应状态和例外见[源刷新与解析锁](#源刷新与解析锁)。
 
 ### github 源
 
@@ -342,9 +342,9 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 触发条件只有两种，都属于「这个发布里没有该文件」而非配置错误：
 
 - `file` 匹配规则在该发布的资产列表里一个都没命中，或该发布还没上传任何资产
-- `files[].url` **只写了文件名**（地址由 winst 拼成）且探测到 404
+- `files[].url` **只写了文件名**（地址由 winst 拼成）且探测确认文件缺失（`404` / `410`）
 
-清单自己写了完整地址模板时（如 `https://…/download/v{version}/x.exe`）404 仍按配置错误直接报错，不退回旧版本——那通常意味着模板写错，静默安装旧版只会掩盖问题。`latestOnly: true` 可关闭整个回退逻辑。
+清单自己写了完整地址模板时（如 `https://…/download/v{version}/x.exe`）且探测确认文件缺失时，按配置错误报错。`latestOnly: true` 可关闭整个回退逻辑。
 
 `version.from` 的取值与约束：
 
@@ -389,13 +389,13 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `skipExistsCheck` | `false` | `true` 时不探测候选主包地址，直接采用排序后的首个候选 |
 | `files` | 无 | 至少一项，只接受 `url`；主包可用版本模板，固定滚动地址要求过滤后只有一个版本候选 |
 
-`indexUrl` 没有 `*` 时按原地址读取。有 `*` 时必须为绝对 HTTP(S) 地址，只允许最后一个路径段包含 `*`，末尾 `/` 可省略；主机名、父目录中含 `*`，或同时带查询串、片段的通配地址会报错。例如 `https://dlcdn.apache.org/maven/maven-*` 会先读取 `https://dlcdn.apache.org/maven/`，再匹配该层的 `maven-*` 子目录，不递归展开下一层通配。
+`indexUrl` 没有 `*` 时按目录地址读取，路径统一以一个 `/` 结尾，查询串和片段保留。例如 `https://example.com/releases` 会读取 `https://example.com/releases/`。有 `*` 时必须为绝对 HTTP(S) 地址，只允许最后一个路径段包含 `*`，末尾 `/` 可省略；主机名、父目录中含 `*`，或同时带查询串、片段的通配地址会报错。例如 `https://dlcdn.apache.org/maven/maven-*` 会先读取 `https://dlcdn.apache.org/maven/`，再匹配该层的 `maven-*` 子目录，不递归展开下一层通配。
 
 目录发现接受相对或绝对链接，只保留同协议、主机与端口的直接子目录，链接必须以 `/` 结尾且没有查询串或片段；上级目录、跨站链接、深层路径和普通文件均跳过。匹配出的具体目录按完整 URL 区分大小写去重并保留首次出现顺序。没有匹配目录或父目录请求失败时，该索引地址记为失败；其它列表页仍有候选时会提示部分失败并继续，没有候选时解析失败并指出地址与原因。
 
 `semver` 优先从列表页的直接子目录链接读取完整版本目录名，去掉单个 `v` / `V` 前缀，保留预发布和构建后缀，例如 `4.0.0-rc-7`；再执行 `version.filter`。已取得目录候选但过滤后为空时直接报错，不再次从整页文本提取数字。没有版本目录候选时按版本识别器扫描整页文本；这类数字扫描不保留预发布后缀，因此 `preset:stable` 只对完整版本目录候选提供严格的正式版筛选。`date` / `digits` 均按原识别器扫描整页文本。
 
-候选经过滤与排序后，**从高到低逐个探测主包地址可用性**（上限 8 个候选），第一个非 404 的即采用；探测结果未知时会记提示并采用该候选。Maven 示例通过完整目录候选和 `preset:stable` 排除预发布，再用 `{versionMajor}` 同时展开安装包与 SHA512 地址，使正式版本不受固定主版本目录限制。
+候选经过滤与排序后，**从高到低逐个探测主包地址可用性**（上限 8 个候选），探测确认缺失（`404` / `410`）时继续试下一项。首个可用或无法确认的候选即被采用，无法确认时会记录提示。Maven 示例通过完整目录候选和 `preset:stable` 排除预发布，再用 `{versionMajor}` 同时展开安装包与 SHA512 地址，使正式版本不受固定主版本目录限制。
 
 主包 URL 不含版本占位符时，列表必须专用于该滚动文件，且过滤后只有一个版本候选；多个候选会报无法确认文件对应版本，`skipExistsCheck` 不跳过此检查。目录同时列出多个文件日期时，应改用 `page`，从目标文件所在行截取日期，不能把全页最大日期当作它的版本。例如 Debian weekly ISO 可用 `link.text: "debian-testing-amd64-DVD-1.iso"`、`version.from: "page"`、`version.kind: "date"`、`version.between: ["debian-testing-amd64-DVD-1.iso</a>", "</tr>"]` 关联链接与同一行的日期。
 
@@ -424,7 +424,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `click` | 下载地址由点击时的页面脚本生成时用；写法为步骤数组 | 省略 `fetchWith` 时自动使用浏览器；显式填写时只能为 `browser`，`iwr` 与点击取址冲突；每一步至少要一个条件 |
 | `thenLink` | `link` 命中的是网页（中转页）时，再抓一层定位真实地址 | 必须搭配 `link`；不能与 `thenClick` 同用；需要 `thenLink.link`（中转页上的定位规则，至少写一个条件）或 `files[0].file`；显式写了空的 `thenLink.link` 时即使有 `files[0].file` 也会被拒绝 |
 | `thenClick` | `link` 命中中转页后还要在浏览器里点按钮取址 | 必须搭配 `link`；不能与 `click` 同用；步骤数组每一步至少要一个条件 |
-| `files[0].checksum.click` | `files[0].checksum.format: "page"` 就近刮取失败时，在同一无头会话里再点控件读可见摘要 | 必须搭配 `click` 或 `thenClick`，且主包 `checksum.format` 必须是 `page`；步骤写法与 `click` 相同；未声明时不做额外点击 |
+| `files[0].checksum.click` | 取址成功后，在同一无头浏览器会话中点击控件并读取可见摘要 | 必须搭配 `click` 或 `thenClick`，且主包 `checksum.format` 必须是 `page`。步骤写法与 `click` 相同。未声明时不做额外点击 |
 
 `link` / `thenLink.link` / `click` / `thenClick` / `files[0].checksum.click` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 使用[通用匹配规则](#通用匹配规则)；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` / `files[0].checksum.click` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；`thenClick` 不必再单独声明 `fetchWith: "browser"`，但该值仍决定初始下载页和中转页的抓取方式。`files[0].checksum.click` 在取址成功拿到下载地址**之后**执行，不参与下载事件捕获——下载步骤仍写在 `click` / `thenClick` 里。
 
@@ -440,7 +440,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `source.pageUrl` 必填。`files[0]` 是主包（只用于「挑哪一个」与校验）；第 2 条起是配套文件，写成带 `{version}` 的 `url` + `dest`。主包不能写 `url`（地址由页面提取），只能写 `file` 匹配规则（见[通用匹配规则](#通用匹配规则)）；主包 `dest` 忽略并提示。`skipExistsCheck` 默认 `false`，控制最终下载地址探测。
 
-主包校验可用 `files[0].checksum.format: "page"`：默认按文件名在页面条目内就近刮取摘要（与 `digest` 相同边界）。若摘要只出现在需额外点击后的文案 / 弹层里（渲染 DOM 旁无安装包文件名），在 `click` / `thenClick` 之外再声明 `source.files[0].checksum.click`（步骤写法与 `click` 相同）；取址成功后同一无头会话按 `files[0].checksum.click` 点控件，再从可见文本中读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。摘要尚未出现或暂时不唯一时会限时重试；等待结束仍无唯一摘要且就近提取失败时，报无法提取校验值。版本与就近摘要解析使用执行 `files[0].checksum.click` 前的页面快照。未声明 `files[0].checksum.click` 时不做任何额外点击，行为与「仅就近刮取」一致。
+主包使用 `files[0].checksum.format: "page"` 时，默认按文件名在页面条目内就近提取摘要，条目边界与 `digest` 相同。若摘要只在点击后的文案或弹层里出现，可搭配 `click` 或 `thenClick` 声明 `source.files[0].checksum.click`，步骤写法与 `click` 相同。取址成功后，浏览器在同一无头会话中执行 `checksum.click`，从可见文本中读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。摘要尚未出现或暂时不唯一时会限时重试。版本和就近摘要取自额外点击前的页面快照。校验优先采用就近提取的摘要，提取失败时采用点击取得的摘要。两种方式都未取得可用摘要时，报无法提取校验值。
 
 飞牛 fnOS 示例（下载点「直接下载」，摘要在「MD5」控件弹出的文案里）：
 
@@ -794,29 +794,13 @@ direct / page 的版本文本识别先按 `version.between` 截取，再按 `ver
 
 展开占位符后，固定摘要、响应头与接口取出的摘要必须是 32 / 40 / 64 / 128 位十六进制，分别代表 MD5 / SHA1 / SHA256 / SHA512；不接受其它长度或非十六进制字符。全部字段及适用位置见下一节。
 
-### 主包与配套文件适用范围
-
-| 配置 | 主包 `files[0]` | 配套文件 `files[1...]` |
-|---|---|---|
-| `url` / `file` | 由来源 kind 决定；page 只从页面取地址 | direct / github 可用对应定位方式；listing / page / json 用 `url`；xml 还可用接口字段 |
-| `itemsKey` / `match` / `urlKey` | JSON 与 XML 可用，作用域见各来源 | 仅 XML 可用；JSON 附件不读取这些字段 |
-| `urlXPath` / `checksum.xpath` | 仅 XML | 仅 XML |
-| `checksum.key` | JSON / XML | 仅 XML |
-| `checksum.fileKey` / `checksum.fileMatch` | 仅 JSON；`fileMatch` 需要非空 `itemsKey` | 不适用 |
-| `checksum.format: page` / `checksum.click` | 仅 page | 不适用 |
-| `checksum.value` / `checksum.file` | 按来源的下载与校验规则使用 | 同左 |
-| `checksum.header` | HTTP 来源；magnet 不支持 | HTTP 来源；magnet 不支持 |
-| `dest` / `extract` / 文件级 `stripTopDir` | 不控制主包落位，主包使用条目级规则 | 非 installer 的安装流程使用；`extract` 时 `dest` 必填且为目录 |
-| `versionListUrl` / 文件级版本识别 | 不适用 | 仅 listing / page / json / xml 的 `url` 附件，可独立选择版本 |
-| `refresh` / `compare` / `maxAgeHours` | 控制本文件缓存复用 | 控制本文件缓存复用，不继承主包声明 |
-
 GitHub 需要检索发布列表（前缀筛选、元数据或旧发布回退）时只读取近期发布的前两页；未命中表示该检索范围内没有目标，不能据此断言仓库全部历史中不存在。按版本推断 tag 的候选请求不改变此检索范围。
 
 ### 不同来源怎样选记录
 
 | 来源 | 候选选择 | 找不到目标文件时 |
 |---|---|---|
-| listing | 过滤后按版本或文本从高到低选候选 | 在规定数量内探测较低版本，非 404 的首个候选可用 |
+| listing | 过滤后按版本或文本从高到低选候选 | 探测确认缺失时继续试下一项，具体规则见 [listing 源](#listing-源) |
 | JSON | 简单扁平响应默认取第一个合适项；`version.sort` 选择唯一最高父发布；非空文件 `itemsKey` 要求唯一父发布与唯一子文件 | 选定最高父发布后缺文件即报错，不尝试低版本 |
 | XML | `itemsKey` + `match` 或 XPath 必须选出唯一父记录；文件记录也必须唯一 | 无匹配或多匹配均报错，不按顺序取首个，不自动挑最高版本 |
 
@@ -826,12 +810,12 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 
 ## 文件级属性
 
-主包是 `source.files[0]`，第 2 项起是配套文件。下表列出字段，适用范围并不相同：
+主包是 `source.files[0]`，第 2 项起是配套文件。各文件的 `refresh`、`compare` 和 `maxAgeHours` 独立生效。`installer` 的配套文件只缓存，主包布局由条目级字段控制。
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `url` | — | 下载地址或地址模板 |
-| `file` | — | 文件名匹配规则，见[通用匹配规则](#通用匹配规则)；page 同时匹配完整 URL 和文件名 |
+| `url` | 无 | 下载地址或模板。direct、github、listing 可用于主包及配套文件，page、json、xml 仅用于配套文件。magnet 的每个文件都须填写完整磁力链接 |
+| `file` | 无 | github 按资产文件名匹配，page 主包按完整 URL 或文件名匹配，json 主包可搭配 `urlKey` 筛选文件。匹配语法见[通用匹配规则](#通用匹配规则) |
 | `urlKey` | — | `json` 主包或 `xml` 文件：存放下载地址的字段路径；XML 相对于本项选中的文件记录，结果必须唯一非空；与 `urlXPath` 互斥 |
 | `urlXPath` | 空 = 未配置 | 仅 `xml`：相对于本项文件记录读取下载地址的 XPath，与 `urlKey` 互斥；主包必须选择其一，配套文件还可写 `url`；结果须唯一非空，相对地址必须配 `source.baseUrl`，详见「xml 源」 |
 | `itemsKey` | 父记录本身 | 字符串；`json` 仅主包可用，相对于父发布取子文件数组或对象；`xml` 主包和配套文件均可用，相对于父记录取子文件节点，再按本项 `match` 筛选；父记录与最终匹配文件均须唯一，详见对应来源 |
@@ -859,7 +843,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 
 `url`、`urlKey` 分别与 `file` 互斥；`url` 与 `urlKey` 也互斥，同时写会报错。**例外是 json 主包的 `urlKey` + `file`，这是允许且常用的组合**：前者定位接口字段，后者筛选候选条目。`urlKey` 只用于 `json` / `xml` 源；`urlXPath` 只用于 `xml` 源，并与同一文件的 `url` / `urlKey` / `file` 互斥。XML 的 `urlKey` 不能搭配 `file`。page 主包不能写 `url`，只能写 `file`；xml 主包必须写 `urlKey` 或 `urlXPath`；各来源具体必填组合见前文。
 
-`versionListUrl` 的列表页地址可用主包版本展开 `{version}` / `{versionMajor}` / `{versionMinor}`；候选经 `versionFilter` 后按版本从高到低探测最终文件地址，上限 8 个，第一个非 404 的采用，`source.skipExistsCheck` 可关闭探测。它只适用于 listing / page / json / xml 第 2 项起的 `url` 配套文件；direct 不读取它，主包、json 的 `urlKey` 地址和 xml 的 `urlKey` / `urlXPath` 地址不能使用。xml 中 `urlKey` 或 `urlXPath` 与 `versionListUrl` 同时配置会报错。github 的 `url` 项不读取它，`file` 项虽会进入独立列表解析，但随后仍因定位不是 `url` 而报错，所以 github 条目不要使用 `versionListUrl`。
+`versionListUrl` 的列表页地址可用主包版本展开 `{version}` / `{versionMajor}` / `{versionMinor}`；候选经 `versionFilter` 后按版本从高到低探测最终文件地址，最多探测 8 个。探测确认缺失（`404` / `410`）、或取得的最终地址经 URL 解码后不含本候选的文件版本（忽略大小写）时尝试下一项。结果未知时采用该候选并记录提示。`source.skipExistsCheck: true` 直接采用首个候选。它只适用于 listing / page / json / xml 第 2 项起的 `url` 配套文件；direct 不读取它，主包、json 的 `urlKey` 地址和 xml 的 `urlKey` / `urlXPath` 地址不能使用。xml 中 `urlKey` 或 `urlXPath` 与 `versionListUrl` 同时配置会报错。github 的 `url` 项不读取它，`file` 项虽会进入独立列表解析，但随后仍因定位不是 `url` 而报错，所以 github 条目不要使用 `versionListUrl`。
 
 `checksum.format` 的全部取值：
 
@@ -875,7 +859,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 | `md5` | 同上，MD5 |
 | `digest` | 按完整文件名字段或链接路径中的文件名匹配，在同一文本行或 HTML 条目内取后面最近的摘要；不接受其它文件名的前后缀命中。表格按整行处理，遇到另一安装包文件名停止。长度 32 / 40 / 64 / 128 分别为 MD5 / SHA-1 / SHA-256 / SHA-512；没有摘要或同一文件对应多个不同摘要时报错 |
 | `re:<正则>` | 自定义正则提取，命名组 `h` 或第 1 捕获组 |
-| `page` | 仅 `page` 源、仅主包：优先按 `digest` 相同的条目边界就近提取摘要；就近失败且声明了 `source.files[0].checksum.click`（须搭配 `click` 或 `thenClick`）时，取址会话再按 `checksum.click` 点控件，并从可见文案读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。未声明 `checksum.click` 时不额外点击。不能与 `checksum.value` 同写 |
+| `page` | 仅适用于 `page` 源的主包。声明 `source.files[0].checksum.click` 时须搭配 `click` 或 `thenClick`。取址成功后按该配置点击并从可见文案读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。校验优先采用按 `digest` 相同条目边界就近提取的摘要，提取失败时采用点击取得的摘要。未声明 `checksum.click` 时只做就近提取。不能与 `checksum.value` 同写 |
 
 未显式声明 `refresh`，且 `compare` 也未声明或为默认 `auto` 时，安装与仅下载操作均优先比较远端版本和该文件缓存记录的 `sourceVersion`：版本相同复用，版本不同重取，不受地址或 HTTP 校验器漂移影响。只有**这个文件自己的版本**参与该判定：主包恒有；配套文件仅当声明 `versionListUrl` 并独立解析出版本时才有，其余跟随主包版本的配套文件不记录也不比较版本。两侧任一版本缺失、或版本仅来自尚未确认新鲜度的缓存包时，继续按地址、摘要与新鲜度规则判定；地址按完整字符串区分大小写比较，包括路径与查询参数。声明的摘要仍须满足校验规则；显式比较项不会被同版本快捷命中绕过。
 
@@ -1084,15 +1068,14 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 
 ## 源刷新与解析锁
 
-- 刷新软件源时会对清单内**全部条目**执行一次来源解析，结果写入 sidecar（`<pkgDir>\manifests\remote\<源>.meta.json` 的 `apps` 字段），形成「解析锁」
+- `winst manifest update` 和菜单中的整源刷新会解析所选源的全部条目。结果存入源元数据的 `apps` 字段。远程源写入 `<pkgDir>\manifests\remote\<源名键>.meta.json`，本地源写入 `<pkgDir>\manifests\local.meta.json`。预览模式只显示结果。
 - `install` / `download` 优先复用锁里的结果，锁未命中才在运行时重新解析
-- 关键字搜索只覆盖解析锁：清单里有、但 `apps` 里还没有该 id（从未解析过）的软件搜不到；按需刷新只解析本次传入的 id，不会给未解析条目补占位记录
-- 因此关键字搜索零命中时会再读一遍各源的清单正文（本地清单文件 / 远程正文缓存，这一步只读本地文件、不联网），按同样的 id / `name` / `description` 子串规则查找；命中就解析这些条目（远程源此时才联网重新取清单）并写回解析锁后重新搜索，最终仍无结果时统一提示「没有找到」——正文里没有、命中的条目解析失败，是同一句提示。正文缓存不存在（从未成功刷新过）的源无从核对；`--offline` / `--dry-run` 跳过这一步
+- `winst info <id> --force` 和详情页的 `s` 强制刷新指定 id。按目标检查更新或展示条目时可按 id 刷新，沿用其它条目的已有结果，移除已从源中删除的条目。无指定 id 的列表按有效期刷新，解析过期条目时也补齐新条目。
+- 关键字搜索先查解析锁。零命中时会再读一遍各源的清单正文（本地清单文件 / 远程正文缓存，这一步只读本地文件、不联网），按同样的 id / `name` / `description` 子串规则查找；命中就解析这些条目（远程源此时才联网重新取清单）并写回解析锁后重新搜索，最终仍无结果时统一提示「没有找到」——正文里没有、命中的条目解析失败，是同一句提示。正文缓存不存在（从未成功刷新过）的源无从核对；`--offline` / `--dry-run` 跳过这一步
 - 每条记录带 `resolvedAt`，用于判断展示用的版本信息是否过期（`manifestTTLHours`）
-- 单条解析失败不影响其它条目：记为 `ok: false` + `error`，刷新整体仍算成功
-- 「下载地址 HEAD 可用性校验」在刷新阶段做：`404` / `410` 判为条目解析失败（提示清单地址失效），网络错误 / `405` 不判失败；`skipExistsCheck: true` 可关掉
-- 例外：响应带 `Cf-Mitigated: challenge`（Cloudflare 人机校验页）时不判失败，按「未能确认」记一条备注。这类 CDN 对 .NET / PowerShell 客户端一律回 404（JetBrains 的中国 CDN 就是如此），文件其实存在、下载引擎也下得动，按 404 报错只会冤枉清单；代价是这类站点上「真的写错了地址」同样只能等到安装时才暴露
-- 同一进程内对「方法 + URL」的响应做 TTL 10 分钟缓存（GitHub 网页通道、`listing` / `page` 页面、`json` / `xml` 接口、校验文件、HEAD 探测），进程退出即失效
+- 单个条目解析失败时，有上次成功结果就沿用并记录本次失败原因，否则保存 `ok: false` 和 `error`。其它条目继续解析。
+- 刷新时用 HEAD 探测下载地址。`404` / `410` 表示文件缺失，按对应来源的回退规则尝试下一候选或报错。带 `Cf-Mitigated: challenge` 的响应、网络错误和 `405` 表示无法确认。`skipExistsCheck: true` 可跳过地址可用性探测。
+- HTTP 请求缓存按方法、URL 和请求头区分，有效期为 10 分钟，进程退出即失效。下载地址探测与文件响应头读取还按超时和代理尝试区分，同一次请求的成功响应可以复用。下载地址探测结果另按最终地址校验条件区分。
 
 ## 依赖与分组
 

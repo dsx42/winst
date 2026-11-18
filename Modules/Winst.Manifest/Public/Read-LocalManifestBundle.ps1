@@ -12,7 +12,7 @@ function Read-LocalManifestBundle {
         @{ Entries; Version; FetchedAt; Error; Notes }
     #>
     param(
-        [Parameter(Mandatory = $true)][hashtable]$Context,
+        [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Source
     )
 
@@ -55,10 +55,6 @@ function Read-LocalManifestBundle {
 
         foreach ($entry in $fileEntries) {
             $id = Get-EntryString -Entry $entry -Key 'id'
-            if (-not $id) {
-                $result.Notes += ('{0} 里有一条没有写 id 的软件定义，已忽略' -f $fileName)
-                continue
-            }
             if ($seen.ContainsKey($id)) {
                 $result.Notes += ('{0} 里的 "{1}" 在前面已经出现过，已按先出现的定义为准' -f $fileName, $id)
                 continue

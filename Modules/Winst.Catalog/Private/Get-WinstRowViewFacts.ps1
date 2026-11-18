@@ -17,6 +17,7 @@ function Get-WinstRowViewFacts {
     $group = ''
     $bestVersion = ''
     $bestSource = ''
+    $best = $null
     $inCatalog = [bool]($null -ne $Row)
     if ($Row) {
         $rowName = Get-EntryString -Entry $Row -Key 'Name'
@@ -24,7 +25,7 @@ function Get-WinstRowViewFacts {
         $description = Get-EntryString -Entry $Row -Key 'Description'
         $sourceText = Get-WinstRowSourceText -Row $Row
         $group = Get-WinstRowGroup -Row $Row
-        $best = Get-WinstRowBestEntry -Row $Row
+        $best = Get-WinstRowBestSourceEntry -Row $Row
         if ($best) {
             $bestVersion = [string]$best['Version']
             $bestSource = [string]$best['Source']
@@ -36,18 +37,18 @@ function Get-WinstRowViewFacts {
     if ($Ledger) { $type = (Get-EntryString -Entry $Ledger -Key 'type').Trim().ToLowerInvariant() }
     if (-not $type -and $Row) { $type = Get-WinstRowType -Row $Row }
 
-    $versionFromPackage = Test-WinstRowVersionFromPackage -Row $Row
+    $chosen = Get-WinstRowBestPlanEntry -Row $Row -Best $best
+    $versionFromPackage = Test-WinstRowVersionFromPackage -Row $Row -Chosen $chosen
     $remoteVersion = $bestVersion
     $remoteFresh = ''
     if ($versionFromPackage) {
-        $chosen = Get-WinstRowBestPlanEntry -Row $Row
         $remoteFresh = Get-EntryString -Entry $chosen['Plan'] -Key 'remoteFresh'
         $bestVersion = [string]$chosen['Version']
         $bestSource = [string]$chosen['Source']
     }
 
     return [ordered]@{
-        Id                 = $Id
+        Chosen             = $chosen
         DisplayName        = $displayName
         Description        = $description
         Group              = $group

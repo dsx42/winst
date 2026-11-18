@@ -10,29 +10,14 @@ function Get-WinstPackageFileVersion {
     #>
     param([string]$PkgDir, [string]$FileName)
 
-    $name = ''
-    if ($null -ne $FileName) { $name = ([string]$FileName).Trim() }
+    $name = $FileName.Trim()
     if (-not $PkgDir -or -not $name) { return '' }
     $path = Join-WinstPath $PkgDir $name
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return '' }
 
     $raw = ''
     try {
         $file = Get-Item -LiteralPath $path -Force -ErrorAction Stop
-        $vi = $file.VersionInfo
-        if ($vi) {
-            # 与 fileVersion 检测同一口径：字符串是数值体的数字前缀时按字符串算，否则以数值体为准
-            $rawNumber = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersionRaw)
-            if ($rawNumber -match '^0(?:\.0)*$') { $rawNumber = '' }
-            if (-not $rawNumber) { $rawNumber = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersionRaw) }
-            if ($rawNumber -match '^0(?:\.0)*$') { $rawNumber = '' }
-            $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.FileVersion)
-            if (-not $raw) { $raw = ConvertTo-WinstFileVersionText -Text ([string]$vi.ProductVersion) }
-            if ($rawNumber -and -not (Test-WinstNumericVersionPrefix -Prefix $raw -Value $rawNumber)) {
-                $raw = $rawNumber
-            }
-            if (-not $raw) { $raw = $rawNumber }
-        }
+        $raw = Get-WinstFileResourceVersion -VersionInfo $file.VersionInfo
     } catch {
         return ''
     }

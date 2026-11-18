@@ -15,9 +15,9 @@ function Get-WinstLockedPlan {
     )
 
     if (-not $Id -or -not $SourceName) { return $null }
-    foreach ($match in @(Get-ResolvedAppsById -Context $Context -Id $Id)) {
-        if ([string]$match['Source'] -cne $SourceName) { continue }
-        $app = $match['App']
+    foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
+        if ([string]$source['name'] -cne $SourceName) { continue }
+        $app = Get-ManifestResolvedApp -PkgDir $Context.PkgDir -Name $SourceName -Id $Id
         if ($app -and (Get-EntryBool -Entry $app -Key 'ok')) { return $app }
     }
     return $null

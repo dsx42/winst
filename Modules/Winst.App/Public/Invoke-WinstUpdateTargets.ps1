@@ -59,36 +59,44 @@ function Invoke-WinstUpdateTargets {
     $downloadOnlySkipped = 0   # 指定 id 里「仅下载」类型的条数（结尾提示据此改口径）
     $entries = New-Object 'System.Collections.Generic.List[object]'
 
+    $sourceLookup = @{}
+    $counterByAction = @{
+        check = 'Updatable'; files = 'Updatable'; latest = 'UpToDate'; newer = 'Unknown'; unknown = 'Unknown'
+        updated = 'Updated'; skipped = 'Skipped'; cancelled = 'Skipped'; external = 'Reported'; failed = 'Failed'
+    }
     foreach ($id in @($targets.TargetIds)) {
-        $before = $result.Clone()
-        $isInstalled = $false
+        $itemNetwork = $false
         try {
-            $isInstalled = [bool](Get-WinstInstalledApp -State $state -Id $id)
-            $one = Invoke-WinstUpdateEntry -Context $Context -Id $id -State $state -RowById $targets.RowById `
+            $ledger = Get-WinstInstalledApp -State $state -Id $id
+            if (-not $ledger) {
+                if (Write-WinstUpdateMissingEntry -Id $id -RowById $targets.RowById -SourceName $SourceName) { $downloadOnlySkipped++ }
+                $result.NotInstalled++
+                continue
+            }
+            $installedTargets++
+            $one = Invoke-WinstUpdateEntry -SourceLookup $sourceLookup -Context $Context -Id $id -Ledger $ledger -RowById $targets.RowById `
                 -Check:$Check -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
-                -AutoPick $autoPick -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName `
-                -Result $result
+                -AutoPick $autoPick -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName
+            $itemNetwork = $one.Network
             if ($one.RefreshState) { $state = Read-WinstCommandState -Context $Context }
-            foreach ($entry in $one.Entries) { $entries.Add($entry) }
-            if ($one.Installed) { $installedTargets++ }
-            if ($one.DownloadOnlySkipped) { $downloadOnlySkipped++ }
         } catch [System.Management.Automation.PipelineStoppedException] { throw
         } catch {
-            foreach ($key in @($before.Keys)) { $result[$key] = $before[$key] }
-            $result.Failed++
             $result.InternalFailed++
             $cause = $_.Exception
             while ($cause) {
-                if ($cause -is [Net.WebException] -or $cause.GetType().FullName -eq 'System.Net.Http.HttpRequestException') { $result.Network = $true; break }
+                if ($cause -is [Net.WebException] -or $cause.GetType().FullName -eq 'System.Net.Http.HttpRequestException') { $itemNetwork = $true; break }
                 $cause = $cause.InnerException
             }
-            $failedEntry = New-WinstUpdateEntryResult -Id $id -Name $id -Installed ''
-            $failedEntry.Action = 'failed'
-            $failedEntry.Message = $_.Exception.Message
-            $entries.Add($failedEntry)
-            if ($isInstalled) { $installedTargets++ }
-            if (-not $Quiet) { Write-Host ('  {0}: 处理失败 —— {1}' -f $id, $failedEntry.Message) -ForegroundColor Red }
+            $one = New-WinstUpdateEntryResult -Id $id -Name $id -Installed ''
+            $one.Network = $itemNetwork
+            $one.Action = 'failed'
+            $one.Message = $_.Exception.Message
+            if (-not $Quiet) { Write-Host ('  {0}: 处理失败 —— {1}' -f $id, $one.Message) -ForegroundColor Red }
         }
+        if ($one.Network) { $result.Network = $true }
+        $entries.Add($one)
+        $result[$counterByAction[$one.Action]]++
+        if ($one.NewerAvailable) { $result.Updatable++ }
     }
 
     $result.Entries = $entries.ToArray()

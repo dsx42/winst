@@ -3,11 +3,11 @@
 function Invoke-WinstCleanCommand {
     <#
     .SYNOPSIS
-        CLI：winst clean [<id>] —— 无参清理各 id 的旧版本包文件；指定 id 删除该 id 的全部已下载安装包。
+        `winst clean [<id>...]` 清理安装包缓存。
     .DESCRIPTION
-        范围，
-        与下载成功后的自动清理同范围；指定 id = 删除该 id 的整个缓存目录并移除索引条目
-        （与菜单「已下载包 → d」共用 `Remove-WinstCachedPackage`）。
+        无参数时清理各软件的旧版本安装包，范围与下载成功后的自动清理相同。
+        指定一个或多个 id 时，删除这些软件的缓存目录并移除索引条目。
+        与菜单「已下载包 → d」共用 `Remove-WinstCachedPackage`。
     .OUTPUTS
         [int] 退出码：0 成功（含无旧包可清）/ 1 参数错误 / 3 部分删除失败
     #>
@@ -23,7 +23,7 @@ function Invoke-WinstCleanCommand {
         if ($text -like '-*') {
             Write-Host ''
             Write-Host ('  未知参数: {0}' -f $text) -ForegroundColor Yellow
-            Write-Host '  用法: winst clean [<id>]' -ForegroundColor Gray
+            Write-Host '  用法: winst clean [<id>...]' -ForegroundColor Gray
             return 1
         } else {
             $ids += $text
@@ -75,29 +75,18 @@ function Invoke-WinstCleanCommand {
         $keepFiles = @(Get-EntryArray -Entry $index[$key] -Key 'files')
         if ($keepFiles.Count -eq 0) { continue }   # 索引里没记录文件名时不猜、不动任何文件
 
-        $candidates = New-Object 'System.Collections.Generic.List[string]'
         try {
-            foreach ($file in @(Get-ChildItem -LiteralPath (Join-WinstPath $Context.PkgDir $idText) -File -ErrorAction Stop)) {
-                if ($keepFiles -notcontains $file.Name) { $candidates.Add([string]$file.Name) }
-            }
-        } catch {
-            $failed++
-            Write-Host ('  {0}: 无法枚举待清理文件：{1}' -f $idText, $_.Exception.Message) -ForegroundColor Red
-            continue
-        }
-        if ($candidates.Count -eq 0) { continue }
-
-        if ($dryRun) {
-            $total += $candidates.Count
-            Write-Host ('  （预览）{0}: 将删除 {1} 个旧版本文件' -f $idText, $candidates.Count) -ForegroundColor Gray
-            continue
-        }
-
-        try {
-            $cleanup = Remove-WinstOldPackages -Context $Context -Id $idText -KeepFiles $keepFiles
+            $cleanup = Remove-WinstOldPackages -Context $Context -Id $idText -KeepFiles $keepFiles -Preview:$dryRun
         } catch {
             $failed++
             Write-Host ('  {0}: 清理失败：{1}' -f $idText, $_.Exception.Message) -ForegroundColor Red
+            continue
+        }
+        if ($dryRun) {
+            if ($cleanup.PreviewCount -gt 0) {
+                $total += $cleanup.PreviewCount
+                Write-Host ('  （预览）{0}: 将删除 {1} 个旧版本文件' -f $idText, $cleanup.PreviewCount) -ForegroundColor Gray
+            }
             continue
         }
         $removed = @($cleanup.Removed)

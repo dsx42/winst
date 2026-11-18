@@ -9,7 +9,7 @@ function Initialize-WinstInstallContext {
         供后续决策矩阵 / 下载 / 安装各段直接使用。Error 非空时调用方应立即返回该结果。
     .OUTPUTS
         @{ Error; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; Files; VersionFromPackage;
-           VersionFromCachedPackage; PlanFreshState; FreshMain; FreshMainReason; IsDownloadType; PrevEntry;
+           VersionFromCachedPackage; PlanFreshState; FreshMain; IsDownloadType; PrevEntry;
            Plans; NeedDownload; PrimaryTarget; CompanionDownloadCount; CompanionsOnly; Ledger }
     #>
     param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$Quiet, $Result, $CompanionInfo = $null, [hashtable]$InputLease)
@@ -95,6 +95,14 @@ function Initialize-WinstInstallContext {
     $prevEntry = $null
     if ($index.Contains($id)) { $prevEntry = $index[$id] }
 
+    $state = $stateRead.State
+    if ($stateRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor DarkYellow }
+    $ledger = Get-WinstInstalledApp -State $state -Id $id
+    $options = Get-WinstState -Name WinstOptions
+    # 仅附件更新需要先知道附件是否变化；其他实际取包流程把整包校验留到使用前。
+    $confirmBeforeUse = (-not ($options -and $options.DryRun) -and
+        ($isDownloadType -or -not $ledger -or $files.Count -eq 1))
+
     # -CheckValidators：安装 / 更新 / 仅下载都要按 files[].refresh 判定「缓存里那份还算不算数」
     # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）沿用缓存，changed / unknown 才重新取
     # 安装与仅下载操作共用主包版本优先判定；FreshMain 时不能用缓存包版本命中
@@ -105,10 +113,7 @@ function Initialize-WinstInstallContext {
         $plans = @($CompanionInfo.FilePlans)
     } else {
         $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $id -Files $files -CheckValidators `
-            -FreshMain:$freshMain -FreshMainReason:$freshMainReason)
-    }
-    if ($plans.Count -eq 0) {
-        return @{ Error = ('{0} 的软件定义里没有可下载的文件' -f $displayName) }
+            -FreshMain:$freshMain -FreshMainReason:$freshMainReason -ConfirmBeforeUse:$confirmBeforeUse -ConfirmMainBeforeUse)
     }
     $needDownload = $false
     # 注意：循环变量不能叫 $plan——PowerShell 变量名不区分大小写，会覆盖参数 $Plan（软件清单条目）
@@ -122,9 +127,6 @@ function Initialize-WinstInstallContext {
     }
     $companionsOnly = [bool]($companionDownloadCount -gt 0 -and -not $mainNeedsDownload)
 
-    $state = $stateRead.State
-    if ($stateRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor DarkYellow }
-    $ledger = Get-WinstInstalledApp -State $state -Id $id
     if (-not $isDownloadType -and $plans.Count -gt 1) {
         # 复用已完成的取包计划，同时把缺失目标、落位规则变化计入附件更新；不重复规划或联网。
         if (-not $CompanionInfo -or -not $CompanionInfo.Checked) {
@@ -139,7 +141,7 @@ function Initialize-WinstInstallContext {
         Error = ''; Id = $id; DisplayName = $displayName; Type = $type; Version = $version
         InstallDir = $installDir; PkgDir = $pkgDir; Install = $install; Files = $files
         VersionFromPackage = $versionFromPackage; VersionFromCachedPackage = $versionFromCachedPackage
-        PlanFreshState = $planFreshState; FreshMain = $freshMain; FreshMainReason = $freshMainReason
+        PlanFreshState = $planFreshState; FreshMain = $freshMain
         IsDownloadType = $isDownloadType; PrevEntry = $prevEntry; Plans = $plans; NeedDownload = $needDownload
         PrimaryTarget = $primaryTarget; CompanionDownloadCount = $companionDownloadCount
         CompanionsOnly = $companionsOnly; Ledger = $ledger

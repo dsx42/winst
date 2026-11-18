@@ -126,18 +126,9 @@ function Invoke-PathSettingItem {
     $configPath = Join-WinstPath $Context.DataRoot 'config.json'
     if (-not (Set-ConfigValue -Context $Context -Key $Key -DisplayName $DisplayName -Value $value -Quiet)) { return }
 
-    $cliOverride = ''
-    # 选项对象可能是 hashtable 或 PSCustomObject：用键存在性读取，避免 StrictMode 下访问不存在的成员抛异常
-    $options = Get-WinstState -Name WinstOptions
-    if ($Key -eq 'installRoot' -and (Get-EntryString -Entry $options -Key 'InstallRoot')) { $cliOverride = '--install-root' }
-    if ($Key -eq 'pkgDir' -and (Get-EntryString -Entry $options -Key 'PkgDir')) { $cliOverride = '--pkg-dir' }
-
     Write-Host ''
     Write-Host ('  已保存到: {0}' -f $configPath) -ForegroundColor Green
     Write-Host ('  配置项:   {0} = {1}' -f $Key, $value) -ForegroundColor Gray
-    Write-Host ('  实际生效位置: {0}' -f (Expand-WinstPath -Path $value -Base $Context.DataRoot)) -ForegroundColor Gray
-    if ($cliOverride) {
-        Write-Host ('  注意: 本次运行使用了命令行参数 {0}，其优先级高于配置；重新运行 winst 后以配置为准。' -f $cliOverride) -ForegroundColor Yellow
-    }
+    Write-Host ('  实际生效位置: {0}  {1}' -f $Context[$Key], (Get-ConfigTag -Context $Context -Key $Key)) -ForegroundColor Gray
     Write-Host '  提示: 已打开的终端需重开（或重新运行 winst）后 PATH / 环境变量才完全生效。' -ForegroundColor DarkGray
 }

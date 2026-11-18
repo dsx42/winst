@@ -27,12 +27,12 @@ function Copy-WinstBundleItem {
         $item = $current.Item
         Assert-WinstSafeWritePath -Path $item.FullName
         Assert-WinstSafeWritePath -Path $current.Destination -Directory:$item.PSIsContainer
-        if ((Test-Path -LiteralPath $current.Destination) -and
-            ([bool](Get-Item -LiteralPath $current.Destination -Force -ErrorAction Stop).PSIsContainer -ne [bool]$item.PSIsContainer)) {
+        $destinationItem = Get-WinstFileSystemItem -Path $current.Destination -AllowMissing
+        if ($destinationItem -and $destinationItem.PSIsContainer -ne $item.PSIsContainer) {
             throw ('套件来源与目标类型不一致：{0}' -f $current.Destination)
         }
         if ($item.PSIsContainer) {
-            if (-not (Test-Path -LiteralPath $current.Destination -PathType Container)) {
+            if (-not $destinationItem) {
                 $null = New-Item -ItemType Directory -Path $current.Destination -Force -ErrorAction Stop
             }
             foreach ($child in @(Get-ChildItem -LiteralPath $item.FullName -Force -ErrorAction Stop)) {

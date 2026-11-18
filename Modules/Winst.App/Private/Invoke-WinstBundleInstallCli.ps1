@@ -39,7 +39,7 @@ function Invoke-WinstBundleInstallCli {
 
     Write-Host ''
     Write-Host ('  安装清单: {0}（{1} 项）' -f [string]$target.Path, @($loaded.Items).Count) -ForegroundColor Gray
-    $null = Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead -Quiet
+    Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead -Quiet
 
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
     $stats = Invoke-WinstBundleInstallRun -Context $Context -Items @($loaded.Items) -InstallYes:$yes `
@@ -49,12 +49,9 @@ function Invoke-WinstBundleInstallCli {
     Write-WinstBundleInstallSummary -Stats $stats
 
     $failCount = [int]$stats['FailCount']
-    $okCount = [int]$stats['OkCount']
-    $skipCount = [int]$stats['SkipCount']
     if ([bool]$stats['Network'] -or (Get-EntryBool -Entry $loaded.Refresh -Key 'Network')) { return 2 }
     if ($failCount -gt 0) { return 3 }
     if ([int]$stats['MissingCount'] -gt 0) { return 1 }
     if ((Get-EntryInt -Entry $loaded.Refresh -Key 'Failed') -gt 0) { return 1 }
-    if ($okCount -eq 0 -and $skipCount -eq 0 -and [int]$stats['CancelCount'] -eq 0) { return 1 }
     return 0
 }

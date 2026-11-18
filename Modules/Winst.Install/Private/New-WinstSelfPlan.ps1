@@ -6,15 +6,13 @@
 
     为什么必须现构造计划
     --------------------
-    别处的计划都来自软件源：
-
-        Get-WinstManifestAppPlan -> Resolve-AppSource -> New-ResolvedAppPlan
+    常规安装计划由 Get-WinstManifestAppPlan 从软件源取得。
 
     那条路要求源可访问，而全新机器上的首次安装没有可访问的源：
     还没有刷新过目录，仓库也可能在用户运行安装脚本时尚未发布任何版本。
     依赖它会让引导过程变成循环。
 
-    包已经在手上，定义是预先知道的。下面这块与 New-ResolvedAppPlan 产出的结构相同，
+    包已经在手上，定义是预先知道的。下面这块与软件源计划的结构相同，
     填入真实清单条目为 id "winst" 声明的值：
 
         type        portable        目录形态：winst.ps1 + winst.cmd + Modules\
@@ -27,7 +25,7 @@
     会与从软件源装的 winst 行为不同；台账也会记下与实际落地不符的快捷方式或卸载方式。
 
     .OUTPUTS
-        [ordered] 计划哈希表，键与 New-ResolvedAppPlan 产出的相同
+        [ordered] 计划哈希表，键与软件源计划相同
 #>
 function New-WinstSelfPlan {
     <#

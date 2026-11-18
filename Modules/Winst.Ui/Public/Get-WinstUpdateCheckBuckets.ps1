@@ -3,9 +3,9 @@
 function Get-WinstUpdateCheckBuckets {
     <#
     .SYNOPSIS
-        把「检查更新」的结果分成三档：可以更新 / 附加文件有更新 / 无法比较。
+        归类「检查更新」的可更新项、无法比较项和失败项，并统计已是最新的条目。
     .OUTPUTS
-        @{ UpdatableIds; UpdateEntries; Uncomparable; UnknownInUpdatable; CompanionUpdatable; SummaryText }
+        @{ UpdatableIds; UpdateEntries; Uncomparable; FailedEntries; LatestCount; UnknownInUpdatable; CompanionUpdatable; SummaryText }
     .DESCRIPTION
         「可以更新」= `Action = check`（有更新版本、以及「无法比较版本」但按软件源定义更新这两类）
         **加上** `Action = files`（主包无变化、只有附加文件有更新）。`UpdatableIds` 与 `UpdateEntries`
@@ -15,16 +15,16 @@ function Get-WinstUpdateCheckBuckets {
     #>
     param($Entries)
 
-    $updatableIds = @()
     $updateEntries = @()
     $uncomparable = @()
+    $failedEntries = @()
+    $latestCount = 0
     $unknownInUpdatable = 0
     $companionUpdatable = 0
 
     foreach ($one in @($Entries)) {
         $action = [string]$one['Action']
         if ($action -eq 'check' -or $action -eq 'files') {
-            $updatableIds += [string]$one['Id']
             $updateEntries += $one
             if ($action -eq 'files') {
                 $companionUpdatable++
@@ -35,20 +35,24 @@ function Get-WinstUpdateCheckBuckets {
             continue
         }
         if ($action -eq 'unknown' -or $action -eq 'newer') { $uncomparable += $one }
+        elseif ($action -eq 'failed') { $failedEntries += $one }
+        elseif ($action -eq 'latest') { $latestCount++ }
     }
 
     $notes = @()
     if ($unknownInUpdatable -gt 0) { $notes += ('{0} 个版本没法自动比较，会按软件源里的版本更新' -f $unknownInUpdatable) }
     if ($companionUpdatable -gt 0) { $notes += ('{0} 个主包没变、只有附加文件有更新' -f $companionUpdatable) }
-    $summaryText = ('共 {0} 个软件可以更新' -f $updatableIds.Count)
+    $summaryText = ('共 {0} 个软件可以更新' -f $updateEntries.Count)
     if ($notes.Count -gt 0) {
-        $summaryText = ('共 {0} 个软件可以更新（其中 {1}）' -f $updatableIds.Count, ($notes -join '；'))
+        $summaryText = ('共 {0} 个软件可以更新（其中 {1}）' -f $updateEntries.Count, ($notes -join '；'))
     }
 
     return @{
-        UpdatableIds       = @($updatableIds)
+        UpdatableIds       = @(foreach ($entry in $updateEntries) { [string]$entry['Id'] })
         UpdateEntries      = @($updateEntries)
         Uncomparable       = @($uncomparable)
+        FailedEntries      = @($failedEntries)
+        LatestCount        = $latestCount
         UnknownInUpdatable = $unknownInUpdatable
         CompanionUpdatable = $companionUpdatable
         SummaryText        = $summaryText

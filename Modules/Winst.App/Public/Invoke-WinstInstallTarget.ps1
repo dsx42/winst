@@ -87,10 +87,12 @@ function Invoke-WinstInstallTarget {
         }
 
         while ($true) {
-            Show-WinstPlanDetail -Context $Context -Plan $plan -SourceName $sourceName
+            $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+            $planId = Get-EntryString -Entry $plan -Key 'id'
+            $ledgerNow = Get-WinstInstalledApp -State $stateRead.State -Id $planId
+            Show-WinstPlanDetail -Context $Context -Plan $plan -SourceName $sourceName -StateRead $stateRead -Ledger $ledgerNow
 
-            $planTypeName = ([string](Get-EntryString -Entry $plan -Key 'type')).Trim().ToLowerInvariant()
-            $isDownloadPlan = ($planTypeName -eq 'download')
+            $isDownloadPlan = (Get-EntryString -Entry $plan -Key 'type') -eq 'download'
             if ($isDownloadPlan) {
                 Write-Host '    这是「仅下载软件包」类型的软件：只下载软件包到安装包位置，不安装到电脑。' -ForegroundColor DarkGray
                 $ignoredOptions = @()
@@ -113,14 +115,7 @@ function Invoke-WinstInstallTarget {
 
             # 本机已装版本 / 软件源版本：决定提示是「安装」还是「更新到 x.y ↑」
             $planVersion = Get-EntryString -Entry $plan -Key 'version'
-            $installedVersion = ''
-            $planId = Get-EntryString -Entry $plan -Key 'id'
-            $stateNow = $null
-            if ($planId) {
-                $stateNow = (Read-WinstState -InstallRoot $Context.InstallRoot).State
-                $ledgerNow = Get-WinstInstalledApp -State $stateNow -Id $planId
-                if ($ledgerNow) { $installedVersion = Get-EntryString -Entry $ledgerNow -Key 'version' }
-            }
+            $installedVersion = Get-EntryString -Entry $ledgerNow -Key 'version'
             $isUpgrade = $false
             if (-not $downloadMode -and $installedVersion -and $planVersion) {
                 if ((Compare-WinstVersion -A $planVersion -B $installedVersion) -gt 0) { $isUpgrade = $true }
@@ -131,7 +126,7 @@ function Invoke-WinstInstallTarget {
             }
 
             # —— 依赖：先解析传递依赖里需要动作的部分，统一提示一次、随本体一并确认 ——
-            $deps = Get-WinstInstallTargetDependencies -Context $Context -Plan $plan -PlanId $planId -State $stateNow `
+            $deps = Get-WinstInstallTargetDependencies -Context $Context -Plan $plan -PlanId $planId -State $stateRead.State `
                 -SkipDependencies:$SkipDependencies -IsDownloadPlan:$isDownloadPlan
             $depSteps = @($deps.Steps)
 
@@ -141,7 +136,7 @@ function Invoke-WinstInstallTarget {
                 if (Test-WinstPreparedCompanions -Info $PreparedCompanions -Plan $plan) {
                     $companionInfo = $PreparedCompanions
                 } else {
-                    $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $plan -Prepare:$Yes
+                    $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $plan -Prepare:$Yes -ConfirmMainBeforeUse
                 }
                 if ($companionInfo.CompanionsOnly) {
                     Write-Host ('    附加文件有更新（{0} 个）: {1}' -f $companionInfo.ChangedCount, ($companionInfo.Names -join '、')) -ForegroundColor DarkYellow

@@ -19,17 +19,10 @@ function ConvertTo-WinstCacheIndexEntry {
     # 每个包文件的 sha256
     $hashes = New-WinstOrdinalDictionary -IgnoreCase
     $hashObj = Get-EntryValue -Entry $Entry -Key 'hashes' -Default $null
-    if ($null -ne $hashObj) {
-        if ($hashObj -is [System.Collections.IDictionary]) {
-            foreach ($key in @($hashObj.Keys)) {
-                $value = [string]$hashObj[$key]
-                if ($key -and $value) { $hashes[[string]$key] = $value.ToLowerInvariant() }
-            }
-        } else {
-            foreach ($hp in $hashObj.PSObject.Properties) {
-                if ($hp.Name -and $hp.Value) { $hashes[$hp.Name] = ([string]$hp.Value).ToLowerInvariant() }
-            }
-        }
+    foreach ($pair in @(Get-WinstEntryPairs -Entry $hashObj)) {
+        $key = [string]$pair[0]
+        $value = [string]$pair[1]
+        if ($key -and $value) { $hashes[$key] = $value.ToLowerInvariant() }
     }
     # 每个包文件「按软件源声明算法」的摘要（如 Maven 的 sha512；软件源声明非 sha256 时用它免去重算）
     # 读自 JSON 时嵌套对象是 PSCustomObject（不是 IDictionary），两种形态都要认

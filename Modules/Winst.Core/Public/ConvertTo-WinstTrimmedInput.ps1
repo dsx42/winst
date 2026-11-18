@@ -9,10 +9,7 @@ function ConvertTo-WinstTrimmedInput {
     #>
     param([string]$Value)
 
-    if ($null -eq $Value) { return '' }
-    $text = ([string]$Value).Trim()
-    $text = $text.Trim([char]0xFEFF).Trim([char]0x200B).Trim()
-    $text = $text -replace "[\u200B-\u200D\uFEFF]", ''
+    $text = $Value -replace "[\u200B-\u200D\uFEFF]", ''
     $text = $text.Trim()
 
     while ($text.Length -ge 2) {

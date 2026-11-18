@@ -12,13 +12,14 @@ function Remove-WinstAtomicTempFile {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     for ($attempt = 1; $attempt -le 2; $attempt++) {
-        try { Remove-Item -LiteralPath $Path -Force -ErrorAction Stop } catch { }
+        try { Remove-Item -LiteralPath $Path -Force -ErrorAction Stop; return } catch { }
         if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
         # 服务端杀软 / 备份扫描可能短暂占用刚写完的临时文件：等一下再试一次
         if ($attempt -lt 2) { Start-Sleep -Milliseconds 50 }
     }
 
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
+    $options = Get-WinstState -Name WinstOptions
+    if ($options -and $options.Verbose) {
         Write-Host ('  [verbose] 临时文件未能删除（目录可能不允许删除，或文件被其它进程占用）：{0}' -f $Path) -ForegroundColor DarkGray
     }
 }

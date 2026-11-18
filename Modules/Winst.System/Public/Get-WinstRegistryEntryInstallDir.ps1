@@ -26,16 +26,8 @@ function Get-WinstRegistryEntryInstallDir {
         # `C:\Program`，再退到父目录就变成 `C:\`（或 apps 目录的父目录）——
         # 那个路径会被当成安装目录写进记录，卸载时进入「是否删除残留」，
         # 一把删掉同目录下的其它软件。Split-WinstCommandLine 就是按 .exe 锚定的。
-        $value = ''
         $split = Split-WinstCommandLine -Text $text
-        if ($split.Ok -and [string]$split.Exe) {
-            $value = ([string]$split.Exe).Trim('"')
-        } else {
-            $value = $text
-            $spaceIndex = $value.IndexOf(' ')
-            if ($spaceIndex -gt 0) { $value = $value.Substring(0, $spaceIndex) }
-        }
-        $path = ConvertTo-WinstDirPath -Text $value
+        $path = ConvertTo-WinstDirPath -Text ([string]$split.Exe).Trim('"')
         if (-not $path) { continue }
         $dir = ''
         if (Test-Path -LiteralPath $path -PathType Container -ErrorAction Stop) {

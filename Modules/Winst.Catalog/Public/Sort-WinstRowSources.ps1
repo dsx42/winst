@@ -13,14 +13,16 @@ function Sort-WinstRowSources {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         $Row,
-        [string]$InstalledVersion = ''
+        [string]$InstalledVersion = '',
+        [hashtable]$Lookup = @{}
     )
 
     if (-not $Row) { return $Row }
     $sources = @($Row['Sources'])
     if ($sources.Count -le 1) { return $Row }
 
-    $map = Get-WinstSourcePriority -Context $Context
+    if (-not $Lookup.ContainsKey('Priority')) { $Lookup.Priority = Get-WinstSourcePriority -Context $Context }
+    $map = $Lookup.Priority
     $sorted = @($sources | Sort-Object -Property `
         @{ Expression = {
             if (-not $InstalledVersion) { return 0 }

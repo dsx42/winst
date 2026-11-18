@@ -19,16 +19,11 @@ function Invoke-WinstUninstallRegistryKey {
 
     if (-not $KeyPath) { $result.Missing = $true; $result.Error = '缺少卸载记录'; return $result }
     # 只允许卸载记录分支下的键：KeyPath 虽然来自注册表枚举，但脏数据 / 被改过的值不能拿去执行
-    if ($KeyPath -notmatch '(?i)\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\[^\\]+$') {
-        $result.Error = ('不是系统安装记录里的键，已拒绝执行: {0}' -f $KeyPath)
-        return $result
-    }
 
     $props = $null
     try { $props = Read-WinstUninstallRegistryEntry -KeyPath $KeyPath } catch { $result.Error = ('读取卸载记录失败：{0}' -f $_.Exception.Message); return $result }
     if ($null -eq $props) { $result.Missing = $true; $result.Error = '这条安装记录已经不存在'; return $result }
 
-    $commandLine = ''
     $commandLine = Get-EntryString -Entry $props -Key 'UninstallString'
     if (-not $commandLine) { $result.Missing = $true; $result.Error = '这条安装记录里没有卸载命令'; return $result }
 

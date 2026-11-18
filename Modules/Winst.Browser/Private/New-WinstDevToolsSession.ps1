@@ -19,13 +19,13 @@ function New-WinstDevToolsSession {
         几 KB 的管道缓冲写满会让浏览器卡住。所以只保留文本（失败时截尾部拼进原因），不再落临时文件。
         默认把下载设为 `deny`：只让浏览器上报下载地址、不真下文件。
     .OUTPUTS
-        @{ Ok; Error; Socket; Token; TokenSource; SessionId; TargetId; ProcessId; Process; StdoutTask; StderrTask; ProfileDir; Engine; Downloads; Requests }
+        @{ Ok; Error; Socket; Token; TokenSource; SessionId; TargetId; Process; ProfileDir; Engine; Downloads; Requests }
     #>
     param(
         [string]$ProxyUrl = '',
         [string]$UserAgent = '',
         [int]$TimeoutSec = 40,
-        [datetime]$Deadline = [datetime]::MaxValue
+        [Parameter(Mandatory = $true)][datetime]$Deadline
     )
 
     $result = @{
@@ -38,10 +38,7 @@ function New-WinstDevToolsSession {
         NextId      = 1
         SessionId   = ''
         TargetId    = ''
-        ProcessId   = 0
         Process     = $null
-        StdoutTask  = $null
-        StderrTask  = $null
         ProfileDir  = ''
         Engine      = ''
         Downloads   = (New-Object System.Collections.ArrayList)
@@ -52,13 +49,9 @@ function New-WinstDevToolsSession {
         Deadline    = $Deadline
         CleanupError = ''
     }
-    $localDeadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
-    if ($localDeadline -lt $result.Deadline) { $result.Deadline = $localDeadline }
-
     $exe = Get-WinstSystemBrowserExe
     if (-not $exe) {
         $result.Error = '系统里没有找到 Microsoft Edge（Windows 自带的浏览器内核，无头抓取只用它）'
-        Close-WinstDevToolsSession -Session $result
         return $result
     }
     $result.Engine = Split-Path -Leaf $exe
@@ -78,7 +71,6 @@ function New-WinstDevToolsSession {
 
     # 浏览器的 stdout / stderr 必须有人读走（见上方说明），启动后立刻异步抽干；不落临时文件，
     # 失败时从 $cleanup 里把 stderr 尾部拼进错误原因
-    $stdoutTask = $null
     $stderrTask = $null
 
     $argList = @(
@@ -107,13 +99,10 @@ function New-WinstDevToolsSession {
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
         $process = [Diagnostics.Process]::Start($psi)
-        $result.ProcessId = $process.Id
         $result.Process = $process
         # 立刻抽干两路输出：管道写满会把浏览器卡在半路
-        $stdoutTask = [Winst.State]::CaptureAsync($process.StandardOutput, 65536, $true)
+        $null = [Winst.State]::CaptureAsync($process.StandardOutput, 65536, $true)
         $stderrTask = [Winst.State]::CaptureAsync($process.StandardError, 65536, $true)
-        $result.StdoutTask = $stdoutTask
-        $result.StderrTask = $stderrTask
     } catch {
         $result.Error = ('无法启动无头浏览器：{0}' -f $_.Exception.Message)
         Close-WinstDevToolsSession -Session $result
@@ -196,7 +185,6 @@ function New-WinstDevToolsSession {
         $result.SessionId = [string]$attached.result.sessionId
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Page.enable'
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Network.enable'
-        $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Runtime.enable'
         $tree = Invoke-WinstDevToolsCommand -Session $result -Method 'Page.getFrameTree'
         $result.FrameId = [string]$tree.result.frameTree.frame.id
         if (-not $result.FrameId) { throw '读不到浏览器主 frame 身份' }

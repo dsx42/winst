@@ -9,7 +9,7 @@ function Add-RemoteManifest {
         （<pkgDir>\manifests\sources.json），多机共用同一安装包位置时共享。
         **添加即校验**：实际拉取清单并解析成功才写入；失败报明确原因且不写盘。
     .OUTPUTS
-        @{ Success; Message; Name; Version; Apps; Resolved; ResolveFailed; Total }
+        @{ Success; Message; Name; Version; Apps }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -22,9 +22,6 @@ function Add-RemoteManifest {
         Name          = ''
         Version       = ''
         Apps          = @()
-        Resolved      = 0
-        ResolveFailed = 0
-        Total         = 0
     }
 
     $parsed = Resolve-GitHubManifestInput -RepoOrUrl $RepoOrUrl
@@ -67,18 +64,15 @@ function Add-RemoteManifest {
     $result.Name = $sourceName
     $result.Version = [string]$check.Version
     $result.Apps = @($check.Apps)
-    $result.Resolved = [int]$check.Resolved
-    $result.ResolveFailed = [int]$check.ResolveFailed
-    $result.Total = [int]$check.Total
 
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) {
         $result.Success = $true
         $result.Message = ('（预览）将添加软件源 {0}；清单可用（版本 {1}），共 {2} 个软件，可用 {3} / 有误 {4}（未保存）' -f `
-            $sourceName, (Format-ManifestVersion -Version $result.Version), $result.Total, $result.Resolved, $result.ResolveFailed)
+            $sourceName, (Format-ManifestVersion -Version $result.Version), $check.Total, $check.Resolved, $check.ResolveFailed)
         return $result
     }
 
-    $sources = @(Get-RemoteManifestList -PkgDir $Context.PkgDir)
+    $sources = @(Read-ManifestSources -PkgDir $Context.PkgDir)
     $sources += [ordered]@{ name = $sourceName; repo = $sourceName; url = [string]$parsed.Url }
     try {
         Write-ManifestSources -PkgDir $Context.PkgDir -Sources $sources
@@ -98,6 +92,6 @@ function Add-RemoteManifest {
 
     $result.Success = $true
     $result.Message = ('已添加软件源 {0}（清单版本 {1}）；共 {2} 个软件，可用 {3} / 有误 {4}' -f `
-        $sourceName, (Format-ManifestVersion -Version $result.Version), $result.Total, $result.Resolved, $result.ResolveFailed)
+        $sourceName, (Format-ManifestVersion -Version $result.Version), $check.Total, $check.Resolved, $check.ResolveFailed)
     return $result
 }

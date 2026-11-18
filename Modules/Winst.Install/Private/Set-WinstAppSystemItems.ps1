@@ -18,7 +18,7 @@ function Set-WinstAppSystemItems {
         「仅更新文件」模式不做本函数（环境变量一律不动），改由 Set-WinstAppShortcuts -ExistingOnly
         修正已经存在但指向不对的快捷方式。
     .OUTPUTS
-        @{ AppliedEnv; AppliedPath; AppliedShortcuts; RepairedShortcuts; Notes; Scope; Error }
+        @{ AppliedEnv; AppliedPath; AppliedShortcuts; Notes; Scope; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -31,7 +31,6 @@ function Set-WinstAppSystemItems {
     $appliedEnv = @()
     $appliedPath = @()
     $appliedShortcuts = @()
-    $repairedShortcuts = @()
     $notes = @()
     $shortcutHashes = @{}
 
@@ -102,7 +101,6 @@ function Set-WinstAppSystemItems {
         $shortcuts = Set-WinstAppShortcuts -Context $Context -Plan $Plan -InstallDir $InstallDir -OwnedShortcuts $OwnedShortcuts
         $shortcutHashes = $shortcuts.Hashes
         $appliedShortcuts = @($shortcuts.Applied)
-        $repairedShortcuts = @($shortcuts.Repaired)
         foreach ($note in @($shortcuts.Notes)) { $notes += $note }
 
     } catch {
@@ -110,5 +108,5 @@ function Set-WinstAppSystemItems {
     } finally { Complete-WinstEnvironmentChanges -Changes $changes }
 
     return @{ AppliedEnv = $appliedEnv; AppliedPath = $appliedPath; AppliedShortcuts = $appliedShortcuts; ShortcutHashes = $shortcutHashes
-              RepairedShortcuts = $repairedShortcuts; Notes = $notes; Scope = $scope; Error = $errorText }
+              Notes = $notes; Scope = $scope; Error = $errorText }
 }

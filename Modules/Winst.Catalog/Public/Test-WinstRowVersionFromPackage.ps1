@@ -10,10 +10,7 @@ function Test-WinstRowVersionFromPackage {
     .OUTPUTS
         [bool]
     #>
-    param($Row)
+    param($Row, $Chosen = (Get-WinstRowBestPlanEntry -Row $Row))
 
-    if (-not $Row) { return $false }
-    if (Get-WinstRowBestSourceEntry -Row $Row) { return $false }
-    $chosen = Get-WinstRowBestPlanEntry -Row $Row
-    return [bool]($chosen -and (Get-EntryBool -Entry $chosen['Plan'] -Key 'versionFromPackage'))
+    return [bool]($Chosen -and (Get-EntryBool -Entry $Chosen['Plan'] -Key 'versionFromPackage'))
 }

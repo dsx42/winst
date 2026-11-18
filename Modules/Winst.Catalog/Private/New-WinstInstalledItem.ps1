@@ -114,7 +114,7 @@ function New-WinstInstalledItem {
     }
 
     return [ordered]@{
-        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Row $Row -Ledger $Entry -CacheIndex $CacheIndex)
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Plan (Get-EntryValue -Entry $facts.Chosen -Key 'Plan') -Ledger $Entry -CacheIndex $CacheIndex)
         Id               = $Id
         DisplayName      = $displayName
         Group            = $group

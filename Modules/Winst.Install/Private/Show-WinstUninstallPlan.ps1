@@ -7,7 +7,9 @@ function Show-WinstUninstallPlan {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [Parameter(Mandatory = $true)]$Targets
+        [Parameter(Mandatory = $true)]$Targets,
+        [string]$CommandDir,
+        [switch]$SkipCommands
     )
 
     Write-Host ''
@@ -60,10 +62,11 @@ function Show-WinstUninstallPlan {
     }
 
     # 卸载命令：删目录 / 跑官方卸载器**之前**执行，确认页先把命令列出来
-    foreach ($command in @($Targets['Commands'])) {
-        $exeText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'exe') -InstallDir ([string]$Targets['InstallDir']) -InstallRoot $Context.InstallRoot))
-        $argsText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'args') -InstallDir ([string]$Targets['InstallDir']) -InstallRoot $Context.InstallRoot))
-        Write-Host (('    执行卸载命令: {0} {1}' -f $exeText, $argsText).TrimEnd()) -ForegroundColor Gray
+    if (-not $SkipCommands) {
+        foreach ($command in @($Targets['Commands'])) {
+            $expanded = Expand-WinstPlanCommand -Command $command -InstallDir $CommandDir -InstallRoot $Context.InstallRoot
+            if ($expanded.Exe) { Write-Host (('    将执行卸载命令: {0} {1}' -f $expanded.Exe, $expanded.Arguments).TrimEnd()) -ForegroundColor Gray }
+        }
     }
 
     $cleanup = @($Targets['CleanupItems'])

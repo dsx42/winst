@@ -26,8 +26,17 @@ function Invoke-WinstHttpRequest {
     if (-not $NoCache) {
         # -NoCache 时不构造缓存键（键里要排序请求头，纯属白算）
         $cacheKey = Get-WinstHttpCacheKey -Uri $Uri -Headers $Headers -Method $Method
-        $cached = Get-WinstHttpCacheEntry -Key $cacheKey -TextOnly:$TextOnly
-        if ($cached) { return $cached }
+        $cached = Get-WinstHttpCacheEntry -Key $cacheKey
+        if ($cached) {
+            if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
+                $age = ([DateTime]::Now - $cached.At).TotalSeconds
+                Write-Host ('  [verbose] 命中进程内缓存（{0} 秒前）: {1}' -f [int]$age, $Uri) -ForegroundColor DarkGray
+            }
+            if (-not $TextOnly -and $null -eq $cached.Links) {
+                $cached.Links = @(Get-HtmlAnchorList -Html $cached.Content)
+            }
+            return @{ Content = $cached.Content; Links = $cached.Links; FinalUri = $cached.FinalUri; FromCache = $true }
+        }
     }
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
@@ -74,7 +83,7 @@ function Invoke-WinstHttpRequest {
                 Write-Host ('  [verbose] 响应 {0} 字节，锚点 {1} 个：{2}' -f $text.Length, @($links | Where-Object { $null -ne $_ }).Count, $preview) -ForegroundColor DarkGray
             }
 
-            if (-not $NoCache) { Set-WinstHttpCacheEntry -Key $cacheKey -Content $text -Links $links -FinalUri $finalUri }
+            if (-not $NoCache) { Set-WinstHttpCacheEntry -Key $cacheKey -Entry @{ Content = $text; Links = $links; FinalUri = $finalUri } }
             return @{ Content = $text; Links = $links; FinalUri = $finalUri; FromCache = $false }
         } catch {
             $lastError = $_

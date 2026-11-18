@@ -16,13 +16,12 @@ function Get-WinstSearchCatalog {
         [string[]]$Ids
     )
 
-    $keywordText = ''
-    if ($null -ne $Keyword) { $keywordText = ([string]$Keyword).Trim() }
+    $keywordText = $Keyword.Trim()
 
     # 搜索各来源的名称和说明后再合并，同一 id 可以只命中部分来源。
     $filtered = $PSBoundParameters.ContainsKey('Ids')
     $cache = Get-WinstState -Name WinstSearchCatalogCache
-    if (-not $filtered -and -not $keywordText -and $cache -and $cache.ContainsKey('')) { return $cache[''] }
+    if (-not $filtered -and -not $keywordText -and $null -ne $cache) { return $cache }
 
     $groups = New-WinstOrdinalDictionary
     if ($filtered) {
@@ -77,7 +76,7 @@ function Get-WinstSearchCatalog {
     }
     $finalRows = @($rows.ToArray())
     if (-not $filtered -and -not $keywordText) {
-        $null = Set-WinstState -Name WinstSearchCatalogCache -Value @{ '' = $finalRows }
+        $null = Set-WinstState -Name WinstSearchCatalogCache -Value $finalRows
     }
     return $finalRows
 }

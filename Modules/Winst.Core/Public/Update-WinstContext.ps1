@@ -3,19 +3,16 @@
 function Update-WinstContext {
     <#
     .SYNOPSIS
-        重读 config.json 并就地刷新上下文（横幅与菜单显示立即反映新配置）。
+        就地应用已解析的上下文，未提供时从当前配置重新构造。
     #>
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Context
+        [hashtable]$Context,
+        [hashtable]$NextContext
     )
 
-    $config = Get-WinstConfig -DataRoot $Context.DataRoot
-    $pkg = Resolve-PkgDir -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $config
-
-    $Context.Config = $config
-    $Context.InstallRoot = Resolve-InstallRoot -DataRoot $Context.DataRoot -Options (Get-WinstState -Name WinstOptions) -Config $config
-    $Context.PkgDir = $pkg.Path
-    $Context.InstallRootLabel = Get-ConfigTag -Context $Context -Key 'installRoot'
-    $Context.PkgDirLabel = Get-ConfigTag -Context $Context -Key 'pkgDir'
+    if (-not $NextContext) {
+        $NextContext = New-WinstContext -Options (Get-WinstState -Name WinstOptions) -DataRoot $Context.DataRoot
+    }
+    foreach ($key in $NextContext.Keys) { $Context[$key] = $NextContext[$key] }
 }

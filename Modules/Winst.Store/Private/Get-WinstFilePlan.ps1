@@ -108,7 +108,7 @@ function Get-WinstFilePlan {
             ([string]$meta.ExpectedHash -ieq $declaredHash) -and
             -not [string]$meta.ChecksumHashFile -and -not [string]$meta.ChecksumFingerprint)
     } elseif ($declaredHashFile) {
-        $currentFingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $name -FileDecl $File `
+        $currentFingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $name -FileDecl $File -HashFile $declaredHashFile `
             -FileUrl $url -FileVersion ([string]$plan['FileVersion'])
         $hasCurrentChecksumProvenance = ([string]$meta.ChecksumFingerprint -and
             ([string]$meta.ChecksumFingerprint -ieq $currentFingerprint))
@@ -131,12 +131,6 @@ function Get-WinstFilePlan {
     $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline:$localOnly `
         -CachedMeta $meta -FileUrl $url -FileVersion ([string]$plan['FileVersion']) -IgnoreCachedHash:($ignoreCachedHash -and $CanCheckRemote)
     if (-not $expected.Ok) {
-        if ($Offline) {
-            $plan['NeedDownload'] = $true
-            $plan['Reason'] = '离线缓存缺少可验证的校验信息'
-            $plan['Hint'] = [string]$expected.Error
-            return $plan
-        }
         # 无法取得声明的校验信息时，缓存不能被视为已验证；交给下载 / 校验阶段明确报错。
         $plan['NeedDownload'] = $true
         $plan['ValidationError'] = [string]$expected.Error
@@ -147,7 +141,7 @@ function Get-WinstFilePlan {
     }
     if ($expected.Skipped) {
         # ④ 未声明校验 → 按 files[].refresh 档位判定
-        Set-WinstFileRefreshDecision -Plan $plan -Context $Context -Meta $meta -Refresh $refresh `
+        Set-WinstFileRefreshDecision -Criteria $compareInfo.Criteria -Plan $plan -Context $Context -Meta $meta -Refresh $refresh `
             -Name $name -Target $target -Offline:$Offline -DryRun:$DryRun -CanCheckRemote:$CanCheckRemote
         return $plan
     }
@@ -156,8 +150,7 @@ function Get-WinstFilePlan {
     Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
     if (-not $plan['NeedDownload'] -and $CanCheckRemote -and -not $compareInfo.IsDefault -and
             @($compareInfo.Criteria | Where-Object { $_ -ne 'checksum' }).Count -gt 0) {
-        $refreshForComparison = @{ Mode = $refresh.Mode; MaxAgeHours = $refresh.MaxAgeHours }
-        Set-WinstFileValidatorDecision -Plan $plan -Context $Context -Meta $meta -Refresh $refreshForComparison `
+        Set-WinstFileValidatorDecision -Criteria $compareInfo.Criteria -Plan $plan -Context $Context -Meta $meta -Refresh $refresh `
             -Name $name -Target $target -HasLastChecked:$false -AgeHours 0 -ChecksumVerified
     }
     return $plan

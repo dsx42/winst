@@ -71,5 +71,5 @@ function Invoke-WinstListShow {
 
 
     Write-Host ''
-    $null = Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead
+    Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead
 }

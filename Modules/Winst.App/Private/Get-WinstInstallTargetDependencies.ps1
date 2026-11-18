@@ -5,7 +5,7 @@ function Get-WinstInstallTargetDependencies {
     .SYNOPSIS
         解析传递依赖里需要动作的部分（未安装 / 可更新），并打印缺失与汇总提示。
     .OUTPUTS
-        @{ Steps; Missing }
+        @{ Steps }
     #>
     param([hashtable]$Context, $Plan, [string]$PlanId, $State, [switch]$SkipDependencies, [switch]$IsDownloadPlan)
 
@@ -30,7 +30,7 @@ function Get-WinstInstallTargetDependencies {
                     $depEntry = $null
                     if ($depRow) { $depEntry = Get-WinstRowBestPlanEntry -Row $depRow }
                     if (-not $depEntry -or -not $depEntry['Plan']) {
-                        $depMissing += @{ Id = $depId; Level = [int]$one['Level']; Via = [string]$one['Via'] }
+                        $depMissing += @{ Id = $depId }
                         continue
                     }
 
@@ -57,11 +57,7 @@ function Get-WinstInstallTargetDependencies {
                         Id               = $depId
                         Name             = $depName
                         Row              = $depRow
-                        Level            = [int]$one['Level']
-                        Via              = [string]$one['Via']
                         ActionText       = $depActionText
-                        InstalledVersion = $depInstalledVersion
-                        TargetVersion    = $depTargetVersion
                     }
                 }
             }
@@ -78,5 +74,5 @@ function Get-WinstInstallTargetDependencies {
         }
         Write-Host ('    依赖: 将一并处理 {0}' -f ($depParts -join '、')) -ForegroundColor DarkYellow
     }
-    return @{ Steps = @($depSteps); Missing = @($depMissing) }
+    return @{ Steps = @($depSteps) }
 }

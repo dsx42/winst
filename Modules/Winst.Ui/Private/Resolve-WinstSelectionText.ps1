@@ -13,14 +13,13 @@ function Resolve-WinstSelectionText {
     param([string]$Text, [int]$Count)
 
     $numbers = @()
-    $tokens = @(([string]$Text) -split '[\s,，、]+')
+    $tokens = @($Text -split '[\s,，、]+')
     foreach ($token in $tokens) {
         if ($token -and $token -notmatch '^[+-]?\d+$') {
             return @{ Ok = $false; Numbers = @(); Bad = $token; OutOfRange = $false }
         }
     }
-    foreach ($token in $tokens) {
-        $item = ([string]$token).Trim()
+    foreach ($item in $tokens) {
         if (-not $item) { continue }
         $value = 0
         if (-not [int]::TryParse($item, [ref]$value)) {

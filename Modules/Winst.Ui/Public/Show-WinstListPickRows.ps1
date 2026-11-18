@@ -32,12 +32,7 @@ function Show-WinstListPickRows {
     while ($true) {
         $visible = @()
         if ($filterText) {
-            foreach ($row in $all) {
-                $hit = ([string]$row['Id']).IndexOf($filterText, [StringComparison]::OrdinalIgnoreCase) -ge 0
-                if (-not $hit) { $hit = ([string]$row['Name']).IndexOf($filterText, [StringComparison]::OrdinalIgnoreCase) -ge 0 }
-                if (-not $hit) { $hit = ([string]$row['Description']).IndexOf($filterText, [StringComparison]::OrdinalIgnoreCase) -ge 0 }
-                if ($hit) { $visible += $row }
-            }
+            $visible = @($all | Where-Object { Test-WinstListItemKeyword -Item $_ -Keyword $filterText -NameField 'Name' })
         } else {
             $visible = $all
         }

@@ -25,17 +25,6 @@ function Register-WinstExternalInstallRecord {
         $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir
         if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
     }
-    $old = @()
-    foreach ($item in @($OldVersions)) {
-        $oldVersion = Get-EntryString -Entry $item -Key 'Version'
-        if (-not $oldVersion) { $oldVersion = Get-EntryString -Entry $item -Key 'version' }
-        if (-not $oldVersion) { continue }
-        $old += [ordered]@{
-            version   = $oldVersion
-            detail    = (Get-EntryString -Entry $item -Key 'Detail')
-            recordKey = (Get-EntryString -Entry $item -Key 'RecordKey')
-        }
-    }
     $null = Save-WinstInstalledAppEntry -InstallRoot $Context.InstallRoot -Id $Id -Entry ([ordered]@{
         version          = $Version
         type             = $Type
@@ -45,6 +34,6 @@ function Register-WinstExternalInstallRecord {
         appliedEnv       = @()
         appliedPath      = @()
         appliedShortcuts = @()
-        oldVersions      = @($old)
+        oldVersions      = @(ConvertTo-WinstLedgerOldVersions -OldVersions $OldVersions)
     })
 }

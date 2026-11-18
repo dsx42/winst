@@ -14,7 +14,7 @@ function Get-RemoteManifestByName {
         [string]$Name
     )
 
-    foreach ($source in @(Get-RemoteManifestList -PkgDir $PkgDir)) {
+    foreach ($source in @(Read-ManifestSources -PkgDir $PkgDir)) {
         if ([string]$source['name'] -ieq $Name) { return $source }
     }
     return $null

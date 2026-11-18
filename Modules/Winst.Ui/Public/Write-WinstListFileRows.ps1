@@ -12,7 +12,7 @@ function Write-WinstListFileRows {
         $file = $items[$i]
         $when = ''
         if ($file['Modified']) {
-            try { $when = ([datetime]$file['Modified']).ToString('yyyy-MM-dd HH:mm') } catch { $when = '' }
+            $when = '{0:yyyy-MM-dd HH:mm}' -f $file['Modified']
         }
         Write-Host ('{0}{1}) {2}    {3} 项    {4}' -f $Indent, ($i + 1), [string]$file['Name'], [int]$file['Count'], $when) -ForegroundColor $Color
     }

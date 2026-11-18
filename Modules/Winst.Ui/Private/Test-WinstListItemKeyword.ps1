@@ -7,10 +7,10 @@ function Test-WinstListItemKeyword {
     .DESCRIPTION
         匹配范围与 `winst search` 一致（见 6 节）；缺失的字段自动跳过（如已装软件项没有说明）。
     #>
-    param($Item, [string]$Keyword)
+    param($Item, [string]$Keyword, [string]$NameField = 'DisplayName')
 
     if (-not $Keyword -or $null -eq $Item) { return $true }
-    foreach ($field in @('Id', 'DisplayName', 'Description')) {
+    foreach ($field in @('Id', $NameField, 'Description')) {
         $text = ''
         try { $text = [string]$Item[$field] } catch { $text = '' }
         if ($text -and $text.IndexOf($Keyword, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }

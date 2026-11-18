@@ -24,14 +24,10 @@ function Test-DownloadUrlForManifestCheck {
     )
 
     if ($Skip) { return 'skipped' }
-    if (-not $Url) { return 'unknown' }
 
     # 未显式给请求头时用浏览器式请求头（见上方说明）
     if (-not $Headers) { $Headers = Get-WinstBrowserHeaders }
 
     $probe = Get-WinstRemoteFileProbe -Uri $Url -Context $Context -Headers $Headers
-    if ($probe.State -eq 'ok') { return 'ok' }
-    if ($probe.State -eq 'missing') { return 'missing' }
-    if ($probe.State -eq 'blocked') { return 'blocked' }
-    return 'unknown'
+    return $probe.State
 }

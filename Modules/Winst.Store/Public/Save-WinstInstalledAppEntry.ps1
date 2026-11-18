@@ -43,8 +43,7 @@ function Save-WinstInstalledAppEntry {
     if ($previous) { $installedAt = Get-EntryString -Entry $previous -Key 'installedAt' }
     if (-not $installedAt) { $installedAt = $now }
 
-    $copy = [ordered]@{}
-    foreach ($pair in @(Get-WinstEntryPairs -Entry $Entry)) { $copy[[string]$pair[0]] = $pair[1] }
+    $copy = Copy-WinstObjectShallow -InputObject $Entry
     $copy['installedAt'] = $installedAt
     $copy['updatedAt'] = $now
 

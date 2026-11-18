@@ -10,32 +10,16 @@ function Show-WinstPlanDetail {
         [Parameter(Mandatory = $true)]$Plan,
         [string]$SourceName = '',
         [int]$Index = 0,
-        [int]$Total = 0
+        [int]$Total = 0, $StateRead, $Ledger
     )
 
-    $desktopDir = ''
-    try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
-    $startMenuDir = ''
-    if ($env:APPDATA) { $startMenuDir = Join-WinstPath $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
+    $shortcutDirs = Get-WinstPlanShortcutDirectories
 
-    # 本机已装版本与安装路径：用于在详情里突出「将更新到 x.y ↑」，并说明当前装在哪
-    $state = $null
-    $stateRead = $null
-    $installedVersion = ''
-    $installedDir = ''
-    $id = Get-EntryString -Entry $Plan -Key 'id'
-    if ($id) {
-        $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
-        $state = $stateRead.State
-        $ledger = Get-WinstInstalledApp -State $state -Id $id
-        if ($ledger) {
-            $installedVersion = Get-EntryString -Entry $ledger -Key 'version'
-            $installedDir = Get-EntryString -Entry $ledger -Key 'installDir'
-        }
-    }
+    $installedVersion = Get-EntryString -Entry $Ledger -Key 'version'
+    $installedDir = Get-EntryString -Entry $Ledger -Key 'installDir'
 
     Show-ResolvedAppPlan -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
         -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
-        -DesktopDir $desktopDir -StartMenuDir $startMenuDir `
-        -InstalledVersion $installedVersion -InstalledDir $installedDir -Context $Context -State $state -StateRead $stateRead
+        @shortcutDirs `
+        -InstalledVersion $installedVersion -InstalledDir $installedDir -Context $Context -State $StateRead.State -StateRead $StateRead
 }

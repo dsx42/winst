@@ -40,11 +40,7 @@ function Get-WinstArchiveInnerVersion {
                 $result.Error = ('读不出安装包内容（{0}）' -f $outer.Error)
                 return $result
             }
-            $innerEntry = ''
-            foreach ($entryPath in @($outer.Paths)) {
-                $entryName = Split-Path ([string]$entryPath) -Leaf
-                if ($entryName -like $innerGlob) { $innerEntry = [string]$entryPath; break }
-            }
+            $innerEntry = $outer.Paths | Select-Object -First 1
             if (-not $innerEntry) {
                 $result.Error = ('安装包里没找到内层压缩包（inner: {0}）；可能是安装包结构变更，需要更新软件源的 packageVersion 配置' -f $innerGlob)
                 return $result
@@ -75,10 +71,7 @@ function Get-WinstArchiveInnerVersion {
             $result.Error = ('读不出包内容（{0}）' -f $entries.Error)
             return $result
         }
-        $matched = ''
-        foreach ($entryPath in @($entries.Paths)) {
-            if (([string]$entryPath) -like $pathGlob) { $matched = [string]$entryPath; break }
-        }
+        $matched = $entries.Paths | Select-Object -First 1
         if (-not $matched) {
             $result.Error = ('包内没有命中 {0} 的条目；可能是安装包结构变更，需要更新软件源的 packageVersion 配置' -f $pathGlob)
             return $result

@@ -31,7 +31,7 @@ function Invoke-WinstConfigCommand {
         return 1
     }
     $expected = @{ list = 1; get = 2; set = 3; reset = 2 }[$sub]
-    if ($tokens.Count -gt $expected -or $sub.StartsWith('-') -or $key.StartsWith('-')) {
+    if ($tokens.Count -gt $expected -or $key.StartsWith('-')) {
         Write-Host '  config 含未知或多余参数。' -ForegroundColor Yellow
         return 1
     }
@@ -40,48 +40,28 @@ function Invoke-WinstConfigCommand {
     foreach ($k in @($Context.Config.Keys)) { $keys += [string]$k }
     $keys = @($keys | Sort-Object)
 
-    if ($sub -eq 'list') {
-        Write-Section 'winst config list'
-        Write-Host ''
-        foreach ($one in $keys) {
-            $tag = Get-ConfigTag -Context $Context -Key $one
-            # 路径类配置：命令行 / 环境变量 / U 盘来源的优先级高于 config.json，
-            # 此时要显示**实际生效**的路径（$Context 里已解析好的那份），
-            # 否则会打着 [环境变量] 的标记显示一个并未生效的默认值。
-            $display = [string](Get-ConfigValue -Config $Context.Config -Key $one)
-            if ($one -eq 'installRoot' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
-                $display = [string]$Context.InstallRoot
-            } elseif ($one -eq 'pkgDir' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
-                $display = [string]$Context.PkgDir
-            }
-            Write-Host ('  {0} = {1}    {2}' -f $one, $display, $tag) -ForegroundColor Gray
-        }
-        return 0
-    }
-
-    if (-not $key) {
+    if ($sub -ne 'list' -and -not $key) {
         Write-Host ''
         Write-Host ('  用法: winst config {0} <key>' -f $sub) -ForegroundColor Yellow
         return 1
     }
-    if ($keys -notcontains $key) {
+    if ($sub -ne 'list' -and $keys -notcontains $key) {
         Write-Host ''
         Write-Host ('  没有「{0}」这个配置项。' -f $key) -ForegroundColor Yellow
         Write-Host ('  可用: {0}' -f ($keys -join '、')) -ForegroundColor DarkGray
         return 1
     }
 
-    if ($sub -eq 'get') {
-        $tag = Get-ConfigTag -Context $Context -Key $key
-        # 与 list 同一口径：来源是命令行 / 环境变量 / U 盘时显示实际生效路径
-        $display = [string](Get-ConfigValue -Config $Context.Config -Key $key)
-        if ($key -eq 'installRoot' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
-            $display = [string]$Context.InstallRoot
-        } elseif ($key -eq 'pkgDir' -and $tag -ne '[默认]' -and $tag -ne '[自定义]') {
-            $display = [string]$Context.PkgDir
-        }
+    if ($sub -in @('list','get')) {
+        if ($sub -eq 'list') { Write-Section 'winst config list' }
+        else { $keys = @($key) }
         Write-Host ''
-        Write-Host ('  {0} = {1}    {2}' -f $key, $display, $tag) -ForegroundColor Gray
+        foreach ($one in $keys) {
+            $tag = Get-ConfigTag -Context $Context -Key $one
+            $display = Get-ConfigValue -Config $Context.Config -Key $one
+            if ($one -in @('installRoot','pkgDir') -and $tag -notin @('[默认]','[自定义]')) { $display = $Context[$one] }
+            Write-Host ('  {0} = {1}    {2}' -f $one, $display, $tag) -ForegroundColor Gray
+        }
         return 0
     }
 
@@ -104,11 +84,5 @@ function Invoke-WinstConfigCommand {
     if (-not (Set-ConfigValue -Context $Context -Key $key -DisplayName $key -Value $value)) {
         return 1
     }
-    if ((Get-ConfigValue -Config $Context.Config -Key $key) -eq $value) {
-        Write-Host ('  {0} 已设置为 {1}' -f $key, $value) -ForegroundColor Green
-        return 0
-    }
-    # 布尔 / 数字项写入后字符串化可能与输入不同（如 开 → True），写盘成功即算成功
-    Write-Host ('  {0} 现在的值是: {1}' -f $key, [string](Get-ConfigValue -Config $Context.Config -Key $key)) -ForegroundColor Green
     return 0
 }

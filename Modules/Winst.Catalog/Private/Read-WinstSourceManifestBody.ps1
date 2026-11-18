@@ -11,7 +11,7 @@ function Read-WinstSourceManifestBody {
 
     $result = @{ Entries = @(); Error = ''; Missing = $false; Empty = $false }
     if (Get-EntryBool -Entry $Source -Key 'isLocal') {
-        $bundle = Read-LocalManifestBundle -Context $Context -Source $Source
+        $bundle = Read-LocalManifestBundle -Source $Source
         $result.Entries = @($bundle.Entries)
         $result.Error = [string]$bundle.Error
         return $result

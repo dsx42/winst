@@ -52,9 +52,6 @@ function Get-WinstPageAddressSpec {
     if ($null -ne $thenClickSpec -and $null -eq $linkSpec) {
         return @{ Error = 'source.thenClick 要和 source.link 搭配：link 在页面上找到中间页地址，thenClick 再用无头浏览器打开它、点按钮取真正的下载地址' }
     }
-    if ($null -ne $thenClickSpec -and $null -ne $clickSpec) {
-        return @{ Error = 'source.thenClick 与 source.click 不能同时写：click 是在本页点按钮取地址，thenClick 是进 link 找到的中间页再点按钮' }
-    }
     if ($null -ne $thenLinkSpec -and $null -eq $linkSpec) {
         return @{ Error = 'source.thenLink 要和 source.link 搭配：link 在页面上找到中转页地址，thenLink 再抓取它的 HTML、按 link 规则定位真正的下载地址' }
     }
@@ -91,7 +88,7 @@ function Get-WinstPageAddressSpec {
         $hashFrom = ''
         if ($null -ne $item) { $hashFrom = (Get-EntryString -Entry $item -Key 'hashFrom').Trim() }
         if ($hashFrom -ine 'page') {
-            return @{ Error = 'source.hashClick 只配合 files[0].hashFrom: "page"：先按文件名就近刮取，失败时再按 hashClick 点控件读摘要' }
+            return @{ Error = 'source.hashClick 只配合 files[0].hashFrom: "page"' }
         }
     }
 

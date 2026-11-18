@@ -34,47 +34,20 @@ function Get-WinstGithubTag {
         return @{ Error = ('无法读取 {0} 的发布列表：{1}' -f $Repo, $_.Exception.Message); Tag = ''; Releases = @(); Notes = @() }
     }
 
-    if ($ReleaseTagPrefix) {
-        # 同一仓库按产品线分开发布（如 cli-v*）：筛选前缀后按版本号取最高
-        $matched = @()
-        foreach ($item in $releases) {
-            $candidateTag = [string]$item['Tag']
-            if (-not $candidateTag) { continue }
-            if (-not $candidateTag.StartsWith($ReleaseTagPrefix, [StringComparison]::OrdinalIgnoreCase)) { continue }
-            $matched += $item
-        }
-        if ($matched.Count -eq 0) {
-            if ($releases.Count -eq 0) {
-                return @{ Error = ('{0} 的近期发布列表中没有找到可用版本；请核对发布页后重试' -f $Repo); Tag = ''; Releases = $releases; Notes = @() }
-            }
+    if ($releases.Count -eq 0) {
+        return @{ Error = ('{0} 的近期发布列表中没有找到可用版本；请核对发布页后重试' -f $Repo); Tag = ''; Releases = @(); Notes = @() }
+    }
+    $matched = @(foreach ($item in $releases) {
+        if ($ReleaseTagPrefix) {
+            if (([string]$item['Tag']).StartsWith($ReleaseTagPrefix, [StringComparison]::OrdinalIgnoreCase)) { $item }
+        } elseif (-not [bool]$item['Prerelease']) { $item }
+    })
+    if ($matched.Count -eq 0) {
+        if ($ReleaseTagPrefix) {
             return @{
                 Error = ('{0} 最近的 {1} 个发布里没有以 "{2}" 开头的版本；请核对 GitHub 上的 tag 命名' -f $Repo, $releases.Count, $ReleaseTagPrefix)
                 Tag = ''; Releases = $releases; Notes = @()
             }
-        }
-        # 前缀内部的版本线也可能有多条（cli-v1 / cli-v2）：按版本号取最高
-        $best = $null
-        $bestVersion = ''
-        foreach ($item in $matched) {
-            $version = Get-WinstGithubTagVersion -Tag ([string]$item['Tag']) -ReleaseTagPrefix $ReleaseTagPrefix
-            if ($best -and $version -notmatch '\d') { continue }
-            if (-not $best -or $bestVersion -notmatch '\d' -or (Compare-WinstVersion -A $version -B $bestVersion) -gt 0) {
-                $best = $item
-                $bestVersion = $version
-            }
-        }
-        return @{ Error = ''; Tag = [string]$best['Tag']; Releases = $releases; Notes = @() }
-    }
-
-    # 仓库只有预发布时 releases/latest 会跳到发布列表页（取不到 tag）：退回列表里版本最高的正式发布
-    $stable = @()
-    foreach ($item in $releases) {
-        if ([bool]$item['Prerelease']) { continue }
-        $stable += $item
-    }
-    if ($stable.Count -eq 0) {
-        if ($releases.Count -eq 0) {
-            return @{ Error = ('{0} 的近期发布列表中没有找到可用版本；请核对发布页后重试' -f $Repo); Tag = ''; Releases = @(); Notes = @() }
         }
         $notes += ('{0} 还没有标记为「最新」的正式发布，已改用发布日期最近的一次发布（可能是预发布）。' -f $Repo)
         return @{ Error = ''; Tag = [string]$releases[0]['Tag']; Releases = $releases; Notes = $notes }
@@ -82,7 +55,7 @@ function Get-WinstGithubTag {
 
     $best = $null
     $bestVersion = ''
-    foreach ($item in $stable) {
+    foreach ($item in $matched) {
         $version = Get-WinstGithubTagVersion -Tag ([string]$item['Tag']) -ReleaseTagPrefix $ReleaseTagPrefix
         if ($best -and $version -notmatch '\d') { continue }
         if (-not $best -or $bestVersion -notmatch '\d' -or (Compare-WinstVersion -A $version -B $bestVersion) -gt 0) {
@@ -90,6 +63,8 @@ function Get-WinstGithubTag {
             $bestVersion = $version
         }
     }
-    $notes += ('{0} 没有标记为「最新」的正式发布，已改用发布列表里版本最高的正式发布 {1}。' -f $Repo, [string]$best['Tag'])
+    if (-not $ReleaseTagPrefix) {
+        $notes += ('{0} 没有标记为「最新」的正式发布，已改用发布列表里版本最高的正式发布 {1}。' -f $Repo, [string]$best['Tag'])
+    }
     return @{ Error = ''; Tag = [string]$best['Tag']; Releases = $releases; Notes = $notes }
 }

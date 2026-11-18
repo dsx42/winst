@@ -37,10 +37,10 @@ function New-WinstCachedItem {
     # 索引版本已经在取包后归一化，展示时不再重复应用来源改写规则。
 
     $installedFacet = Get-WinstInstalledFacet -Ledger $Ledger -Facts $facts
-    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -CacheFiles $CacheFiles -Evaluate
+    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -Evaluate
 
     return [ordered]@{
-        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Row $Row -Ledger $Ledger -CacheIndex $CacheIndex)
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Plan (Get-EntryValue -Entry $facts.Chosen -Key 'Plan') -Ledger $Ledger -CacheIndex $CacheIndex)
         Id                  = $Id
         DisplayName         = [string]$facts.DisplayName
         Group               = [string]$facts.Group

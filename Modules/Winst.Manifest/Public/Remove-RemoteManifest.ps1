@@ -26,7 +26,7 @@ function Remove-RemoteManifest {
         return $result
     }
 
-    $sources = @(Get-RemoteManifestList -PkgDir $Context.PkgDir)
+    $sources = @(Read-ManifestSources -PkgDir $Context.PkgDir)
     $newList = @()
     $found = $false
     foreach ($source in $sources) {

@@ -22,18 +22,13 @@ function Read-WinstListPageInput {
     )
 
     while ($true) {
-        $raw = $null
         try {
             $raw = Read-Host ('  {0}' -f $Prompt)
         } catch {
             return @{ Action = 'back'; Indexes = @(); Filter = $Filter }
         }
-
-        $text = ''
-        if ($null -ne $raw) { $text = ([string]$raw).Trim() }
-
-        if (-not $text) { return @{ Action = 'back'; Indexes = @(); Filter = $Filter } }
-        if ($text -ieq 'b') { return @{ Action = 'back'; Indexes = @(); Filter = $Filter } }
+        $text = if ($raw) { $raw.Trim() }
+        if (-not $text -or $text -ieq 'b') { return @{ Action = 'back'; Indexes = @(); Filter = $Filter } }
         if ((Test-WinstQuitKey -Text $text)) { return @{ Action = 'quit'; Indexes = @(); Filter = $Filter } }
         if ($ExtraKeys -and $ExtraKeys.ContainsKey($text)) {
             return @{ Action = [string]$ExtraKeys[$text]; Indexes = @(); Filter = $Filter }

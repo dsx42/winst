@@ -20,7 +20,7 @@
 | 多模块 | `Modules\Winst.<名>\Winst.<名>.psd1` | 开发树：逐个导入，修改后可直接重跑 |
 | 单一模块 | `Modules\Winst\Winst.psd1` + `Winst.psm1` | release：`build.ps1` 合并生成，一次导入 |
 
-只有一个模块目录时按单一模块处理，多个则逐个导入；非模块目录、缺少同名清单或没有任何模块都会明确报错。没有额外的模块清单文件，新增、删除或重命名模块无需修改 `winst.ps1` 与 `build.ps1`。
+入口依次导入发现的清单。模块目录缺少同名清单或没有任何模块时会明确报错。没有额外的模块清单文件，新增、删除或重命名模块无需修改 `winst.ps1` 与 `build.ps1`。
 
 ## 分层与依赖
 
@@ -40,7 +40,6 @@
   Winst.Ui           展示与输入原语（不读业务数据）
   Winst.Net          HTTP 与响应缓存
   Winst.Version      版本比较、识别、改写、占位符
-  Winst.Logging      区块标题
   ──────────────────────────────────────────────────────────────
   Winst.Core         上下文、配置、路径安全、IO、JSON、状态、字段读取、纯格式化
 ```
@@ -57,10 +56,9 @@
 | 模块 | 职责 |
 |---|---|
 | `Winst.Core` | 上下文与配置、路径解析与安全校验、原子文件 IO、文件摘要、JSON 缓存、状态容器、条目字段读取与清单结构校验归一、参数转义、匹配规则、纯格式化 |
-| `Winst.Logging` | 统一的区块标题输出 |
 | `Winst.Version` | 版本比较与规范化、`versionKind` / `versionBetween` / `versionRewrite`、版本占位符 |
 | `Winst.Net` | HTTP GET/HEAD、代理尝试、进程内响应缓存、HTML 锚点、外部校验文件抓取 |
-| `Winst.Ui` | 菜单循环、确认与多选输入、列表分页、单行渲染、格式化文案 |
+| `Winst.Ui` | 区块标题、菜单循环、确认与多选输入、列表分页、单行渲染、格式化文案 |
 | `Winst.System` | 注册表卸载项、Appx 包、环境变量与 PATH、快捷方式、运行进程 |
 | `Winst.Manifest` | 源列表、清单缓存、本地清单识别、sidecar 元数据 |
 | `Winst.Store` | 安装台账与读缓存、缓存索引、安装包与文件级状态、摘要与完整性、清单文件读写 |
@@ -80,7 +78,7 @@ Modules\Winst.Store\
 └── Private\*.ps1        内部辅助，不导出
 ```
 
-`.psm1` 依次点源 `Private\` 与 `Public\` 下的文件（按路径排序），再用 AST 从 `Public\` 收集函数名并 `Export-ModuleMember`。`build.ps1` 按相同顺序合并成 release 的 `Winst.psm1`，导出名单在构建期算好，同名函数会使构建失败。
+`.psm1` 通过共用的 `Modules/Import-WinstFunctionFiles.ps1` 依次点源 `Private\` 与 `Public\` 下的文件（按路径排序），再用 AST 从 `Public\` 收集函数名并 `Export-ModuleMember`。`build.ps1` 按相同顺序合并成 release 的 `Winst.psm1`，导出名单在构建期算好，同名函数会使构建失败。
 
 - 新增函数文件无需修改加载器、入口或构建脚本；文件名与函数名按约定一致。
 - 函数文件只定义函数；WinstState.Type.ps1 在加载期声明共享状态与有界输出捕获类型，是明确例外；跨模块使用的辅助函数必须放 `Public\`，否则其它模块无法调用。
@@ -106,9 +104,9 @@ winst 自更新先把 release 树放入 Temp 下的随机暂存目录，检查�
 `winst.ps1` 负责：
 
 1. 设置 `Set-StrictMode -Version 2`、`$ErrorActionPreference = 'Stop'` 与静默进度。
-2. 模块导入前尝试提权；有效帮助 / 版本调用与 `WINST_NO_ELEVATE=1` 免提权，提权失败退出 `1`。记录根目录，按模块形态导入模块；`WINST_DEV=1` 时加 `-Force`。
-3. 初始化状态与脚本位置，设置 TLS 1.2，再调用 `Invoke-WinstApplication`。
-4. 应用层记录脚本位置、做单进程校验，再解析 CLI、分发命令或进入菜单。
+2. 记录脚本根目录，尝试启用 TLS 1.2，调整进程的 PSModulePath，按绝对路径导入本地模块并初始化状态。WINST_DEV=1 时强制重新导入。
+3. 解析 CLI 参数并判断提权。有效的帮助或版本调用以及 WINST_NO_ELEVATE=1 免提权，提权失败退出 1。
+4. Invoke-WinstApplication 记录脚本位置，按同一解析结果申请实例锁，分发命令或进入菜单，结束时释放锁句柄。
 5. 将结果映射为进程退出码；未捕获异常写 stderr 并退出 1。
 
 入口刻意不使用 `param()` / `CmdletBinding()`，长开关一律从 `$args` 读取；同时拒绝点源加载，应使用 `-File` 运行。

@@ -52,7 +52,9 @@ function Invoke-WinstUninstallApp {
     }
 
     $targets = Get-WinstUninstallTargets -Context $Context -Id $Id -Entry $ledger
-    Show-WinstUninstallPlan -Context $Context -Targets $targets
+    $commandDir = [string]$targets.InstallDir
+    if (-not $commandDir) { $commandDir = Join-WinstPath $Context.InstallRoot $Id }
+    Show-WinstUninstallPlan -Context $Context -Targets $targets -CommandDir $commandDir -SkipCommands:$Force
 
     Write-WinstDependentsHint -Context $Context -Id $Id
 
@@ -85,7 +87,7 @@ function Invoke-WinstUninstallApp {
         foreach ($note in @($running.Notes)) { $runState.Notes += $note }
 
         # —— ⓪ 卸载命令 ——
-        $pre = Invoke-WinstPreUninstallCommands -Context $Context -Id $Id -Targets $targets -ForceRemove ([bool]$Force) -Quiet:$Quiet
+        $pre = Invoke-WinstPreUninstallCommands -Context $Context -CommandDir $commandDir -Targets $targets -ForceRemove ([bool]$Force) -Quiet:$Quiet
         foreach ($note in @($pre.Notes)) { $runState.Notes += $note }
         if (-not $pre.Ok) {
             $result.Error = [string]$pre.Error

@@ -7,5 +7,7 @@ function Get-NormalizedVersionString {
     #>
     param([string]$Value)
 
-    return (ConvertTo-WinstVersionCore -Value $Value)
+    $text = ([string]$Value).Trim()
+    if ($text.Length -gt 1 -and $text[0] -in @('v', 'V')) { return $text.Substring(1).Trim() }
+    return $text
 }

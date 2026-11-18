@@ -45,34 +45,32 @@ function Set-WinstUncCredential {
     }
 
     # —— ① 先验证：用显式凭据连 IPC$，不写凭据库 —
-    if ($netExe -and (Test-Path -LiteralPath $netExe -PathType Leaf)) {
-        $probeArgs = 'use {0} /user:{1} {2}' -f `
-            (Format-WinstCommandArgument -Value ('\\' + $Server + '\IPC$')), `
-            (Format-WinstCommandArgument -Value $User), `
-            (Format-WinstCommandArgument -Value $Password)
-        try { $probe = Invoke-WinstCapturedCommand -FilePath $netExe -Arguments $probeArgs -TimeoutMs 30000 }
-        catch { $result.Error = '无法执行凭据验证命令，未保存凭据'; return $result }
-        if (-not $probe.Ok -or $probe.TimedOut -or $null -eq $probe.ExitCode -or $probe.ExitCode -ne 0) {
-            # 成功时会把会话留着；失败时不会有会话可清
-            $result.Error = ('凭据验证失败：{0}。请检查账号 / 密码，以及该账号是否有此共享的访问权限' -f $Path)
-            $detail = (([string]$probe.Text + ' ' + [string]$probe.ErrText).Replace($Password, '***').Replace($User, '***') -replace '\s+', ' ').Trim()
-            if ($detail -match '(?<!\d)1219(?!\d)') {
-                $result.Error = ('服务器 {0} 已有使用其它凭据的 SMB 会话（系统错误 1219）；请先关闭该服务器对应的连接后重试' -f $Server)
-            }
-            if ($probe.TimedOut) { $result.Error += '；验证命令超时' }
-            elseif ($null -ne $probe.ExitCode) { $result.Error += ('；退出码 {0}' -f $probe.ExitCode) }
-            if ($detail) { $result.Error += ('；系统输出：{0}' -f $detail.Substring(0, [Math]::Min(600, $detail.Length))) }
-            return $result
+    $probeArgs = 'use {0} /user:{1} {2}' -f `
+        (Format-WinstCommandArgument -Value ('\\' + $Server + '\IPC$')), `
+        (Format-WinstCommandArgument -Value $User), `
+        (Format-WinstCommandArgument -Value $Password)
+    try { $probe = Invoke-WinstCapturedCommand -FilePath $netExe -Arguments $probeArgs -TimeoutMs 30000 }
+    catch { $result.Error = '无法执行凭据验证命令，未保存凭据'; return $result }
+    if (-not $probe.Ok -or $probe.TimedOut -or $null -eq $probe.ExitCode -or $probe.ExitCode -ne 0) {
+        # 成功时会把会话留着；失败时不会有会话可清
+        $result.Error = ('凭据验证失败：{0}。请检查账号 / 密码，以及该账号是否有此共享的访问权限' -f $Path)
+        $detail = (([string]$probe.Text + ' ' + [string]$probe.ErrText).Replace($Password, '***').Replace($User, '***') -replace '\s+', ' ').Trim()
+        if ($detail -match '(?<!\d)1219(?!\d)') {
+            $result.Error = ('服务器 {0} 已有使用其它凭据的 SMB 会话（系统错误 1219）；请先关闭该服务器对应的连接后重试' -f $Server)
         }
-        # 验证成功，拆掉这条临时会话（凭据随后由 cmdkey 提供，避免留下隐性映射）
-        try {
-            $cleanup = Invoke-WinstCapturedCommand -FilePath $netExe `
-                -Arguments ('use {0} /delete' -f (Format-WinstCommandArgument -Value ('\\' + $Server + '\IPC$'))) -TimeoutMs 15000
-            if (-not $cleanup.Ok -or $cleanup.TimedOut -or $null -eq $cleanup.ExitCode -or $cleanup.ExitCode -ne 0) {
-                $result.Warning = ('临时 IPC$ 会话未确认清理成功（超时: {0}，退出码: {1}）；服务器 {2} 可能仍有残留会话，请手动检查该连接' -f $cleanup.TimedOut, $cleanup.ExitCode, $Server)
-            }
-        } catch { $result.Warning = ('临时 IPC$ 会话清理失败；服务器 {0} 可能仍有残留会话，请手动检查该连接' -f $Server) }
+        if ($probe.TimedOut) { $result.Error += '；验证命令超时' }
+        elseif ($null -ne $probe.ExitCode) { $result.Error += ('；退出码 {0}' -f $probe.ExitCode) }
+        if ($detail) { $result.Error += ('；系统输出：{0}' -f $detail.Substring(0, [Math]::Min(600, $detail.Length))) }
+        return $result
     }
+    # 验证成功，拆掉这条临时会话（凭据随后由 cmdkey 提供，避免留下隐性映射）
+    try {
+        $cleanup = Invoke-WinstCapturedCommand -FilePath $netExe `
+            -Arguments ('use {0} /delete' -f (Format-WinstCommandArgument -Value ('\\' + $Server + '\IPC$'))) -TimeoutMs 15000
+        if (-not $cleanup.Ok -or $cleanup.TimedOut -or $null -eq $cleanup.ExitCode -or $cleanup.ExitCode -ne 0) {
+            $result.Warning = ('临时 IPC$ 会话未确认清理成功（超时: {0}，退出码: {1}）；服务器 {2} 可能仍有残留会话，请手动检查该连接' -f $cleanup.TimedOut, $cleanup.ExitCode, $Server)
+        }
+    } catch { $result.Warning = ('临时 IPC$ 会话清理失败；服务器 {0} 可能仍有残留会话，请手动检查该连接' -f $Server) }
 
     # —— ② 写入凭据库 —
     # 不先 /delete：cmdkey /add 对同名目标本身就是覆盖；先删后加时 /add 一旦失败，

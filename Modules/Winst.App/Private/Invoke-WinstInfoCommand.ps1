@@ -37,11 +37,10 @@ function Invoke-WinstInfoCommand {
     # 否则 24 小时有效期内的 id 会直接沿用解析锁里的旧值（改了什么都要等到期才生效）。
     if ($force) {
         $refresh = Update-WinstStaleSources -Context $Context -Force -OnlyIds @($id)
-        Write-WinstRefreshErrors -Errors $refresh.Errors
     } else {
         $refresh = Update-WinstDisplaySources -Context $Context -Ids @($id) -Quiet
-        Write-WinstRefreshErrors -Errors $refresh.Errors
     }
+    Write-WinstRefreshErrors -Errors $refresh.Errors
     $overview = Get-WinstSoftwareOverview -Context $Context -OnlyId $id
     if (-not $overview.Ok) {
         Write-Host ''

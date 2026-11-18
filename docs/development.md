@@ -21,7 +21,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1 config list --of
 
 - `WINST_DEV=1` 强制重新导入开发模块；`--verbose` 输出诊断。
 - 导入单个模块时用清单绝对路径并加 `-DisableNameChecking`；跨模块依赖由调用环境导入，详见各 psd1 注释，不使用 RequiredModules。
-- 新模块目录与 psd1/psm1 同名，包含 Public；加载器与其它模块保持一致。
+- 新模块目录与 psd1/psm1 同名，包含 Public；psm1 点源 Modules/Import-WinstFunctionFiles.ps1。
 - 新函数放 Public 或 Private，加载器自动发现；跨模块调用只用 Public。只定义函数的约束有 `WinstState.Type.ps1` 加载 .NET 状态/捕获类型这一明确例外。
 - 新状态项在 Initialize-WinstState 声明；写入遵循 [数据文件](data-files.md) 的条目级提交与缓存失效契约。
 - 新清单字段或枚举必须同步 [清单规范](manifest.md)，示例要能通过真实读取和解析函数。
@@ -93,4 +93,4 @@ cmd /c build.cmd
 
 正式清单的 `_manifestVersion` 独立于产品版本，仅在软件源仓库修改清单时维护。
 
-`install.ps1` 通过 `irm | iex` 下载并解压 release，再调用 `winst install winst --from <解压目录>`。安装逻辑集中在 Install-WinstSelf；引导层负责提权、等待、退出码、临时目录清理和恢复调用者偏好，不使用 exit、PSScriptRoot 或本地模块依赖。
+`install.ps1` 通过 `irm | iex` 下载并解压 release，再调用 `winst install winst --from <解压目录>`。安装逻辑集中在 Install-WinstSelf；主入口负责提权，引导层负责等待、退出码、临时目录清理和恢复调用者偏好，不使用 exit、PSScriptRoot 或本地模块依赖。

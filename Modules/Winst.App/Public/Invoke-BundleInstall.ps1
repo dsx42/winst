@@ -50,7 +50,7 @@ function Invoke-BundleInstall {
 
     Write-Host ''
     Write-Host ('  安装清单: {0}' -f [string]$picked.Path) -ForegroundColor Gray
-    $null = Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead
+    Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead
 
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
     if (-not $yes) {

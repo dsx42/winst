@@ -27,12 +27,8 @@ function Set-WinstFileMetaValue {
     if ($null -eq $Container -or ($Container -isnot [System.Collections.IDictionary])) { return $Container }
     if (-not $FileName) { return $Container }
 
-    $existing = Get-WinstFileMeta -Entry @{ fileMeta = $Container } -FileName $FileName
-    $merged = New-WinstFileMetaEntry -Url $existing.Url -SourceVersion $existing.SourceVersion -ETag $existing.ETag `
-        -LastModified $existing.LastModified -Size $existing.Size -DownloadedAt $existing.DownloadedAt -LastCheckedAt $existing.LastCheckedAt `
-        -ExpectedHash $existing.ExpectedHash -ExpectedAlgorithm $existing.ExpectedAlgorithm `
-        -ChecksumHashFile $existing.ChecksumHashFile -ChecksumHashFrom $existing.ChecksumHashFrom `
-        -ChecksumFingerprint $existing.ChecksumFingerprint
+    $key = Get-WinstFileMapKey -Map $Container -Name $FileName
+    $merged = New-WinstFileMetaEntry -Item $Container[$key] -NormalizeDigest
 
     if ($PSBoundParameters.ContainsKey('Url') -and $Url) { $merged['url'] = $Url }
     # sourceVersion 记录的是「这个文件自己的版本」：跟随主包版本的附加文件要能显式写空，
@@ -51,7 +47,6 @@ function Set-WinstFileMetaValue {
     if ($PSBoundParameters.ContainsKey('ChecksumHashFrom')) { $merged['checksumHashFrom'] = [string]$ChecksumHashFrom }
     if ($PSBoundParameters.ContainsKey('ChecksumFingerprint')) { $merged['checksumFingerprint'] = ([string]$ChecksumFingerprint).ToLowerInvariant() }
 
-    $key = Get-WinstFileMapKey -Map $Container -Name $FileName
     $Container[$key] = $merged
     return $Container
 }

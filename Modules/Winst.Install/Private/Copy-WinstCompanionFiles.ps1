@@ -87,7 +87,7 @@ function Copy-WinstCompanionFiles {
             try {
                 $result.UpdatedNames += $name
             } finally {
-                if ($expand.TempRoot -and (Test-Path -LiteralPath $expand.TempRoot)) { Clear-WinstInstallDir -Dir $expand.TempRoot }
+                if ($expand.TempRoot) { Clear-WinstInstallDir -Dir $expand.TempRoot }
             }
             continue
         }

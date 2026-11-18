@@ -11,7 +11,7 @@ function Invoke-WinstPreUninstallCommands {
     .OUTPUTS
         @{ Ok; Error; Notes }
     #>
-    param([hashtable]$Context, [string]$Id, $Targets, [bool]$ForceRemove, [switch]$Quiet)
+    param([hashtable]$Context, [string]$CommandDir, $Targets, [bool]$ForceRemove, [switch]$Quiet)
 
     $notes = @()
     $uninstallCommands = @($Targets['Commands'])
@@ -23,16 +23,7 @@ function Invoke-WinstPreUninstallCommands {
         return @{ Ok = $true; Error = ''; Notes = $notes }
     }
 
-    $commandDir = [string]$Targets['InstallDir']
-    if (-not $commandDir) { $commandDir = Join-WinstPath $Context.InstallRoot $Id }
-    if (-not $Quiet) {
-        foreach ($command in $uninstallCommands) {
-            $exeText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'exe') -InstallDir $commandDir -InstallRoot $Context.InstallRoot))
-            $argsText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'args') -InstallDir $commandDir -InstallRoot $Context.InstallRoot))
-            Write-Host (('    正在执行卸载命令: {0} {1}' -f $exeText, $argsText).TrimEnd()) -ForegroundColor Gray
-        }
-    }
-    $run = Invoke-WinstCommandList -Commands $uninstallCommands -Label '卸载命令' -InstallDir $commandDir -InstallRoot $Context.InstallRoot
+    $run = Invoke-WinstCommandList -Commands $uninstallCommands -Label '卸载命令' -InstallDir $commandDir -InstallRoot $Context.InstallRoot -ShowCommand:(-not $Quiet)
     if (-not $run.Ok) {
         return @{ Ok = $false; Error = ('{0}；安装目录与安装记录均未改动。如已手动处理过这一步，可加 --force 跳过卸载命令。' -f $run.Error); Notes = $notes }
     }

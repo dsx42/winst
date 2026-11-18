@@ -46,8 +46,14 @@ function Resolve-GithubSource {
         return $result
     }
 
+    $fileSpecs = @(foreach ($item in $declared) {
+        $locator = Get-SourceFileLocator -Item $item -Kind 'github'
+        if ($locator.Error) { throw $locator.Error }
+        @{ Item = $item; Locator = $locator }
+    })
+
     # ②③④ 定版本 → 逐文件落地 → 需要时从文件名取版本
-    $attempt = Resolve-WinstGithubSourceForTag -Context $Context -Source $source -Entry $Entry -Repo $repo `
+    $attempt = Resolve-WinstGithubSourceForTag -Context $Context -Source $source -FileSpecs $fileSpecs -Repo $repo `
         -Tag $chosenTag -Releases $releases -Result $result -ReleaseTagPrefix $releaseTagPrefix
 
     # —— 最新发布里没有需要的文件：按版本号从新到旧退回更早的发布 ——
@@ -63,7 +69,7 @@ function Resolve-GithubSource {
             # 每次回退都用干净的结果对象：上一条尝试的 Notes / Files 不能混进这一条
             $probe = New-SourceResolveResult -Kind 'github'
             $probe.Repo = $repo
-            $retry = Resolve-WinstGithubSourceForTag -Context $Context -Source $source -Entry $Entry -Repo $repo `
+            $retry = Resolve-WinstGithubSourceForTag -Context $Context -Source $source -FileSpecs $fileSpecs -Repo $repo `
                 -Tag $fallbackTag -Releases $releases -Result $probe -ReleaseTagPrefix $releaseTagPrefix
             if (-not $retry.Ok) { continue }
 

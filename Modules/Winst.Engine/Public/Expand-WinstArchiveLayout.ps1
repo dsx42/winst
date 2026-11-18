@@ -86,47 +86,19 @@ function Expand-WinstArchiveLayout {
                 if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $source = $top[0].FullName }
             }
             $selected.Add($source)
-            $null = $seen.Add($source)
         }
 
         if ($selected.Count -eq 1 -and (Test-WinstFileSystemPath -Path $selected[0] -PathType Container)) {
             $sourceDir = $selected[0]
         } else {
-            $fileParent = [IO.Path]::GetDirectoryName($selected[0])
-            $sameParentFiles = $true
-            foreach ($path in $selected) {
-                if (-not (Test-WinstFileSystemPath -Path $path -PathType Leaf) -or [IO.Path]::GetDirectoryName($path) -ine $fileParent) {
-                    $sameParentFiles = $false
-                    break
-                }
+            $sourceDir = Join-WinstPath $tempRoot '.winst-layout'
+            if (Test-WinstFileSystemPath -Path $sourceDir -ErrorAction Stop) {
+                throw '压缩包包含布局合并保留名称 .winst-layout，无法创建工作目录'
             }
-            if ($sameParentFiles) {
-                $sourceDir = Join-WinstPath $tempRoot '.winst-layout'
-                if (-not (Test-WinstFileSystemPath -Path $sourceDir -ErrorAction Stop)) {
-                    $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $sourceDir))
-                    foreach ($path in $selected) {
-                        Move-WinstItemInto -Source (Get-WinstFileSystemItem -Path $path) -DestDir $sourceDir
-                    }
-                } else {
-                    $sourceDir = $fileParent
-                    foreach ($item in @(Get-WinstChildItem -Path $sourceDir -ErrorAction Stop)) {
-                        if ($seen.Contains($item.FullName)) { continue }
-                        if ($item.PSIsContainer) { Clear-WinstInstallDir -Dir $item.FullName -Strict }
-                        else { Remove-WinstFileSystemItem -Path $item.FullName -ErrorAction Stop }
-                    }
-                }
-            } else {
-                # 多个目录取内容时必须合并布局；只在本次临时树内移动，不复制整树。
-                $sourceDir = Join-WinstPath $tempRoot '.winst-layout'
-                if (Test-WinstFileSystemPath -Path $sourceDir -ErrorAction Stop) {
-                    throw '压缩包包含布局合并保留名称 .winst-layout，无法创建工作目录'
-                }
-                $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $sourceDir))
-                foreach ($path in $selected) {
-                    if ($path -ieq $tempRoot) { throw '解压选择不能同时包含整个临时目录和其中的条目' }
-                    $moved = Move-WinstArchiveSelection -Path $path -DestDir $sourceDir
-                    if (-not $moved.Ok) { $result.Error = $moved.Error; return $result }
-                }
+            $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $sourceDir))
+            foreach ($path in $selected) {
+                if ($path -ieq $tempRoot) { throw '解压选择不能同时包含整个临时目录和其中的条目' }
+                $null = Move-WinstArchiveSelection -Path $path -DestDir $sourceDir
             }
         }
         if (-not (Get-WinstChildItem -Path $sourceDir -File -Recurse -ErrorAction Stop | Select-Object -First 1)) {

@@ -43,13 +43,6 @@ function Resolve-DirectSource {
         $result.Error = '这个软件用的是固定下载地址，但软件源里没有版本号：可填 version，或声明 source.versionFrom: "page" + source.pageUrl（从官网页面实时取版本，可配 versionBetween / versionKind），也可以声明 source.versionFrom: "package"（版本号等主包下载后从文件信息取）'
         return $result
     }
-    # source.packageVersion：校验写法并确认它只配合 versionFrom: "package" 使用
-    $packageVersionSpec = Get-WinstPackageVersionSpec -Source $source
-    if (-not $packageVersionSpec.Ok) { $result.Error = $packageVersionSpec.Error; return $result }
-    if ($packageVersionSpec.Spec -and -not (Test-EntryVersionFromPackage -Entry $Entry)) {
-        $result.Error = 'source.packageVersion（包内版本派生规格）只配合 source.versionFrom: "package" 使用'
-        return $result
-    }
     $result.Version = $version
     $declared = @(Get-SourceFileDeclarations -Source $source)
     if ($declared.Count -eq 0) {

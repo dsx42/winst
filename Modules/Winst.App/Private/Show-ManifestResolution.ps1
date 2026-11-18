@@ -28,10 +28,7 @@ function Show-ManifestResolution {
     Write-Host ('  下面显示每个软件装到哪里、怎么用、以后怎么卸载。' ) -ForegroundColor DarkGray
     Write-Host ('  路径已按本机设置展开（软件安装到 {0}）；带 %XXX% 的内容表示会跟随该环境变量，切换变量即可整体切换版本。' -f $Context.InstallRoot) -ForegroundColor DarkGray
 
-    $desktopDir = ''
-    try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
-    $startMenuDir = ''
-    if ($env:APPDATA) { $startMenuDir = Join-WinstPath $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
+    $shortcutDirs = Get-WinstPlanShortcutDirectories
 
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index
@@ -43,7 +40,7 @@ function Show-ManifestResolution {
         if (Get-EntryBool -Entry $app -Key 'ok') { $succeeded++ } else { $failed++ }
         Show-ResolvedAppPlan -Plan $app -Index $index -Total $apps.Count -SourceName $Name `
             -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
-            -DesktopDir $desktopDir -StartMenuDir $startMenuDir -Context $Context -State $stateRead.State -StateRead $stateRead -CacheIndex $cacheIndex
+            @shortcutDirs -Context $Context -State $stateRead.State -StateRead $stateRead -CacheIndex $cacheIndex
     }
 
     Write-Host ''

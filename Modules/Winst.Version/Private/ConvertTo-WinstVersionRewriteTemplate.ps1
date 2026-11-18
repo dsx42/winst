@@ -15,12 +15,9 @@ function ConvertTo-WinstVersionRewriteTemplate {
     param([string]$From, [string]$To)
 
     $result = @{ Ok = $false; Rule = $null; Error = '' }
-    $fromText = ''
-    if ($null -ne $From) { $fromText = [string]$From }
-    $toText = ''
-    if ($null -ne $To) { $toText = [string]$To }
-
-    # —— 解析 from：拆成「字面量」与「占位」 ——
+    $fromText = [string]$From
+    $toText = [string]$To
+    $slotNames = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
     $parts = @()
     $literal = ''
     $index = 0
@@ -35,6 +32,10 @@ function ConvertTo-WinstVersionRewriteTemplate {
             $name = $fromText.Substring($index + 1, $end - $index - 1).Trim()
             if (-not ($name -match '^[A-Za-z_][A-Za-z0-9_]*$')) {
                 $result.Error = ('from 里的占位符名字不合法: {{{0}}}（只能用字母 / 数字 / 下划线，且以字母或下划线开头）' -f $name)
+                return $result
+            }
+            if (-not $slotNames.Add($name)) {
+                $result.Error = ('from 里的占位 {{{0}}} 出现了多次，请换一个名字' -f $name)
                 return $result
             }
             if ($literal) {
@@ -54,24 +55,10 @@ function ConvertTo-WinstVersionRewriteTemplate {
     }
     if ($literal) { $parts += [ordered]@{ Kind = 'text'; Value = $literal } }
 
-    $slotNames = @()
-    foreach ($part in $parts) {
-        if ($part['Kind'] -eq 'slot') { $slotNames += [string]$part['Value'] }
-    }
     if ($slotNames.Count -eq 0) {
         $result.Error = ('from 里至少要有一个占位（如 jdk8u{u}-b{b}）；只去前缀 / 后缀请写 { "stripPrefix": "…" }')
         return $result
     }
-    foreach ($name in $slotNames) {
-        $sameCount = 0
-        foreach ($slot in $slotNames) { if ($slot -ceq $name) { $sameCount++ } }
-        if ($sameCount -gt 1) {
-            $result.Error = ('from 里的占位 {{{0}}} 出现了多次，请换一个名字' -f $name)
-            return $result
-        }
-    }
-
-    # —— 生成 pattern：中间占位尽量少取，末位占位吃到结尾 ——
     $pattern = '^'
     for ($i = 0; $i -lt $parts.Count; $i++) {
         $part = $parts[$i]
@@ -99,9 +86,7 @@ function ConvertTo-WinstVersionRewriteTemplate {
                 return $result
             }
             $name = $toText.Substring($index + 1, $end - $index - 1).Trim()
-            $exists = $false
-            foreach ($slot in $slotNames) { if ($slot -ceq $name) { $exists = $true; break } }
-            if (-not $exists) {
+            if (-not $slotNames.Contains($name)) {
                 $result.Error = ('to 里用了 from 中没有的占位 {{{0}}}；from = {1}' -f $name, $fromText)
                 return $result
             }

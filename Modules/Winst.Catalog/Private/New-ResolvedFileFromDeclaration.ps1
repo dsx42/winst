@@ -8,7 +8,7 @@ function New-ResolvedFileFromDeclaration {
         各来源解析器共用，使 files[] 的字段语义在 各来源 之间完全一致：
         先由解析器算出真实地址（或文件名），再统一挂上落位与校验信息。主包（第一条）不落 dest。
         校验文件未声明 hashFrom 时按 sha256sums 处理（即自动解析 SHA256SUMS 这类官方校验文件）。
-        Hash / HashFile / HashFrom 三个 Override 供接口来源使用：这些值在清单里写不出具体内容，
+        HashOverride / HashFileOverride 供接口来源使用：这些值在清单里写不出具体内容，
         而是从接口字段或 XPath 里取出来的，取到后覆盖清单声明。
     #>
     param(
@@ -21,7 +21,6 @@ function New-ResolvedFileFromDeclaration {
         [switch]$MainFile,
         [string]$HashOverride = '',
         [string]$HashFileOverride = '',
-        [string]$HashFromOverride = '',
         # 这个文件的版本是不是「它自己的」：主包恒为真；附加文件只有声明 versionListUrl 并独立
         # 解析出版本时才为真。为假时 Version 只是主包版本，只用于地址模板展开，不能记录 / 比较。
         [bool]$OwnVersion = $true
@@ -56,16 +55,13 @@ function New-ResolvedFileFromDeclaration {
     }
     if ($HashFileOverride) { $hashFile = $HashFileOverride }
     $hashFrom = (Get-EntryString -Entry $Item -Key 'hashFrom').Trim()
-    if ($HashFromOverride) { $hashFrom = $HashFromOverride }
     if ($hashFile -and -not $hashFrom) { $hashFrom = 'sha256sums' }
 
-    $hash = (Expand-VersionPlaceholder -Text (Get-EntryString -Entry $Item -Key 'hash') -Version $Version).Trim()
-    foreach ($digest in @($hash, $HashOverride)) {
-        if ($digest -and ($digest -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $digest.Length))) {
-            throw '文件摘要必须是 32 / 40 / 64 / 128 位十六进制字符串'
-        }
+    $hash = $HashOverride
+    if (-not $hash) { $hash = (Expand-VersionPlaceholder -Text (Get-EntryString -Entry $Item -Key 'hash') -Version $Version).Trim() }
+    if ($hash -and ($hash -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $hash.Length))) {
+        throw '文件摘要必须是 32 / 40 / 64 / 128 位十六进制字符串'
     }
-    if ($HashOverride) { $hash = $HashOverride }
 
     # 附加文件可声明 extract（这个文件是压缩包，安装时解压到 dest 目录），
     # 可选再声明该压缩包自己的 stripTopDir

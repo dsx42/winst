@@ -22,7 +22,6 @@
     #
     # 本模块调用到（运行时才需要）：
     #   Winst.Core
-    #   Winst.Logging
     #   Winst.Ui
     #   Winst.Version
     #   Winst.Manifest

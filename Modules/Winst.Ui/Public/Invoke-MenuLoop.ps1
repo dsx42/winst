@@ -18,7 +18,6 @@ function Invoke-MenuLoop {
         [scriptblock]$Render,
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)]
         [string[]]$Choices,
         [Parameter(Mandatory = $true)]
         [hashtable]$Actions,
@@ -27,6 +26,11 @@ function Invoke-MenuLoop {
         [switch]$CanGoBack
     )
 
+    if (-not $PSBoundParameters.ContainsKey('Choices')) {
+        $Choices = @($Actions.Keys) + @('q')
+        if ($CanGoBack) { $Choices += 'b' }
+    }
+    $NoPauseChoices += $NavigationChoices
     while ($true) {
         Clear-ScreenSafe
         & $Render $Context
@@ -64,7 +68,6 @@ function Invoke-MenuLoop {
         # 子菜单里选择「退出」时，逐层向上传播
         if ((Get-WinstState -Name WinstQuitRequested)) { return 'quit' }
 
-        if ($NavigationChoices -contains $choice) { continue }
         if ($NoPauseChoices -contains $choice) { continue }
 
         # 流程自己已经「返回」了（用户按回车 / b 退出，没有结果要看）：直接重绘菜单，不多要一次回车

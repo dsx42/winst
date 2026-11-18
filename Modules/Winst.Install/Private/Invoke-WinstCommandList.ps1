@@ -23,25 +23,21 @@ function Invoke-WinstCommandList {
         [Parameter(Mandatory = $true)]$Commands,
         [string]$Label = '命令',
         [string]$InstallDir = '',
-        [string]$InstallRoot = ''
+        [string]$InstallRoot = '',
+        [switch]$ShowCommand
     )
 
     foreach ($command in @($Commands)) {
-        # 先展开环境变量、再替换占位符：反过来的话，{installDir} 等占位符展开出的路径里若含 %VAR%
-        # 会被再解释一次（二次展开），安装目录名里的 % 会变成意外内容
-        $exeRaw = [Environment]::ExpandEnvironmentVariables((Get-EntryString -Entry $command -Key 'exe'))
-        $exeText = Expand-PlanPlaceholders -Value $exeRaw -InstallDir $InstallDir -InstallRoot $InstallRoot
-        if (-not $exeText) { continue }
-        if (-not (Test-WinstArgumentSafe -Value $exeText)) {
-            return @{ Ok = $false; Error = ('{0}要执行的程序路径含双引号或控制字符，已拒绝执行：{1}' -f $Label, $exeText) }
+        $expanded = Expand-WinstPlanCommand -Command $command -InstallDir $InstallDir -InstallRoot $InstallRoot
+        $exePath = $expanded.Exe
+        $argsText = $expanded.Arguments
+        if (-not $exePath) { continue }
+        if (-not $expanded.PathSafe) {
+            return @{ Ok = $false; Error = ('{0}要执行的程序路径含双引号或控制字符，已拒绝执行：{1}' -f $Label, $exePath) }
         }
-        $exePath = $exeText
-        if (-not [IO.Path]::IsPathRooted($exePath)) { $exePath = Join-WinstPath $InstallDir $exePath }
         if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
             return @{ Ok = $false; Error = ('{0}要执行的程序不存在：{1}' -f $Label, $exePath) }
         }
-        $argsRaw = [Environment]::ExpandEnvironmentVariables((Get-EntryString -Entry $command -Key 'args'))
-        $argsText = Expand-PlanPlaceholders -Value $argsRaw -InstallDir $InstallDir -InstallRoot $InstallRoot
         # 参数是清单声明的命令行片段，允许带引号；但不允许出现换行等控制字符
         if ($argsText -match '[\x00-\x1F]') {
             return @{ Ok = $false; Error = ('{0}的参数含有换行等控制字符，已拒绝执行：{1}' -f $Label, $exePath) }
@@ -64,6 +60,7 @@ function Invoke-WinstCommandList {
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $false
         try {
+            if ($ShowCommand) { Write-Host (('    正在执行{0}: {1} {2}' -f $Label, $exePath, $argsText).TrimEnd()) -ForegroundColor Gray }
             $p = [Diagnostics.Process]::Start($psi)
         } catch {
             return @{ Ok = $false; Error = ('执行{0}失败：{1}' -f $Label, $_.Exception.Message) }

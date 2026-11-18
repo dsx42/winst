@@ -46,7 +46,6 @@ function Remove-WinstAppliedSystemItems {
                     $RunState.Notes += ('环境变量 {0} 仍被其它已装软件使用，本次保留、未删除（{1}）' -f $name, $restore.Error)
                     continue
                 }
-                if ($restore.FromId -ceq $Id) { continue }
                 try {
                     Set-WinstEnvironmentVariableEx -Name $name -Value $restore.Value -Scope $scope -Changes $changes
                     if (-not $Quiet) { Write-Host ('    环境变量 {0} 已恢复为「{1}」需要的值' -f $name, $restore.FromId) -ForegroundColor Gray }

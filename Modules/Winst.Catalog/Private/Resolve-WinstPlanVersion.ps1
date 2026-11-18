@@ -12,7 +12,8 @@ function Resolve-WinstPlanVersion {
         $Entry,
         [string]$PkgDir = '',
         $Context = $null,
-        $Notes = @()
+        $Notes = @(),
+        $PackageVersionSpec
     )
 
     $notes = @($Notes)
@@ -26,14 +27,7 @@ function Resolve-WinstPlanVersion {
     $versionFromPackage = Test-EntryVersionFromPackage -Entry $Entry
     if ($versionFromPackage) {
         $Plan['versionFromPackage'] = $true
-        # source.packageVersion：编译进计划，解析期派生 / 下载完成后重读共用；
-        # 校验已在来源解析时做过，这里只是再取一次（清单加载侧改写不会碰这个字段）
-        $packageVersionSpec = Get-WinstPackageVersionSpec -Source (Get-EntryValue -Entry $Entry -Key 'source' -Default $null)
-        if (-not $packageVersionSpec.Ok) {
-            $Plan['error'] = [string]$packageVersionSpec.Error
-            return @{ Version = $version; Notes = $notes; Error = [string]$Plan['error'] }
-        }
-        if ($packageVersionSpec.Spec) { $Plan['packageVersion'] = $packageVersionSpec.Spec }
+        if ($PackageVersionSpec) { $Plan['packageVersion'] = $PackageVersionSpec }
         if (-not $version) {
             $mainName = ''
             if ($fileList.Count -gt 0) {

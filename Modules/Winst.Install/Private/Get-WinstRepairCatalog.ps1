@@ -41,14 +41,11 @@ function Get-WinstRepairCatalog {
     }
 
     # 无可用清单时仍会按目录登记 installRoot 下的全部文件夹，并校对缓存索引、报告异常
-    $canScan = $true
-    if ($planLookup.Count -eq 0) {
-        $canScan = $false
-        if (-not $Quiet) {
-            Write-Host ''
-            Write-Host '  没有可用的软件清单：跳过清单匹配与注册表扫描，安装目录下的文件夹仍会登记。' -ForegroundColor Yellow
-            Write-Host '  如需找回已装软件，请先刷新软件源，或把清单文件放到脚本同目录（本地清单）后重试。' -ForegroundColor DarkGray
-        }
+    $canScan = $planLookup.Count -gt 0
+    if (-not $canScan -and -not $Quiet) {
+        Write-Host ''
+        Write-Host '  没有可用的软件清单：跳过清单匹配与注册表扫描，安装目录下的文件夹仍会登记。' -ForegroundColor Yellow
+        Write-Host '  如需找回已装软件，请先刷新软件源，或把清单文件放到脚本同目录（本地清单）后重试。' -ForegroundColor DarkGray
     }
 
     return @{ Plan = $planLookup; Source = $sourceLookup; CiId = $ciIdLookup; CanScan = $canScan }

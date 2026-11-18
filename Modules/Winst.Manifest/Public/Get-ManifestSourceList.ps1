@@ -36,7 +36,7 @@ function Get-ManifestSourceList {
 
     $officialName = Get-WinstOfficialManifestName
     $hasOfficial = $false
-    foreach ($item in @(Get-RemoteManifestList -PkgDir $Context.PkgDir)) {
+    foreach ($item in @(Read-ManifestSources -PkgDir $Context.PkgDir)) {
         $name = [string]$item['name']
         if (-not $name) { continue }
         if ($name -ieq $officialName) { $hasOfficial = $true }

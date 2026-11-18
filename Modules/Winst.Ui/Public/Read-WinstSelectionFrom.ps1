@@ -7,7 +7,5 @@ function Read-WinstSelectionFrom {
     #>
     param([string]$Text, [int]$Count)
 
-    $resolved = Resolve-WinstSelectionText -Text $Text -Count $Count
-    if (-not $resolved.Ok) { return @() }
-    return @($resolved.Numbers)
+    return (Resolve-WinstSelectionText -Text $Text -Count $Count).Numbers
 }

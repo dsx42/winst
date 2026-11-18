@@ -11,13 +11,3 @@ winst 的技术文档。想先上手看 [README](../README.md)，需要细节再
 | [install-flows.md](install-flows.md) | 版本检测、安装决策、安装 / 更新 / 卸载 / 修复流程 |
 | [development.md](development.md) | 仓库结构、开发调试、打包发布 |
 | [troubleshooting.md](troubleshooting.md) | 常见故障与排查 |
-
-## 一句话架构
-
-```
-winst.ps1            入口：设偏好 -> 按模块形态加载 -> 初始化状态 -> 调用 Winst.App
-Modules\Winst.*\     开发树：每个模块 = psd1(元数据) + psm1(加载器) + Public\ + Private\（按需）
-Modules\Winst\       release：build.ps1 合并出的单一模块（psd1 + psm1）
-```
-
-业务逻辑全部在模块里，`manifest.json` 只放软件定义，用户数据全部落在数据目录与安装根目录。

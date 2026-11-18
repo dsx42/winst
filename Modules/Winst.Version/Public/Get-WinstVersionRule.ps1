@@ -6,7 +6,7 @@ function Get-WinstVersionRule {
         读取并校验条目的版本识别规则（versionKind / versionBetween）。
     .DESCRIPTION
         page / json / magnet 解析器共用这套判断与文案（与 Get-WinstVersionKindError 完全同文），
-        统一到这里；新增识别器时只改 Get-VersionKindPattern / Get-VersionKindList。
+        统一到这里；新增识别器时只改 Get-WinstVersionPatterns。
     .OUTPUTS
         @{ Ok; Error; VersionKind; VersionBetween }
     #>

@@ -17,19 +17,12 @@ function Get-EntryString {
 
     if ($null -eq $Entry) { return '' }
     if ($Entry -is [System.Collections.IDictionary]) {
-        if ($Entry.Contains($Key)) {
-            $value = $Entry[$Key]
-            if ($null -ne $value) {
-                if ($value -is [DateTime]) { return ([DateTime]$value).ToString('s') }
-                return [string]$value
-            }
-        }
-        return ''
+        $value = $Entry[$Key]
+    } else {
+        $prop = $Entry.PSObject.Properties[$Key]
+        if ($null -eq $prop) { return '' }
+        $value = $prop.Value
     }
-    $prop = $Entry.PSObject.Properties[$Key]
-    if ($prop -and $null -ne $prop.Value) {
-        if ($prop.Value -is [DateTime]) { return ([DateTime]$prop.Value).ToString('s') }
-        return [string]$prop.Value
-    }
-    return ''
+    if ($value -is [DateTime]) { return $value.ToString('s') }
+    return [string]$value
 }

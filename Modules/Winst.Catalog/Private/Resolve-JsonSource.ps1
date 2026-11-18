@@ -42,7 +42,7 @@ function Resolve-JsonSource {
     if ($result.Error) { return $result }
     $result.Version = $version
 
-    $filesResult = New-WinstJsonResolvedFiles -Context $Context -Source $source -Entry $Entry -Declared $declared `
+    $filesResult = New-WinstJsonResolvedFiles -Context $Context -Source $source -MainLocator $spec.MainLocator -Declared $declared `
         -Chosen $pick.FileItem -FileItems $pick.FileItems -HashFileRule $spec.HashFileRule `
         -DownloadUrl $pick.Url -Version $version -ApiUrl $apiUrl -Result $result
     if ($filesResult.Error) { $result.Error = $filesResult.Error; return $result }

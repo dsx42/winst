@@ -24,8 +24,8 @@ function Get-WinstRunningAppProcess {
 
     $dirs = @()
     foreach ($dir in @(@($InstallDir) + @($ExtraDirs))) {
-        $text = ([string]$dir).Trim().Trim('"').TrimEnd('\')
-        if ($text -and ($dirs -notcontains $text)) { $dirs += $text }
+        $text = ([string]$dir).Trim().Trim('"').TrimEnd('\', '/')
+        if ($text.Length -ge 3 -and ($dirs -notcontains $text)) { $dirs += $text }
     }
 
     $main = Get-WinstMainProgram -Plan $Plan
@@ -50,26 +50,15 @@ function Get-WinstRunningAppProcess {
         if ($procId -eq $self) { continue }
 
         $path = ([string]$proc['Path']).Trim().Trim('"')
-        $matched = $false
-        $certain = $false
-
-        if ($path) {
-            $pathFull = $path.TrimEnd('\')
-            foreach ($dir in $dirs) {
-                # 盘根（"C:" / "C:\"）会命中该盘上所有进程 → 必须跳过
-                if (-not $dir -or $dir.Length -lt 3) { continue }
-                if (Test-WinstPathUnderAnyDir -Path $pathFull -Dirs @($dir)) {
-                    $matched = $true
-                    $certain = $true
-                    break
-                }
-            }
+        $certain = $path -and (Test-WinstPathUnderAnyDir -Path $path -Dirs $dirs)
+        $matched = $certain
+        $nameBase = ''
+        if (-not $matched) {
+            try { $nameBase = [IO.Path]::GetFileNameWithoutExtension([string]$proc['Name']) } catch { }
         }
 
         # 仅按名字命中的进程不能证明属于本次安装，只提示用户手动关闭。
         if (-not $matched -and $declaredNames.Count -gt 0) {
-            $nameBase = ''
-            try { $nameBase = [IO.Path]::GetFileNameWithoutExtension([string]$proc['Name']) } catch { $nameBase = '' }
             if ($nameBase -and ($declaredNames -contains $nameBase.ToLowerInvariant())) {
                 $matched = $true
                 $certain = $false
@@ -78,8 +67,6 @@ function Get-WinstRunningAppProcess {
 
         # 路径读不到时（如以管理员运行）仅在进程名与主程序一致时才作为候选（避免误伤同名但别处的程序）
         if (-not $matched -and -not $path -and $mainBase) {
-            $nameBase = ''
-            try { $nameBase = [IO.Path]::GetFileNameWithoutExtension([string]$proc['Name']) } catch { $nameBase = '' }
             $shellNames = @('powershell', 'pwsh', 'cmd', 'wscript', 'cscript', 'conhost', 'explorer')
             if ($nameBase -and $nameBase -ieq $mainBase -and ($shellNames -notcontains $nameBase.ToLowerInvariant())) {
                 $matched = $true

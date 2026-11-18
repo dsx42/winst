@@ -16,11 +16,10 @@ function Split-WinstSafeChildSegments {
 
         -AllowWildcard 供「只允许 `*` / `?` 的相对模式」使用（postInstallCopy.from / installerExe）：
         额外拒绝控制字符与 `[` `]`（PowerShell 其它通配语法）。.NET Framework 的 GetFullPath 拒绝
-        `*` / `?`，因此边界复核改用「把通配符替换成 x」的同结构普通路径（返回的 ProbePath）。
+        `*` / `?`，因此边界复核改用「把通配符替换成 x」的同结构普通路径。
     .OUTPUTS
-        @{ Ok; Path; ProbePath; Error }
+        @{ Ok; Path; Error }
         Path  = 实际要用的路径（保留通配符）
-        ProbePath = 用于边界复核的普通路径（无通配符时与 Path 相同）
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Root,
@@ -29,7 +28,7 @@ function Split-WinstSafeChildSegments {
         [switch]$AllowWildcard
     )
 
-    $result = @{ Ok = $false; Path = ''; ProbePath = ''; Error = '' }
+    $result = @{ Ok = $false; Path = ''; Error = '' }
     if (-not $Root) { $result.Error = ('{0}：缺少根目录' -f $Label); return $result }
 
     $text = ([string]$Child).Trim()
@@ -38,17 +37,16 @@ function Split-WinstSafeChildSegments {
         $result.Error = ('{0}含有不支持的字符：{1}' -f $Label, $Child)
         return $result
     }
-    if ([IO.Path]::IsPathRooted($text) -or $text -match '^[A-Za-z]:' -or $text.StartsWith('\\')) {
+    if ([IO.Path]::IsPathRooted($text)) {
         $result.Error = ('{0}不能是绝对路径或网络路径：{1}' -f $Label, $Child)
         return $result
     }
-    if ($AllowWildcard -and ($text -match '[\x00-\x1F\[\]]')) {
+    if ($AllowWildcard -and ($text -match '[\[\]]')) {
         $result.Error = ('{0}含有不支持的字符：{1}' -f $Label, $Child)
         return $result
     }
 
     $segments = New-Object 'System.Collections.Generic.List[string]'
-    $probeSegments = New-Object 'System.Collections.Generic.List[string]'
     foreach ($segment in ($text -split '[\\/]')) {
         $one = [string]$segment
         if (-not $one -or $one -eq '.') { continue }
@@ -64,14 +62,14 @@ function Split-WinstSafeChildSegments {
             return $result
         }
         $segments.Add($one)
-        $probeSegments.Add($probe)
     }
     if ($segments.Count -eq 0) { $result.Error = ('{0}为空' -f $Label); return $result }
 
     $sep = [string][IO.Path]::DirectorySeparatorChar
-    $full = Join-WinstPath $Root ([string]::Join($sep, $segments.ToArray()))
+    $relative = [string]::Join($sep, $segments.ToArray())
+    $full = Join-WinstPath $Root $relative
     $probeFull = $full
-    if ($AllowWildcard) { $probeFull = Join-WinstPath $Root ([string]::Join($sep, $probeSegments.ToArray())) }
+    if ($AllowWildcard) { $probeFull = Join-WinstPath $Root ($relative.Replace('*', 'x').Replace('?', 'x')) }
     if (-not (Test-WinstPathUnderRoot -Path $probeFull -Root $Root)) {
         $result.Error = ('{0}会落到目标目录之外：{1}' -f $Label, $Child)
         return $result
@@ -79,6 +77,5 @@ function Split-WinstSafeChildSegments {
 
     $result.Ok = $true
     $result.Path = $full
-    $result.ProbePath = $probeFull
     return $result
 }

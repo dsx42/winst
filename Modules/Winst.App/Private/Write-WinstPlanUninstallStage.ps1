@@ -19,10 +19,10 @@ function Write-WinstPlanUninstallStage {
             foreach ($pathItem in @(Get-EntryArray -Entry $uninstall -Key 'removePaths')) {
                 $uninstallLines += ('从 PATH 里移除: {0}' -f (Expand-PlanPlaceholders -Value ([string]$pathItem) -InstallDir $installDir -InstallRoot $View.InstallRoot))
             }
-            if ((Get-EntryBool -Entry $shortcuts -Key 'desktop') -and $View.DesktopLink) {
+            if ($View.DesktopLink) {
                 $uninstallLines += ('删除桌面快捷方式: {0}' -f $View.DesktopLink)
             }
-            if ((Get-EntryBool -Entry $shortcuts -Key 'startMenu') -and $View.StartMenuLink) {
+            if ($View.StartMenuLink) {
                 $uninstallLines += ('删除开始菜单快捷方式: {0}' -f $View.StartMenuLink)
             }
         }
@@ -40,7 +40,9 @@ function Write-WinstPlanUninstallStage {
         }
         default { $uninstallLines += '按软件自身的方式卸载' }
     }
-    $commandLines = @(Get-WinstPlanUninstallCommandLines -Uninstall $uninstall -InstallDir $installDir -InstallRoot $View.InstallRoot)
+    $commandDir = $View.InstalledDir
+    if (-not $commandDir) { $commandDir = $installDir }
+    $commandLines = @(Get-WinstPlanUninstallCommandLines -Uninstall $uninstall -InstallDir $commandDir -InstallRoot $View.InstallRoot)
     if ($commandLines.Count -gt 0) { $uninstallLines = @($commandLines) + @($uninstallLines) }
     Write-ResolvedStage -Marker '⑦' -Label '卸载' -Lines $uninstallLines
 }

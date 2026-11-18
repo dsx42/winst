@@ -9,8 +9,6 @@ function Show-WinstListContent {
         以及该软件声明的依赖（`dependencies`，含传递依赖）——清单只写用户选中的软件，
         **依赖不会被自动写进清单**，所以这里必须说清「依赖了谁、各自什么状态、清单里没有的会在安装时自动安装」。
         结尾给出一句汇总（已装 / 已有安装包 / 需联网下载 / 软件源里没有）。
-    .OUTPUTS
-        @{ Total; Installed; Cached; NeedDownload; Missing; PinnedNote }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -27,17 +25,18 @@ function Show-WinstListContent {
     $unusableCount = 0
 
     # 清单里的 id 集合（用于标注「依赖是否已写进这份清单」）
-    $listIds = New-WinstOrdinalDictionary
-    foreach ($one in $list) {
-        $oneId = [string]$one['Id']
-        if ($oneId) { $listIds[$oneId] = $true }
+    if (-not $Quiet) {
+        $listIds = New-WinstOrdinalDictionary
+        foreach ($one in $list) {
+            $oneId = [string]$one['Id']
+            if ($oneId) { $listIds[$oneId] = $true }
+        }
     }
 
     if ($null -eq $StateRead -and -not $Quiet -and $list.Count -gt 0) { $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot }
     $index = 0
     foreach ($item in $list) {
         $index++
-        $status = Get-WinstListItemStatus -Item $item
         if (-not [bool]$item['InCatalog']) { $missingCount++ }
         elseif (-not [bool]$item['PlanAvailable']) { $unusableCount++ }
         elseif ([bool]$item['Installed']) { $installedCount++ }
@@ -45,6 +44,7 @@ function Show-WinstListContent {
         else { $needCount++ }
 
         if ($Quiet) { continue }
+        $status = Get-WinstListItemStatus -Item $item
 
         Write-Host ('  {0}) {1}' -f $index, [string]$item['DisplayName']) -NoNewline -ForegroundColor White
         if ([string]$item['DisplayName'] -cne [string]$item['Id']) {
@@ -102,6 +102,4 @@ function Show-WinstListContent {
     $warn = ($missingCount -gt 0 -or $needCount -gt 0 -or $unusableCount -gt 0)
     Write-Host ('  汇总: {0}' -f ($parts -join ' / ')) -ForegroundColor $(if ($warn) { 'DarkYellow' } else { 'Gray' })
 
-    return @{ Total = $list.Count; Installed = $installedCount; Cached = $cachedCount; NeedDownload = $needCount
-              Missing = $missingCount; Unusable = $unusableCount }
 }

@@ -16,8 +16,7 @@ function Expand-VersionPlaceholder {
     $versionText = ''
     if ($null -ne $Version) { $versionText = [string]$Version }
     if (-not $versionText) { throw '模板使用了版本占位符，但当前版本未知，无法展开' }
-    $majorText = ''
-    if ($versionText) { $majorText = ($versionText -split '\.')[0] }
+    $majorText = ($versionText -split '\.')[0]
     $minorText = ''
     if ($text.Contains('{versionMinor}')) {
         $parts = @((Get-NormalizedVersionString -Value $versionText) -split '\.')

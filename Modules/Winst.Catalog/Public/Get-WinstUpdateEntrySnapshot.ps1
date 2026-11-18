@@ -11,7 +11,7 @@ function Get-WinstUpdateEntrySnapshot {
     #>
     param([hashtable]$Context, $Row, $Ledger, [string]$InstalledVersion)
 
-    $bestEntry = Get-WinstRowBestEntry -Row $Row
+    $bestEntry = Get-WinstRowBestSourceEntry -Row $Row
     $latest = ''
     $latestSource = ''
     if ($bestEntry) {
@@ -21,7 +21,8 @@ function Get-WinstUpdateEntrySnapshot {
 
     # 版本号取自主包文件信息的条目：软件源里其实没有版本号，缓存里
     # 那份也不算数（要重新取包才知道当前是哪一版）→ 不拿它当比较基准，按「软件源里没有可用的版本信息」处理
-    $versionFromPackageRow = Test-WinstRowVersionFromPackage -Row $Row
+    $chosen = Get-WinstRowBestPlanEntry -Row $Row -Best $bestEntry
+    $versionFromPackageRow = Test-WinstRowVersionFromPackage -Row $Row -Chosen $chosen
     $cachedPackageVersion = ''
     $remoteFreshState = ''
     if ($versionFromPackageRow) {
@@ -29,8 +30,8 @@ function Get-WinstUpdateEntrySnapshot {
         $latestSource = ''
         # 「已下载安装包」的版本（解析锁 / 缓存索引）与远端新鲜度（解析时的 HEAD 结论）：
         # 供检查更新「三条件判已是最新」与目标版本展示用，读锁与本地索引、零网络请求
-        $cachedPackageVersion = Get-WinstRowCachedPackageVersion -PkgDir $Context.PkgDir -Row $Row
-        $remoteFreshState = Get-WinstRowRemoteFreshState -Row $Row
+        $cachedPackageVersion = Get-WinstRowCachedPackageVersion -PkgDir $Context.PkgDir -Row $Row -Chosen $chosen
+        $remoteFreshState = Get-EntryString -Entry $chosen['Plan'] -Key 'remoteFresh'
     }
 
     # 软件源里没有可用的版本信息时再分两种：
@@ -64,7 +65,9 @@ function Get-WinstUpdateEntrySnapshot {
     $originUsable = [bool]($originEntry -and $originEntry['Ok'] -and $originEntry['Plan'])
     $originNewer = $false
     if ($originUsable) {
-        if ($comparable -and $originVersion -and $originVersion -ine 'unknown') {
+        if ($comparable -and $latest -and $latest -ceq $originVersion -and $latest -ine 'unknown') {
+            $originNewer = ($cmp -gt 0)
+        } elseif ($comparable -and $originVersion -and $originVersion -ine 'unknown') {
             $originNewer = ((Compare-WinstVersion -A $originVersion -B $InstalledVersion) -gt 0)
         } else {
             $originNewer = $true

@@ -9,7 +9,6 @@ function Get-WinstCompanionLayoutSignature {
 
     $dest = (Get-EntryString -Entry $File -Key 'dest').Trim().Replace('/', '\')
     $strip = Get-EntryValue -Entry $File -Key 'stripTopDir' -Default $false
-    if ($null -eq $strip) { $strip = $false }
     return (ConvertTo-WinstJson -InputObject ([ordered]@{
         dest = $dest
         extract = [bool](Get-EntryBool -Entry $File -Key 'extract')

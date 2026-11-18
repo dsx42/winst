@@ -7,7 +7,6 @@ function ConvertTo-WildcardLiteral {
     #>
     param([string]$Text)
 
-    $literal = ''
-    if ($null -ne $Text) { $literal = [string]$Text }
+    $literal = [string]$Text
     return $literal.Replace('\', '\\').Replace('*', '\*').Replace('?', '\?')
 }

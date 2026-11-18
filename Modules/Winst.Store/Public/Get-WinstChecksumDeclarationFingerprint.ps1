@@ -13,12 +13,12 @@ function Get-WinstChecksumDeclarationFingerprint {
         [string]$FileName,
         $FileDecl,
         [string]$FileUrl = '',
-        [string]$FileVersion = ''
+        [string]$FileVersion = '',
+        [string]$HashFile = (Get-EntryString -Entry $FileDecl -Key 'hashFile').Trim(),
+        [string]$HashFrom = (Get-EntryString -Entry $FileDecl -Key 'hashFrom').Trim()
     )
 
-    $hashFile = (Get-EntryString -Entry $FileDecl -Key 'hashFile').Trim()
     if (-not $hashFile) { return '' }
-    $hashFrom = (Get-EntryString -Entry $FileDecl -Key 'hashFrom').Trim()
     if (-not $hashFrom) { $hashFrom = 'sha256sums' }
     $payload = @(
         ([string]$FileName).ToLowerInvariant(),

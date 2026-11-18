@@ -81,10 +81,10 @@ function Invoke-WinstAppInstall {
 
         $null = Set-WinstState -Name WinstInstallingAppIds -Value ($previousInstallingIds + @($id))
         $decision = Resolve-WinstInstallDecision -Context $Context -Plan $Plan -Type $type -Install $install -InstallDir $installDir `
-            -Id $id -DisplayName $displayName -Version $version -Result $result -Quiet:$Quiet -Force:$Force -DryRun:$dryRun `
+            -Id $id -DisplayName $displayName -Version $version -Result $result -Quiet:$Quiet -Force:$Force -DryRun:$dryRun -Offline:$offline `
             -VersionFromPackage:$versionFromPackage -FreshMain:$freshMain -PlanFreshState $planFreshState `
             -VersionFromCachedPackage:$versionFromCachedPackage -CompanionDownloadCount $companionDownloadCount `
-            -CompanionsOnly:$companionsOnly -IsDownloadType:$isDownloadType -Ledger $ledger -SourceName $SourceName
+            -CompanionsOnly:$companionsOnly -PrimaryFilePlan $plans[0] -IsDownloadType:$isDownloadType -Ledger $ledger -SourceName $SourceName
         if ($decision.Return) { return $decision.Result }
         $deferVersionDecision = [bool]$decision.Defer
         $companionOnlyUpdate = [bool]$decision.CompanionOnly
@@ -123,7 +123,8 @@ function Invoke-WinstAppInstall {
 
         # —— 逐文件下载（含离线特例 / 引擎引导 / 失效地址重试 / 完整性校验）——
         $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $plans -PkgDir $pkgDir -Id $id `
-            -DisplayName $displayName -SourceName $SourceName -Version $version -Offline:$offline -Quiet:$Quiet -InputLease $inputLease
+            -DisplayName $displayName -SourceName $SourceName -Version $version -Offline:$offline -Quiet:$Quiet -InputLease $inputLease `
+            -CompanionOnly:$companionOnlyUpdate
         if (-not $download.Ok) {
             $result.Error = [string]$download.Error
             $result.Network = [bool]$download.Network
@@ -150,12 +151,7 @@ function Invoke-WinstAppInstall {
         Update-WinstPackageCacheIndex -Context $Context -Id $id -Plans $plans -PrevEntry $prevEntry `
             -Version $version -DownloadedNames $downloadedNames
 
-        $primaryPath = ''
-        if ($files.Count -gt 0) {
-            $pn = Get-EntryString -Entry $files[0] -Key 'name'
-            if (-not $pn) { $pn = Get-FileNameFromUrl -Url (Get-EntryString -Entry $files[0] -Key 'url') }
-            if ($pn) { $primaryPath = Join-WinstPath $pkgDir $pn }
-        }
+        $primaryPath = $primaryTarget
         if (-not $primaryPath -or -not (Test-Path -LiteralPath $primaryPath -PathType Leaf)) {
             $result.Error = ('安装包不在缓存里：{0}' -f $displayName)
             return $result
@@ -249,8 +245,6 @@ function Invoke-WinstAppInstall {
         if ($landing.Error) { $result.Error = [string]$landing.Error; return $result }
         $appliedFiles = @($landing.Files)
         $appliedFileVersions = Get-WinstAppliedFileVersions -Context $Context -Id $id -Files $files -Ledger $ledger -Landing $landing -CompanionOnly:$companionOnlyUpdate
-        $staleRemoved = @($landing.Removed)
-        $staleDirs = @($landing.KeptDirs)
 
         # —— 仅配套文件更新：到这里就结束——不重跑复制 / 改名、不写环境变量 / PATH / 快捷方式、不跑 postInstall，
         # 也不改台账里的版本与系统项登记，只补 appliedFiles——
@@ -261,13 +255,9 @@ function Invoke-WinstAppInstall {
                     -Id $id -Entry $ledger -Fields @{ appliedFiles = $appliedFiles; appliedFileRules = $landing.Rules; appliedFileVersions = $appliedFileVersions }
             }
             $updatedNames = @($landing.UpdatedNames)
-            # 仅配套文件更新不删任何文件，这两项恒为空；保留判断是为了完整安装路径复用同一段消息
-            $removedNote = ''
-            if ($staleRemoved.Count -gt 0) { $removedNote = ('，删除 {0} 个旧文件（{1}）' -f $staleRemoved.Count, ($staleRemoved -join '、')) }
-            if ($staleDirs.Count -gt 0) { $removedNote += ('，保留旧目录（{0}）' -f ($staleDirs -join '、')) }
             $result.Ok = $true
             $result.InstallDir = $installDir
-            $result.Message = ('{0} {1}：主包无变化；已更新 {2} 个附加文件（{3}）{4}' -f $displayName, $detected, $updatedNames.Count, ($updatedNames -join '、'), $removedNote)
+            $result.Message = ('{0} {1}：主包无变化；已更新 {2} 个附加文件（{3}）' -f $displayName, $detected, $updatedNames.Count, ($updatedNames -join '、'))
             if ($method -eq 'installer') {
                 $result.Message = ('{0} {1}：主包无变化；已刷新缓存的配套文件 {2} 个（{3}）' -f $displayName, $detected, $downloadedNames.Count, ($downloadedNames -join '、'))
             }
@@ -280,30 +270,21 @@ function Invoke-WinstAppInstall {
         $final = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `
             -Version $version -Ledger $ledger -Quiet:$Quiet
         $finalVersion = [string]$final.Version
-        if ($system.Error) {
-            # 系统项在 postInstall 之前就已落地：这里直接返回会让台账里没有这些登记，
-            # 卸载时回收不到（环境变量 / PATH / 快捷方式成为孤儿）。先把已落地的项写进台账再报错。
-            try {
-                Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
-                    -InstallDir $installDir -Version $finalVersion -SourceName $SourceName `
-                    -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions -OldVersions @($final.OldVersions)
-            } catch {
-                $result.Error = ('{0}（且写入安装台账失败：{1}）' -f [string]$system.Error, $_.Exception.Message)
-                return $result
-            }
-            $result.Error = [string]$system.Error
-            return $result
-        }
-
-        # —— ⑦ 写台账 ——
+        # 系统项失败时也要登记已经落地的部分，以便卸载时回收。
         try {
             Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
                 -InstallDir $installDir -Version $finalVersion -SourceName $SourceName `
                 -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions -OldVersions @($final.OldVersions)
         } catch {
+            if ($system.Error) {
+                $result.Error = ('{0}（且写入安装台账失败：{1}）' -f [string]$system.Error, $_.Exception.Message)
+                return $result
+            }
             $result.Error = ('{0} 的文件已落位，但写入安装台账失败：{1}' -f $displayName, $_.Exception.Message)
             return $result
         }
+
+        if ($system.Error) { $result.Error = [string]$system.Error; return $result }
 
         # versionFromPackage 条目：主包（重新）取回并安装成功 → 缓存里这份就是远端当前这份，
         # 把解析锁里的远端新鲜度结论改写为 unchanged、版本对齐为本次读数——

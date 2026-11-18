@@ -11,9 +11,9 @@ function Get-WinstPlanUninstallCommandLines {
 
     $commandLines = @()
     foreach ($command in @(Get-EntryArray -Entry $Uninstall -Key 'commands')) {
-        $exeText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'exe') -InstallDir $InstallDir -InstallRoot $InstallRoot))
-        $argsText = [Environment]::ExpandEnvironmentVariables((Expand-PlanPlaceholders -Value (Get-EntryString -Entry $command -Key 'args') -InstallDir $InstallDir -InstallRoot $InstallRoot))
-        $commandLines += (('先执行卸载命令: {0} {1}' -f $exeText, $argsText).TrimEnd())
+        $expanded = Expand-WinstPlanCommand -Command $command -InstallDir $InstallDir -InstallRoot $InstallRoot
+        if (-not $expanded.Exe) { continue }
+        $commandLines += (('先执行卸载命令: {0} {1}' -f $expanded.Exe, $expanded.Arguments).TrimEnd())
     }
     return $commandLines
 }

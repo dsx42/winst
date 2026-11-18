@@ -16,23 +16,27 @@ function Get-WinstAllResolvedApps {
     #
     # 判断「是否已缓存」用 $null 判断：初始化值是 $null（无缓存），空数组是有效缓存
     # （Get-WinstState 用 -NoEnumerate 输出，空数组不会被展开成 $null）。
-    if ($null -ne (Get-WinstState -Name WinstAllAppsCache)) { return @((Get-WinstState -Name WinstAllAppsCache)) }
+    $cachedApps = Get-WinstState -Name WinstAllAppsCache
+    if ($null -ne $cachedApps) { return $cachedApps }
 
     $all = New-Object 'System.Collections.Generic.List[object]'
-    $offline = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline)
-    $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
+    $options = Get-WinstState -Name WinstOptions
+    $allowRefresh = -not ($options -and ($options.Offline -or $options.DryRun))
 
     foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = [string]$source['name']
         if (-not $name) { continue }
 
         $apps = @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $name)
-        if ($apps.Count -eq 0 -and -not $offline -and -not $dryRun -and -not (Get-WinstState -Name WinstCatalogRefreshed).ContainsKey($name)) {
+        if ($apps.Count -eq 0 -and $allowRefresh -and -not (Get-WinstState -Name WinstCatalogRefreshed).ContainsKey($name)) {
             (Get-WinstState -Name WinstCatalogRefreshed)[$name] = $true
             Write-Host ('  正在读取软件源 {0} 的软件清单 …' -f $name) -ForegroundColor Gray
             $refresh = Update-ManifestSource -Context $Context -Source $source
-            if (-not $refresh.Success) { Write-Host ('  软件源 {0} 刷新失败：{1}' -f $name, $refresh.Message) -ForegroundColor Yellow }
-            $apps = @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $name)
+            if ($refresh.Success) { $apps = @($refresh.Apps) }
+            else {
+                Write-Host ('  软件源 {0} 刷新失败：{1}' -f $name, $refresh.Message) -ForegroundColor Yellow
+                $apps = @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $name)
+            }
         }
         foreach ($app in $apps) { $all.Add(@{ Source = $name; App = $app }) }
     }

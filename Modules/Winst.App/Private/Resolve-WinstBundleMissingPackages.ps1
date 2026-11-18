@@ -53,11 +53,7 @@ function Resolve-WinstBundleMissingPackages {
             Write-Host ''
             Write-Host '  正在下载补齐（每个软件的动作会逐条打印）…' -ForegroundColor Gray
             foreach ($item in $needDownload) {
-                $chosen = Get-WinstRowBestPlanEntry -Row $item['Row']
-                if (-not $chosen) {
-                    Write-Host ('  {0}: 已跳过：软件源里没有可用的下载计划。' -f [string]$item['DisplayName']) -ForegroundColor DarkYellow
-                    continue
-                }
+                $chosen = $item['PlanEntry']
                 Write-Host ''
                 Write-Host ('  —— {0} 下载 {1}（来自 {2}）——' -f [string]$item['DisplayName'], [string]$chosen['Version'], [string]$chosen['Source']) -ForegroundColor Cyan
                 try {

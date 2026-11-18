@@ -75,9 +75,7 @@ function Invoke-WinstFluxDownDownload {
             Write-Host ('  [verbose] 下载引擎输出: {0}' -f $engineOutput) -ForegroundColor DarkGray
         }
 
-        if ($run.TimedOut) {
-            $result.Error = ('下载引擎超时（已结束进程）：{0}' -f $exe)
-        } elseif (-not $run.Ok) {
+        if (-not $run.Ok) {
             $result.Error = [string]$run.Error
         } elseif ($result.ExitCode -eq 0) {
             $result.Ok = $true

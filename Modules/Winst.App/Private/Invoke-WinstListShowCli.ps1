@@ -42,6 +42,6 @@ function Invoke-WinstListShowCli {
         return 0
     }
 
-    $null = Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead
+    Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead
     return 0
 }

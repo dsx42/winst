@@ -11,7 +11,7 @@ function Remove-WinstFileSystemItem {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     $item = Get-WinstFileSystemItem -Path $Path
-    $extended = ConvertTo-WinstExtendedPath -Path $item.FullName
+    $extended = $item.ExtendedPath
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0 -and
         ($item.Attributes -band [IO.FileAttributes]::ReadOnly) -ne 0) {
         [IO.File]::SetAttributes($extended, ($item.Attributes -band (-bnot [IO.FileAttributes]::ReadOnly)))

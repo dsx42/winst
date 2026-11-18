@@ -33,7 +33,8 @@ function Get-WinstPackageFilePlans {
         # 随后逐包调用 Confirm-WinstCachedFilePlan 时，将缺失的现场摘要推迟到消费校验。
         [switch]$ConfirmBeforeUse,
         [switch]$FreshMain,
-        [string]$FreshMainReason = '版本号取自主包文件信息（软件源里没有版本号），每次都重新取包'
+        [string]$FreshMainReason = '版本号取自主包文件信息（软件源里没有版本号），每次都重新取包',
+        [switch]$ConfirmMainBeforeUse
     )
 
     if (-not (Test-WinstSafePathSegment -Name $Id) -or (Test-WinstReservedPackageId -Id $Id)) { throw ('软件 id 不合法或使用了保留目录名：' + $Id) }
@@ -41,16 +42,18 @@ function Get-WinstPackageFilePlans {
     $entry = $null
     if ($Index -and $Index.Contains($Id)) { $entry = $Index[$Id] }
 
-    $offline = [bool]($Offline -or ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline))
-    $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
+    $options = Get-WinstState -Name WinstOptions
+    $offline = [bool]($Offline -or ($options -and $options.Offline))
+    $dryRun = [bool]($options -and $options.DryRun)
     $canCheckRemote = [bool]($CheckValidators -and -not $offline -and -not $dryRun)
 
     # 主包序号（files[] 第一条；$FreshMain 时它不沿用缓存，见上面的说明）
     $fileIndex = -1
     foreach ($file in @($Files)) {
         $fileIndex++
+        $deferHash = $ConfirmBeforeUse -or ($ConfirmMainBeforeUse -and $fileIndex -eq 0 -and -not $dryRun)
         Get-WinstFilePlan -Context $Context -File $file -FileIndex $fileIndex -Dir $dir -Entry $entry `
                 -Offline:$offline -DryRun:$dryRun -CanCheckRemote:$canCheckRemote -FreshMain:$FreshMain `
-                -ConfirmBeforeUse:$ConfirmBeforeUse -FreshMainReason $FreshMainReason
+                -ConfirmBeforeUse:$deferHash -FreshMainReason $FreshMainReason
     }
 }

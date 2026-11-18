@@ -11,7 +11,7 @@ function Resolve-WinstGithubVersion {
     .OUTPUTS
         @{ Error; Version; ResultVersion; VersionFrom; VersionKind; VersionBetween }
     #>
-    param([hashtable]$Context, $Source, $Entry, [string]$Repo, [string]$ChosenTag, $Releases, [string]$Version)
+    param([hashtable]$Context, $Source, [string]$Repo, [string]$ChosenTag, $Releases, [string]$Version)
 
     $versionFrom = (Get-EntryString -Entry $Source -Key 'versionFrom').Trim().ToLowerInvariant()
     if (-not $versionFrom) { $versionFrom = 'tag' }
@@ -38,11 +38,6 @@ function Resolve-WinstGithubVersion {
                 Error = '软件源里声明了 versionFrom: package（版本号等主包下载后从文件信息取），不要再写 versionKind / versionBetween——那两个是从下载文件名识别版本的写法'
                 Version = ''; ResultVersion = ''; VersionFrom = ''; VersionKind = ''; VersionBetween = @()
             }
-        }
-        # source.packageVersion：校验写法
-        $packageVersionSpec = Get-WinstPackageVersionSpec -Source $Source
-        if (-not $packageVersionSpec.Ok) {
-            return @{ Error = [string]$packageVersionSpec.Error; Version = ''; ResultVersion = ''; VersionFrom = ''; VersionKind = ''; VersionBetween = @() }
         }
         # 版本号不在发布元数据里：置空等取包（{version} / {tag} 占位符仍按发布 tag 展开，见上）
         $resultVersion = ''

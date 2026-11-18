@@ -22,19 +22,22 @@ function Resolve-PkgDir {
     }
 
     # 脚本同目录存在 apps\ 即自动命中离线套件缓存（零配置）
-    if ((Get-WinstState -Name WinstScriptDir)) {
-        $scriptApps = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'apps'
+    $scriptDir = Get-WinstState -Name WinstScriptDir
+    if ($scriptDir) {
+        $scriptApps = Join-WinstPath $scriptDir 'apps'
         if (Test-Path -LiteralPath $scriptApps -PathType Container) {
             return @{ Path = $scriptApps; Source = 'script' }
         }
     }
 
-    $configPath = Join-WinstPath $DataRoot 'config.json'
-    if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-        # 只取一次配置值（原写法在条件与返回处各取一次）
-        $configured = Get-ConfigValue -Config $Config -Key 'pkgDir'
-        if ($configured) { return @{ Path = (Expand-WinstPath -Path $configured -Base $DataRoot); Source = 'config' } }
+    $configured = Get-ConfigValue -Config $Config -Key 'pkgDir'
+    $defaultPath = Join-WinstPath $DataRoot 'apps'
+    if ($configured -and $configured -cne $defaultPath) {
+        return @{ Path = (Expand-WinstPath -Path $configured -Base $DataRoot); Source = 'config' }
     }
-
-    return @{ Path = (Join-WinstPath $DataRoot 'apps'); Source = 'default' }
+    # 读取配置时已补齐默认值，只有值完全相同才需要区分显式配置与首次运行。
+    if ($configured -and (Test-Path -LiteralPath (Join-WinstPath $DataRoot 'config.json') -PathType Leaf)) {
+        return @{ Path = $defaultPath; Source = 'config' }
+    }
+    return @{ Path = $defaultPath; Source = 'default' }
 }

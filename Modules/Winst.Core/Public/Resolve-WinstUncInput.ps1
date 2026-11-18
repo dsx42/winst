@@ -80,10 +80,11 @@ function Resolve-WinstUncInput {
     }
 
     # 校验 UNC 结构：\\服务器\共享名[\子路径...]
-    $parts = @($text.Substring(2).TrimEnd('\') -split '\\')
+    $tail = $text.Substring(2).TrimEnd('\')
+    $parts = @($tail -split '\\')
     $server = $parts[0]
     # 服务器名里的引号会让后续 cmdkey 参数拼接失效；控制字符 / 空白 / 冒号 / @ 同样不合法
-    if (-not $server -or $server -match '[\s''@]' -or $server.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0) {
+    if (-not $server -or $server -in @('.', '..') -or $server -match '[\s''@]' -or $server.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0) {
         $result.Error = '服务器名不合法（UNC 格式：\\服务器\共享名\目录；账号密码请在其后单独输入）'
         return $result
     }
@@ -91,18 +92,17 @@ function Resolve-WinstUncInput {
         $result.Error = 'UNC 路径缺少共享名（\\服务器\共享名\目录）'
         return $result
     }
-    for ($i = 0; $i -lt $parts.Count; $i++) {
+    for ($i = 1; $i -lt $parts.Count; $i++) {
         $segment = $parts[$i]
         if (-not $segment -or $segment -eq '.' -or $segment -eq '..' -or
             $segment.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0 -or
-            ($i -gt 0 -and ($segment.EndsWith('.') -or $segment.EndsWith(' ')))) {
+            $segment.EndsWith('.') -or $segment.EndsWith(' ')) {
             $result.Error = ('UNC 路径包含空路径段、非法字符、. / .. 或尾点空格：{0}' -f $text)
             return $result
         }
     }
 
-    $trimmed = $text.TrimEnd('\')
-    try { $trimmed = [IO.Path]::GetFullPath($trimmed) }
+    try { $trimmed = [IO.Path]::GetFullPath('\\' + $tail) }
     catch {
         $result.Error = ('无法规范化 UNC 路径：{0}' -f $_.Exception.Message)
         return $result

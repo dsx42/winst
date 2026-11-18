@@ -133,8 +133,6 @@ function Invoke-InstallFlow {
                 }
                 # 仅下载类型不写台账，汇总里单列「已下载软件包」，不混进「已安装」
                 if ((Get-WinstRowType -Row $row -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $downloadOkCount++ } else { $okCount++ }
-                # 安装后重读台账，后续展示能反映最新状态
-                $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
             }
 
             Write-Host ''

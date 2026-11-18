@@ -10,9 +10,9 @@ function Invoke-ManifestRefreshAll {
     .OUTPUTS
         @{ Aborted = <bool>; Failed = <int>; Total = <int> }
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Context)
+    param([Parameter(Mandatory = $true)][hashtable]$Context, [object[]]$Sources)
 
-    $result = @{ Aborted = $false; Failed = 0; Total = 0 }
+    $result = @{ Aborted = $false; Failed = 0; Total = 0; Network = $false }
 
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
         Write-Host '  当前为离线模式（--offline），刷新软件源需要联网。' -ForegroundColor Yellow
@@ -21,19 +21,23 @@ function Invoke-ManifestRefreshAll {
         return $result
     }
 
-    $sources = @(Get-ManifestSourceList -Context $Context)
+    $title = '刷新软件源'
+    if (-not $PSBoundParameters.ContainsKey('Sources')) {
+        $title = '刷新全部软件源'
+        $sources = @(Get-ManifestSourceList -Context $Context)
+    }
     if ($sources.Count -eq 0) {
         Write-Host '  当前没有软件源。' -ForegroundColor Yellow
         $result.Aborted = $true
         return $result
     }
 
-    Write-Section '刷新全部软件源'
+    Write-Section $title
 
     $failed = 0
     foreach ($source in $sources) {
         $one = Invoke-ManifestRefreshSource -Context $Context -Source $source
-        if (-not $one.Ok) { $failed++ }
+        if (-not $one.Ok) { $failed++; if ($one.Network) { $result.Network = $true } }
     }
 
     $result.Total = $sources.Count

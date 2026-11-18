@@ -6,7 +6,7 @@ function Resolve-WinstDownloadedFile {
         把引擎改名过的下载产物归位成期望文件名（只在**本次新出现**的文件里认领）。
     .DESCRIPTION
         引擎在目标名被占用时会把输出写成「名称 (1).zip」——下载其实成功了，但 winst 按期望名找不到
-        文件，会一直重试。这里按调用方给的「下载前目录快照」只认本次
+        文件。安装流程使用本次下载的独立目录。传入下载前的文件名时，只认本次
         新出现、且不是 `.fdownloading` 的文件：恰好一个 → 改名成期望名并返回它；没有 / 多个 → 不猜，
         交给调用方报错（多个时列出文件名）。期望名本来就在（正常下载）时直接返回它。
     .OUTPUTS
@@ -25,14 +25,14 @@ function Resolve-WinstDownloadedFile {
         return $result
     }
 
-    $before = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
-    foreach ($item in @($BeforeFiles)) {
-        if ($null -ne $item) { $before[[string]$item] = $true }
+    $before = $null
+    if ($BeforeFiles) {
+        $before = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+        foreach ($item in $BeforeFiles) { [void]$before.Add([string]$item) }
     }
-
     $candidates = @()
     foreach ($file in @(Get-ChildItem -LiteralPath $Dir -File -Force -ErrorAction SilentlyContinue)) {
-        if ($before.ContainsKey([string]$file.Name)) { continue }
+        if ($before -and $before.Contains($file.Name)) { continue }
         if ($file.Name -like '*.fdownloading') { continue }
         $candidates += $file
     }

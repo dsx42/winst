@@ -8,10 +8,6 @@ function Get-WinstCompanionVersionLines {
     param([hashtable]$Context, [string]$Id, $Row, $Ledger, $CacheIndex = $null, $Plan = $null)
 
     if (-not $Context) { return @() }
-    $index = $CacheIndex
-    if ($null -eq $index) { $index = (Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($id)).Index }
-    $cached = $null
-    if ($index.Contains($Id)) { $cached = $index[$Id] }
     if ($null -eq $Plan -and $Row) {
         $planEntry = Get-WinstRowBestPlanEntry -Row $Row
         $Plan = Get-EntryValue -Entry $planEntry -Key 'Plan'
@@ -23,6 +19,11 @@ function Get-WinstCompanionVersionLines {
         $name = Get-EntryString -Entry $files[$i] -Key 'name'
         if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $files[$i] -Key 'url') }
         if ($name) { $declarations[$name] = $files[$i] }
+    }
+    $cached = $null
+    if ($declarations.Count) {
+        if ($null -eq $CacheIndex) { $CacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($Id)).Index }
+        if ($CacheIndex.Contains($Id)) { $cached = $CacheIndex[$Id] }
     }
     $snapshots = Get-EntryValue -Entry $Ledger -Key 'appliedFileVersions'
     foreach ($kind in @('已安装附件', '已下载附件')) {

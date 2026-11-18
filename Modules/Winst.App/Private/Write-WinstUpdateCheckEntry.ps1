@@ -5,7 +5,7 @@ function Write-WinstUpdateCheckEntry {
     .SYNOPSIS
         仅检查：按版本比较结果分档（可更新 / 附加文件有更新 / 已是最新 / 本机更新）并打印报告行。
     #>
-    param([hashtable]$Context, $Row, $Snap, $EntryResult, [string]$InstalledVersion, [string]$DisplayName, [hashtable]$Result, [switch]$Quiet)
+    param([hashtable]$Context, $Row, $Snap, $EntryResult, [string]$InstalledVersion, [string]$DisplayName, [switch]$Quiet)
 
     $latest = [string]$Snap.Latest
     $latestSource = [string]$Snap.LatestSource
@@ -14,11 +14,9 @@ function Write-WinstUpdateCheckEntry {
     # 后两类按软件源里的定义更新，列表里带着原因展示；只有「软件源里没有这个软件」与
     # 「本机版本比软件源里的更新」留给人工确认（列在无法比较里）。
     if (-not $Snap.Comparable) {
-        $Result.Updatable++
         $EntryResult.Action = 'check'
         $EntryResult.Message = '本机版本未知'
     } elseif ($Snap.Cmp -gt 0) {
-        $Result.Updatable++
         $EntryResult.Action = 'check'
     } elseif ($Snap.Cmp -eq 0) {
         # 版本相同、但配套文件有变化 → 单列一档「附加文件有更新」：
@@ -26,17 +24,14 @@ function Write-WinstUpdateCheckEntry {
         $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row
         if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
         if ($companionInfo -and $companionInfo.CompanionsOnly) {
-            $Result.Updatable++
             $EntryResult.Action = 'files'
             $EntryResult.Message = ('附加文件有更新（{0} 个）' -f $companionInfo.ChangedCount)
             $EntryResult.CompanionCount = [int]$companionInfo.ChangedCount
             $EntryResult.CompanionNames = @($companionInfo.Names)
         } else {
-            $Result.UpToDate++
             $EntryResult.Action = 'latest'
         }
     } else {
-        $Result.Unknown++
         $EntryResult.Action = 'newer'
         $EntryResult.Message = '本机版本比软件源里的更新'
     }

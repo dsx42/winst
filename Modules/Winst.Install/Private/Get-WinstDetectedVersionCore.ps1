@@ -44,23 +44,22 @@ function Get-WinstDetectedVersionCore {
 
     switch ($method) {
         'registry' {
-            Get-WinstVersionFromRegistry -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
-                -Kind $kind -Between $between -Result $result -RegistryMatches $RegistryMatches
+            Get-WinstVersionFromRegistry -Plan $Plan -InstallDir $InstallDir -Result $result -RegistryMatches $RegistryMatches
         }
         'fileVersion' {
-            Get-WinstVersionFromFileVersion -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
+            Get-WinstVersionFromFileVersion -Context $Context -Detect $detect -InstallDir $InstallDir `
                 -Kind $kind -Between $between -Result $result
         }
         'markerFile' {
-            Get-WinstVersionFromMarkerFile -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
+            Get-WinstVersionFromMarkerFile -Context $Context -Detect $detect -InstallDir $InstallDir `
                 -Kind $kind -Between $between -Result $result
         }
         'jsonFile' {
-            Get-WinstVersionFromJsonFile -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
+            Get-WinstVersionFromJsonFile -Context $Context -Detect $detect -InstallDir $InstallDir `
                 -Kind $kind -Between $between -Result $result
         }
         'appx' {
-            Get-WinstVersionFromAppx -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
+            Get-WinstVersionFromAppx -Detect $detect `
                 -Kind $kind -Between $between -Result $result
         }
         'cliVersion' {
@@ -73,7 +72,9 @@ function Get-WinstDetectedVersionCore {
     if (@('registry', 'appx') -contains $method -and -not [bool]$result.QuerySucceeded) { $result.Ok = $false; return $result }
 
     # 归一写法 + 挑出最新版本（单值检测方式只有一条，等于原样沿用）
-    Complete-WinstDetectedVersion -Result $result -RewriteRules @(Get-EntryArray -Entry $detect -Key 'versionRewrite')
+    $rewriteRules = @()
+    if ($method -ne 'registry') { $rewriteRules = @(Get-EntryArray -Entry $detect -Key 'versionRewrite') }
+    Complete-WinstDetectedVersion -Result $result -RewriteRules $rewriteRules
 
     # 旧版本缺移除入口时（文件类检测只知道「还有这个版本的文件」），按版本号反查系统安装记录把它补上；
     # 已有入口但那条记录现在卸不了（外层引导包的卸载器被磁盘清理删掉）时，换成同版本里可用的那条
@@ -95,9 +96,7 @@ function Get-WinstDetectedVersionCore {
                 if ($props) {
                     # 卸载键里的属性都是可选的：StrictMode 2 下直接取 $props.UninstallString
                     # 会抛 PropertyNotFoundException，把整个版本检测（进而是安装 / 更新 / 修复）打断
-                    $keep = Test-WinstUninstallerUsable -Entry ([ordered]@{
-                            UninstallString = (Get-EntryString -Entry $props -Key 'UninstallString')
-                        })
+                    $keep = Test-WinstUninstallerUsable -Entry $props
                 }
             }
             if (-not $keep) {

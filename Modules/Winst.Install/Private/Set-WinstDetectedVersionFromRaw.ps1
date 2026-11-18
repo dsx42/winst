@@ -10,7 +10,6 @@ function Set-WinstDetectedVersionFromRaw {
           whenNoKind（默认）：只有未声明 versionKind / versionBetween 时才兜底
                               （registry / fileVersion / jsonFile / appx / cli 用）
           always            ：无条件兜底（markerFile 用：标记文件内容常常就是版本号本身）
-          none              ：完全不兜底（调用方自己处理）
 
         用来记录「多个版本实例」的检测方（fileVersion / markerFile / jsonFile / registry）**不直接用
         返回值里的 Ok / Version 作为最终结论**，而是把命中值交给 Add-WinstVersionItem 逐个累积，
@@ -24,16 +23,13 @@ function Set-WinstDetectedVersionFromRaw {
         [string]$Kind = '',
         $Between = @(),
         [string]$Detail = '',
-        [ValidateSet('whenNoKind', 'always', 'none')][string]$Fallback = 'whenNoKind'
+        [ValidateSet('whenNoKind', 'always')][string]$Fallback = 'whenNoKind'
     )
 
     $betweenCount = @($Between).Count
     $value = Get-WinstVersionFromText -Text $Raw -Kind $Kind -Between $Between
-    if (-not $value) {
-        $allowFallback = $false
-        if ($Fallback -eq 'always') { $allowFallback = $true }
-        elseif ($Fallback -eq 'whenNoKind') { $allowFallback = (-not $Kind -and $betweenCount -eq 0) }
-        if ($allowFallback) { $value = Get-WinstFirstVersionLike -Text $Raw }
+    if (-not $value -and ($Fallback -eq 'always' -or (-not $Kind -and $betweenCount -eq 0))) {
+        $value = Get-WinstFirstVersionLike -Text $Raw
     }
 
     if ($Detail) { $Result.Detail = $Detail }

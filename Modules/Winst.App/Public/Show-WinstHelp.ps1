@@ -29,6 +29,7 @@ function Show-WinstHelp {
             'install'   {
                 Write-Host '  用法: winst install <id> [<id>...] [--force] [--overwrite] [--keep a,b] [--source <名称>] [--kill]' -ForegroundColor Yellow
                 Write-Host '        [--files-only|--system-items] [--yes]   安装 / 更新软件（软件源里是更新版本时直接按更新安装，无需 --force）' -ForegroundColor Gray
+                Write-Host '    --source 只使用指定软件源。该源没有可用的安装计划时，当前软件安装失败。' -ForegroundColor Gray
                 Write-Host '  用法: winst install winst --from <winst.zip|目录> [--force]' -ForegroundColor Yellow
                 Write-Host '    从本地安装包安装 winst 自身（版本相同则跳过，更新则替换文件并保留 lists\）；不走软件源、不联网。' -ForegroundColor Gray
             }
@@ -45,8 +46,8 @@ function Show-WinstHelp {
                 Write-Host '    卸载软件；非 winst 安装（仅登记）有卸载定义时按定义卸载、没有时只移除登记；--force 跳过卸载命令（卸载器缺失时也用它只移除登记）；--kill 自动结束正在运行的进程。' -ForegroundColor Gray
             }
             'clean'     {
-                Write-Host '  用法: winst clean [<id>]' -ForegroundColor Yellow
-                Write-Host '    无参数 = 清理各软件的旧版本安装包；指定 id = 删除该 id 的全部已下载安装包。' -ForegroundColor Gray
+                Write-Host '  用法: winst clean [<id>...]' -ForegroundColor Yellow
+                Write-Host '    不带参数时清理各软件的旧版本安装包。指定一个或多个 id 时，删除所选软件的全部已下载安装包。' -ForegroundColor Gray
             }
             'repair'    {
                 Write-Host '  用法: winst repair' -ForegroundColor Yellow
@@ -81,7 +82,7 @@ function Show-WinstHelp {
     Write-Host '    list [--installed|--cached]  列出已安装软件 / 已下载的安装包' -ForegroundColor Gray
     Write-Host '    update [--check|--all|...]  检查 / 执行更新' -ForegroundColor Gray
     Write-Host '    uninstall <id>...          卸载软件' -ForegroundColor Gray
-    Write-Host '    clean [<id>]               清理安装包缓存' -ForegroundColor Gray
+    Write-Host '    clean [<id>...]            清理安装包缓存' -ForegroundColor Gray
     Write-Host '    repair                     修复安装记录' -ForegroundColor Gray
     Write-Host '    manifest add|list|update|remove   管理软件源' -ForegroundColor Gray
     Write-Host '    bundle list|edit|install|pack     安装清单' -ForegroundColor Gray

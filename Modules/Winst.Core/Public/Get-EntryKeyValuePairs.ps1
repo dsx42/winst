@@ -7,18 +7,7 @@ function Get-EntryKeyValuePairs {
     #>
     param($Entry)
 
-    $pairs = @()
-    if ($null -eq $Entry) { return $pairs }
-
-    if ($Entry -is [System.Collections.IDictionary]) {
-        foreach ($key in @($Entry.Keys)) {
-            $pairs += [ordered]@{ Key = [string]$key; Value = [string]$Entry[$key] }
-        }
-        return $pairs
+    foreach ($pair in @(Get-WinstEntryPairs -Entry $Entry)) {
+        [ordered]@{ Key = [string]$pair[0]; Value = [string]$pair[1] }
     }
-
-    foreach ($prop in @($Entry.PSObject.Properties)) {
-        $pairs += [ordered]@{ Key = [string]$prop.Name; Value = [string]$prop.Value }
-    }
-    return $pairs
 }

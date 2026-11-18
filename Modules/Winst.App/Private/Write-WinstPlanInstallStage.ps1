@@ -3,7 +3,7 @@
 function Write-WinstPlanInstallStage {
     <#
     .SYNOPSIS
-        ② 安装段（portable / file / installer / download），返回主程序相对路径供 ⑥ 检测段使用。
+        ② 安装段（portable / file / installer），返回主程序相对路径供 ⑥ 检测段使用。
     .OUTPUTS
         [string] 主程序（可能为空）
     #>
@@ -58,9 +58,6 @@ function Write-WinstPlanInstallStage {
             # 安装位置由安装程序决定：只有安装命令里写明了安装路径才展示预期位置，否则不猜（见 Get-WinstInstallerExpectedDir）
             $expectedDir = Get-WinstInstallerExpectedDir -Plan $Plan -InstallArgs $installArgs -InstallDir $installDir
             if ($expectedDir) { $installLines += ('安装位置: 预期装到 {0}' -f $expectedDir) }
-        }
-        'download' {
-            $installLines += '只把安装包保存下来，不安装到电脑上'
         }
         default { $installLines += '（无法识别的安装方式）' }
     }

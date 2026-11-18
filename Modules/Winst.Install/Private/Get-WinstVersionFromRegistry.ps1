@@ -17,12 +17,8 @@ function Get-WinstVersionFromRegistry {
         选出的版本号全部交给 Complete-WinstDetectedVersion 挑出最新版本，其余作为「旧版本」返回。
     #>
     param(
-        [hashtable]$Context,
         $Plan,
-        $Detect,
         [string]$InstallDir = '',
-        [string]$Kind = '',
-        $Between = @(),
         [hashtable]$Result, $RegistryMatches = $null
     )
 
@@ -40,7 +36,9 @@ function Get-WinstVersionFromRegistry {
         $displayName = Get-EntryString -Entry $chosen -Key 'DisplayName'
         $detail = '系统安装记录: {0}' -f $displayName
         if (-not $Result.Detail) { $Result.Detail = $detail }
-        Add-WinstVersionItem -Result $Result -Version ([string]$hit.Version) -Detail $detail `
+        $version = $hit.CompareVersion
+        if (-not $version) { $version = $hit.Version }
+        Add-WinstVersionItem -Result $Result -Version $version -Detail $detail `
             -RecordKey ([string]$chosen['KeyPath']) -GroupKey (Get-WinstProductNameKey -DisplayName $displayName)
     }
     $Result.Location = Get-WinstRegistryEntryInstallDir -Entry $best.Entry

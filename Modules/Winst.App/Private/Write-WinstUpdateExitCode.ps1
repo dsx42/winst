@@ -20,9 +20,6 @@ function Write-WinstUpdateExitCode {
         if ($Result.Unknown -gt 0) { $parts += ('无法比较 {0}' -f $Result.Unknown) }
         if ($Result.NotInstalled -gt 0) { $parts += ('未安装 {0}' -f $Result.NotInstalled) }
         if (-not $Quiet) { Write-Host ('  检查结果: {0}' -f ($parts -join ' / ')) -ForegroundColor Gray }
-        $Result.Ok = $true
-        $Result.ExitCode = 0
-        if ($Result.Updatable -gt 0) { $Result.ExitCode = 4 }
     } else {
         Write-WinstResultSummary -Result $Result -Quiet:$Quiet -Fields @(
             @{ Key = 'Updated'; Text = '已更新' },
@@ -33,14 +30,11 @@ function Write-WinstUpdateExitCode {
             @{ Key = 'Unknown'; Text = '无法比较'; SkipZero = $true },
             @{ Key = 'NotInstalled'; Text = '未安装'; SkipZero = $true }
         )
-        $Result.Ok = ($Result.Failed -eq 0)
-        if ($Result.Failed -gt 0) {
-            if ($Result.Network) { $Result.ExitCode = 2 } else { $Result.ExitCode = 3 }
-        }
     }
 
     # 指定 id 但一个都没安装 → 参数错误（优先级高于「有可更新项」，否则 --check 的 4 会把参数错误吞掉）
-    if (@($Explicit).Count -gt 0 -and $InstalledTargets -eq 0) {
+    $noneInstalled = @($Explicit).Count -gt 0 -and $InstalledTargets -eq 0
+    if ($noneInstalled) {
         Write-Host ''
         if ($DownloadOnlySkipped -gt 0 -and $DownloadOnlySkipped -ge @($Explicit).Count) {
             # 全是「仅下载」类型：更新对它们没意义，改指向它们真正的三个操作
@@ -48,20 +42,18 @@ function Write-WinstUpdateExitCode {
         } else {
             Write-Host '  指定的软件都没有安装记录，更新无从执行（安装请用 winst install）。' -ForegroundColor Yellow
         }
-        $Result.ExitCode = 1
-        $Result.Ok = $false   # Ok 与 ExitCode 必须一致：调用方有按 Ok 判定成功的
     }
-    if ($Result.Failed -gt 0) {
-        $Result.Ok = $false
-        $Result.ExitCode = 3
-        if ($Result.Failed -eq [int]$Result['InternalFailed']) { $Result.ExitCode = 1 }
-    }
+
+    $Result.ExitCode = 0
     if ($Result.Network) {
-        $Result.Ok = $false
         $Result.ExitCode = 2
-    } elseif ([int]$Result['RefreshFailed'] -gt 0) {
-        $Result.Ok = $false
-        if ($Result.ExitCode -ne 3) { $Result.ExitCode = 1 }
+    } elseif ($Result.Failed -gt [int]$Result['InternalFailed']) {
+        $Result.ExitCode = 3
+    } elseif ($Result.Failed -gt 0 -or [int]$Result['RefreshFailed'] -gt 0 -or $noneInstalled) {
+        $Result.ExitCode = 1
+    } elseif ($Check -and $Result.Updatable -gt 0) {
+        $Result.ExitCode = 4
     }
+    $Result.Ok = $Result.ExitCode -in @(0, 4)
     return $Result
 }

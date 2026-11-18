@@ -9,12 +9,11 @@ function New-WinstPageResolvedFiles {
     #>
     param($Context, $Source, $Item, $Declared, [string]$DownloadUrl, [string]$Version, [string]$PageHash, $Result)
 
-    Assert-WinstHttpUrl -Url $DownloadUrl
     $resolvedFiles = @(New-ResolvedFileFromDeclaration -Item $Item -Url $DownloadUrl -Version $Version -MainFile -HashOverride $PageHash)
     if ($PageHash) {
         # hashFrom: "page" 是提取指令不是校验算法：解析结果里已带上提取到的 hash，把指令清掉，
         # 免得下游把它当校验文件算法处理
-        try { $resolvedFiles[0]['hashFrom'] = '' } catch { }
+        $resolvedFiles[0]['hashFrom'] = ''
     }
 
     # files[] 第 2 条起：配套文件（写成带 {version} 的完整地址 + dest），语义与其它来源一致；

@@ -20,7 +20,7 @@ function Set-WinstSelfTree {
         运行树不完整时明确失败。
 
     .OUTPUTS
-        @{ Ok; Error; Extracted }
+        @{ Ok; Error }
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -31,7 +31,7 @@ function Set-WinstSelfTree {
         [string]$FallbackSourcePath = ''
     )
 
-    $result = @{ Ok = $false; Error = ''; Extracted = $false }
+    $result = @{ Ok = $false; Error = '' }
 
     $staging = ''
     $stageChecked = $false
@@ -57,7 +57,6 @@ function Set-WinstSelfTree {
             foreach ($item in @(Get-ChildItem -LiteralPath $SourceDir -Force -ErrorAction Stop)) {
                 Copy-Item -LiteralPath $item.FullName -Destination (Join-WinstPath $staging $item.Name) -Recurse -Force -ErrorAction Stop
             }
-            $result.Extracted = $true
         } elseif ($ArchivePath -and (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
             $expand = Expand-WinstPackageArchive -Context $null -ArchivePath $ArchivePath -DestDir $staging
             if (-not $expand.Ok) {
@@ -65,7 +64,6 @@ function Set-WinstSelfTree {
                 return $result
             }
             $stageChecked = $true
-            $result.Extracted = $true
         } elseif ($FallbackSourcePath -and (Test-Path -LiteralPath $FallbackSourcePath -PathType Leaf)) {
             # 离线首次引导也必须带完整运行树；单独复制入口脚本不能启动。
             $fallbackDir = Split-Path -Parent $FallbackSourcePath
@@ -77,7 +75,6 @@ function Set-WinstSelfTree {
                 Assert-WinstTreeWithoutReparsePoint -Path $sourceItem
                 Copy-Item -LiteralPath $sourceItem -Destination (Join-WinstPath $staging $required) -Recurse -Force -ErrorAction Stop
             }
-            $result.Extracted = $true
         } else {
             $result.Error = '没有可用的 winst 安装包'
             return $result
@@ -103,12 +100,18 @@ function Set-WinstSelfTree {
         }
         $moduleDirs = @(Get-ChildItem -LiteralPath $stagedModules -Directory -ErrorAction Stop)
         if ($moduleDirs.Count -eq 0) { throw 'winst 安装包没有模块目录' }
+        $sharedLoader = Join-WinstPath $stagedModules 'Import-WinstFunctionFiles.ps1'
+        $hasSharedLoader = Test-Path -LiteralPath $sharedLoader -PathType Leaf
         foreach ($moduleDir in $moduleDirs) {
             $manifestPath = Join-WinstPath $moduleDir.FullName ($moduleDir.Name + '.psd1')
             $modulePath = Join-WinstPath $moduleDir.FullName ($moduleDir.Name + '.psm1')
             if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
                 -not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
                 throw ('winst 模块目录缺少同名清单或加载器：' + $moduleDir.FullName)
+            }
+            # 自包含加载器可独立工作，点源公共脚本的开发模块须同时交付它。
+            if (-not $hasSharedLoader -and (Select-String -LiteralPath $modulePath -Quiet -Pattern '^\s*\.\s+.*[\\/]Import-WinstFunctionFiles\.ps1["'']?(?:\s|$)')) {
+                throw ('winst 安装包缺少模块加载器依赖：' + $sharedLoader)
             }
             $null = Test-ModuleManifest -Path $manifestPath -ErrorAction Stop
         }

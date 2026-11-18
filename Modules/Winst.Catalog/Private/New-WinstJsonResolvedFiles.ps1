@@ -7,7 +7,7 @@ function New-WinstJsonResolvedFiles {
     .OUTPUTS
         @{ Error; Files }
     #>
-    param([hashtable]$Context, $Source, $Entry, $Declared, $Chosen, [string]$DownloadUrl, [string]$Version,
+    param([hashtable]$Context, $Source, $MainLocator, $Declared, $Chosen, [string]$DownloadUrl, [string]$Version,
         [string]$ApiUrl, $Result, $FileItems, $HashFileRule)
 
     $skipCheck = Get-EntryBool -Entry $Source -Key 'skipExistsCheck'
@@ -15,9 +15,6 @@ function New-WinstJsonResolvedFiles {
     $index = 0
     foreach ($item in @($Declared)) {
         $index++
-        $locator = Get-SourceFileLocator -Item $item -Kind 'json'
-        if ($locator.Error) { return @{ Error = [string]$locator.Error; Files = $files } }
-
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $Result
 
         if ($index -eq 1) {
@@ -29,13 +26,9 @@ function New-WinstJsonResolvedFiles {
                     return @{ Error = ('JSON 接口 {0} 的条目里没有校验字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashKey); Files = $files }
                 }
                 $hash = ([string]$found.Text).Trim()
-                if ($hash -notmatch '\A[0-9a-fA-F]+\z' -or -not (Get-HashAlgorithmFromDigestLength -Length $hash.Length)) {
-                    return @{ Error = ('JSON 接口字段「{0}」必须是 32 / 40 / 64 / 128 位十六进制摘要' -f $hashKey); Files = $files }
-                }
             }
 
             $hashFile = ''
-            $hashFrom = ''
             $hashFileKey = (Get-EntryString -Entry $item -Key 'hashFileKey').Trim()
             if ($hashFileKey) {
                 $found = Get-JsonNodeValue -Node $Chosen -Key $hashFileKey
@@ -43,13 +36,11 @@ function New-WinstJsonResolvedFiles {
                     return @{ Error = ('JSON 接口 {0} 的条目里没有校验文件地址字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashFileKey); Files = $files }
                 }
                 $hashFile = ([string]$found.Text).Trim()
-                $hashFrom = (Get-EntryString -Entry $item -Key 'hashFrom').Trim()
-                if (-not $hashFrom) { $hashFrom = 'sha256sums' }
             }
 
             if ($HashFileRule) {
                 foreach ($fileItem in @($FileItems)) {
-                    $found = Get-JsonNodeValue -Node $fileItem -Key $locator.UrlKey
+                    $found = Get-JsonNodeValue -Node $fileItem -Key $MainLocator.UrlKey
                     if (-not $found.Ok -or -not $found.Text) { continue }
                     $candidate = ([string]$found.Text).Trim()
                     if (-not (Test-FileRuleMatchesLink -Rule $HashFileRule -Text $candidate)) { continue }
@@ -73,10 +64,12 @@ function New-WinstJsonResolvedFiles {
             if ($urlProbe.Note) { $Result.Notes += [string]$urlProbe.Note }
 
             $files += New-ResolvedFileFromDeclaration -Item $item -Url $DownloadUrl -Version $Version `
-                -HashOverride $hash -HashFileOverride $hashFile -HashFromOverride $hashFrom -MainFile
+                -HashOverride $hash -HashFileOverride $hashFile -MainFile
             continue
         }
 
+        $locator = Get-SourceFileLocator -Item $item -Kind 'json'
+        if ($locator.Error) { return @{ Error = [string]$locator.Error; Files = $files } }
         if (-not $locator.Url) {
             return @{ Error = 'JSON 接口来源里除主包以外的文件要写完整地址（url）；按接口字段取地址（urlKey）只用于主包'; Files = $files }
         }

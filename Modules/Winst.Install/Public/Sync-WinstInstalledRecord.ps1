@@ -52,14 +52,6 @@ function Sync-WinstInstalledRecord {
     }
     $newVersion = ''
     if ($detect.Ok -and $detect.Version) { $newVersion = [string]$detect.Version }
-    $newOldVersions = @()
-    foreach ($one in @($detect.OldVersions)) {
-        $newOldVersions += [ordered]@{
-            version   = [string]$one['Version']
-            detail    = [string]$one['Detail']
-            recordKey = [string]$one['RecordKey']
-        }
-    }
 
     if (-not $newVersion) {
         if (-not $dirChanged) {
@@ -84,14 +76,14 @@ function Sync-WinstInstalledRecord {
     }
 
     # 本机并存的旧版本也要跟着更正：升级 / 手动清理后再次检测，读到的才是当前真实剩余
-    $oldChanged = -not (Test-WinstOldVersionsEqual -A @(Get-EntryArray -Entry $ledger -Key 'oldVersions') -B $newOldVersions)
+    $oldChanged = -not (Test-WinstOldVersionsEqual -A @(Get-EntryArray -Entry $ledger -Key 'oldVersions') -B $detect.OldVersions)
     if ($newVersion -eq $oldVersion -and -not $dirChanged -and -not $oldChanged) {
         $result.Ok = $true
         $result.Message = ('检测结果与安装记录一致：版本 {0}。' -f $newVersion)
         return $result
     }
 
-    $fields = @{ version = $newVersion; oldVersions = @($newOldVersions) }
+    $fields = @{ version = $newVersion; oldVersions = @(ConvertTo-WinstLedgerOldVersions -OldVersions $detect.OldVersions) }
     if ($dirChanged) { $fields['installDir'] = $newDir }
     try {
         $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot -Id $Id `
@@ -104,7 +96,7 @@ function Sync-WinstInstalledRecord {
     $result.Ok = $true
     $result.Changed = $true
     if ($newVersion -eq $oldVersion) {
-        $oldText = Format-WinstOldVersionText -OldVersions $newOldVersions
+        $oldText = Format-WinstOldVersionText -OldVersions $detect.OldVersions
         if ($oldText) {
             $result.Message = ('安装记录已更新：版本 {0} 不变，本机并存的旧版本为 {1}' -f $newVersion, $oldText)
         } else {

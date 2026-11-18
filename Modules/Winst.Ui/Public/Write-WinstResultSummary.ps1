@@ -20,17 +20,7 @@ function Write-WinstResultSummary {
     $parts = @()
     foreach ($field in @($Fields)) {
         $value = [int]$Result[$field.Key]
-        # StrictMode 2 下直接读 $field.SkipZero，对没写该键的字段是终止性异常
-        # （「检查更新 → 输入编号确认」走到汇总那一行就抛 PropertyNotFoundStrict，
-        #  菜单窗口随即关闭）；可选键一律走安全读取。
-        $skipZero = $false
-        if ($field -is [System.Collections.IDictionary]) {
-            if ($field.Contains('SkipZero')) { $skipZero = [bool]$field['SkipZero'] }
-        } else {
-            $skipProp = $field.PSObject.Properties['SkipZero']
-            if ($skipProp) { $skipZero = [bool]$skipProp.Value }
-        }
-        if ($skipZero -and $value -le 0) { continue }
+        if ((Get-EntryBool -Entry $field -Key 'SkipZero') -and $value -le 0) { continue }
         $parts += ('{0} {1}' -f $field.Text, $value)
     }
     $color = 'Gray'

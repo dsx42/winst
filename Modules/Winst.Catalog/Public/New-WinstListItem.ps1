@@ -29,7 +29,7 @@ function New-WinstListItem {
     $ledger = $null
     if ($Lookup.State) { $ledger = Get-WinstInstalledApp -State $Lookup.State -Id $Id }
     $facts = Get-WinstRowViewFacts -Id $Id -Row $row -Ledger $ledger
-    $planAvailable = [bool]($row -and (Get-WinstRowBestPlanEntry -Row $row))
+    $planAvailable = [bool]$facts.Chosen
     $installedFacet = Get-WinstInstalledFacet -Ledger $ledger -Facts $facts
 
     $cacheInfo = $null
@@ -45,7 +45,7 @@ function New-WinstListItem {
     }
     $cacheVersion = ''
     if ($Lookup.CacheIndex.Contains($Id)) { $cacheVersion = Get-EntryString -Entry $Lookup.CacheIndex[$Id] -Key 'version' }
-    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $cacheVersion -CacheFiles $cacheFiles -Evaluate
+    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $cacheVersion -Evaluate
 
     $pinMismatch = $false
     $pinUnknown = $false
@@ -67,6 +67,7 @@ function New-WinstListItem {
         PinMismatch          = $pinMismatch
         PinUnknown           = $pinUnknown
         InCatalog            = [bool]$facts.InCatalog
+        PlanEntry            = $facts.Chosen
         PlanAvailable        = $planAvailable
         VersionPending       = [bool]($planAvailable -and -not $facts.BestVersion)
         SourceText           = [string]$facts.SourceText

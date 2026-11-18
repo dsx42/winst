@@ -4,7 +4,7 @@ function Invoke-UpdateCheck {
     <#
     .SYNOPSIS
         菜单「检查更新」：强制刷新软件源 → 展示检查结果 → 输入提示（u 全部更新 / 编号只更新这几个 / 回车或 b 返回）；
-        更新完成后回到同一张结果页，只列出**现在仍然能更新**的软件，可以接着更新，不需要回主菜单重新进入。
+        更新完成后回到同一张结果页，可以接着更新。检查失败时显示软件与失败原因。
     .DESCRIPTION
         - **默认强制刷新清单本体**（`Update-WinstStaleSources -Force`）：不受源有效期限制；
           但传 `-OnlyIds <已装软件 id>` 时只逐条解析已安装软件的最新版本。`pkgDir` 是 UNC 共享时例外：
@@ -13,7 +13,7 @@ function Invoke-UpdateCheck {
         - **刷新后读取安装记录**（`Invoke-Repair -Quiet -RefreshIds <台账 id>`）：按磁盘实际目录与注册表重新识别版本 / 安装位置并更正记录。
         - **结果页是一个循环**：每轮按当前记录重新比较版本（`-NoRefresh`，不重复联网下载清单），再渲染结果。
           执行过更新就重回结果页，直到用户返回或没有可更新项为止。
-        - **展示顺序固定为「结果 → 建议 → 输入提示」**：无法比较段必须在提问之前展示完。
+        - **展示顺序固定为「结果 → 建议 → 输入提示」**：无法比较项与检查失败项在输入提示前展示。
         - **全部更新（u）**：方式与来源都按默认，不逐个确认。
         - **选择性更新（编号）**：先回显再确认；确认处输入 `c` 才逐条单独选更新方式与来源。
         刷新与记录校对见 Update-WinstCheckSources；结果渲染见 Write-WinstUpdateCheckList；
@@ -30,13 +30,12 @@ function Invoke-UpdateCheck {
     $round = 0
     while ($true) {
         $check = Invoke-WinstUpdateTargets -Context $Context -All -Check -Quiet -NoRefresh
-        if ($check.ExitCode -eq 1) { return }
-        if (@($refresh.Errors).Count -gt 0) {
-            $check.Ok = $false
+        if ($check.ExitCode -eq 1 -and @($check.Entries).Count -eq 0) { return }
+        if ($refresh.Failed -gt 0 -or $refresh.Network) {
             $check.RefreshErrors = @($refresh.Errors)
-            $check.Network = [bool]$refresh.Network
-            $check.ExitCode = 1
-            if ($refresh.Network) { $check.ExitCode = 2 }
+            $check.RefreshFailed = [int]$refresh.Failed
+            $check.Network = $check.Network -or $refresh.Network
+            $check = Write-WinstUpdateExitCode -Result $check -Check -Quiet
             Write-Host '  以下按现有缓存比较，本次未完成全部远端检查。' -ForegroundColor DarkYellow
         }
 

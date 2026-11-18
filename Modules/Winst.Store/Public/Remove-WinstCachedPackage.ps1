@@ -67,22 +67,16 @@ function Remove-WinstCachedPackage {
         }
 
         Clear-WinstInstallDir -Dir $dir -AllowedRoot $Context.PkgDir -Strict
-        if (Test-Path -LiteralPath $dir -PathType Container) {
-            $remain = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction Stop)
-            if ($remain.Count -gt 0) {
-                $result.Error = ('部分{0}文件未能删除，请手动检查: {1}' -f $PackageNoun, $dir)
-                return $result
-            }
-            try { [IO.Directory]::Delete($dir, $false) } catch { $result.Error = $_.Exception.Message; return $result }
+        if ($null -ne (Get-WinstFileSystemItem -Path $dir -AllowMissing)) {
+            $result.Error = ('清理后安装包路径仍然存在，请检查: {0}' -f $dir)
+            return $result
         }
 
         # 索引按精确 id 删除；写回失败仍向调用方报告。
         try {
             Save-WinstCacheIndex -PkgDir $Context.PkgDir -UpdateIds @($Id) -Update {
                 param($index)
-                foreach ($key in @($index.Keys)) {
-                    if ([string]$key -ceq $Id) { $index.Remove($key) }
-                }
+                $index.Remove($Id)
             }
         } catch {
             $result.Error = ('文件已删除，但安装包索引更新失败：{0}' -f $_.Exception.Message)

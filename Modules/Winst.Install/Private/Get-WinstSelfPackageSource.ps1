@@ -23,7 +23,7 @@
     引擎自身的引导出于同样原因有相同的豁免。
 
     .OUTPUTS
-        @{ Ok; Error; ArchivePath; FallbackSourcePath; Downloaded; Resolved;
+        @{ Ok; Error; ArchivePath; FallbackSourcePath; Resolved;
            Plan; SourceVersion; SourceName }
 #>
 function Get-WinstSelfPackageSource {
@@ -37,7 +37,7 @@ function Get-WinstSelfPackageSource {
         以保证更新要么真的升级、要么明确失败。
 
     .OUTPUTS
-        @{ Ok; Error; ArchivePath; FallbackSourcePath; Downloaded; Resolved;
+        @{ Ok; Error; ArchivePath; FallbackSourcePath; Resolved;
            Plan; SourceVersion; SourceName }
     #>
     [CmdletBinding()]
@@ -56,7 +56,6 @@ function Get-WinstSelfPackageSource {
         Error              = ''
         ArchivePath        = ''
         FallbackSourcePath = ''
-        Downloaded         = $false
         Resolved           = $false
         Plan               = $null
         SourceVersion      = ''
@@ -144,7 +143,6 @@ function Get-WinstSelfPackageSource {
                         -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames @($archiveName)
 
                     $result.ArchivePath = $archivePath
-                    $result.Downloaded = $true
                     $result.Resolved = $true
                     $result.Ok = $true
                     return $result

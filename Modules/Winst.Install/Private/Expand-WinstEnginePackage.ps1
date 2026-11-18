@@ -7,7 +7,8 @@ function Expand-WinstEnginePackage {
     .OUTPUTS
         @{ Ok; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Plan, [string]$InstallDir, [string]$ArchivePath, [switch]$Quiet)
+    param([hashtable]$Context, [string]$Id, $Plan, [string]$InstallDir, [string]$ArchivePath, [switch]$Quiet,
+        [bool]$Clean = $true, [string[]]$Keep = @())
 
     $install = Get-EntryValue -Entry $Plan -Key 'install' -Default $null
     $method = Get-EntryString -Entry $install -Key 'method'
@@ -44,7 +45,7 @@ function Expand-WinstEnginePackage {
         $stage = [string]$layout.TempRoot
         $sourceDir = [string]$layout.SourceDir
         Initialize-WinstEngineStage -Id $Id -Plan $Plan -SourceDir $sourceDir
-        return (Move-WinstStagedInstall -StageDir $stage -SourceDir $sourceDir -InstallDir $InstallDir -Clean)
+        return (Move-WinstStagedInstall -StageDir $stage -SourceDir $sourceDir -InstallDir $InstallDir -Clean:$Clean -Keep $Keep)
     } catch {
         return @{ Ok = $false; Error = ('安装引擎失败：{0}' -f $_.Exception.Message) }
     } finally {

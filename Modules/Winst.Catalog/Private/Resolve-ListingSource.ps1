@@ -126,7 +126,8 @@ function Resolve-ListingSource {
     $skipCheck = Get-EntryBool -Entry $source -Key 'skipExistsCheck'
     $version = ''
     $tried = @()
-    $probeCache = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    # 一次刷新内，同一地址的缺失结论不受进程缓存剩余 TTL 影响。
+    $missingUrls = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
     $maxProbes = 8
 
     foreach ($candidate in $ordered) {
@@ -137,27 +138,18 @@ function Resolve-ListingSource {
         $probeUrl = Expand-VersionPlaceholder -Text $mainTemplate -Version $mainVersion.Version
         Assert-WinstHttpUrl -Url $probeUrl
 
-        $state = 'skipped'
-        if (-not $skipCheck) {
-            $probe = $null
-            if ($probeCache.ContainsKey($probeUrl)) {
-                $probe = $probeCache[$probeUrl]
-            } else {
-                $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context
-                $probeCache[$probeUrl] = $probe
-            }
-            if ($null -eq $probe) { $state = 'unknown' }
-            elseif ($probe) { $state = 'ok' }
-            else { $state = 'missing' }
-        }
-
         $tried += $normalized
-        if ($state -eq 'missing') { continue }
-
-        $version = $normalized
-        if ($state -eq 'unknown') {
-            $result.Notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本记录。' -f $normalized)
+        if (-not $skipCheck) {
+            if ($missingUrls.Contains($probeUrl)) { continue }
+            $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context
+            if ($null -eq $probe) {
+                $result.Notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本记录。' -f $normalized)
+            } elseif (-not $probe) {
+                $null = $missingUrls.Add($probeUrl)
+                continue
+            }
         }
+        $version = $normalized
         break
     }
 
@@ -173,10 +165,10 @@ function Resolve-ListingSource {
         $result.Notes += ('版本列表页共找到 {0} 个版本，已选用最新的 {1}。' -f $ordered.Count, $version)
     }
 
-    $files = @()
-    $index = 0
-    foreach ($item in $declared) {
-        $index++
+    $dest = Get-WinstFileDest -Item $declared[0] -Index 1 -Result $result
+    $files = @(New-ResolvedFileFromDeclaration -Item $declared[0] -Version $mainVersion.Version -Dest $dest -Url $probeUrl)
+    for ($i = 1; $i -lt $declared.Count; $i++) {
+        $item = $declared[$i]
         $locator = Get-SourceFileLocator -Item $item -Kind 'listing'
         if ($locator.Error) { $result.Error = $locator.Error; return $result }
         if (-not $locator.Url) {
@@ -184,23 +176,14 @@ function Resolve-ListingSource {
             return $result
         }
 
-        $dest = Get-WinstFileDest -Item $item -Index $index -Result $result
-        # 主包版本就是列表页取到的版本：versionListUrl 只对第 2 项起的配套文件生效（与 page / json 同口径）
-        if ($index -eq 1) {
-            $fileVersion = Get-SourceFileVersion -Item $item -Version $version
-            if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
-        } else {
-            $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $source -MainVersion $version
-            if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
-            foreach ($listedNote in @($fileVersion.Notes)) { $result.Notes += [string]$listedNote }
-        }
-        # 主包（第 1 项）的版本就是它自己的；配套文件只有独立取版（versionListUrl）时才算自己的版本
-        $ownVersion = [bool]($index -eq 1)
-        if (-not $ownVersion) { $ownVersion = [bool]$fileVersion.Own }
+        $dest = Get-WinstFileDest -Item $item -Index ($i + 1) -Result $result
+        $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $source -MainVersion $version
+        if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
+        foreach ($listedNote in @($fileVersion.Notes)) { $result.Notes += [string]$listedNote }
         $fileUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
         Assert-WinstHttpUrl -Url $fileUrl
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
-            -OwnVersion $ownVersion -Url $fileUrl
+            -OwnVersion ([bool]$fileVersion.Own) -Url $fileUrl
     }
 
     $result.Ok = $true

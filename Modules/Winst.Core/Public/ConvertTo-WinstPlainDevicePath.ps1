@@ -20,11 +20,8 @@ function ConvertTo-WinstPlainDevicePath {
     }
     # 只剥「后面确实跟着盘符」的设备前缀；`\\?\Volume{...}` / `\\?\GLOBALROOT\...` 保持原样，
     # 否则会被当成相对路径拼到当前目录下（既判错受保护目录，也可能指向完全不同的位置）。
-    $stripLength = 0
-    if ($text.StartsWith('\\?\', [StringComparison]::Ordinal)) { $stripLength = 4 }
-    elseif ($text.StartsWith('\\.\', [StringComparison]::Ordinal)) { $stripLength = 4 }
-    if ($stripLength -gt 0) {
-        $rest = $text.Substring($stripLength)
+    if ($text.StartsWith('\\?\', [StringComparison]::Ordinal) -or $text.StartsWith('\\.\', [StringComparison]::Ordinal)) {
+        $rest = $text.Substring(4)
         if ($rest -match '^[A-Za-z]:([\\/]|$)') { return $rest }
     }
     return $text

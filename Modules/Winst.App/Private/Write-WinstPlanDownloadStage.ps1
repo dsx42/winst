@@ -4,11 +4,8 @@ function Write-WinstPlanDownloadStage {
     <#
     .SYNOPSIS
         ① 下载段：每个文件的地址 / 落位 / 校验，以及安装包保存位置。
-    .DESCRIPTION
-        -HashRuleFor：由调用方传入「按 hashFrom 取校验规则」的委托（App 层传 Get-WinstHashRule）。
-        展示层不直接依赖 Winst.Store，这样 Ui 不需要引用领域模块。
     #>
-    param($Plan, [hashtable]$View, [scriptblock]$HashRuleFor = $null)
+    param($Plan, [hashtable]$View)
 
     $download = Get-EntryValue -Entry $Plan -Key 'download' -Default $null
     $downloadLines = @()
@@ -31,12 +28,9 @@ function Write-WinstPlanDownloadStage {
                 $downloadLines += ('安装后放到: {0}' -f $destFull)
             }
         }
-        $hashRule = $null
-        if ($HashRuleFor) {
-            $hashFrom = (Get-EntryString -Entry $file -Key 'hashFrom')
-            if (-not $hashFrom) { $hashFrom = 'sha256sums' }
-            try { $hashRule = & $HashRuleFor $hashFrom } catch { $hashRule = $null }
-        }
+        $hashFrom = (Get-EntryString -Entry $file -Key 'hashFrom')
+        if (-not $hashFrom) { $hashFrom = 'sha256sums' }
+        try { $hashRule = Get-WinstHashRule -Kind $hashFrom } catch { $hashRule = $null }
         $verifyText = Get-FileVerifyText -File $file -HashRule $hashRule
         if ($verifyText) { $downloadLines += $verifyText }
     }

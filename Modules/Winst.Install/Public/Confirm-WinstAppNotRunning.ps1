@@ -75,110 +75,81 @@ function Confirm-WinstAppNotRunning {
             return $result
         }
 
-        if ($Kill) {
-            # `--kill` 是「不询问就结束」的批量开关：只杀路径确认位于该软件目录的进程。
-            # 仅按进程名兜底匹配的（路径不可见 / 别处的同名程序）不自动杀，留到下一轮按实时结果报错，
-            # 否则 `processes: ["java"]` 这类声明会把用户机器上所有 JVM 一起杀掉。
-            $killAttempted = $true
-            if ($killable.Count -gt 0) {
-                $stop = Stop-WinstRunningAppProcesses -Processes $killable
-                $result.Killed += [int]$stop.Stopped
-                $failedNotes += @($stop.Failed)
-                if (-not $Quiet) {
-                    if ($stop.Stopped -gt 0) {
-                        Write-Host ('  已结束 {0} 个进程，继续{1} …' -f $stop.Stopped, $Action) -ForegroundColor Gray
-                    } elseif ($stop.Exited -gt 0) {
-                        Write-Host ('  进程已退出，继续{0} …' -f $Action) -ForegroundColor Gray
-                    }
-                }
-            }
-            # 最后一次尝试之后先重新检测：结束可能刚刚生效，不能拿旧的判断直接中止
-            if ($attempt -ge 5) {
-                $left = @(Get-WinstRunningAppProcess -Context $Context -Plan $Plan -InstallDir $InstallDir `
-                    -ExtraDirs $ExtraDirs -Refresh)
-                if ($left.Count -eq 0) { return $result }
+        if (-not $Kill) {
+            if ($NonInteractive -or $Quiet) {
+                # -Quiet 连提示都不输出，此时再 Read-Host 就是「黑屏等输入」：按非交互处理并给出 --kill 指引
+                $names = @($running | ForEach-Object { [string]$_.Name })
                 $result.Ok = $false
-                $result.Error = ('{0} 仍在运行，多次尝试结束进程仍未成功，{1}已中止。' -f $displayName, $Action)
+                $result.Error = ('{0} 正在运行（{1}），文件被占用会导致{2}失败。请先关闭它后重试；如需 winst 自动结束这些进程，请加 --kill。' -f $displayName, ($names -join '、'), $Action)
                 return $result
             }
-            Start-Sleep -Milliseconds 800
-            continue
+
+            Write-Host ''
+            Write-Host ('  {0} 正在运行，文件被占用可能导致{1}失败：' -f $displayName, $Action) -ForegroundColor Yellow
+            foreach ($proc in $running) {
+                $pathText = [string]$proc['Path']
+                if (-not $pathText) { $pathText = '（路径不可见）' }
+                Write-Host ('    - {0}（进程号 {1}）  {2}' -f [string]$proc['Name'], [int]$proc['Id'], $pathText) -ForegroundColor Gray
+            }
+            Write-Host ''
+            Write-Host ('  k) 结束这些进程，然后继续{0}' -f $Action) -ForegroundColor White
+            Write-Host '  c) 我已经手动关闭了（重新检测）' -ForegroundColor White
+            if ($allowDirectInstall) {
+                Write-Host '  i) 直接安装（由安装程序处理进程占用）' -ForegroundColor White
+            }
+            Write-Host ('  回车 / 其它任意输入 = 取消{0}' -f $Action) -ForegroundColor DarkGray
+
+            $answer = ''
+            try { $answer = [string](Read-Host '  请选择') } catch { $answer = '' }
+            $choice = ''
+            if ($null -ne $answer) { $choice = $answer.Trim().ToLowerInvariant() }
+
+            if ($choice -eq 'i' -and $allowDirectInstall) {
+                Write-Host '  继续安装，由安装程序处理进程占用。' -ForegroundColor Gray
+                return $result
+            }
+
+            if ($choice -eq 'c') {
+                if ($attempt -ge 5) {
+                    $result.Ok = $false
+                    $result.Error = ('{0} 仍在运行，{1}已中止。请关闭它后重试。' -f $displayName, $Action)
+                    return $result
+                }
+                Start-Sleep -Milliseconds 500
+                continue
+            }
+
+            if ($choice -ne 'k') {
+                $result.Ok = $false
+                $result.Cancelled = $true
+                return $result
+            }
         }
 
-        if ($NonInteractive -or $Quiet) {
-            # -Quiet 连提示都不输出，此时再 Read-Host 就是「黑屏等输入」：按非交互处理并给出 --kill 指引
-            $names = @($running | ForEach-Object { [string]$_.Name })
-            $result.Ok = $false
-            $result.Error = ('{0} 正在运行（{1}），文件被占用会导致{2}失败。请先关闭它后重试；如需 winst 自动结束这些进程，请加 --kill。' -f $displayName, ($names -join '、'), $Action)
-            return $result
-        }
-
-        Write-Host ''
-        Write-Host ('  {0} 正在运行，文件被占用可能导致{1}失败：' -f $displayName, $Action) -ForegroundColor Yellow
-        foreach ($proc in $running) {
-            $pathText = [string]$proc['Path']
-            if (-not $pathText) { $pathText = '（路径不可见）' }
-            Write-Host ('    - {0}（进程号 {1}）  {2}' -f [string]$proc['Name'], [int]$proc['Id'], $pathText) -ForegroundColor Gray
-        }
-        Write-Host ''
-        Write-Host ('  k) 结束这些进程，然后继续{0}' -f $Action) -ForegroundColor White
-        Write-Host '  c) 我已经手动关闭了（重新检测）' -ForegroundColor White
-        if ($allowDirectInstall) {
-            Write-Host '  i) 直接安装（由安装程序处理进程占用）' -ForegroundColor White
-        }
-        Write-Host ('  回车 / 其它任意输入 = 取消{0}' -f $Action) -ForegroundColor DarkGray
-
-        $answer = ''
-        try { $answer = [string](Read-Host '  请选择') } catch { $answer = '' }
-        $choice = ''
-        if ($null -ne $answer) { $choice = $answer.Trim().ToLowerInvariant() }
-
-        if ($choice -eq 'i' -and $allowDirectInstall) {
-            Write-Host '  继续安装，由安装程序处理进程占用。' -ForegroundColor Gray
-            return $result
-        }
-
-        if ($choice -eq 'k') {
-            # 交互确认也只自动结束「路径确认」的进程；按名字兜底的仍要求用户自己关。
-            # 结束结果只用于决定是否重新提示：进程到底还在不在，由下一轮重新检测判定
-            $killAttempted = $true
-            if ($killable.Count -gt 0) {
-                $stop = Stop-WinstRunningAppProcesses -Processes $killable
-                $result.Killed += [int]$stop.Stopped
-                $failedNotes += @($stop.Failed)
-                if (@($stop.Failed).Count -gt 0) {
-                    Write-Host ('  部分进程结束失败：{0}' -f ((@($stop.Failed) | ForEach-Object { [string]$_['Message'] }) -join '；')) -ForegroundColor Yellow
-                } elseif ($stop.Stopped -gt 0) {
-                    Write-Host ('  已结束 {0} 个进程。' -f $stop.Stopped) -ForegroundColor Gray
+        $killAttempted = $true
+        if ($killable.Count -gt 0) {
+            $stop = Stop-WinstRunningAppProcesses -Processes $killable
+            $result.Killed += [int]$stop.Stopped
+            $failedNotes += @($stop.Failed)
+            if (-not $Kill -and @($stop.Failed).Count -gt 0) {
+                Write-Host ('  部分进程结束失败：{0}' -f ((@($stop.Failed) | ForEach-Object { [string]$_['Message'] }) -join '；')) -ForegroundColor Yellow
+            } elseif (-not $Quiet) {
+                if ($stop.Stopped -gt 0) {
+                    Write-Host ('  已结束 {0} 个进程，继续{1} …' -f $stop.Stopped, $Action) -ForegroundColor Gray
                 } elseif ($stop.Exited -gt 0) {
-                    Write-Host '  进程已退出。' -ForegroundColor Gray
+                    Write-Host ('  进程已退出，继续{0} …' -f $Action) -ForegroundColor Gray
                 }
             }
-            # 最后一次尝试之后先重新检测：结束可能刚刚生效，不能拿旧的判断直接中止
-            if ($attempt -ge 5) {
-                $left = @(Get-WinstRunningAppProcess -Context $Context -Plan $Plan -InstallDir $InstallDir `
-                    -ExtraDirs $ExtraDirs -Refresh)
-                if ($left.Count -eq 0) { return $result }
-                $result.Ok = $false
-                $result.Error = ('{0} 仍在运行，多次尝试结束进程仍未成功，{1}已中止。' -f $displayName, $Action)
-                return $result
-            }
-            Start-Sleep -Milliseconds 800
-            continue
         }
-
-        if ($choice -eq 'c') {
-            if ($attempt -ge 5) {
-                $result.Ok = $false
-                $result.Error = ('{0} 仍在运行，{1}已中止。请关闭它后重试。' -f $displayName, $Action)
-                return $result
-            }
-            Start-Sleep -Milliseconds 500
-            continue
+        # 最后一次尝试之后先重新检测：结束可能刚刚生效，不能拿旧的判断直接中止
+        if ($attempt -ge 5) {
+            $left = @(Get-WinstRunningAppProcess -Context $Context -Plan $Plan -InstallDir $InstallDir `
+                -ExtraDirs $ExtraDirs -Refresh)
+            if ($left.Count -eq 0) { return $result }
+            $result.Ok = $false
+            $result.Error = ('{0} 仍在运行，多次尝试结束进程仍未成功，{1}已中止。' -f $displayName, $Action)
+            return $result
         }
-
-        $result.Ok = $false
-        $result.Cancelled = $true
-        return $result
+        Start-Sleep -Milliseconds 800
     }
 }

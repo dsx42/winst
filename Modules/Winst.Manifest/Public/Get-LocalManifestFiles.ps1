@@ -17,38 +17,27 @@ function Get-LocalManifestFiles {
 
     # 进程内缓存：每次搜索 / 刷新 / 依赖索引都会列一遍本地清单文件（两次 Get-ChildItem + Sort），
     # 而这一组文件在一次会话里几乎不变（增删清单文件后重开 winst 生效）
-    if ((Get-WinstState -Name WinstLocalManifestFilesCache) -and ([string](Get-WinstState -Name WinstLocalManifestFilesCache)['PkgDir'] -ieq $PkgDir)) {
-        return @((Get-WinstState -Name WinstLocalManifestFilesCache)['Files'])
-    }
+    $cache = Get-WinstState -Name WinstLocalManifestFilesCache
+    if ($cache -and $cache.PkgDir -ieq $PkgDir) { return $cache.Files }
 
     $files = New-Object 'System.Collections.Generic.List[string]'
-
-    if ((Get-WinstState -Name WinstScriptDir)) {
-        $main = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'manifest.json'
+    $directories = @()
+    $scriptDir = Get-WinstState -Name WinstScriptDir
+    if ($scriptDir) {
+        $main = Join-WinstPath $scriptDir 'manifest.json'
         if (Test-Path -LiteralPath $main -PathType Leaf) { $files.Add($main) }
-
-        $scriptManifestDir = Join-WinstPath (Get-WinstState -Name WinstScriptDir) 'manifests'
-        if (Test-Path -LiteralPath $scriptManifestDir -PathType Container) {
-            foreach ($item in @(Get-ChildItem -LiteralPath $scriptManifestDir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
-                if ($item.Name -like '*.meta.json') { continue }
-                if ($item.Name -ieq (Get-WinstManifestSourcesFileName)) { continue }
-                $files.Add([string]$item.FullName)
-            }
+        $directories += Join-WinstPath $scriptDir 'manifests'
+    }
+    $directories += Get-ManifestRootDir -PkgDir $PkgDir
+    foreach ($dir in (Get-DistinctValues -Values $directories)) {
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+        foreach ($item in @(Get-ChildItem -LiteralPath $dir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
+            if ($item.Name -like '*.meta.json' -or $item.Name -ieq (Get-WinstManifestSourcesFileName)) { continue }
+            $files.Add($item.FullName)
         }
     }
 
-    if ($PkgDir) {
-        $manifestDir = Get-ManifestRootDir -PkgDir $PkgDir
-        if (Test-Path -LiteralPath $manifestDir -PathType Container) {
-            foreach ($item in @(Get-ChildItem -LiteralPath $manifestDir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
-                if ($item.Name -like '*.meta.json') { continue }
-                if ($item.Name -ieq (Get-WinstManifestSourcesFileName)) { continue }
-                $files.Add([string]$item.FullName)
-            }
-        }
-    }
-
-    $finalFiles = @(Get-DistinctValues -Values $files.ToArray())
+    $finalFiles = $files.ToArray()
     $null = Set-WinstState -Name WinstLocalManifestFilesCache -Value (@{ PkgDir = $PkgDir; Files = $finalFiles })
     return $finalFiles
 }

@@ -10,7 +10,7 @@ function Update-WinstBundleItemCache {
     $Item['CacheHas'] = $false
     $Item['CacheFiles'] = @()
     $Item['CacheError'] = ''
-    $chosen = Get-WinstRowBestPlanEntry -Row $Item['Row']
+    $chosen = $Item['PlanEntry']
     if (-not $chosen) { $Item['CacheError'] = '没有可用的下载计划'; return }
     try {
         $files = @(Get-EntryArray -Entry $chosen['Plan']['download'] -Key 'files')

@@ -10,20 +10,24 @@ function Resolve-InstallRoot {
     param(
         [string]$DataRoot,
         [hashtable]$Options,
-        [hashtable]$Config
+        [hashtable]$Config,
+        [ref]$Source
     )
 
+    $origin = 'default'
     $value = '%USERPROFILE%\winst'
     $optionRoot = Get-EntryString -Entry $Options -Key 'InstallRoot'
     if ($optionRoot) {
+        $origin = 'param'
         $value = $optionRoot
     } elseif ($env:WINST_INSTALL_ROOT -and $env:WINST_INSTALL_ROOT.Trim()) {
+        $origin = 'env'
         $value = $env:WINST_INSTALL_ROOT
     } else {
-        $configPath = Join-WinstPath $DataRoot 'config.json'
-        if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-            $configured = Get-ConfigValue -Config $Config -Key 'installRoot'
-            if ($configured) { $value = [string]$configured }
+        $configured = Get-ConfigValue -Config $Config -Key 'installRoot'
+        if ($configured) {
+            $origin = 'config'
+            $value = [string]$configured
         }
     }
 
@@ -39,5 +43,6 @@ function Resolve-InstallRoot {
         }
     }
     if (Test-WinstProtectedDirectory -Path $resolved) { throw ('软件安装位置是受保护目录：{0}' -f $resolved) }
+    if ($Source) { $Source.Value = $origin }
     return $resolved
 }

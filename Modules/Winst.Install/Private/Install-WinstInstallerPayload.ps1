@@ -84,8 +84,6 @@ function Install-WinstInstallerPayload {
         if (-not $Quiet) { Write-Host ('    正在安装应用包 {0} …' -f (Split-Path -Leaf $work)) -ForegroundColor Gray }
         try {
             Add-AppxPackage -Path $work -ErrorAction Stop
-            # 新包已落地：让 Appx 快照失效，安装后的版本检测必须读到它
-            $null = Set-WinstState -Name WinstAppxCache -Value ($null)
         } catch {
             return @{ Ok = $false; Error = ('安装应用包失败：{0}' -f $_.Exception.Message); InstallDir = $InstallDir }
         }
@@ -148,8 +146,9 @@ function Install-WinstInstallerPayload {
         }
     }
 
-    return (Update-WinstInstallDirAfterInstall -Context $Context -Plan $Plan -InstallDir $InstallDir -Ledger $Ledger `
-            -Id $Id -InstallArgs $argsText -Quiet:$Quiet)
+    $actualDir = Update-WinstInstallDirAfterInstall -Context $Context -Plan $Plan -InstallDir $InstallDir -Ledger $Ledger `
+        -Id $Id -InstallArgs $argsText -Quiet:$Quiet
+    return @{ Ok = $true; Error = ''; InstallDir = $actualDir }
     } finally {
         foreach ($temporaryDir in @($unpackDir, $localDir)) {
             if ($temporaryDir -and (Test-Path -LiteralPath $temporaryDir)) { Clear-WinstInstallDir -Dir $temporaryDir }

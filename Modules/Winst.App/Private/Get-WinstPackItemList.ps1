@@ -33,7 +33,7 @@ function Get-WinstPackItemList {
     foreach ($item in @($Items)) {
         $id = [string]$item['Id']
         if (-not $id) { continue }
-        $chosen = Get-WinstRowBestPlanEntry -Row $item['Row']
+        $chosen = $item['PlanEntry']
         $selectedPlan = $null
         if ($chosen) { $selectedPlan = $chosen['Plan'] }
         $resolvedDeps = Resolve-WinstDependencyOrder -Context $Context -Id $id -Plan $selectedPlan

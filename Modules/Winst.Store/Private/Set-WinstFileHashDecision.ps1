@@ -13,15 +13,14 @@ function Set-WinstFileHashDecision {
     $wanted = ([string]$Expected.Hash).ToLowerInvariant()
     $Plan['ExpectedHash'] = $wanted
 
-    $wantedAlgorithm = Get-HashAlgorithmFromDigestLength -Length $wanted.Length
-    if (-not $wantedAlgorithm) { throw '期望摘要长度无效，无法判断校验算法' }
+    $wantedAlgorithm = $Expected.Algorithm
     $Plan['ExpectedAlgorithm'] = $wantedAlgorithm
     $Plan['ChecksumHashFile'] = [string]$Expected.HashFile
     $Plan['ChecksumHashFrom'] = [string]$Expected.HashFrom
     $Plan['ChecksumFingerprint'] = [string]$Expected.Fingerprint
     $Plan['ChecksumMetadataAction'] = 'replace'
 
-    $recordedSha256 = Get-WinstRecordedHash -Entry $Entry -FileName $Name
+    $recordedSha256 = $Plan['RecordedHash']
     if ($recordedSha256 -and $wantedAlgorithm -ne 'SHA256') {
         # 期望算法不是 sha256 时索引里的 sha256 不参与比对，但仍要带回给调用方写回索引
         $Plan['IndexHash'] = $recordedSha256
