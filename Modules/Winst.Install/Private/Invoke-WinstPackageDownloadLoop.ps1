@@ -8,7 +8,7 @@ function Invoke-WinstPackageDownloadLoop {
         @{ Ok; Error; Network; Downloaded; Names; Any }
     #>
     param([hashtable]$Context, $Plans, [string]$PkgDir, [string]$Id, [string]$DisplayName, [string]$SourceName,
-        [string]$Version, [switch]$Offline, [switch]$Quiet)
+        [string]$Version, [switch]$Offline, [switch]$Quiet, [hashtable]$InputLease)
 
     $downloaded = @()
     $downloadedNames = @()
@@ -64,6 +64,11 @@ function Invoke-WinstPackageDownloadLoop {
                 Error = $offlineError
             }
         }
+        if ($null -ne $InputLease -and $InputLease['Stream'] -and
+                (-not $engineReady -or $InputLease['Stream'].Name -ieq $target)) {
+            $InputLease['Stream'].Dispose()
+            $InputLease.Clear()
+        }
         $hadTarget = Test-Path -LiteralPath $target -PathType Leaf
         if (-not $engineReady) {
             $engine = Confirm-WinstDownloadEngine -Context $Context -Quiet:$Quiet
@@ -93,7 +98,6 @@ function Invoke-WinstPackageDownloadLoop {
             $null = New-Item -ItemType Directory -Path $downloadDir -ErrorAction Stop
             $target = Join-WinstPath $downloadDir $name
             if (-not $Quiet) { Write-Host ('    正在下载 {0} …' -f $name) -ForegroundColor Gray }
-            $beforeFiles = @(Get-ChildItem -LiteralPath $downloadDir -File -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
             if ($isDownloadEngine) {
                 $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $target
             } else {
@@ -138,7 +142,7 @@ function Invoke-WinstPackageDownloadLoop {
             }
             if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
                 # 引擎在目标名被占用时会把输出改名成「名称 (1).zip」：只认本次新出现的那个文件并归位
-                $adopt = Resolve-WinstDownloadedFile -Dir $downloadDir -Name $name -BeforeFiles $beforeFiles
+                $adopt = Resolve-WinstDownloadedFile -Dir $downloadDir -Name $name -BeforeFiles @()
                 if ([string]$adopt.Note -and -not $Quiet) { Write-Host ('    {0}' -f [string]$adopt.Note) -ForegroundColor DarkYellow }
                 if (-not [string]$adopt.Path) {
                     return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false; Downloaded = $downloaded; Names = $downloadedNames; Any = $downloadedAny }

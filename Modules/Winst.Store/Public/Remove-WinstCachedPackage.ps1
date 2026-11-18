@@ -78,7 +78,7 @@ function Remove-WinstCachedPackage {
 
         # 索引按精确 id 删除；写回失败仍向调用方报告。
         try {
-            Save-WinstCacheIndex -PkgDir $Context.PkgDir -Update {
+            Save-WinstCacheIndex -PkgDir $Context.PkgDir -UpdateIds @($Id) -Update {
                 param($index)
                 foreach ($key in @($index.Keys)) {
                     if ([string]$key -ceq $Id) { $index.Remove($key) }

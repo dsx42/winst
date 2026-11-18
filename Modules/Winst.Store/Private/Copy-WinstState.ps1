@@ -23,13 +23,17 @@ function Copy-WinstState {
     .OUTPUTS
         [hashtable] @{ SchemaVersion; Installed }
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$State)
+    param([Parameter(Mandatory = $true)][hashtable]$State, [switch]$ShareEntries, [string[]]$Ids)
 
     $installed = New-WinstOrdinalDictionary
     $source = $State['Installed']
     if ($null -ne $source) {
-        foreach ($key in $source.Keys) {
+        $keys = $source.Keys
+        if ($PSBoundParameters.ContainsKey('Ids')) { $keys = $Ids }
+        foreach ($key in $keys) {
+            if (-not $source.Contains($key)) { continue }
             $entry = $source[$key]
+            if ($ShareEntries) { $installed[$key] = $entry; continue }
             if ($null -eq $entry) { $installed[$key] = $null; continue }
             $installed[$key] = [ordered]@{
                 version          = $entry['version']

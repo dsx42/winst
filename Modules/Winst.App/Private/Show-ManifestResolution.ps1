@@ -33,7 +33,7 @@ function Show-ManifestResolution {
     $startMenuDir = ''
     if ($env:APPDATA) { $startMenuDir = Join-WinstPath $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' }
 
-    $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
+    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index
     $succeeded = 0
     $failed = 0
@@ -43,7 +43,7 @@ function Show-ManifestResolution {
         if (Get-EntryBool -Entry $app -Key 'ok') { $succeeded++ } else { $failed++ }
         Show-ResolvedAppPlan -Plan $app -Index $index -Total $apps.Count -SourceName $Name `
             -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
-            -DesktopDir $desktopDir -StartMenuDir $startMenuDir -Context $Context -State $state -CacheIndex $cacheIndex
+            -DesktopDir $desktopDir -StartMenuDir $startMenuDir -Context $Context -State $stateRead.State -StateRead $stateRead -CacheIndex $cacheIndex
     }
 
     Write-Host ''

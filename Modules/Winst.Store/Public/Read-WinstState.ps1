@@ -21,8 +21,10 @@ function Read-WinstState {
         返回的是**副本**（见 Copy-WinstState）：调用方可以就地修改条目，
         缓存不被污染；要不要落盘只由 Save-WinstState 决定。
     #>
-    param([Parameter(Mandatory = $true)][string]$InstallRoot)
+    param([Parameter(Mandatory = $true)][string]$InstallRoot, [switch]$ForEntryReplacement, [string[]]$Ids)
 
+    $selection = @{}
+    if ($PSBoundParameters.ContainsKey('Ids')) { $selection['Ids'] = $Ids }
     $result = @{
         State      = (New-WinstState)
         Migrated   = $false
@@ -41,7 +43,7 @@ function Read-WinstState {
         if ($null -ne $cache -and $cache.ContainsKey($path)) {
             $cached = $cache[$path]
             if ([string]$cached['Stamp'] -eq $stamp) {
-                $result.State = (Copy-WinstState -State $cached['State'])
+                $result.State = (Copy-WinstState -State $cached['State'] -ShareEntries:$ForEntryReplacement @selection)
                 $result.Migrated = [bool]$cached['Migrated']
                 $result.NeedSave = [bool]$cached['NeedSave']
                 $result.Reset = [bool]$cached['Reset']
@@ -172,5 +174,6 @@ function Read-WinstState {
         }
     }
 
+    if ($selection.Count) { $result.State = Copy-WinstState -State $result.State @selection }
     return $result
 }

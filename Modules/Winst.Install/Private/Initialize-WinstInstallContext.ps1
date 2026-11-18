@@ -12,7 +12,7 @@ function Initialize-WinstInstallContext {
            VersionFromCachedPackage; PlanFreshState; FreshMain; FreshMainReason; IsDownloadType; PrevEntry;
            Plans; NeedDownload; PrimaryTarget; CompanionDownloadCount; CompanionsOnly; Ledger }
     #>
-    param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$Quiet, $Result)
+    param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$Quiet, $Result, $CompanionInfo = $null, [hashtable]$InputLease)
 
     $id = Get-EntryString -Entry $Plan -Key 'id'
     $displayName = Get-EntryString -Entry $Plan -Key 'name'
@@ -68,7 +68,7 @@ function Initialize-WinstInstallContext {
         $mainName = Get-EntryString -Entry $files[0] -Key 'name'
         if (-not $mainName) { $mainName = Get-FileNameFromUrl -Url (Get-EntryString -Entry $files[0] -Key 'url') }
         # 派生路由：声明 packageVersion 的条目用 7-Zip 读包内结构，否则读主包文件信息
-        $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir $pkgDir -Plan $Plan -FileName $mainName
+        $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir $pkgDir -Plan $Plan -FileName $mainName -InputLease $InputLease
         if ($derivedResult.Ok) {
             $derived = [string]$derivedResult.Version
             # 包内派生的版本就是「软件源里的版本」→ 套源侧规则 source.versionRewrite
@@ -98,8 +98,15 @@ function Initialize-WinstInstallContext {
     # -CheckValidators：安装 / 更新 / 仅下载都要按 files[].refresh 判定「缓存里那份还算不算数」
     # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）沿用缓存，changed / unknown 才重新取
     # 安装与仅下载操作共用主包版本优先判定；FreshMain 时不能用缓存包版本命中
-    $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $id -Files $files -CheckValidators `
-        -FreshMain:$freshMain -FreshMainReason:$freshMainReason)
+    if ($DownloadOnly -or -not $CompanionInfo -or -not $CompanionInfo.Checked -or -not $CompanionInfo.FilePlans) {
+        $CompanionInfo = $null
+    }
+    if ($CompanionInfo) {
+        $plans = @($CompanionInfo.FilePlans)
+    } else {
+        $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $id -Files $files -CheckValidators `
+            -FreshMain:$freshMain -FreshMainReason:$freshMainReason)
+    }
     if ($plans.Count -eq 0) {
         return @{ Error = ('{0} 的软件定义里没有可下载的文件' -f $displayName) }
     }
@@ -120,7 +127,9 @@ function Initialize-WinstInstallContext {
     $ledger = Get-WinstInstalledApp -State $state -Id $id
     if (-not $isDownloadType -and $plans.Count -gt 1) {
         # 复用已完成的取包计划，同时把缺失目标、落位规则变化计入附件更新；不重复规划或联网。
-        $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Plan -FilePlans $plans
+        if (-not $CompanionInfo -or -not $CompanionInfo.Checked) {
+            $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Plan -FilePlans $plans
+        }
         if ($companionInfo.Error) { return @{ Error = [string]$companionInfo.Error } }
         $companionDownloadCount = [int]$companionInfo.ChangedCount
         $companionsOnly = [bool]$companionInfo.CompanionsOnly

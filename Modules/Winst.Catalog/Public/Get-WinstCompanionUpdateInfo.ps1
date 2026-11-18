@@ -16,10 +16,11 @@ function Get-WinstCompanionUpdateInfo {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        $FilePlans = $null
+        $FilePlans = $null,
+        [switch]$Prepare
     )
 
-    $result = @{ Checked = $false; CompanionsOnly = $false; ChangedCount = 0; Names = @(); RequiresLanding = $false; Error = '' }
+    $result = @{ Checked = $false; CompanionsOnly = $false; ChangedCount = 0; Names = @(); RequiresLanding = $false; Error = ''; Plan = $Plan; FilePlans = @() }
     if ($null -eq $Plan) { return $result }
     $type = (Get-EntryString -Entry $Plan -Key 'type').Trim().ToLowerInvariant()
     if ($type -eq 'download') { return $result }
@@ -30,9 +31,16 @@ function Get-WinstCompanionUpdateInfo {
     $id = Get-EntryString -Entry $Plan -Key 'id'
     if (-not $id) { return $result }
 
+    if ($Prepare) {
+        $result.Stamps = New-WinstOrdinalDictionary
+        $result.Landings = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($path in @((Get-WinstStatePath -InstallRoot $Context.InstallRoot), (Get-WinstCacheIndexPath -PkgDir $Context.PkgDir))) {
+            $result.Stamps[$path] = Get-WinstFileStamp -Path $path
+        }
+    }
     if ($null -ne $FilePlans) { $plans = @($FilePlans) }
     else { try {
-        $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+        $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($id)
         if ($indexRead.Error) { $result.Error = [string]$indexRead.Error; return $result }
         # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）时主包沿用缓存，
         # 主包要重取（远端有新包 / 没比出结论）就不是「仅配套文件更新」
@@ -49,10 +57,17 @@ function Get-WinstCompanionUpdateInfo {
     } }
     if ($plans.Count -lt 2) { return $result }
     if ($plans.Count -ne $files.Count) { $result.Error = '附件下载计划与文件定义数量不一致'; return $result }
+    if ($Prepare) {
+        foreach ($filePlan in $plans) {
+            $target = [string]$filePlan['Target']
+            if ($target) { $result.Stamps[$target] = Get-WinstFileStamp -Path $target }
+        }
+    }
+    $result.FilePlans = $plans
     $result.Checked = $true
     $mainNeedsDownload = [bool]$plans[0]['NeedDownload']
 
-    $ledgerRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    $ledgerRead = Read-WinstState -InstallRoot $Context.InstallRoot -Ids @($id)
     if ($ledgerRead.Error -and -not $ledgerRead.Reset) { $result.Error = [string]$ledgerRead.Error; return $result }
     $ledger = Get-WinstInstalledApp -State $ledgerRead.State -Id $id
     $installDir = Get-EntryString -Entry $ledger -Key 'installDir'
@@ -72,8 +87,12 @@ function Get-WinstCompanionUpdateInfo {
             $pathType = 'Leaf'
             if (Get-EntryBool -Entry $files[$i] -Key 'extract') { $pathType = 'Container' }
             $signature = Get-WinstCompanionLayoutSignature -File $files[$i]
+            $exists = Test-Path -LiteralPath $safe.Path -PathType $pathType
+            if ($Prepare) {
+                $result.Landings.Add(@{ Path = $safe.Path; Root = $installDir; Type = $pathType; Exists = $exists })
+            }
             $needsLanding = ((Get-EntryString -Entry $previousRules -Key ([string]$plans[$i]['Name'])) -cne $signature) -or
-                -not (Test-Path -LiteralPath $safe.Path -PathType $pathType)
+                -not $exists
         }
         if ($needsLanding) { $result.RequiresLanding = $true }
         if ($plans[$i]['NeedDownload'] -or $needsLanding) {

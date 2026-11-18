@@ -12,7 +12,7 @@ function Write-WinstRemoteFreshnessHint {
         $Plan
     )
 
-    $hint = Get-WinstRemoteFreshnessHint -Context $Context -PkgDir $PkgDir -Id $Id -Plan $Plan
+    $hint = Get-WinstRemoteFreshnessHint -Context $Context -PkgDir $PkgDir -Id $Id -Plan $Plan -ForDisplay
     if (-not [string]$hint.Text) { return }
     $color = 'DarkYellow'
     if ([string]$hint.State -eq 'changed') { $color = 'Yellow' }

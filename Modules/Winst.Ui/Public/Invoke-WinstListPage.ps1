@@ -25,9 +25,11 @@ function Invoke-WinstListPage {
     if ($null -ne $Filter) { $filterText = ([string]$Filter).Trim() }
 
     while ($true) {
-        $visibleResult = Get-WinstVisibleListItems -Items $all -Filter $filterText
-        $visible = @($visibleResult.Visible)
-        $visibleIndexes = @($visibleResult.Indexes)
+        $visible = $all
+        if ($filterText) {
+            $visibleResult = Get-WinstVisibleListItems -Items $all -Filter $filterText
+            $visible = $visibleResult.Visible
+        }
 
         Write-Host ''
         Write-Host ('  {0}' -f $SummaryText) -ForegroundColor $SummaryColor
@@ -36,7 +38,8 @@ function Invoke-WinstListPage {
         }
         if ($visible.Count -eq 0) { Write-Host ('  {0}' -f $EmptyText) -ForegroundColor DarkYellow }
 
-        $hasGrouped = [bool](@($visible | Where-Object { [string]$_['Group'] }).Count)
+        $hasGrouped = $false
+        foreach ($item in $visible) { if ($item['Group']) { $hasGrouped = $true; break } }
         $lastGroup = ''
         for ($i = 0; $i -lt $visible.Count; $i++) {
             $item = $visible[$i]
@@ -56,8 +59,9 @@ function Invoke-WinstListPage {
         if ($page.Action -eq 'filter') { $filterText = $page.Filter; continue }
         if ($page.Action -ne 'select') { return @{ Action = $page.Action; Index = -1; Filter = $filterText } }
 
-        $picked = @()
-        foreach ($index in @($page.Indexes)) { $picked += [int]$visibleIndexes[$index] }
+        $picked = @(foreach ($index in $page.Indexes) {
+            if ($filterText) { [int]$visibleResult.Indexes[$index] } else { [int]$index }
+        })
         if ($picked.Count -eq 1) {
             return @{ Action = 'select'; Index = $picked[0]; Filter = $page.Filter }
         }

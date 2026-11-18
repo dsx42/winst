@@ -9,7 +9,7 @@ function Copy-WinstFileMeta {
     #>
     param($FileMeta)
 
-    $table = New-WinstOrdinalDictionary
+    $table = New-WinstOrdinalDictionary -IgnoreCase
     foreach ($pair in @(Get-WinstEntryPairs -Entry $FileMeta)) {
         $name = [string]$pair[0]
         $item = $pair[1]

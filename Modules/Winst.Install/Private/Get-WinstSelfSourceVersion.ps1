@@ -79,13 +79,12 @@ function Get-WinstSelfSourceVersion {
 
         $archive = [IO.Compression.ZipFile]::OpenRead($Path)
         try {
-            $entries = @($archive.Entries | ForEach-Object { @{ Name = ([string]$_.FullName).Replace('\', '/'); Entry = $_ } })
 
             foreach ($relative in $candidates) {
                 $wanted = $relative.Replace('\', '/')
                 $match = $null
-                foreach ($candidate in $entries) {
-                    if ($candidate.Name -ieq $wanted) { $match = $candidate.Entry; break }
+                foreach ($candidate in $archive.Entries) {
+                    if ($candidate.FullName.Replace('\', '/') -ieq $wanted) { $match = $candidate; break }
                 }
                 if (-not $match) { continue }
 

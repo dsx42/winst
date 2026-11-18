@@ -72,7 +72,8 @@ function Invoke-WinstApplication {
     $null = Set-WinstScriptLocation -ScriptPath $ScriptPath -Directory $Root
 
     # —— 单进程校验：抢不到锁就提示并退出，不进任何业务逻辑 ——
-    $instance = Confirm-WinstSingleInstance -Arguments $Arguments
+    $parsed = Read-WinstCommandLine -Tokens $Arguments
+    $instance = Confirm-WinstSingleInstance -Parsed $parsed
     if (-not $instance.Allowed) {
         Write-WinstInstanceBusyMessage -Instance $instance
         $result.ExitCode = 1
@@ -81,7 +82,7 @@ function Invoke-WinstApplication {
     }
 
     try {
-        $exitCode = Invoke-WinstEntry -Arguments $Arguments
+        $exitCode = Invoke-WinstEntry -Parsed $parsed
 
         if ($null -eq $exitCode) {
             $result.ExitCode = 0

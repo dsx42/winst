@@ -10,17 +10,23 @@ function Get-WinstListFiles {
     param([Parameter(Mandatory = $true)][hashtable]$Context)
 
     $dir = Get-WinstListsDir -Context $Context
-    $files = @()
+    $cache = Get-WinstState -Name WinstJsonCache
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
 
     foreach ($file in @(Get-ChildItem -LiteralPath $dir -Filter '*.list' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
-        $read = Read-WinstList -Path $file.FullName
-        $files += [ordered]@{
+        $key = 'list-count|' + $file.FullName
+        $stamp = '{0}:{1}' -f $file.LastWriteTimeUtc.Ticks, $file.Length
+        $cached = $cache[$key]
+        if ($null -eq $cached -or $cached.Stamp -ne $stamp) {
+            $read = Read-WinstList -Path $file.FullName -CountOnly
+            $cached = @{ Stamp = $stamp; Count = $read.Count }
+            if ($read.Ok) { $cache[$key] = $cached }
+        }
+        [ordered]@{
             Name     = [string]$file.Name
             Path     = [string]$file.FullName
-            Count    = @($read.Entries).Count
+            Count    = $cached.Count
             Modified = $file.LastWriteTime
         }
     }
-    return @($files)
 }

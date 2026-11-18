@@ -10,7 +10,8 @@ function Get-Winst7zEntryPaths {
     param(
         [Parameter(Mandatory = $true)][string]$SevenZip,
         [Parameter(Mandatory = $true)][string]$ArchivePath,
-        [switch]$DirectoriesOnly
+        [switch]$DirectoriesOnly,
+        [string]$PathPattern, [switch]$LeafOnly
     )
 
     $result = @{ Ok = $false; Paths = @(); Error = '' }
@@ -19,54 +20,54 @@ function Get-Winst7zEntryPaths {
         return $result
     }
 
-    $output = $null
+    $paths = New-Object 'System.Collections.Generic.List[string]'
+    $diagnostic = @{ First = '' }
+    $read = {
+        param($reader)
+        $current = ''
+        $isDir = $false
+        $hasAttrs = $false
+        while ($true) {
+            $line = $reader.ReadLine()
+            if ($null -ne $line -and -not $diagnostic.First -and $line.Trim()) { $diagnostic.First = $line.Trim() }
+            if ($null -eq $line -or $line -match '^Path\s*=\s*(.+)\s*$') {
+                if ($current -and $hasAttrs -and ($isDir -eq [bool]$DirectoriesOnly)) {
+                    $candidate = $current
+                    if ($LeafOnly) { $candidate = [IO.Path]::GetFileName($current) }
+                    if (-not $PathPattern -or $candidate -like $PathPattern) {
+                        $paths.Add($current)
+                        if ($PathPattern) {
+                            # 命中后仍排空输出，子进程才能正常退出。
+                            $buffer = New-Object char[] 8192
+                            while ($reader.Read($buffer, 0, $buffer.Length) -gt 0) { }
+                            break
+                        }
+                    }
+                }
+                if ($null -eq $line) { break }
+                $current = $Matches[1].Trim()
+                $isDir = $false
+                $hasAttrs = $false
+            } elseif ($line -match '^Folder\s*=\s*(.+)\s*$') {
+                $isDir = $Matches[1].Trim() -eq '+'
+                $hasAttrs = $true
+            } elseif ($line -match '^Attributes\s*=') {
+                $hasAttrs = $true
+                if ($line -match '^Attributes\s*=\s*\S*D') { $isDir = $true }
+            }
+        }
+    }.GetNewClosure()
     try {
         foreach ($value in @($SevenZip, $ArchivePath)) {
             if (-not (Test-WinstArgumentSafe -Value $value)) { throw '7-Zip 路径含有引号或控制字符' }
         }
-        $run = Invoke-WinstCapturedCommand -FilePath $SevenZip -Arguments ('l -slt -sccUTF-8 {0}' -f (Format-WinstCommandArgument -Value $ArchivePath)) -NoTimeout
+        $run = Invoke-WinstCapturedCommand -FilePath $SevenZip -Arguments ('l -slt -sccUTF-8 {0}' -f (Format-WinstCommandArgument -Value $ArchivePath)) -NoTimeout -ReadOutput $read
         if (-not $run.Ok) { throw $run.Error }
-        $output = @(([string]$run.Text) -split '\r?\n')
+        if ($run.ExitCode -notin @(0, 1)) { throw ('7z 退出码 {0}：{1}' -f $run.ExitCode, $diagnostic.First) }
     } catch {
         $result.Error = ('列不出压缩包内容（{0}）' -f $_.Exception.Message)
         return $result
     }
-    $exitCode = $run.ExitCode
-    if ($exitCode -notin @(0, 1)) {
-        # 7z 退出码：0 成功 / 1 警告（列表仍可用）/ 2 起为致命错误
-        $detail = ''
-        foreach ($line in @($output)) { $text = [string]$line; if ($text.Trim()) { $detail = $text.Trim(); break } }
-        $result.Error = ('列不出压缩包内容（7z 退出码 {0}{1}）' -f $exitCode, $(if ($detail) { ': ' + $detail } else { '' }))
-        return $result
-    }
-
-    # 逐条目数组追加是 O(n²)：几万条目的大包（Chrome / VS 安装器）会明显变慢，统一用 List
-    $paths = New-Object 'System.Collections.Generic.List[string]'
-    $current = ''
-    $isDir = $false
-    $hasAttrs = $false
-    foreach ($line in @($output)) {
-        $text = [string]$line
-        if ($text -match '^Path\s*=\s*(.+)\s*$') {
-            if ($current -and $hasAttrs -and ($isDir -eq [bool]$DirectoriesOnly)) { $paths.Add($current) }
-            $current = $Matches[1].Trim()
-            $isDir = $false
-            $hasAttrs = $false
-            continue
-        }
-        if ($text -match '^Folder\s*=\s*(.+)\s*$') {
-            $isDir = ($Matches[1].Trim() -eq '+')
-            $hasAttrs = $true
-            continue
-        }
-        if ($text -match '^Attributes\s*=') {
-            $hasAttrs = $true
-            # Attributes 里的 D 标记 = 目录（如「D_ drwxrwxrwx」）
-            if ($text -match '^Attributes\s*=\s*\S*D') { $isDir = $true }
-            continue
-        }
-    }
-    if ($current -and $hasAttrs -and ($isDir -eq [bool]$DirectoriesOnly)) { $paths.Add($current) }
     $result.Ok = $true
     $result.Paths = @($paths.ToArray())
     return $result

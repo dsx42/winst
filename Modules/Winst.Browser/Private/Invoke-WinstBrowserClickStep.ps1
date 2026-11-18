@@ -10,7 +10,7 @@ function Invoke-WinstBrowserClickStep {
         命中多个时**按面积从小到大**试：小的更具体（按钮里的文字节点常包在按钮内），
         点之前先 scrollIntoView 并确认「该坐标上真的是它或它的子元素」（被别的图层挡住就换下一个候选）。
     #>
-    param($Session, $Spec)
+    param($Session, $Spec, [switch]$OnlyIfReady)
     $null = Get-WinstBrowserRemainingMs -Session $Session
 
     $probeExpression = @'
@@ -88,7 +88,10 @@ function Invoke-WinstBrowserClickStep {
     var info = hit ? (hit.tagName + '#' + (hit.id || '') + '.' + String(hit.className || '').slice(0, 40)) : '';
     return JSON.stringify({ ok: false, reason: '该坐标上被其它元素挡住：' + info });
   }
-  return JSON.stringify({ ok: true, x: x, y: y });
+  var direct = el.closest('a[href]');
+  var nativeLink = direct && /^(https?:|blob:)/i.test(direct.href) && !direct.getAttribute('href').startsWith('#');
+  var handler = el.closest('[onclick]');
+  return JSON.stringify({ ok: true, x: x, y: y, ready: !!(nativeLink || handler || el.onclick) });
 })()
 "@
         $prepared = Get-WinstDevToolsValue -Session $Session -Expression $clickExpression
@@ -99,6 +102,7 @@ function Invoke-WinstBrowserClickStep {
             continue
         }
 
+        if ($OnlyIfReady -and -not $target.ready) { continue }
         $x = [double]$target.x
         $y = [double]$target.y
         if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {

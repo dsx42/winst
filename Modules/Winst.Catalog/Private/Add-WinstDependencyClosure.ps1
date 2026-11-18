@@ -18,7 +18,7 @@ function Add-WinstDependencyClosure {
     if (-not $map.Contains($Id)) {
         if (-not $State['MissingSeen'].Contains($Id)) {
             $State['MissingSeen'][$Id] = $true
-            $State['Missing'] += @{ Id = $Id; Level = $Level; Via = [string]$State['Via'][$Id] }
+            $State['Missing'].Add(@{ Id = $Id; Level = $Level; Via = [string]$State['Via'][$Id] })
         }
         return
     }
@@ -37,6 +37,6 @@ function Add-WinstDependencyClosure {
 
     $State['Visiting'].Remove($Id)
     $State['Done'][$Id] = $true
-    $State['Order'] += $Id
+    $State['Order'].Add($Id)
     return
 }

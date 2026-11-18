@@ -16,5 +16,7 @@ function Clear-WinstJsonCache {
         (Get-WinstState -Name WinstJsonCache).Remove([string]$Path)
         # 缓存索引把「整个 Read-WinstCacheIndex 结果」挂在派生键下，写索引文件时一并失效
         (Get-WinstState -Name WinstJsonCache).Remove('cache-index|' + [string]$Path)
+        (Get-WinstState -Name WinstJsonCache).Remove('index-entries|' + [string]$Path)
+        (Get-WinstState -Name WinstJsonCache).Remove('list-count|' + [string]$Path)
     } catch { }
 }

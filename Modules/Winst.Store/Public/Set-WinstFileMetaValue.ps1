@@ -51,10 +51,7 @@ function Set-WinstFileMetaValue {
     if ($PSBoundParameters.ContainsKey('ChecksumHashFrom')) { $merged['checksumHashFrom'] = [string]$ChecksumHashFrom }
     if ($PSBoundParameters.ContainsKey('ChecksumFingerprint')) { $merged['checksumFingerprint'] = ([string]$ChecksumFingerprint).ToLowerInvariant() }
 
-    $key = $FileName
-    foreach ($existingKey in @($Container.Keys)) {
-        if ([string]$existingKey -ieq $FileName) { $key = [string]$existingKey; break }
-    }
+    $key = Get-WinstFileMapKey -Map $Container -Name $FileName
     $Container[$key] = $merged
     return $Container
 }

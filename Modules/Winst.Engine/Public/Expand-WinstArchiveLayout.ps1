@@ -3,13 +3,13 @@
 function Expand-WinstArchiveLayout {
     <#
     .SYNOPSIS
-        在系统 Temp 下的 .winst-stage 完整解压并整理布局，不修改目标目录。
+        在系统 Temp 下的 .winst-stage 完整解压并整理布局，可按 Deliver 直接复制到目标。
     .DESCRIPTION
         extractFiles 优先于 stripTopDir；目录取内容，文件取自身。
         stripTopDir 指定内层压缩包时先展开内层；其余目录选择只切换路径。
         成功后调用方从 SourceDir 直接交付，并负责清理 TempRoot；失败时自行清理。指定 SevenZipPath 时内外层包均只用该程序。
     .PARAMETER DestDir
-        最终交付目录，用于提前校验目标路径；本函数不向该目录写入。
+        最终交付目录；指定 Deliver 时在检查成功后复制落位，Clean 与 Keep 控制清理。
     .OUTPUTS
         @{ Ok; Error; TempRoot; SourceDir; ExtractFailed }
     #>
@@ -19,7 +19,8 @@ function Expand-WinstArchiveLayout {
         [Parameter(Mandatory = $true)][string]$DestDir,
         $StripTopDir = $true,
         [string[]]$ExtractFiles = @(),
-        [string]$SevenZipPath = ''
+        [string]$SevenZipPath = '',
+        [switch]$Deliver, [switch]$Clean, [string[]]$Keep = @()
     )
 
     $result = @{ Ok = $false; Error = ''; TempRoot = ''; SourceDir = ''; ExtractFailed = $false }
@@ -52,16 +53,17 @@ function Expand-WinstArchiveLayout {
         $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $tempRoot))
         $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $ArchivePath -DestDir $tempRoot -SevenZipPath $SevenZipPath
         if (-not $expand.Ok) { $result.ExtractFailed = -not $expand.ValidationFailed; $result.Error = $expand.Error; return $result }
-        Assert-WinstTreeWithoutReparsePoint -Path $tempRoot
+
 
         $selected = New-Object 'System.Collections.Generic.List[string]'
+        $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
         foreach ($one in @($ExtractFiles)) {
             $text = ([string]$one).Trim()
             if (-not $text) { continue }
             $safe = Resolve-WinstSafeChildPath -Root $tempRoot -Child $text -Label '软件源里的解压路径'
             if (-not $safe.Ok) { $result.Error = $safe.Error; return $result }
             if (-not (Test-WinstFileSystemPath -Path $safe.Path)) { throw ('压缩包缺少所需路径：' + $text) }
-            if (-not $selected.Contains([string]$safe.Path)) { $selected.Add([string]$safe.Path) }
+            if ($seen.Add([string]$safe.Path)) { $selected.Add([string]$safe.Path) }
         }
         if ($selected.Count -eq 0) {
             $source = $tempRoot
@@ -77,14 +79,14 @@ function Expand-WinstArchiveLayout {
                     }
                     $expand = Expand-WinstPackageArchive -Context $Context -ArchivePath $source -DestDir $inner -SevenZipPath $SevenZipPath
                     if (-not $expand.Ok) { $result.Error = $expand.Error; return $result }
-                    Assert-WinstTreeWithoutReparsePoint -Path $inner
                     $source = $inner
                 }
             } elseif ($StripTopDir -eq $true) {
-                $top = @(Get-WinstChildItem -Path $tempRoot -ErrorAction Stop)
+                $top = @(Get-WinstChildItem -Path $tempRoot -ErrorAction Stop | Select-Object -First 2)
                 if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $source = $top[0].FullName }
             }
             $selected.Add($source)
+            $null = $seen.Add($source)
         }
 
         if ($selected.Count -eq 1 -and (Test-WinstFileSystemPath -Path $selected[0] -PathType Container)) {
@@ -99,11 +101,19 @@ function Expand-WinstArchiveLayout {
                 }
             }
             if ($sameParentFiles) {
-                $sourceDir = $fileParent
-                foreach ($item in @(Get-WinstChildItem -Path $sourceDir -ErrorAction Stop)) {
-                    if (@($selected) -contains $item.FullName) { continue }
-                    if ($item.PSIsContainer) { Clear-WinstInstallDir -Dir $item.FullName -Strict }
-                    else { Remove-WinstFileSystemItem -Path $item.FullName -ErrorAction Stop }
+                $sourceDir = Join-WinstPath $tempRoot '.winst-layout'
+                if (-not (Test-WinstFileSystemPath -Path $sourceDir -ErrorAction Stop)) {
+                    $null = [IO.Directory]::CreateDirectory((ConvertTo-WinstExtendedPath -Path $sourceDir))
+                    foreach ($path in $selected) {
+                        Move-WinstItemInto -Source (Get-WinstFileSystemItem -Path $path) -DestDir $sourceDir
+                    }
+                } else {
+                    $sourceDir = $fileParent
+                    foreach ($item in @(Get-WinstChildItem -Path $sourceDir -ErrorAction Stop)) {
+                        if ($seen.Contains($item.FullName)) { continue }
+                        if ($item.PSIsContainer) { Clear-WinstInstallDir -Dir $item.FullName -Strict }
+                        else { Remove-WinstFileSystemItem -Path $item.FullName -ErrorAction Stop }
+                    }
                 }
             } else {
                 # 多个目录取内容时必须合并布局；只在本次临时树内移动，不复制整树。
@@ -119,9 +129,12 @@ function Expand-WinstArchiveLayout {
                 }
             }
         }
-        Assert-WinstTreeWithoutReparsePoint -Path $sourceDir
         if (-not (Get-WinstChildItem -Path $sourceDir -File -Recurse -ErrorAction Stop | Select-Object -First 1)) {
             throw '解压结果没有文件，拒绝清理安装目录'
+        }
+        if ($Deliver) {
+            try { $null = Move-WinstArchiveSelection -Path $sourceDir -DestDir $target -Copy -Clean:$Clean -Keep $Keep }
+            catch { $result.Error = ('安装文件落位失败：' + $_.Exception.Message); return $result }
         }
         $result.TempRoot = $tempRoot
         $result.SourceDir = $sourceDir

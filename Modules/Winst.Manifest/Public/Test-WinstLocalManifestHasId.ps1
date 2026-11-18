@@ -10,25 +10,34 @@ function Test-WinstLocalManifestHasId {
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Id
+        [Parameter(Mandatory = $true)][string]$Id,
+        [hashtable]$Lookup = @{}
     )
 
     if (-not $Id) { return $false }
     $pkgDir = ''
     if ($Context) { $pkgDir = [string]$Context['PkgDir'] }
-    foreach ($path in @(Get-LocalManifestFiles -PkgDir $pkgDir)) {
+    if (-not $Lookup.ContainsKey('Files')) {
+        $Lookup.Files = @(Get-LocalManifestFiles -PkgDir $pkgDir)
+        $Lookup.Sets = New-WinstOrdinalDictionary
+    }
+    foreach ($path in $Lookup.Files) {
+        if ($Lookup.Sets.Contains($path)) {
+            if ($Lookup.Sets[$path].Contains($Id)) { return $true }
+            continue
+        }
         try {
-            $read = Read-WinstJsonFileCached -Path $path
+            $read = Read-WinstJsonFileCached -ParsedOnly -Path $path
             if (-not $read.Ok) { throw $read.Error }
-            if (-not ([string]$read.Raw).Trim()) { throw '清单内容为空' }
+            if ($read.Empty) { throw '清单内容为空' }
             $entries = @(Get-ManifestEntries -Manifest $read.Value)
         } catch {
             throw ('读取本地清单失败（{0}）：{1}' -f $path, $_.Exception.Message)
         }
-        foreach ($entry in $entries) {
-            # id 一律 Ordinal：与台账 / 缓存索引的 New-WinstOrdinalDictionary 保持同一口径
-            if ((Get-EntryString -Entry $entry -Key 'id') -ceq $Id) { return $true }
-        }
+        $ids = New-WinstOrdinalDictionary
+        foreach ($entry in $entries) { $ids[(Get-EntryString -Entry $entry -Key 'id')] = $true }
+        $Lookup.Sets[$path] = $ids
+        if ($ids.Contains($Id)) { return $true }
     }
     return $false
 }

@@ -7,12 +7,12 @@ function Resolve-WinstBundleTarget {
     .OUTPUTS
         [string] 目标目录绝对路径
     #>
-    param([hashtable]$Context, [string]$TargetDir, [string]$ListPath, $Items)
+    param([hashtable]$Context, [string]$TargetDir, [string]$ListPath, $Items, $StateRead = $null)
 
     # —— ② 先列出清单里的软件（确认要打包哪些东西；状态 / 软件源 / 依赖与「查看清单」同一口径） ——
     Write-Host ''
     Write-Host ('  安装清单: {0}' -f $ListPath) -ForegroundColor Gray
-    $null = Show-WinstListContent -Context $Context -Items $Items
+    $null = Show-WinstListContent -Context $Context -Items $Items -StateRead $StateRead
 
     # —— ③ 目标目录 ——
     if (-not $TargetDir) {

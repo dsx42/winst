@@ -35,21 +35,14 @@ function Resolve-WinstDetectFiles {
         $glob = [string]$resolved.Path
     }
 
-    $hits = @()
-    try { $hits = @(Get-Item -Path $glob -Force -ErrorAction SilentlyContinue) } catch { $hits = @() }
-    if ($hits.Count -eq 0) { return $result }
-
-    # 通配也可能命中目录（目录没有版本资源、也没有内容可读），只保留文件
-    $files = @()
-    foreach ($hit in $hits) {
-        if ($null -eq $hit) { continue }
-        if ($hit.PSIsContainer) { continue }
-        $files += $hit
-    }
+    try {
+        $files = @(Get-Item -Path $glob -Force -ErrorAction SilentlyContinue |
+            Where-Object { -not $_.PSIsContainer } | Sort-Object -Property FullName)
+    } catch { return $result }
     if ($files.Count -eq 0) { return $result }
 
     $result.Ok = $true
-    $result.Files = @($files | Sort-Object -Property @{ Expression = { [string]$_.FullName } })
+    $result.Files = $files
     $result.HitCount = $files.Count
     return $result
 }

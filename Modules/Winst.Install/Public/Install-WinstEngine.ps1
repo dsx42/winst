@@ -55,8 +55,10 @@ function Install-WinstEngine {
     }
     $plan = $resolved.Plan
     $planId = Get-EntryString -Entry $plan -Key 'id'
-    try { Assert-WinstAppIdentityAvailable -Context $Context -Id $planId }
-    catch { $result.Error = $_.Exception.Message; return $result }
+    if ($Id -cne $planId) {
+        try { Assert-WinstAppIdentityAvailable -Context $Context -Id $planId }
+        catch { $result.Error = $_.Exception.Message; return $result }
+    }
     $downloadBlock = Get-EntryValue -Entry $plan -Key 'download' -Default $null
     $nameError = Get-WinstDuplicateDownloadNameError -Files @(Get-EntryArray -Entry $downloadBlock -Key 'files')
     if ($nameError) { $result.Error = $nameError; return $result }

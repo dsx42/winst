@@ -5,7 +5,7 @@ function Write-WinstPlanHeader {
     .SYNOPSIS
         软件清单头部：标题 / 类型 / 版本 / 说明 / 已装版本 / 来源 / 依赖。
     #>
-    param($Plan, [hashtable]$View, [hashtable]$Context = $null)
+    param($Plan, [hashtable]$View, [hashtable]$Context = $null, $StateRead = $null)
 
     Write-Host ''
     Write-Host ('  ' + ('─' * 66)) -ForegroundColor DarkGray
@@ -56,7 +56,7 @@ function Write-WinstPlanHeader {
     # 是否已安装、已安装版本、能否更新与更新后的版本——与安装 / 更新时「将一并处理」同源；
     # 清单有误（$ok = $false）时也照常展示，方便看到依赖配置本身
     if ($Context) {
-        $dependencyLines = @(Get-WinstDependencyLines -Context $Context -Id $View.Id -Type $View.Type -Plan $Plan)
+        $dependencyLines = @(Get-WinstDependencyLines -Context $Context -Id $View.Id -Type $View.Type -Plan $Plan -StateRead $StateRead)
         if ($dependencyLines.Count -gt 0) {
             Write-Host '    依赖:' -ForegroundColor Gray
             foreach ($one in $dependencyLines) {

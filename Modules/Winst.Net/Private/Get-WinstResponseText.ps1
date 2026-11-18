@@ -11,49 +11,30 @@ function Get-WinstResponseText {
     #>
     param($Response)
 
-    $content = $Response.Content
+    $charset = 'utf-8'
+    $headers = Get-EntryValue -Entry $Response -Key 'Headers'
+    if ($headers -and ([string]$headers['Content-Type']) -match 'charset=([^;]+)') {
+        $charset = $Matches[1].Trim().Trim('"')
+    }
+    try { $encoding = [Text.Encoding]::GetEncoding($charset) }
+    catch { $encoding = [Text.Encoding]::UTF8 }
+
     $stream = Get-EntryValue -Entry $Response -Key 'RawContentStream' -Default $null
-    if ($stream -is [IO.Stream] -and $stream.CanRead -and $stream.CanSeek) {
-        $position = $stream.Position
-        $buffer = New-Object IO.MemoryStream
-        try {
-            $stream.Position = 0
-            $stream.CopyTo($buffer)
-            $content = $buffer.ToArray()
-        } finally {
-            $stream.Position = $position
-            $buffer.Dispose()
-        }
+    $owned = $false
+    if ($stream -isnot [IO.Stream] -or -not $stream.CanRead -or -not $stream.CanSeek) {
+        $content = $Response.Content
+        if ($content -isnot [byte[]]) { return [string]$content }
+        $stream = [IO.MemoryStream]::new($content, $false)
+        $owned = $true
     }
-    if ($content -is [byte[]]) {
-        if ($content.Length -ge 4 -and $content[0] -eq 0xFF -and $content[1] -eq 0xFE -and $content[2] -eq 0 -and $content[3] -eq 0) {
-            return [Text.Encoding]::UTF32.GetString($content, 4, $content.Length - 4)
-        }
-        if ($content.Length -ge 4 -and $content[0] -eq 0 -and $content[1] -eq 0 -and $content[2] -eq 0xFE -and $content[3] -eq 0xFF) {
-            return (New-Object Text.UTF32Encoding($true, $true)).GetString($content, 4, $content.Length - 4)
-        }
-        if ($content.Length -ge 2 -and $content[0] -eq 0xFF -and $content[1] -eq 0xFE) {
-            return [Text.Encoding]::Unicode.GetString($content, 2, $content.Length - 2)
-        }
-        if ($content.Length -ge 2 -and $content[0] -eq 0xFE -and $content[1] -eq 0xFF) {
-            return [Text.Encoding]::BigEndianUnicode.GetString($content, 2, $content.Length - 2)
-        }
-        if ($content.Length -ge 3 -and $content[0] -eq 0xEF -and $content[1] -eq 0xBB -and $content[2] -eq 0xBF) {
-            return [Text.Encoding]::UTF8.GetString($content, 3, $content.Length - 3)
-        }
-        $charset = 'utf-8'
-        try {
-            $contentType = [string]$Response.Headers['Content-Type']
-            if ($contentType -match 'charset=([^;]+)') { $charset = $Matches[1].Trim().Trim('"') }
-        } catch {
-            # 忽略头解析失败
-        }
-        try {
-            $encoding = [Text.Encoding]::GetEncoding($charset)
-        } catch {
-            $encoding = [Text.Encoding]::UTF8
-        }
-        return $encoding.GetString($content)
+    $position = $stream.Position
+    $reader = $null
+    try {
+        $stream.Position = 0
+        $reader = [IO.StreamReader]::new($stream, $encoding, $true, 4096, $true)
+        return $reader.ReadToEnd()
+    } finally {
+        if ($reader) { $reader.Dispose() }
+        if ($owned) { $stream.Dispose() } else { $stream.Position = $position }
     }
-    return [string]$content
 }

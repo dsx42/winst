@@ -18,13 +18,11 @@ function Set-WinstManifestHash {
     if ($null -ne $Algorithm) { $algorithmKey = ([string]$Algorithm).Trim().ToLowerInvariant() }
     if (-not $text -or -not $algorithmKey) { return $Container }
 
-    $entry = $null
-    foreach ($key in @($Container.Keys)) {
-        if ([string]$key -ieq $FileName) { $entry = $Container[$key]; break }
-    }
+    $key = Get-WinstFileMapKey -Map $Container -Name $FileName
+    $entry = $Container[$key]
     if ($null -eq $entry) {
-        $entry = New-WinstOrdinalDictionary
-        $Container[$FileName] = $entry
+        $entry = New-WinstOrdinalDictionary -IgnoreCase
+        $Container[$key] = $entry
     }
     if ($entry -is [System.Collections.IDictionary]) { $entry[$algorithmKey] = $text.ToLowerInvariant() }
     return $Container

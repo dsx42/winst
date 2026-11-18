@@ -5,38 +5,27 @@ function Remove-WinstItemWithKeep {
     .SYNOPSIS
         递归删除安装目录内的条目，命中 keep 的文件 / 目录整棵保留。
     #>
-    param(
-        [Parameter(Mandatory = $true)]$Item,
-        [Parameter(Mandatory = $true)][string]$Base,
-        [string[]]$Keep = @()
-    )
+    param($Item, [string]$Base, $Rules)
 
-    # 调用方枚举后到真正处理之间，条目可能被换成重解析点；处理前重新读取属性。
-    $Item = Get-WinstFileSystemItem -Path $Item.FullName
-
-    $relative = ''
-    $baseFull = [IO.Path]::GetFullPath((ConvertTo-WinstPlainDevicePath -Path $Base)).TrimEnd('\')
-    if (-not (Test-WinstPathUnderRoot -Path $Item.FullName -Root $baseFull)) {
+    if (-not (Test-WinstPathUnderRoot -Path $Item.FullName -Root $Base)) {
         throw ('清理条目不在指定目录下：{0}' -f $Item.FullName)
     }
-    $relative = $Item.FullName.Substring($baseFull.Length).TrimStart('\')
-    if (Test-WinstKeepMatch -RelativePath $relative -Name $Item.Name -Keep $Keep) { return }
-
-    # 重解析点（junction / 符号链接）只删链接本身：Remove-Item -Recurse 会跟随链接把目标目录里的内容删掉
-    if (Test-WinstReparsePoint -Path $Item.FullName) {
-        Remove-WinstFileSystemItem -Path $Item.FullName
-        return
+    if ($Rules.Count -gt 0) {
+        $relative = $Item.FullName.Substring($Base.Length).TrimStart('\')
+        if (Test-WinstKeepMatch -RelativePath $relative -Name $Item.Name -Rules $Rules) { return $true }
     }
 
     if ($Item.PSIsContainer) {
-        foreach ($child in @(Get-WinstChildItem -Path $Item.FullName)) {
-            Remove-WinstItemWithKeep -Item $child -Base $Base -Keep $Keep
+        # 进入目录前重读，防止枚举后被换成链接；删除原语也会在操作前重新取属性。
+        $current = Get-WinstFileSystemItem -Path $Item.FullName
+        if ($current.PSIsContainer -and ($current.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) {
+            $retained = $false
+            foreach ($child in @(Get-WinstChildItem -Path $current.FullName)) {
+                if (Remove-WinstItemWithKeep -Item $child -Base $Base -Rules $Rules) { $retained = $true }
+            }
+            if ($retained) { return $true }
         }
-        $remain = @(Get-WinstChildItem -Path $Item.FullName)
-        if ($remain.Count -eq 0) {
-            Remove-WinstFileSystemItem -Path $Item.FullName
-        }
-    } else {
-        Remove-WinstFileSystemItem -Path $Item.FullName
     }
+    Remove-WinstFileSystemItem -Path $Item.FullName
+    return $false
 }

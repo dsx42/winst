@@ -9,10 +9,10 @@ function Invoke-WinstInstallWithRetry {
     #>
     param([hashtable]$Context, $Plan, [string]$SourceName, [bool]$ForceInstall, [switch]$Overwrite,
         [string[]]$Keep = @(), [switch]$DownloadOnly, [switch]$KillRunning, [switch]$Quiet,
-        [switch]$FilesOnly, [switch]$ForceSystemItems, [switch]$Yes, [switch]$DownloadMode)
+        [switch]$FilesOnly, [switch]$ForceSystemItems, [switch]$Yes, [switch]$DownloadMode, $CompanionInfo = $null)
 
     $install = Invoke-WinstAppInstall -Context $Context -Plan $Plan -SourceName $SourceName `
-        -Force:$ForceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning -Quiet:$Quiet `
+        -CompanionInfo $CompanionInfo -Force:$ForceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning -Quiet:$Quiet `
         -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     $skipReasonShown = $false

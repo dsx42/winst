@@ -13,7 +13,7 @@ function Get-WinstCachedOverview {
     .OUTPUTS
         @{ Ok; Error; Warning; Items; RowById; CacheIndex }
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Context)
+    param([Parameter(Mandatory = $true)][hashtable]$Context, $PackageDirs = $null)
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @(); RowById = $null; CacheIndex = $null }
 
@@ -23,30 +23,35 @@ function Get-WinstCachedOverview {
     }
 
     # 缓存索引：只读，不在这里回写（校对与重建由 repair / 下载流程负责）
-    $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+    if ($null -eq $PackageDirs) { $PackageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir }
+    $ids = @($PackageDirs.Keys)
+    if ($ids.Count) { $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids $ids }
+    else { $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir }
     if ($cacheRead.Error) { $result.Warning = $cacheRead.Error }
     $cacheIndex = $cacheRead.Index
     $result.CacheIndex = $cacheIndex
 
     # 台账：读不到（版本过高）时无法判断「是否已安装」，明确报错而不是把已装软件显示成未安装
-    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot -Ids $ids
     if ($stateRead.Error -and -not $stateRead.Reset) {
         $result.Error = $stateRead.Error
         return $result
     }
     if ($stateRead.Error -and -not $result.Warning) { $result.Warning = $stateRead.Error }
 
-    $rowById = Get-WinstCatalogRowMap -Context $Context
+    if ($ids.Count -eq 0) {
+        $result.RowById = New-WinstOrdinalDictionary
+        $result.Ok = $true
+        return $result
+    }
+    $rowById = Get-WinstCatalogRowMap -Context $Context -Ids $ids
     $result.RowById = $rowById
-
-    $entryById = Get-WinstCacheEntryMap -CacheIndex $cacheIndex
-    $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir
 
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($idText in @($packageDirs.Keys)) {
         $cacheInfo = $packageDirs[$idText]
         $cacheVersion = ''
-        if ($entryById.Contains($idText)) { $cacheVersion = Get-EntryString -Entry $entryById[$idText] -Key 'version' }
+        if ($cacheIndex.Contains($idText)) { $cacheVersion = Get-EntryString -Entry $cacheIndex[$idText] -Key 'version' }
 
         $ledger = Get-WinstInstalledApp -State $stateRead.State -Id $idText
         $row = $null

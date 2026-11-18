@@ -28,7 +28,8 @@ function Invoke-WinstAppInstall {
         [switch]$KillRunning,
         [switch]$Quiet,
         [switch]$FilesOnly,
-        [switch]$ForceSystemItems
+        [switch]$ForceSystemItems,
+        $CompanionInfo = $null
     )
 
     $result = @{
@@ -48,32 +49,37 @@ function Invoke-WinstAppInstall {
     $offline = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline)
 
     # —— 初始化：id / 类型 / 版本 / 目录 / 取包判定 / 台账 ——
-    $info = Initialize-WinstInstallContext -Context $Context -Plan $Plan -DownloadOnly:$DownloadOnly -Quiet:$Quiet -Result $result
-    if ($info.Error) { $result.Error = [string]$info.Error; return $result }
-    $id = [string]$info.Id
-    $displayName = [string]$info.DisplayName
-    $type = [string]$info.Type
-    $version = [string]$info.Version
-    $installDir = [string]$info.InstallDir
-    $pkgDir = [string]$info.PkgDir
-    $install = $info.Install
-    $files = @($info.Files)
-    $versionFromPackage = [bool]$info.VersionFromPackage
-    $versionFromCachedPackage = [bool]$info.VersionFromCachedPackage
-    $planFreshState = [string]$info.PlanFreshState
-    $freshMain = [bool]$info.FreshMain
-    $isDownloadType = [bool]$info.IsDownloadType
-    $prevEntry = $info.PrevEntry
-    $plans = @($info.Plans)
-    $needDownload = [bool]$info.NeedDownload
-    $primaryTarget = [string]$info.PrimaryTarget
-    $companionDownloadCount = [int]$info.CompanionDownloadCount
-    $companionsOnly = [bool]$info.CompanionsOnly
-    $ledger = $info.Ledger
-
+    $inputLease = @{}
+    if ($null -ne $Context['PackageVersionLease']) {
+        $inputLease = $Context['PackageVersionLease']
+        $Context['PackageVersionLease'] = @{}
+    }
     $previousInstallingIds = Get-WinstState -Name WinstInstallingAppIds
-    $null = Set-WinstState -Name WinstInstallingAppIds -Value ($previousInstallingIds + @($id))
     try {
+        $info = Initialize-WinstInstallContext -Context $Context -Plan $Plan -DownloadOnly:$DownloadOnly -Quiet:$Quiet -Result $result -CompanionInfo $CompanionInfo -InputLease $inputLease
+        if ($info.Error) { $result.Error = [string]$info.Error; return $result }
+        $id = [string]$info.Id
+        $displayName = [string]$info.DisplayName
+        $type = [string]$info.Type
+        $version = [string]$info.Version
+        $installDir = [string]$info.InstallDir
+        $pkgDir = [string]$info.PkgDir
+        $install = $info.Install
+        $files = @($info.Files)
+        $versionFromPackage = [bool]$info.VersionFromPackage
+        $versionFromCachedPackage = [bool]$info.VersionFromCachedPackage
+        $planFreshState = [string]$info.PlanFreshState
+        $freshMain = [bool]$info.FreshMain
+        $isDownloadType = [bool]$info.IsDownloadType
+        $prevEntry = $info.PrevEntry
+        $plans = @($info.Plans)
+        $needDownload = [bool]$info.NeedDownload
+        $primaryTarget = [string]$info.PrimaryTarget
+        $companionDownloadCount = [int]$info.CompanionDownloadCount
+        $companionsOnly = [bool]$info.CompanionsOnly
+        $ledger = $info.Ledger
+
+        $null = Set-WinstState -Name WinstInstallingAppIds -Value ($previousInstallingIds + @($id))
         $decision = Resolve-WinstInstallDecision -Context $Context -Plan $Plan -Type $type -Install $install -InstallDir $installDir `
             -Id $id -DisplayName $displayName -Version $version -Result $result -Quiet:$Quiet -Force:$Force -DryRun:$dryRun `
             -VersionFromPackage:$versionFromPackage -FreshMain:$freshMain -PlanFreshState $planFreshState `
@@ -117,7 +123,7 @@ function Invoke-WinstAppInstall {
 
         # —— 逐文件下载（含离线特例 / 引擎引导 / 失效地址重试 / 完整性校验）——
         $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $plans -PkgDir $pkgDir -Id $id `
-            -DisplayName $displayName -SourceName $SourceName -Version $version -Offline:$offline -Quiet:$Quiet
+            -DisplayName $displayName -SourceName $SourceName -Version $version -Offline:$offline -Quiet:$Quiet -InputLease $inputLease
         if (-not $download.Ok) {
             $result.Error = [string]$download.Error
             $result.Network = [bool]$download.Network
@@ -129,13 +135,14 @@ function Invoke-WinstAppInstall {
         # versionFromPackage：清单里没有版本号时，刚下载完的主包就是版本来源（写进缓存索引，供后续阶段使用）
         try {
             $version = Update-WinstPlanVersionFromPackage -Context $Context -Plan $Plan -Plans $plans -PkgDir $pkgDir `
-                -Version $version -VersionFromCachedPackage $versionFromCachedPackage `
-                -MainDownloaded:($downloadedNames -contains [string]$plans[0]['Name']) -Quiet:$Quiet
+                -Version $version -VersionFromCachedPackage $versionFromCachedPackage -InputLease $inputLease `
+                -DownloadedNames $downloadedNames -Quiet:$Quiet
         } catch {
             $result.Error = $_.Exception.Message
             return $result
         }
 
+        if ($inputLease['Stream']) { $inputLease['Stream'].Dispose(); $inputLease.Clear() }
         # 版本确认后才清理旧包。
         Remove-WinstObsoletePackages -Context $Context -Id $id -Plans $plans -DownloadedAny ([bool]$download.Any) -Offline:$offline
 
@@ -316,6 +323,7 @@ function Invoke-WinstAppInstall {
         }
         return $result
     } finally {
+        if ($inputLease['Stream']) { $inputLease['Stream'].Dispose() }
         $null = Set-WinstState -Name WinstInstallingAppIds -Value $previousInstallingIds
     }
 }

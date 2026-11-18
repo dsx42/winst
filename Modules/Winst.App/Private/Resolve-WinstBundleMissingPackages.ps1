@@ -74,19 +74,8 @@ function Resolve-WinstBundleMissingPackages {
                     Write-Host ('  失败: {0}' -f $reason) -ForegroundColor Red
                 }
             }
-            # 下载后再判定一次：仍缺包的计入「跳过」
-            $freshLookup = Get-WinstListLookups -Context $Context
-            if (-not $freshLookup.Ok) { throw ('下载后读取缓存失败：{0}' -f $freshLookup.Error) }
-            $Lookup = $freshLookup
-            $stillMissing = @()
-            foreach ($item in $needDownload) {
-                $recheck = New-WinstListItem -Context $Context -Id ([string]$item['Id']) -PinnedVersion ([string]$item['PinnedVersion']) -Lookup $Lookup
-                $item['Row'] = $recheck['Row']
-                Update-WinstBundleItemCache -Context $Context -Item $item -Lookup $Lookup
-                if ([bool]$item['CacheHas']) { continue }
-                $stillMissing += $item
-            }
-            $needDownload = @($stillMissing)
+            # 外层重读清单、索引和目录后统一检查并报告所有缺包。
+            return @{ NeedDownload = @(); NoSource = @(); Downloaded = $downloaded; Attempted = $true }
         }
 
         if ($needDownload.Count -gt 0) {

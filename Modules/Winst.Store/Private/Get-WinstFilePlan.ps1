@@ -18,6 +18,7 @@ function Get-WinstFilePlan {
         [switch]$DryRun,
         [switch]$CanCheckRemote,
         [switch]$FreshMain,
+        [switch]$ConfirmBeforeUse,
         [string]$FreshMainReason = ''
     )
 
@@ -88,7 +89,7 @@ function Get-WinstFilePlan {
             $plan['Hint'] = [string]$offlineExpected.Error
             return $plan
         }
-        Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target `
+        Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target `
             -Expected $offlineExpected
         return $plan
     }
@@ -96,7 +97,7 @@ function Get-WinstFilePlan {
     if (-not $Offline -and (Get-EntryString -Entry $File -Key 'hashHeader')) {
         $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File
         if (-not $expected.Ok -or $expected.Skipped) { throw '响应头摘要尚未解析，不能验证本地包' }
-        Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected -ForceRehash
+        Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected -ForceRehash
         return $plan
     }
     $hasCurrentChecksumProvenance = $true
@@ -152,7 +153,7 @@ function Get-WinstFilePlan {
     }
 
     # ③ 已声明校验 → 比对校验码
-    Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
+    Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
     if (-not $plan['NeedDownload'] -and $CanCheckRemote -and -not $compareInfo.IsDefault -and
             @($compareInfo.Criteria | Where-Object { $_ -ne 'checksum' }).Count -gt 0) {
         $refreshForComparison = @{ Mode = $refresh.Mode; MaxAgeHours = $refresh.MaxAgeHours }

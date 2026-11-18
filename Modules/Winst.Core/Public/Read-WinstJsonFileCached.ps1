@@ -10,11 +10,11 @@ function Read-WinstJsonFileCached {
         但 Value 是缓存里的同一个对象，调用方**不得就地修改**，需要改时先复制（Copy-WinstObjectShallow）。
         修改文件会让时间戳变化、缓存自动失效。
     .OUTPUTS
-        @{ Ok; Value; Raw; Error }
+        @{ Ok; Value; Raw; Empty; Error }
     #>
-    param([Parameter(Mandatory = $true)][string]$Path)
+    param([Parameter(Mandatory = $true)][string]$Path, [switch]$ParsedOnly)
 
-    $result = @{ Ok = $false; Value = $null; Raw = ''; Error = '' }
+    $result = @{ Ok = $false; Value = $null; Raw = ''; Empty = $false; Error = '' }
     $stamp = Get-WinstFileStamp -Path $Path
     if (-not $stamp) {
         $result.Error = '文件不存在'
@@ -22,10 +22,10 @@ function Read-WinstJsonFileCached {
     }
 
     $cached = (Get-WinstState -Name WinstJsonCache)[$Path]
-    if ($cached -and ([string]$cached['Stamp'] -eq $stamp)) {
+    if ($cached -and ([string]$cached['Stamp'] -eq $stamp) -and ($ParsedOnly -or $cached['Empty'])) {
         $result.Ok = $true
         $result.Value = $cached['Value']
-        $result.Raw = [string]$cached['Raw']
+        $result.Empty = [bool]$cached['Empty']
         return $result
     }
 
@@ -39,7 +39,8 @@ function Read-WinstJsonFileCached {
     }
 
     if (-not $raw -or -not $raw.Trim()) {
-        (Get-WinstState -Name WinstJsonCache)[$Path] = @{ Stamp = $stamp; Value = $null; Raw = '' }
+        (Get-WinstState -Name WinstJsonCache)[$Path] = @{ Stamp = $stamp; Value = $null; Empty = $true }
+        $result.Empty = $true
         $result.Ok = $true
         return $result
     }
@@ -52,9 +53,9 @@ function Read-WinstJsonFileCached {
         return $result
     }
 
-    (Get-WinstState -Name WinstJsonCache)[$Path] = @{ Stamp = $stamp; Value = $obj; Raw = [string]$raw }
+    (Get-WinstState -Name WinstJsonCache)[$Path] = @{ Stamp = $stamp; Value = $obj; Empty = $false }
     $result.Ok = $true
     $result.Value = $obj
-    $result.Raw = [string]$raw
+    if (-not $ParsedOnly) { $result.Raw = [string]$raw }
     return $result
 }

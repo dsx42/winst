@@ -13,7 +13,7 @@ function Read-WinstCacheIndex {
         不牵连其余记录；判定损坏时先把原文件另存为 winst.json.bak 再交给调用方覆盖，
         避免一条解析异常就把全体的版本 / 校验码 / 新鲜度基线一起清空。
     #>
-    param([Parameter(Mandatory = $true)][string]$PkgDir)
+    param([Parameter(Mandatory = $true)][string]$PkgDir, [string[]]$Ids, [ref]$StoredValue)
 
     $result = @{
         Index   = (New-WinstOrdinalDictionary)
@@ -24,6 +24,14 @@ function Read-WinstCacheIndex {
         BackupError = ''
     }
 
+    $wanted = $null
+    if ($PSBoundParameters.ContainsKey('Ids')) {
+        $wanted = New-WinstOrdinalDictionary
+        foreach ($id in $Ids) {
+            if ((Test-WinstSafePathSegment -Name $id) -and -not (Test-WinstReservedPackageId -Id $id)) { $wanted[$id] = $true }
+        }
+        if ($wanted.Count -eq 0) { return $result }
+    }
     $path = Get-WinstCacheIndexPath -PkgDir $PkgDir
 
     # 整个结果按 (索引文件时间戳, 长度) 缓存：一次安装流程会为每条文件计划、每条新鲜度提示各读一次，
@@ -33,7 +41,7 @@ function Read-WinstCacheIndex {
     # 注意：变量名不能叫 $stamp —— 别处 $stamp 表示「下载时间」（见 New-WinstCacheIndexEntryFromDir），容易混淆
     $indexFileStamp = Get-WinstFileStamp -Path $path
     $cachedIndex = (Get-WinstState -Name WinstJsonCache)[$cacheKey]
-    if ($indexFileStamp -and $cachedIndex -and ([string]$cachedIndex['Stamp'] -eq $indexFileStamp)) {
+    if ($null -eq $StoredValue -and $indexFileStamp -and $cachedIndex -and ([string]$cachedIndex['Stamp'] -eq $indexFileStamp)) {
         $cachedResult = $cachedIndex['Value']
         $result.Rebuilt = [bool]$cachedResult.Rebuilt
         $result.Changed = [bool]$cachedResult.Changed
@@ -41,6 +49,14 @@ function Read-WinstCacheIndex {
         $result.CanSave = [bool]$cachedResult.CanSave
         $result.BackupError = [string]$cachedResult.BackupError
 
+        if ($null -ne $wanted) {
+            foreach ($id in $wanted.Keys) {
+                if ($cachedResult.Index.Contains($id) -and (Test-Path -LiteralPath (Join-WinstPath $PkgDir $id) -PathType Container)) {
+                    $result.Index[$id] = Copy-WinstObjectShallow -InputObject $cachedResult.Index[$id]
+                }
+            }
+            return $result
+        }
         # 一次枚举拿到现存 id 集合，替代「逐 id 一次 Test-Path」：
         # 后者在几百个 id 时是数百次独立 stat（实测 300 条约 112 ms，一次枚举约 8 ms）。
         # 等价性：id 目录存在 ⇔ 名字出现在 -Directory 枚举结果里；
@@ -66,31 +82,46 @@ function Read-WinstCacheIndex {
     $loaded = $false
     if (Test-Path -LiteralPath $path -PathType Leaf) {
         try {
-            $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
-            if ($raw -and $raw.Trim()) {
-                $obj = ConvertFrom-Json -InputObject $raw -ErrorAction Stop
-                if ($null -ne $obj -and $obj.GetType() -eq [System.Management.Automation.PSCustomObject]) {
-                    foreach ($prop in $obj.PSObject.Properties) {
-                        $id = [string]$prop.Name
-                        if (-not $id) { continue }
-                        if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) {
-                            $result.Error += ('索引含不合法或保留 id，已跳过并禁止覆盖原文件：{0}。' -f $id)
-                            $result.CanSave = $false
-                            continue
-                        }
-                        # 单条记录读坏只影响这一条：记忆里没有它时按目录内的文件重建一条（版本记空串，
-                        # 安装 / 下载时自动核对并回写）；这里**不置 Changed**——原文件里那条记录可能本来是好的，
-                        # 整份回写会把它一并抹掉，留着原文等下次真正需要写盘时再说
-                        $entry = $null
-                        try {
-                            $entry = ConvertTo-WinstCacheIndexEntry -Entry $prop.Value
-                        } catch {
-                            $entry = New-WinstCacheIndexEntryFromDir -Dir (Join-WinstPath $PkgDir $id)
-                        }
-                        if ($null -ne $entry) { $result.Index[$id] = $entry }
-                    }
-                    $loaded = $true
+            $sourceKey = 'index-entries|' + $path
+            $source = (Get-WinstState -Name WinstJsonCache)[$sourceKey]
+            if ($null -ne $wanted -and $source -and $indexFileStamp -and $source.Stamp -eq $indexFileStamp) {
+                $obj = $source.Object
+            } else {
+                $obj = $null
+                $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
+                if ($raw -and $raw.Trim()) { $obj = ConvertFrom-Json -InputObject $raw -ErrorAction Stop }
+            }
+            if ($null -ne $obj -and $obj.GetType() -eq [System.Management.Automation.PSCustomObject]) {
+                if ($null -ne $StoredValue) { $StoredValue.Value = $obj }
+                if ($null -ne $wanted -and $indexFileStamp) {
+                    (Get-WinstState -Name WinstJsonCache)[$sourceKey] = @{ Stamp = $indexFileStamp; Object = $obj }
                 }
+                $properties = if ($null -ne $wanted) {
+                    foreach ($id in $wanted.Keys) {
+                        $property = $obj.PSObject.Properties[$id]
+                        if ($property -and $property.Name -ceq $id) { $property }
+                    }
+                } else { $obj.PSObject.Properties }
+                foreach ($prop in $properties) {
+                    $id = [string]$prop.Name
+                    if (-not $id) { continue }
+                    if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) {
+                        $result.Error += ('索引含不合法或保留 id，已跳过并禁止覆盖原文件：{0}。' -f $id)
+                        $result.CanSave = $false
+                        continue
+                    }
+                    # 单条记录读坏只影响这一条：记忆里没有它时按目录内的文件重建一条（版本记空串，
+                    # 安装 / 下载时自动核对并回写）；这里**不置 Changed**——原文件里那条记录可能本来是好的，
+                    # 整份回写会把它一并抹掉，留着原文等下次真正需要写盘时再说
+                    $entry = $null
+                    try {
+                        $entry = ConvertTo-WinstCacheIndexEntry -Entry $prop.Value
+                    } catch {
+                        $entry = New-WinstCacheIndexEntryFromDir -Dir (Join-WinstPath $PkgDir $id)
+                    }
+                    if ($null -ne $entry) { $result.Index[$id] = $entry }
+                }
+                $loaded = $true
             }
         } catch {
             $loaded = $false
@@ -131,13 +162,22 @@ function Read-WinstCacheIndex {
     }
 
     if ($result.Rebuilt) {
-        foreach ($dir in @(Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue)) {
+        $dirs = if ($null -eq $wanted) {
+            Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue
+        } else {
+            foreach ($id in $wanted.Keys) {
+                Get-ChildItem -LiteralPath $PkgDir -Filter $id -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -ceq $id }
+            }
+        }
+        foreach ($dir in $dirs) {
             $id = $dir.Name
             if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) { continue }
             $entry = New-WinstCacheIndexEntryFromDir -Dir $dir.FullName
             if ($null -ne $entry) { $result.Index[$id] = $entry }
         }
     }
+
+    if ($null -ne $wanted -or -not $indexFileStamp -or $null -ne $StoredValue) { return $result }
 
     # 缓存里存副本：调用方（Update-WinstPackageCacheIndex）会就地改 Index 再写盘，
     # 存本体等于把「还没落盘的改动」留在缓存里，写盘失败后本进程会一直读到一份从未存在的索引。

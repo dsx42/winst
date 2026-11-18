@@ -9,7 +9,7 @@ function Get-WinstCompanionVersionLines {
 
     if (-not $Context) { return @() }
     $index = $CacheIndex
-    if ($null -eq $index) { $index = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index }
+    if ($null -eq $index) { $index = (Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($id)).Index }
     $cached = $null
     if ($index.Contains($Id)) { $cached = $index[$Id] }
     if ($null -eq $Plan -and $Row) {

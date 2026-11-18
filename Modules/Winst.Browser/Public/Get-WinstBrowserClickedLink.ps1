@@ -62,23 +62,33 @@ function Get-WinstBrowserClickedLink {
             if (-not $session.LoadEventFired) {
                 $result.Notes += ('页面在 25 秒内没有报告加载完成，仍继续尝试点击 {0}' -f $Url)
             }
-            Wait-WinstDevToolsMessages -Session $session -Milliseconds 2500
+            $firstStep = $true
 
             foreach ($step in $steps) {
                 if ($session.Downloads.Count -gt 0) { break }
                 $stepLabel = Format-LinkSpec -Spec $step
                 $stepResult = $null
-                for ($attempt = 1; $attempt -le 3; $attempt++) {
+                if ($firstStep) {
+                    $firstStep = $false
+                    $stepResult = Invoke-WinstBrowserClickStep -Session $session -Spec $step -OnlyIfReady
+                    if (-not $stepResult.Clicked) {
+                        Wait-WinstDevToolsMessages -Session $session -Milliseconds 2500 -UntilDownload
+                    }
+                }
+                for ($attempt = 1; $attempt -le 3 -and -not $session.Downloads.Count -and
+                        (-not $stepResult -or -not $stepResult.Clicked); $attempt++) {
                     $stepResult = Invoke-WinstBrowserClickStep -Session $session -Spec $step
                     if ($stepResult.Clicked) { break }
                     # 目标可能还在渲染（点开条款弹层有动画）：等一下再找一次
-                    Wait-WinstDevToolsMessages -Session $session -Milliseconds 1500
+                    if ($attempt -lt 3) { Wait-WinstDevToolsMessages -Session $session -Milliseconds 1500 -UntilDownload }
+                    if ($session.Downloads.Count) { break }
                 }
+                if ($session.Downloads.Count) { break }
                 if ($stepResult.Clicked) {
                     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
                         Write-Host ('  [verbose] 已点击「{0}」' -f $stepLabel) -ForegroundColor DarkGray
                     }
-                    Wait-WinstDevToolsMessages -Session $session -Milliseconds 2500
+                    Wait-WinstDevToolsMessages -Session $session -Milliseconds 2500 -UntilDownload
                 } else {
                     $reason = ''
                     if ($stepResult.Error) { $reason = ('：{0}' -f $stepResult.Error) }
@@ -90,9 +100,10 @@ function Get-WinstBrowserClickedLink {
             $downloadDeadline = [DateTime]::UtcNow.AddSeconds(20)
             if ($overallDeadline -lt $downloadDeadline) { $downloadDeadline = $overallDeadline }
             while ($session.Downloads.Count -eq 0 -and [DateTime]::UtcNow -lt $downloadDeadline) {
-                Wait-WinstDevToolsMessages -Session $session -Milliseconds 500
+                Wait-WinstDevToolsMessages -Session $session -Milliseconds 500 -UntilDownload
             }
 
+            if ($session.Downloads.Count) { Wait-WinstDevToolsMessages -Session $session -Milliseconds 150 }
             # 版本与就近摘要使用取址后的快照，hashClick 可能切换页面或替换内容。
             if ($WantHtml) {
                 $html = Get-WinstDevToolsValue -Session $session -Expression 'document.documentElement.outerHTML'

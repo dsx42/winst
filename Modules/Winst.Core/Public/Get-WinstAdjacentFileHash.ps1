@@ -13,6 +13,34 @@ function Get-WinstAdjacentFileHash {
     $name = ([string]$FileName).Trim()
     if (-not $name -or -not $Text) { $result.Error = '缺少文件名或校验内容'; return $result }
     $hashes = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    # 每个 HTML 容器只读一次。Parent 表示最近的父容器，Preferred 优先选择整行或列表项。
+    $containers = New-Object 'System.Collections.Generic.List[object]'
+    $open = New-Object 'System.Collections.Generic.List[object]'
+    $tags = [regex]'(?is)<(?<close>/)?(?<tag>tr|li|article|p|div|td|section)\b[^>]*>'
+    for ($tag = $tags.Match($Text); $tag.Success; $tag = $tag.NextMatch()) {
+        $tagName = $tag.Groups['tag'].Value.ToLowerInvariant()
+        if ($tag.Groups['close'].Success) {
+            for ($i = $open.Count - 1; $i -ge 0; $i--) {
+                if ($open[$i].Name -ne $tagName) { continue }
+                for ($j = $i; $j -lt $open.Count; $j++) { $open[$j].ClosedAt = $tag.Index }
+                $open[$i].End = $tag.Index
+                $open.RemoveRange($i, $open.Count - $i)
+                break
+            }
+        } elseif (-not $tag.Value.EndsWith('/>')) {
+            $parent = $null
+            $preferred = $null
+            if ($open.Count) { $parent = $open[$open.Count - 1]; $preferred = $parent.Preferred }
+            $node = @{ Start = $tag.Index; OpenEnd = $tag.Index + $tag.Length; End = -1; ClosedAt = $Text.Length
+                Name = $tagName; Parent = $parent; Preferred = $preferred }
+            if ($tagName -in @('tr', 'li', 'article', 'p')) { $node.Preferred = $node }
+            $containers.Add($node)
+            $open.Add($node)
+        }
+    }
+    $isHtml = $Text.IndexOf('<') -ge 0
+    $nextContainer = 0
+    $active = $null
     $offset = 0
     while ($offset -lt $Text.Length) {
         $index = $Text.IndexOf($name, $offset, [StringComparison]::OrdinalIgnoreCase)
@@ -28,35 +56,20 @@ function Get-WinstAdjacentFileHash {
         $end = $Text.IndexOfAny([char[]]@("`r", "`n"), $offset)
         if ($end -lt 0) { $end = $Text.Length }
 
-        # HTML 按仍在栈中的条目限定范围；表格优先整行，允许摘要位于下一列。
-        $stack = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($tag in [regex]::Matches($Text.Substring(0, $index), '(?is)<(?<close>/)?(?<tag>tr|li|article|p|div|td|section)\b[^>]*>')) {
-            $tagName = $tag.Groups['tag'].Value.ToLowerInvariant()
-            if ($tag.Groups['close'].Success) {
-                for ($s = $stack.Count - 1; $s -ge 0; $s--) {
-                    if ($stack[$s].Name -eq $tagName) { $stack.RemoveRange($s, $stack.Count - $s); break }
-                }
-            } elseif (-not $tag.Value.EndsWith('/>')) {
-                $stack.Add(@{ Name = $tagName; Start = $tag.Index })
-            }
+        while ($nextContainer -lt $containers.Count -and $containers[$nextContainer].OpenEnd -le $index) {
+            $active = $containers[$nextContainer]
+            $nextContainer++
         }
-        $container = $null
-        for ($s = $stack.Count - 1; $s -ge 0; $s--) {
-            if ($stack[$s].Name -in @('tr', 'li', 'article', 'p')) { $container = $stack[$s]; break }
-        }
-        if (-not $container -and $stack.Count -gt 0) { $container = $stack[$stack.Count - 1] }
-        if ($container) {
-            $depth = 0
-            $pattern = '(?is)<(?<close>/)?' + [regex]::Escape([string]$container.Name) + '\b[^>]*>'
-            foreach ($tag in [regex]::Matches($Text.Substring([int]$container.Start), $pattern)) {
-                if ($tag.Groups['close'].Success) { $depth-- } elseif (-not $tag.Value.EndsWith('/>')) { $depth++ }
-                if ($depth -eq 0) { $end = [int]$container.Start + $tag.Index; break }
-            }
+        while ($null -ne $active -and $active.ClosedAt -le $index) { $active = $active.Parent }
+        if ($null -ne $active) {
+            $container = $active
+            if ($null -ne $active.Preferred) { $container = $active.Preferred }
+            if ($container.End -ge 0) { $end = $container.End }
         }
         if ($end -le $offset) { continue }
         $window = $Text.Substring($offset, $end - $offset)
         # 命中可能在 href 属性内；去掉属性余部与标签，只检查后面的可读内容。
-        if ($Text.LastIndexOf('<', $index) -gt $Text.LastIndexOf('>', $index)) { $window = $window -replace '^[^>]*>', '' }
+        if ($isHtml -and $Text.LastIndexOf('<', $index) -gt $Text.LastIndexOf('>', $index)) { $window = $window -replace '^[^>]*>', '' }
         $window = [Net.WebUtility]::HtmlDecode(($window -replace '(?s)<[^>]*>', ' '))
         foreach ($next in [regex]::Matches($window, '(?i)[^\s<>"'']+\.(?:exe|msi|zip|7z|rar|cab|tar|gz|xz|bz2|iso|img|msix|appx|jar|apk|dmg|deb|rpm|pkg|bin)\b')) {
             $nextName = [IO.Path]::GetFileName($next.Value.Replace('/', '\'))

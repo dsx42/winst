@@ -11,11 +11,12 @@ function Find-WinstRecordsForVersion {
     .OUTPUTS
         [object[]]：命中的卸载记录；无匹配时返回空数组
     #>
-    param($Plan, [string]$Version)
+    param($Plan, [string]$Version, $Entries = $null)
 
     $text = ([string]$Version).Trim()
     if (-not $text) { return @() }
-    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir '')
+    $hits = $Entries
+    if ($null -eq $hits) { $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir '') }
     if ($hits.Count -eq 0) { return @() }
 
     $matched = @()

@@ -10,7 +10,7 @@ function Get-WinstRemoteFreshnessHint {
     .OUTPUTS
         @{ State; Text }，State 为 unchanged / changed / unknown。
     #>
-    param([hashtable]$Context, [string]$PkgDir, [string]$Id, $Plan)
+    param([hashtable]$Context, [string]$PkgDir, [string]$Id, $Plan, [switch]$ForDisplay)
 
     $result = @{ State = 'unknown'; Text = '' }
     $options = Get-WinstState -Name WinstOptions
@@ -31,7 +31,7 @@ function Get-WinstRemoteFreshnessHint {
         return $result
     }
 
-    $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir
+    $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir -Ids @($id)
     $entry = $null
     if ($indexRead.Index.Contains($Id)) { $entry = $indexRead.Index[$Id] }
     $meta = Get-WinstFileMeta -Entry $entry -FileName $name
@@ -64,7 +64,23 @@ function Get-WinstRemoteFreshnessHint {
                 if ($algorithm -eq 'SHA256') { $actual = Get-WinstRecordedHash -Entry $entry -FileName $name }
                 else { $actual = Get-WinstManifestHash -Entry $entry -FileName $name -Algorithm $algorithm }
             }
-            if (-not $actual) { $actual = Get-WinstFileHash -Path $target -Algorithm $algorithm }
+            if (-not $actual) {
+                $stamp = Get-WinstFileStamp -Path $target
+                $recent = $null
+                if ($Context) { $recent = $Context['FreshnessDigest'] }
+                if ($ForDisplay -and $stamp -and $recent -and $recent.Path -ceq $target -and
+                    $recent.Stamp -ceq $stamp -and $recent.Algorithm -eq $algorithm -and
+                    $recent.Expires -gt [DateTime]::UtcNow) {
+                    $actual = $recent.Hash
+                } else {
+                    $actual = Get-WinstFileHash -Path $target -Algorithm $algorithm
+                    if ($Context -and $actual -and $stamp -and $stamp -ceq (Get-WinstFileStamp -Path $target)) {
+                        # 短期复用只服务于确认页提示，消费文件时仍独立校验。
+                        $Context['FreshnessDigest'] = @{ Path = $target; Stamp = $stamp; Algorithm = $algorithm
+                            Hash = $actual; Expires = [DateTime]::UtcNow.AddSeconds(30) }
+                    }
+                }
+            }
             if (-not $actual) { throw '无法读取本地安装包摘要' }
             $compared++
             if ($actual -ine $expectedHash) { $changed = $true }

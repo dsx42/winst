@@ -20,7 +20,7 @@ function Confirm-WinstSingleInstance {
     .OUTPUTS
         @{ Allowed; Skipped; OwnerPid; OwnerPath; OwnerStartedAt; LockPath }
     #>
-    param([string[]]$Arguments = @())
+    param([string[]]$Arguments = @(), $Parsed = $null)
 
     $result = @{
         Allowed        = $false
@@ -34,7 +34,7 @@ function Confirm-WinstSingleInstance {
     }
 
     if ($env:WINST_NO_LOCK -eq '1') { $result.Allowed = $true; $result.Skipped = $true; return $result }
-    if (Test-WinstReadOnlyInvocation -Arguments $Arguments) { $result.Allowed = $true; $result.Skipped = $true; return $result }
+    if (Test-WinstReadOnlyInvocation -Arguments $Arguments -Parsed $Parsed) { $result.Allowed = $true; $result.Skipped = $true; return $result }
 
     # 没取得锁就不能进入可能写入数据的业务逻辑。
     $lock = $null

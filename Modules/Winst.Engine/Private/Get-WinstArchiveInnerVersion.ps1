@@ -28,14 +28,14 @@ function Get-WinstArchiveInnerVersion {
     $directoriesOnly = ($pathGlob.EndsWith('\') -or $pathGlob.EndsWith('/'))
     if ($directoriesOnly) { $pathGlob = $pathGlob.TrimEnd('\', '/') }
 
-    $workDir = Join-WinstPath ([System.IO.Path]::GetTempPath()) ('winst-pkgver-' + [guid]::NewGuid().ToString('N'))
+    $workDir = ''
     try {
-        $null = New-Item -ItemType Directory -Path $workDir -Force -ErrorAction Stop
         $listArchive = $PackagePath
         $innerGlob = ([string](Get-EntryString -Entry $Spec -Key 'inner')).Trim()
         if ($innerGlob) {
+            $workDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-pkgver-' + [guid]::NewGuid().ToString('N'))
             # 外层包里先找到内层压缩包（按文件名通配，取第一个命中），取出来才能列它的内容
-            $outer = Get-Winst7zEntryPaths -SevenZip $SevenZip -ArchivePath $PackagePath
+            $outer = Get-Winst7zEntryPaths -SevenZip $SevenZip -ArchivePath $PackagePath -PathPattern $innerGlob -LeafOnly
             if (-not $outer.Ok) {
                 $result.Error = ('读不出安装包内容（{0}）' -f $outer.Error)
                 return $result
@@ -70,7 +70,7 @@ function Get-WinstArchiveInnerVersion {
             $listArchive = $innerFile
         }
 
-        $entries = Get-Winst7zEntryPaths -SevenZip $SevenZip -ArchivePath $listArchive -DirectoriesOnly:$directoriesOnly
+        $entries = Get-Winst7zEntryPaths -SevenZip $SevenZip -ArchivePath $listArchive -DirectoriesOnly:$directoriesOnly -PathPattern $pathGlob
         if (-not $entries.Ok) {
             $result.Error = ('读不出包内容（{0}）' -f $entries.Error)
             return $result
@@ -102,7 +102,7 @@ function Get-WinstArchiveInnerVersion {
         return $result
     } finally {
         try {
-            if (Test-Path -LiteralPath $workDir) { Clear-WinstInstallDir -Dir $workDir }
+            if ($workDir -and (Test-Path -LiteralPath $workDir)) { Clear-WinstInstallDir -Dir $workDir }
         } catch { }
     }
 }

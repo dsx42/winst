@@ -31,7 +31,7 @@ function Save-WinstInstalledAppEntry {
         [Parameter(Mandatory = $true)]$Entry
     )
 
-    $stateRead = Read-WinstState -InstallRoot $InstallRoot
+    $stateRead = Read-WinstState -InstallRoot $InstallRoot -ForEntryReplacement
     if ($stateRead.Error -and -not $stateRead.Reset) {
         throw $stateRead.Error
     }
@@ -49,6 +49,7 @@ function Save-WinstInstalledAppEntry {
     $copy['updatedAt'] = $now
 
     Set-WinstInstalledApp -State $state -Id $Id -Entry $copy
-    Save-WinstState -InstallRoot $InstallRoot -State $state
+    $normalized = ConvertTo-WinstInstalledEntry -Entry $copy
+    Write-WinstInstalledState -InstallRoot $InstallRoot -Installed $state.Installed -Normalized $state.Installed -UpdatedId $Id -UpdatedEntry $normalized
     return $copy
 }

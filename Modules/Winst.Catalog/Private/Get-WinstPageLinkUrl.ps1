@@ -7,7 +7,7 @@ function Get-WinstPageLinkUrl {
     .OUTPUTS
         @{ Ok; Error; Url; Html; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Item, $Result)
+    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Item, $Result, $HrefRule)
 
     # 抓页面：缺省走 IWR + 浏览器式请求头（部分站点按 UA 拒绝自动化请求）；声明 fetchWith: browser 时
     # 改用系统自带的 Microsoft Edge 抓取——IWR / curl 在客户端特征层面被整体拒绝的站点只能用这条路，
@@ -22,13 +22,13 @@ function Get-WinstPageLinkUrl {
 
     $matchedAnchors = @()
     foreach ($anchor in $anchors) {
-        if (Test-AnchorMatches -Anchor $anchor -Spec $LinkSpec) { $matchedAnchors += $anchor }
+        if (Test-AnchorMatches -Anchor $anchor -Spec $LinkSpec -HrefRule $HrefRule) { $matchedAnchors += $anchor }
     }
 
     # 跟随 iframe：主页面没有任何命中时才抓取页面里声明的 iframe 页面并入后重新匹配
     if ($matchedAnchors.Count -eq 0) {
         $iframe = Get-WinstPageIframeAnchors -Context $Context -Source $Source -PageUrl $PageUrl -Html $html `
-            -Anchors $anchors -LinkSpec $LinkSpec -Result $Result
+            -Anchors $anchors -LinkSpec $LinkSpec -HrefRule $HrefRule -Result $Result
         $anchors = @($iframe.Anchors)
         $html = [string]$iframe.Html
         $matchedAnchors = @($iframe.Matched)

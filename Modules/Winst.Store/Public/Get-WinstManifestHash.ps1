@@ -19,15 +19,7 @@ function Get-WinstManifestHash {
     if ($null -eq $map) { return '' }
     if ($map -isnot [System.Collections.IDictionary]) { return '' }
 
-    $fileHashes = $null
-    foreach ($key in @($map.Keys)) {
-        if ([string]$key -ieq $FileName) { $fileHashes = $map[$key]; break }
-    }
-    if ($null -eq $fileHashes) { return '' }
+    $fileHashes = $map[(Get-WinstFileMapKey -Map $map -Name $FileName)]
     if ($fileHashes -isnot [System.Collections.IDictionary]) { return '' }
-
-    foreach ($key in @($fileHashes.Keys)) {
-        if ([string]$key -ieq $algorithmKey) { return ([string]$fileHashes[$key]).ToLowerInvariant() }
-    }
-    return ''
+    return ([string]$fileHashes[(Get-WinstFileMapKey -Map $fileHashes -Name $algorithmKey)]).ToLowerInvariant()
 }

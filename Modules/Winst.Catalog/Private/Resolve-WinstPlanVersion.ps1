@@ -44,7 +44,9 @@ function Resolve-WinstPlanVersion {
             $deriveNote = ''
             $deriveError = ''
             if ($PkgDir -and $mainName) {
-                $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir (Join-WinstPath $PkgDir $id) -Plan $Plan -FileName $mainName
+                $lease = $null
+                if ($Context) { $lease = $Context['PackageVersionLease'] }
+                $derivedResult = Get-WinstPackageDerivedVersion -InputLease $lease -Context $Context -PkgDir (Join-WinstPath $PkgDir $id) -Plan $Plan -FileName $mainName
                 if ($derivedResult.Ok) {
                     $derived = [string]$derivedResult.Version
                     if ([string]$derivedResult.Source -eq 'packagePath') {
@@ -60,7 +62,7 @@ function Resolve-WinstPlanVersion {
             if (-not $derived -and $PkgDir) {
                 # 包内派生不出（没下载过 / 包内结构变化 / 引擎不可用）：退而读缓存索引——下载完成时已把
                 # 按同一套口径确认的版本号写进索引，同样只代表「缓存里那份」
-                $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir
+                $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir -Ids @($id)
                 if ($indexRead -and -not $indexRead.Error -and $indexRead.Index.Contains($id)) {
                     $derived = ([string](Get-EntryString -Entry $indexRead.Index[$id] -Key 'version')).Trim()
                     $fromIndex = [bool]$derived

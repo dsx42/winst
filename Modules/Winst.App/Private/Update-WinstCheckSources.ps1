@@ -42,8 +42,11 @@ function Update-WinstCheckSources {
     $postStateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($postStateRead.Error -and -not $postStateRead.Reset) { throw ([string]$postStateRead.Error) }
     if (-not $postStateRead.Error) {
-        $postIds = @()
-        foreach ($key in @($postStateRead.State['Installed'].Keys)) { $postIds += [string]$key }
+        $previousIds = New-WinstOrdinalDictionary
+        foreach ($key in $ledgerIds) { $previousIds[$key] = $true }
+        $postIds = @(foreach ($key in $postStateRead.State['Installed'].Keys) {
+            if ($refresh.Failed -or -not $previousIds.Contains($key)) { [string]$key }
+        })
         if ($postIds.Count -gt 0) {
             $post = Update-WinstStaleSources -Context $Context -Quiet -OnlyIds $postIds
             $newErrors = @($post.Errors | Where-Object { $refresh.Errors -cnotcontains $_ })

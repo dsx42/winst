@@ -22,14 +22,14 @@ function Show-ResolvedAppPlan {
         [string]$StartMenuDir = '',
         [string]$InstalledVersion = '',
         [string]$InstalledDir = '',
-        [hashtable]$Context = $null, $State = $null, $CacheIndex = $null
+        [hashtable]$Context = $null, $State = $null, $CacheIndex = $null, $StateRead = $null
     )
 
     $view = New-WinstPlanViewState -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
         -InstallRoot $InstallRoot -PkgDir $PkgDir -DesktopDir $DesktopDir -StartMenuDir $StartMenuDir `
         -InstalledVersion $InstalledVersion -InstalledDir $InstalledDir
 
-    Write-WinstPlanHeader -Plan $Plan -View $view -Context $Context
+    Write-WinstPlanHeader -Plan $Plan -View $view -Context $Context -StateRead $StateRead
 
     if (-not $view.Ok) {
         # 清单有误时把备注全部打出来（不过滤技术说明），方便看到配置本身的错

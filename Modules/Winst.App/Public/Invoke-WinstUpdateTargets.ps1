@@ -57,7 +57,7 @@ function Invoke-WinstUpdateTargets {
     $autoPick = [bool]$AutoPickSource -or [bool]$Yes
     $installedTargets = 0
     $downloadOnlySkipped = 0   # 指定 id 里「仅下载」类型的条数（结尾提示据此改口径）
-    $entries = @()
+    $entries = New-Object 'System.Collections.Generic.List[object]'
 
     foreach ($id in @($targets.TargetIds)) {
         $before = $result.Clone()
@@ -69,7 +69,7 @@ function Invoke-WinstUpdateTargets {
                 -AutoPick $autoPick -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName `
                 -Result $result
             if ($one.RefreshState) { $state = Read-WinstCommandState -Context $Context }
-            if ($one.Entries.Count -gt 0) { $entries += @($one.Entries) }
+            foreach ($entry in $one.Entries) { $entries.Add($entry) }
             if ($one.Installed) { $installedTargets++ }
             if ($one.DownloadOnlySkipped) { $downloadOnlySkipped++ }
         } catch [System.Management.Automation.PipelineStoppedException] { throw
@@ -85,13 +85,13 @@ function Invoke-WinstUpdateTargets {
             $failedEntry = New-WinstUpdateEntryResult -Id $id -Name $id -Installed ''
             $failedEntry.Action = 'failed'
             $failedEntry.Message = $_.Exception.Message
-            $entries += $failedEntry
+            $entries.Add($failedEntry)
             if ($isInstalled) { $installedTargets++ }
             if (-not $Quiet) { Write-Host ('  {0}: 处理失败 —— {1}' -f $id, $failedEntry.Message) -ForegroundColor Red }
         }
     }
 
-    $result.Entries = @($entries)
+    $result.Entries = $entries.ToArray()
     return (Write-WinstUpdateExitCode -Result $result -Check:$Check -Quiet:$Quiet `
             -Explicit (@($targets.Explicit)) -InstalledTargets $installedTargets -DownloadOnlySkipped $downloadOnlySkipped)
 }

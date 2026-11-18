@@ -36,18 +36,10 @@ function Get-WinstFunctionFilePath {
 }
 
 function Get-WinstPublicFunctionName {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
+    param([IO.FileInfo[]]$Files)
 
     $names = New-Object 'System.Collections.Generic.List[string]'
-    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
-        return $names
-    }
-
-    foreach ($file in @(Get-ChildItem -LiteralPath $Path -Filter '*.ps1' -File -Recurse -ErrorAction Stop | Sort-Object -Property FullName)) {
+    foreach ($file in $Files) {
         $tokens = $null
         $parseErrors = $null
 
@@ -80,13 +72,14 @@ foreach ($file in @(Get-WinstFunctionFilePath -Path $script:PrivateRoot)) {
     . $file.FullName
 }
 
-foreach ($file in @(Get-WinstFunctionFilePath -Path $script:PublicRoot)) {
+$publicFiles = @(Get-WinstFunctionFilePath -Path $script:PublicRoot)
+foreach ($file in $publicFiles) {
     . $file.FullName
 }
 
 # 用 @() 包一层：只导出一个函数时结果是字符串，
 # 字符串上的 .Count 在 Set-StrictMode -Version 2 下会报错。
-$publicFunctions = @(Get-WinstPublicFunctionName -Path $script:PublicRoot)
+$publicFunctions = @(Get-WinstPublicFunctionName -Files $publicFiles)
 
 if ($publicFunctions.Count -eq 0) {
     throw ('模块 {0} 没有导出任何函数；Public 目录是空的。' -f $script:ModuleRoot)

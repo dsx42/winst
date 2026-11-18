@@ -2,7 +2,7 @@
     install.ps1  (仓库根)
 
     一行安装引导脚本，只做四件事：下载 release zip、解压出 winst.ps1、
-    提权并等它执行 `winst install winst --from <zip>`、按退出码报告结果。
+    提权并等它执行 `winst install winst --from <解压目录>`、按退出码报告结果。
 
     编码约束（与仓库其它 .ps1 相反）
     --------------------------------
@@ -32,7 +32,7 @@
         1. 下载 release 最新版的 winst.zip
         2. 解压到临时目录，只为拿到其中能运行的 winst.ps1
         3. 以管理员身份运行它并等它结束（本脚本层提权，子进程里不会再派生一个提权进程）
-        4. 调用它：winst install winst --from <刚下载的 zip>
+        4. 调用它：winst install winst --from <刚解压的目录>
 
     安装逻辑不在这里
     ----------------
@@ -135,7 +135,7 @@ try {
     # 完整性自检：release 必须带模块目录，否则装上去也起不来。
     # 这里只做「一眼能看出坏了」的检查，真正的结构校验在 winst 侧（Set-WinstSelfTree）。
     $winstInstallManifests = @(Get-ChildItem -LiteralPath (Join-Path $winstInstallApp 'Modules') `
-            -Recurse -Filter '*.psd1' -File -ErrorAction SilentlyContinue)
+            -Recurse -Filter '*.psd1' -File -ErrorAction SilentlyContinue | Select-Object -First 1)
     if ($winstInstallManifests.Count -eq 0) {
         throw ('解压后缺少模块清单（{0}）' -f (Join-Path $winstInstallApp 'Modules'))
     }
@@ -159,7 +159,7 @@ try {
         '-NoProfile'
         '-ExecutionPolicy', 'Bypass'
         '-File', $winstInstallEntry
-        'install', 'winst', '--from', $winstInstallZip
+        'install', 'winst', '--from', $winstInstallApp
     )
     $winstInstallArgText = (($winstInstallArguments | ForEach-Object {
                 $winstArgText = [string]$_

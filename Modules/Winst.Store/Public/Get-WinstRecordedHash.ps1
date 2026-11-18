@@ -11,10 +11,7 @@ function Get-WinstRecordedHash {
     $hashObj = Get-EntryValue -Entry $Entry -Key 'hashes' -Default $null
     if ($null -eq $hashObj) { return '' }
     if ($hashObj -is [System.Collections.IDictionary]) {
-        foreach ($key in @($hashObj.Keys)) {
-            if ([string]$key -ieq $FileName) { return ([string]$hashObj[$key]).ToLowerInvariant() }
-        }
-        return ''
+        return ([string]$hashObj[(Get-WinstFileMapKey -Map $hashObj -Name $FileName)]).ToLowerInvariant()
     }
     foreach ($hp in $hashObj.PSObject.Properties) {
         if ($hp.Name -ieq $FileName) { return ([string]$hp.Value).ToLowerInvariant() }

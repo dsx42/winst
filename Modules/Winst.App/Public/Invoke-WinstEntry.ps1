@@ -7,9 +7,9 @@ function Invoke-WinstEntry {
     .OUTPUTS
         [int] 退出码（菜单正常返回 0）
     #>
-    param([string[]]$Arguments = @())
+    param([string[]]$Arguments = @(), $Parsed = $null)
 
-    $parsed = Read-WinstCommandLine -Tokens $Arguments
+    if ($null -eq $Parsed) { $Parsed = Read-WinstCommandLine -Tokens $Arguments }
     if ($parsed.Error) {
         Write-Host ('  {0}' -f $parsed.Error) -ForegroundColor Yellow
         return 1

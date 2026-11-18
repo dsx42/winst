@@ -93,4 +93,4 @@ cmd /c build.cmd
 
 正式清单的 `_manifestVersion` 独立于产品版本，仅在软件源仓库修改清单时维护。
 
-`install.ps1` 通过 `irm | iex` 下载并解压 release，再调用 `winst install winst --from <zip>`。安装逻辑集中在 Install-WinstSelf；引导层负责提权、等待、退出码、临时目录清理和恢复调用者偏好，不使用 exit、PSScriptRoot 或本地模块依赖。
+`install.ps1` 通过 `irm | iex` 下载并解压 release，再调用 `winst install winst --from <解压目录>`。安装逻辑集中在 Install-WinstSelf；引导层负责提权、等待、退出码、临时目录清理和恢复调用者偏好，不使用 exit、PSScriptRoot 或本地模块依赖。

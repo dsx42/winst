@@ -10,7 +10,8 @@ function Get-WinstListItems {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Path,
-        [switch]$RefreshSources
+        [switch]$RefreshSources,
+        [switch]$ListOnly
     )
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Path = $Path; Exists = $false
@@ -26,14 +27,16 @@ function Get-WinstListItems {
     $result.CommentLines = @($read.CommentLines)
     $result.BadLines = @($read.BadLines)
 
+    $ids = @(foreach ($entry in $read.Entries) { [string]$entry['Id'] })
     if ($RefreshSources -and @($read.Entries).Count -gt 0) {
-        $ids = @($read.Entries | ForEach-Object { [string]$_['Id'] })
         $refresh = Update-WinstDisplaySources -Context $Context -Ids $ids -Quiet
         $result.Refresh = $refresh
         Write-WinstRefreshErrors -Errors $refresh.Errors
     }
 
-    $lookup = Get-WinstListLookups -Context $Context
+    $scope = @{}
+    if ($ListOnly) { $scope.Ids = $ids }
+    $lookup = Get-WinstListLookups -Context $Context @scope
     if (-not $lookup.Ok) {
         $result.Error = $lookup.Error
         return $result
@@ -41,13 +44,11 @@ function Get-WinstListItems {
     $result.Lookup = $lookup
     $result.Warning = [string]$lookup.Warning
 
-    $items = @()
-    foreach ($entry in @($read.Entries)) {
+    $result.Items = @(foreach ($entry in @($read.Entries)) {
         $id = [string]$entry['Id']
         if (-not $id) { continue }
-        $items += (New-WinstListItem -Context $Context -Id $id -PinnedVersion ([string]$entry['Version']) -Lookup $lookup)
-    }
-    $result.Items = @($items)
+        (New-WinstListItem -Context $Context -Id $id -PinnedVersion ([string]$entry['Version']) -Lookup $lookup)
+    })
     $result.Ok = $true
     return $result
 }

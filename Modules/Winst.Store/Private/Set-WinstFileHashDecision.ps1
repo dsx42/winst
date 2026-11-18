@@ -8,7 +8,7 @@ function Set-WinstFileHashDecision {
         索引里存两种校验码：hashes = sha256（旧字段，沿用），manifestHashes = 按软件源声明算法的摘要。
         命中判定优先用同算法的那份，直接比对字符串；都没有（旧索引 / 首次）才现算一次。
     #>
-    param($Plan, $Entry, [string]$Name, [string]$Target, $Expected, [switch]$ForceRehash)
+    param($Plan, $Entry, [string]$Name, [string]$Target, $Expected, [switch]$ForceRehash, [switch]$ConfirmBeforeUse)
 
     $wanted = ([string]$Expected.Hash).ToLowerInvariant()
     $Plan['ExpectedHash'] = $wanted
@@ -46,6 +46,11 @@ function Set-WinstFileHashDecision {
         return
     }
 
+    if ($ConfirmBeforeUse) {
+        $Plan['NeedDownload'] = $false
+        $Plan['Reason'] = '使用前校验本地安装包'
+        return
+    }
     $actual = ''
     try { $actual = (Get-WinstFileHash -Path $Target -Algorithm $wantedAlgorithm) } catch { $actual = '' }
     if (-not $actual) {

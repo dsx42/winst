@@ -27,7 +27,8 @@ function Invoke-WinstInstallTarget {
         [switch]$Quiet,
         [switch]$FilesOnly,
         [switch]$ForceSystemItems,
-        [switch]$SkipDependencies
+        [switch]$SkipDependencies,
+        $PreparedCompanions = $null
     )
 
     $result = @{
@@ -81,7 +82,8 @@ function Invoke-WinstInstallTarget {
     try {
         # 与两个引擎同一口径：winst 自身缺失时自动安装、软件源里有新版本时自动更新
         if ((Get-EntryString -Entry $plan -Key 'id') -ine 'winst') {
-            $null = Confirm-WinstSelf -Context $Context -Quiet:$Quiet
+            $self = Confirm-WinstSelf -Context $Context -Quiet:$Quiet
+            if ($self.Installed -or $self.Updated -or -not $self.Ok) { $PreparedCompanions = $null }
         }
 
         while ($true) {
@@ -136,7 +138,11 @@ function Invoke-WinstInstallTarget {
             # 版本相同但配套文件有变化 → 先提示「附加文件有更新」，确认后只更新这些文件
             $companionInfo = $null
             if (-not $downloadMode -and -not $forceInstall -and $installedVersion -and $planVersion -and -not $isUpgrade) {
-                $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $plan
+                if (Test-WinstPreparedCompanions -Info $PreparedCompanions -Plan $plan) {
+                    $companionInfo = $PreparedCompanions
+                } else {
+                    $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $plan -Prepare:$Yes
+                }
                 if ($companionInfo.CompanionsOnly) {
                     Write-Host ('    附加文件有更新（{0} 个）: {1}' -f $companionInfo.ChangedCount, ($companionInfo.Names -join '、')) -ForegroundColor DarkYellow
                 }
@@ -151,6 +157,7 @@ function Invoke-WinstInstallTarget {
                     -InstalledVersion $installedVersion -IsUpgrade $isUpgrade -CompanionOnlyPrompt $companionOnlyPrompt `
                     -CompanionInfo $companionInfo -FilesOnly:$FilesOnly
                 if ($confirm.Refresh) {
+                    $PreparedCompanions = $null
                     if (Invoke-WinstSoftwareSourceRefresh -Context $Context -Id $planId) {
                         $rowById = Get-WinstCatalogRowMap -Context $Context
                         $freshEntry = $null
@@ -228,10 +235,15 @@ function Invoke-WinstInstallTarget {
             }
         }
 
+        # 用户确认、依赖安装和共享包目录都可能改变文件；进入执行阶段时重新建立计划。
+        if (-not $Yes -or $depSteps.Count -gt 0 -or $downloadMode -or ([string]$Context.PkgDir).StartsWith('\\') -or
+            -not (Test-WinstPreparedCompanions -Info $companionInfo -Plan $plan)) {
+            $companionInfo = $null
+        }
         $exec = Invoke-WinstInstallWithRetry -Context $Context -Plan $plan -SourceName $sourceName `
             -ForceInstall $forceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly `
             -KillRunning:$KillRunning -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems `
-            -Yes:$Yes -DownloadMode:$downloadMode
+            -Yes:$Yes -DownloadMode:$downloadMode -CompanionInfo $companionInfo
         $install = $exec.Install
 
         $result.Ok = $install.Ok

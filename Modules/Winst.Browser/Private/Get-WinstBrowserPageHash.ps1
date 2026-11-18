@@ -31,13 +31,12 @@ function Get-WinstBrowserPageHash {
         for ($attempt = 1; $attempt -le 3; $attempt++) {
             $stepResult = Invoke-WinstBrowserClickStep -Session $Session -Spec $step
             if ($stepResult.Clicked) { break }
-            Wait-WinstDevToolsMessages -Session $Session -Milliseconds 1500
+            if ($attempt -lt 3) { Wait-WinstDevToolsMessages -Session $Session -Milliseconds 1500 }
         }
         if (-not $stepResult.Clicked) { return '' }
         if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
             Write-Host ('  [verbose] 已点击「{0}」以读取页面摘要' -f $stepLabel) -ForegroundColor DarkGray
         }
-        Wait-WinstDevToolsMessages -Session $Session -Milliseconds 1500
     }
 
     $readExpression = @'

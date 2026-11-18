@@ -11,12 +11,14 @@ function Get-WinstSoftwareOverview {
     .OUTPUTS
         @{ Ok; Error; Warning; Items; CacheIndex }
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Context)
+    param([Parameter(Mandatory = $true)][hashtable]$Context, [string]$OnlyId = '')
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @(); CacheIndex = $null }
 
     # 台账：读不到（版本过高）时无法判断「是否已安装」，明确报错而不是把已装软件显示成未安装
-    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
+    $scope = @{}
+    if ($OnlyId) { $scope.Ids = @($OnlyId) }
+    $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot @scope
     if ($stateRead.Error -and -not $stateRead.Reset) {
         $result.Error = $stateRead.Error
         return $result
@@ -26,17 +28,16 @@ function Get-WinstSoftwareOverview {
     # 缓存索引（目录已不存在的条目会被自动剔除）+ 各 id 目录里的真实文件与大小
     $cacheIndex = New-WinstOrdinalDictionary
     if ($Context.PkgDir) {
-        $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+        $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir @scope
         if ($cacheRead.Error -and -not $result.Warning) { $result.Warning = $cacheRead.Error }
         $cacheIndex = $cacheRead.Index
     }
     $result.CacheIndex = $cacheIndex
 
-    $entryById = Get-WinstCacheEntryMap -CacheIndex $cacheIndex
-    $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir
+    $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir @scope
 
     $items = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($row in @(Get-WinstSearchCatalog -Context $Context)) {
+    foreach ($row in @(Get-WinstSearchCatalog -Context $Context @scope)) {
         $id = [string]$row['Id']
         if (-not $id) { continue }
 
@@ -52,7 +53,7 @@ function Get-WinstSoftwareOverview {
             $cacheFiles = @($cacheInfo['Files'])
             $sizeBytes = [long]$cacheInfo['SizeBytes']
         }
-        if ($entryById.Contains($id)) { $cacheVersion = Get-EntryString -Entry $entryById[$id] -Key 'version' }
+        if ($cacheIndex.Contains($id)) { $cacheVersion = Get-EntryString -Entry $cacheIndex[$id] -Key 'version' }
 
         $items.Add((New-WinstSoftwareItem -Context $Context -Id $id -Row $row -Ledger $ledger `
             -CacheDir $cacheDir -CacheFiles $cacheFiles -CacheSizeBytes $sizeBytes -CacheVersion $cacheVersion -CacheIndex $cacheIndex))

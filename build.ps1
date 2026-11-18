@@ -178,16 +178,16 @@ function Get-WinstModuleDirectory {
     return $result
 }
 
-function Get-FunctionNameFromPath {
+function Get-FunctionNameFromText {
     <#
     .SYNOPSIS
         用 AST 取出一个 .ps1 里定义的全部函数名（含嵌套定义）。
     #>
-    param([string]$Path)
+    param([string]$Path, [string]$Text)
 
     $tokens = $null
     $parseErrors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$parseErrors)
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, $Path, [ref]$tokens, [ref]$parseErrors)
 
     if ($parseErrors -and $parseErrors.Count -gt 0) {
         throw ('{0}: 语法错误：{1}（第 {2} 行）' -f $Path, $parseErrors[0].Message, $parseErrors[0].Extent.StartLineNumber)
@@ -289,9 +289,7 @@ function Get-BundleBody {
     .SYNOPSIS
         把一个源文件转成合并进 .psm1 的片段：去重复的 #Requires，结尾补齐 CRLF。
     #>
-    param([string]$Path)
-
-    $text = [IO.File]::ReadAllText($Path)
+    param([string]$Text)
 
     # 每个函数文件都带 #Requires -Version 5.1；合并后只需文件顶部一条。
     $text = $text -replace '(?m)^[ \t]*#Requires[^\r\n]*\r?\n?', ''
@@ -360,11 +358,12 @@ function New-BundleText {
                 [void]$builder.Append($banner)
                 $line++
 
-                $body = Get-BundleBody -Path $file.FullName
+                $source = [IO.File]::ReadAllText($file.FullName)
+                $body = Get-BundleBody -Text $source
                 [void]$builder.Append($body)
-                $line += ([regex]::Matches($body, "`n")).Count
+                for ($pos = $body.IndexOf("`n"); $pos -ge 0; $pos = $body.IndexOf("`n", $pos + 1)) { $line++ }
 
-                $names = @(Get-FunctionNameFromPath -Path $file.FullName)
+                $names = @(Get-FunctionNameFromText -Path $file.FullName -Text $source)
                 foreach ($name in $names) {
                     if ($ownerByFunction.ContainsKey($name)) {
                         $duplicates.Add(('{0}（{1} 与 {2}）' -f $name, $ownerByFunction[$name], $relative))
@@ -388,7 +387,7 @@ function New-BundleText {
         throw ('函数重名，无法合并成单一模块：' + [Environment]::NewLine + (($duplicates | ForEach-Object { '    ' + $_ }) -join [Environment]::NewLine))
     }
 
-    $unique = @($publicNames | Select-Object -Unique)
+    $unique = $publicNames.ToArray()
     if ($unique.Count -eq 0) {
         throw '没有可导出的函数：所有模块的 Public\ 都是空的'
     }
@@ -479,7 +478,7 @@ function Write-Utf8BomFile {
         $null = New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop
     }
 
-    $normalized = ($Text -replace "`r`n", "`n") -replace "`n", "`r`n"
+    $normalized = $Text
     [IO.File]::WriteAllText($Path, $normalized, (New-Object System.Text.UTF8Encoding($true)))
 }
 
@@ -573,6 +572,7 @@ try {
     $parseErrors = $null
     $null = [System.Management.Automation.Language.Parser]::ParseInput(
         $bundle.Text, 'Winst.psm1', [ref]$tokens, [ref]$parseErrors)
+    $tokens = $null
     if ($parseErrors -and $parseErrors.Count -gt 0) {
         $first = $parseErrors[0]
         $origin = Resolve-BundleOrigin -LineMap $bundle.LineMap -Line $first.Extent.StartLineNumber
@@ -632,7 +632,8 @@ try {
     $bundleModulePath = Join-Path $bundleDir ($bundleName + '.psm1')
     $bundleManifestPath = Join-Path $bundleDir ($bundleName + '.psd1')
     Write-Utf8BomFile -Path $bundleModulePath -Text $bundle.Text
-    Write-Utf8BomFile -Path $bundleManifestPath -Text (New-BundleManifestText -Version $version)
+    $manifestBody = (New-BundleManifestText -Version $version) -replace "(?<!`r)`n", "`r`n"
+    Write-Utf8BomFile -Path $bundleManifestPath -Text $manifestBody
 
     # 生成的两个文件用「源码里最新的修改时间」做时间戳：
     # 源码没变时重复构建得到同一个 zip，便于核对 sha512。

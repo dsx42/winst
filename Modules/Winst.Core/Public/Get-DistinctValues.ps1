@@ -8,14 +8,14 @@ function Get-DistinctValues {
     param([string[]]$Values)
 
     $seen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
-    $result = @()
+    $result = New-Object 'System.Collections.Generic.List[string]'
     foreach ($item in @($Values)) {
         if ($null -eq $item) { continue }
         $text = ([string]$item).Trim()
         if (-not $text) { continue }
         if ($seen.ContainsKey($text)) { continue }
         $seen[$text] = $true
-        $result += $text
+        $result.Add($text)
     }
-    return $result
+    return $result.ToArray()
 }

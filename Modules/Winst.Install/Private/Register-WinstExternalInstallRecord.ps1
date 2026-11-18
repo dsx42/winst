@@ -18,10 +18,10 @@ function Register-WinstExternalInstallRecord {
         [string]$Version,
         [string]$SourceName,
         $Result,
-        $OldVersions = @()
+        $OldVersions = @(), [switch]$LocationKnown
     )
 
-    if ($Type -eq 'installer') {
+    if ($Type -eq 'installer' -and -not $LocationKnown) {
         $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir
         if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
     }

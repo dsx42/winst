@@ -7,7 +7,7 @@ function Get-WinstPageIframeAnchors {
     .OUTPUTS
         @{ Anchors; Html; Matched }
     #>
-    param($Context, $Source, [string]$PageUrl, [string]$Html, $Anchors, $LinkSpec, $Result)
+    param($Context, $Source, [string]$PageUrl, [string]$Html, $Anchors, $LinkSpec, $Result, $HrefRule)
 
     $html = $Html
     $anchors = @($Anchors)
@@ -39,7 +39,7 @@ function Get-WinstPageIframeAnchors {
         $Result.Notes += ('主页面没有命中下载链接，已跟随 iframe（{0}）' -f $iframeUrl)
     }
     foreach ($anchor in $anchors) {
-        if (Test-AnchorMatches -Anchor $anchor -Spec $LinkSpec) { $matchedAnchors += $anchor }
+        if (Test-AnchorMatches -Anchor $anchor -Spec $LinkSpec -HrefRule $HrefRule) { $matchedAnchors += $anchor }
     }
 
     return @{ Anchors = $anchors; Html = $html; Matched = $matchedAnchors }

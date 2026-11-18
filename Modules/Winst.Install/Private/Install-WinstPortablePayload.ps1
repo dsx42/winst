@@ -46,7 +46,10 @@ function Install-WinstPortablePayload {
         $extractFiles = @(Get-EntryArray -Entry $Install -Key 'extractFiles')
         $existing = ''
         if ($isExtractEngine) { $existing = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
-        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target -StripTopDir $stripTopDir -ExtractFiles $extractFiles -SevenZipPath $existing
+        $id = Get-EntryString -Entry $Plan -Key 'id'
+        $isEngine = [bool](Get-WinstEngineMainExe -Id $id)
+        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target -StripTopDir $stripTopDir -ExtractFiles $extractFiles -SevenZipPath $existing `
+            -Deliver:(-not $isEngine) -Clean:($portableMode -eq 'clean') -Keep $keepList
         if (-not $layout.Ok -and $isExtractEngine -and -not $existing -and (Get-EntryBool -Entry $layout -Key 'ExtractFailed')) {
             $directError = [string]$layout.Error
             $layout = Initialize-WinstSevenZipFromSystem -Context $Context -Plan $Plan -ArchivePath $PrimaryPath -InstallDir $target -Quiet:$Quiet
@@ -56,9 +59,8 @@ function Install-WinstPortablePayload {
             return @{ Ok = $false; Error = ('解压 {0} 失败：{1}' -f (Split-Path -Leaf $PrimaryPath), $layout.Error) }
         }
         $stage = [string]$layout.TempRoot
-        $id = Get-EntryString -Entry $Plan -Key 'id'
-        $isEngine = [bool](Get-WinstEngineMainExe -Id $id)
-        if ($isEngine) { Initialize-WinstEngineStage -Id $id -Plan $Plan -SourceDir ([string]$layout.SourceDir) }
+        if (-not $isEngine) { return @{ Ok = $true; Error = ''; PostInstallCopyApplied = $false } }
+        Initialize-WinstEngineStage -Id $id -Plan $Plan -SourceDir ([string]$layout.SourceDir)
         $move = Move-WinstStagedInstall -StageDir $stage -SourceDir ([string]$layout.SourceDir) -InstallDir $target -Clean:($portableMode -eq 'clean') -Keep $keepList
         $move['PostInstallCopyApplied'] = $isEngine
         return $move

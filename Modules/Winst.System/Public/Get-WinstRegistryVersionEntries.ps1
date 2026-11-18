@@ -7,10 +7,19 @@ function Get-WinstRegistryVersionEntries {
     .OUTPUTS
         @( @{ Entry; Version; CompareVersion } )；Version 尚未改写，CompareVersion 已按检测规则改写。
     #>
-    param($Plan, [string]$InstallDir = '', [hashtable]$Status = $null)
+    param($Plan, [string]$InstallDir = '', [hashtable]$Status = $null, $NameMatches = $null)
 
-    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir $InstallDir -Status $Status)
-    if ($null -ne $Status) { $Status.Found = ($hits.Count -gt 0) }
+    if ($null -eq $NameMatches) {
+        $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir $InstallDir -Status $Status)
+    } else {
+        $hits = @(Sort-WinstRegistryMatches -Hits $NameMatches -InstallDir $InstallDir)
+        if ($null -ne $Status) { $Status.Ok = $true; $Status.Error = '' }
+    }
+    if ($null -ne $Status) {
+        $Status.Found = ($hits.Count -gt 0)
+        $Status.First = $null
+        if ($hits.Count) { $Status.First = $hits[0] }
+    }
     $nonMsi = @($hits | Where-Object { -not (Test-WinstRegistryEntryIsMsi -Entry $_) })
     if ($nonMsi.Count -gt 0) { $hits = $nonMsi }
     $detect = Get-EntryValue -Entry $Plan -Key 'detect' -Default $null

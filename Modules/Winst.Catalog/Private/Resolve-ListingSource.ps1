@@ -34,7 +34,8 @@ function Resolve-ListingSource {
     $kindError = Get-WinstVersionKindError -Kind $versionKind
     if ($kindError) { $result.Error = $kindError; return $result }
 
-    $candidates = @()
+    $candidates = New-Object 'System.Collections.Generic.List[string]'
+    $seenCandidates = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::InvariantCultureIgnoreCase)
     $failedPages = @()
     $visitedPages = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
     foreach ($indexUrl in $indexUrls) {
@@ -52,7 +53,7 @@ function Resolve-ListingSource {
                 $failedPages += ('{0}（{1}）' -f $pageUrl, $_.Exception.Message)
                 continue
             }
-            $pageCandidates = @()
+            $pageCandidates = New-Object 'System.Collections.Generic.List[string]'
             if ($versionKind -ieq 'semver') {
                 $baseUri = [Uri]::new([Uri]$pageUrl, '.')
                 foreach ($anchor in @(Get-HtmlAnchorList -Html $html)) {
@@ -63,7 +64,7 @@ function Resolve-ListingSource {
                     if ([Uri]::new($childUri, '..').AbsoluteUri -cne $baseUri.AbsoluteUri) { continue }
                     $name = [Uri]::UnescapeDataString($childUri.Segments[-1].TrimEnd('/'))
                     if ($name -match '\A[vV]?[0-9]+(?:\.[0-9]+){1,3}(?![0-9.])') {
-                        $pageCandidates += Get-NormalizedVersionString -Value $name
+                        $pageCandidates.Add((Get-NormalizedVersionString -Value $name))
                     }
                 }
             }
@@ -72,7 +73,7 @@ function Resolve-ListingSource {
                 $pageCandidates = @(Get-VersionCandidates -Text $html -Kind $versionKind)
             }
             foreach ($candidate in $pageCandidates) {
-                if ($candidates -notcontains $candidate) { $candidates += $candidate }
+                if ($seenCandidates.Add($candidate)) { $candidates.Add($candidate) }
             }
         }
     }
@@ -90,10 +91,9 @@ function Resolve-ListingSource {
         $filterRule = New-MatchRule -Rule $versionFilter -Kind '版本过滤'
         if (-not $filterRule.Ok) { $result.Error = $filterRule.Error; return $result }
 
-        $filtered = @()
-        foreach ($candidate in $candidates) {
-            if (Test-CompiledMatchRule -Rule $filterRule -Text $candidate) { $filtered += $candidate }
-        }
+        $filtered = @(foreach ($candidate in $candidates) {
+            if (Test-CompiledMatchRule -Rule $filterRule -Text $candidate) { $candidate }
+        })
         $candidates = $filtered
     }
 

@@ -18,14 +18,15 @@ function Invoke-WinstHttpRequest {
         [int]$TimeoutSec = 30,
         [hashtable]$Headers = $null,
         [string]$Method = 'Get',
-        [switch]$NoCache
+        [switch]$NoCache,
+        [switch]$TextOnly
     )
 
     $cacheKey = ''
     if (-not $NoCache) {
         # -NoCache 时不构造缓存键（键里要排序请求头，纯属白算）
         $cacheKey = Get-WinstHttpCacheKey -Uri $Uri -Headers $Headers -Method $Method
-        $cached = Get-WinstHttpCacheEntry -Key $cacheKey
+        $cached = Get-WinstHttpCacheEntry -Key $cacheKey -TextOnly:$TextOnly
         if ($cached) { return $cached }
     }
 
@@ -49,8 +50,11 @@ function Invoke-WinstHttpRequest {
             $response = Invoke-WebRequest @params
             $text = Get-WinstResponseText -Response $response
             # 只有确实含 <a 标签的响应才解析锚点：清单 JSON 等大文本可省一次全文正则
-            $links = @()
-            if ($text -match '<a\b') { $links = @(Get-HtmlAnchorList -Html $text) }
+            $links = $null
+            if (-not $TextOnly) {
+                $links = @()
+                if ($text -match '<a\b') { $links = @(Get-HtmlAnchorList -Html $text) }
+            }
 
             # 跟随重定向后的最终地址（如 releases/latest 会跳到 releases/tag/<tag>）
             $finalUri = ''
@@ -67,7 +71,7 @@ function Invoke-WinstHttpRequest {
                 $preview = $text
                 if ($preview.Length -gt 120) { $preview = $preview.Substring(0, 120) + '…' }
                 $preview = $preview -replace '\s+', ' '
-                Write-Host ('  [verbose] 响应 {0} 字节，锚点 {1} 个：{2}' -f $text.Length, $links.Count, $preview) -ForegroundColor DarkGray
+                Write-Host ('  [verbose] 响应 {0} 字节，锚点 {1} 个：{2}' -f $text.Length, @($links | Where-Object { $null -ne $_ }).Count, $preview) -ForegroundColor DarkGray
             }
 
             if (-not $NoCache) { Set-WinstHttpCacheEntry -Key $cacheKey -Content $text -Links $links -FinalUri $finalUri }

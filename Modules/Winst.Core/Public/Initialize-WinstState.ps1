@@ -83,6 +83,9 @@ function Initialize-WinstState {
 
     # ------------------------------------------------------------ 缓存
     # HTTP 响应缓存（Winst.Net）。
+    if ($null -eq (Get-WinstState -Name 'WinstHttpCacheSweepAt')) {
+        $null = Set-WinstState -Name 'WinstHttpCacheSweepAt' -Value ([DateTime]::MinValue)
+    }
     if ($null -eq (Get-WinstState -Name 'WinstHttpCache')) {
         $null = Set-WinstState -Name 'WinstHttpCache' -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
         $initialized++

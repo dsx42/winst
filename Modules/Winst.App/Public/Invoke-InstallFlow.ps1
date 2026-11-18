@@ -83,70 +83,72 @@ function Invoke-InstallFlow {
         $selectedRows = @()
         foreach ($number in $selection) { $selectedRows += $rows[[int]$number - 1] }
         $selectedIds = @($selectedRows | ForEach-Object { [string]$_['Id'] } | Where-Object { $_ })
-        if ($selectedIds.Count -gt 0) {
-            $pickedRefresh = Update-WinstDisplaySources -Context $Context -Ids $selectedIds
-            Write-WinstRefreshErrors -Errors $pickedRefresh.Errors
-            if ([int]$pickedRefresh.Refreshed -gt 0) {
-                $rowById = Get-WinstCatalogRowMap -Context $Context
-                $freshRows = @()
-                foreach ($selectedRow in $selectedRows) {
-                    $selectedId = [string]$selectedRow['Id']
-                    if ($selectedId -and $rowById.Contains($selectedId)) { $freshRows += $rowById[$selectedId] } else { $freshRows += $selectedRow }
+        Invoke-WinstPackageVersionScope -Context $Context -Action {
+            if ($selectedIds.Count -gt 0) {
+                $pickedRefresh = Update-WinstDisplaySources -Context $Context -Ids $selectedIds
+                Write-WinstRefreshErrors -Errors $pickedRefresh.Errors
+                if ([int]$pickedRefresh.Refreshed -gt 0) {
+                    $rowById = Get-WinstCatalogRowMap -Context $Context
+                    $freshRows = @()
+                    foreach ($selectedRow in $selectedRows) {
+                        $selectedId = [string]$selectedRow['Id']
+                        if ($selectedId -and $rowById.Contains($selectedId)) { $freshRows += $rowById[$selectedId] } else { $freshRows += $selectedRow }
+                    }
+                    $selectedRows = @($freshRows)
                 }
-                $selectedRows = @($freshRows)
             }
-        }
 
-        $okCount = 0          # 安装成功
-        $downloadOkCount = 0  # 仅下载类型：软件包下载成功
-        $skipCount = 0
-        $failCount = 0
-        $cancelCount = 0
-        # 失败 / 跳过的原因：汇总里只报条数，逐条原因必须在这里收好，
-        # 否则「失败 1」之后没有任何线索
-        $failureNotes = @()
-        $skipNotes = @()
+            $okCount = 0          # 安装成功
+            $downloadOkCount = 0  # 仅下载类型：软件包下载成功
+            $skipCount = 0
+            $failCount = 0
+            $cancelCount = 0
+            # 失败 / 跳过的原因：汇总里只报条数，逐条原因必须在这里收好，
+            # 否则「失败 1」之后没有任何线索
+            $failureNotes = @()
+            $skipNotes = @()
 
-        foreach ($row in $selectedRows) {
+            foreach ($row in $selectedRows) {
+                Write-Host ''
+                Write-Host ('  —— {0}（{1}）——' -f [string]$row['Name'], [string]$row['Id']) -ForegroundColor Cyan
+
+                $one = Invoke-WinstInstallTarget -Context $Context -Row $row
+                if ($one.Cancelled) { $cancelCount++; continue }
+                if (-not $one.Ok) {
+                    $failCount++
+                    # 原因已由 Invoke-WinstInstallTarget 就地打印时不再重复；没打印的一定要补上，
+                    # 否则汇总里只剩「失败 1」而没有线索
+                    if (-not [bool]$one.FailureShown) {
+                        $reason = [string]$one.Error
+                        if (-not $reason) { $reason = [string]$one.Message }
+                        if (-not $reason) { $reason = '未知原因' }
+                        $failureNotes += ('{0}（{1}）: {2}' -f [string]$row['Name'], [string]$row['Id'], $reason)
+                    }
+                    continue
+                }
+                if ($one.Skipped) {
+                    $skipCount++
+                    if ([string]$one.Message) { $skipNotes += ('{0}（{1}）: {2}' -f [string]$row['Name'], [string]$row['Id'], [string]$one.Message) }
+                    continue
+                }
+                # 仅下载类型不写台账，汇总里单列「已下载软件包」，不混进「已安装」
+                if ((Get-WinstRowType -Row $row -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $downloadOkCount++ } else { $okCount++ }
+                # 安装后重读台账，后续展示能反映最新状态
+                $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
+            }
+
             Write-Host ''
-            Write-Host ('  —— {0}（{1}）——' -f [string]$row['Name'], [string]$row['Id']) -ForegroundColor Cyan
-
-            $one = Invoke-WinstInstallTarget -Context $Context -Row $row
-            if ($one.Cancelled) { $cancelCount++; continue }
-            if (-not $one.Ok) {
-                $failCount++
-                # 原因已由 Invoke-WinstInstallTarget 就地打印时不再重复；没打印的一定要补上，
-                # 否则汇总里只剩「失败 1」而没有线索
-                if (-not [bool]$one.FailureShown) {
-                    $reason = [string]$one.Error
-                    if (-not $reason) { $reason = [string]$one.Message }
-                    if (-not $reason) { $reason = '未知原因' }
-                    $failureNotes += ('{0}（{1}）: {2}' -f [string]$row['Name'], [string]$row['Id'], $reason)
-                }
-                continue
+            $summaryParts = @()
+            if ($okCount -gt 0) { $summaryParts += ('已安装 {0}' -f $okCount) }
+            if ($downloadOkCount -gt 0) { $summaryParts += ('已下载软件包 {0}' -f $downloadOkCount) }
+            $summaryParts += @(('跳过 {0}' -f $skipCount), ('取消 {0}' -f $cancelCount), ('失败 {0}' -f $failCount))
+            Write-Host ('  汇总: {0}' -f ($summaryParts -join ' / ')) -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Gray' })
+            foreach ($note in @($failureNotes)) {
+                Write-Host ('    失败原因: {0}' -f $note) -ForegroundColor Red
             }
-            if ($one.Skipped) {
-                $skipCount++
-                if ([string]$one.Message) { $skipNotes += ('{0}（{1}）: {2}' -f [string]$row['Name'], [string]$row['Id'], [string]$one.Message) }
-                continue
+            foreach ($note in @($skipNotes)) {
+                Write-Host ('    跳过原因: {0}' -f $note) -ForegroundColor DarkYellow
             }
-            # 仅下载类型不写台账，汇总里单列「已下载软件包」，不混进「已安装」
-            if ((Get-WinstRowType -Row $row -SourceName (Get-EntryString -Entry $one -Key 'Source')) -eq 'download') { $downloadOkCount++ } else { $okCount++ }
-            # 安装后重读台账，后续展示能反映最新状态
-            $state = (Read-WinstState -InstallRoot $Context.InstallRoot).State
-        }
-
-        Write-Host ''
-        $summaryParts = @()
-        if ($okCount -gt 0) { $summaryParts += ('已安装 {0}' -f $okCount) }
-        if ($downloadOkCount -gt 0) { $summaryParts += ('已下载软件包 {0}' -f $downloadOkCount) }
-        $summaryParts += @(('跳过 {0}' -f $skipCount), ('取消 {0}' -f $cancelCount), ('失败 {0}' -f $failCount))
-        Write-Host ('  汇总: {0}' -f ($summaryParts -join ' / ')) -ForegroundColor $(if ($failCount -gt 0) { 'Yellow' } else { 'Gray' })
-        foreach ($note in @($failureNotes)) {
-            Write-Host ('    失败原因: {0}' -f $note) -ForegroundColor Red
-        }
-        foreach ($note in @($skipNotes)) {
-            Write-Host ('    跳过原因: {0}' -f $note) -ForegroundColor DarkYellow
         }
     }
 }

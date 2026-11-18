@@ -71,7 +71,8 @@ function Update-WinstStaleSources {
         # per-app 解析时间（判断单条版本信息是否过期）：只依赖解析锁缓存（meta.Apps 的 per-app resolvedAt），
         # 不读清单缓存文件——展示集合全部有效时零额外开销
         $resolvedAtById = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
-        if ($meta -and $meta.HasApps) {
+        $lookup = @{}
+        if ($meta -and $meta.HasApps -and (-not $Force -or ($HonorEntryTtl -and $hasOnlyIds))) {
             foreach ($oldApp in @($meta.Apps)) {
                 $oldId = Get-EntryString -Entry $oldApp -Key 'id'
                 if ($oldId -and -not $resolvedAtById.ContainsKey($oldId)) {
@@ -91,7 +92,7 @@ function Update-WinstStaleSources {
                 $ids = @()
                 foreach ($id in @($OnlyIds)) {
                     if (-not $resolvedAtById.ContainsKey($id)) {
-                        if (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id) { $ids += $id }
+                        if (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id -Lookup $lookup) { $ids += $id }
                         continue
                     }
                     if (Test-WinstResolvedAtStale -ResolvedAt $resolvedAtById[$id] -Now $now -TtlHours $ttl) { $ids += $id }
@@ -117,7 +118,7 @@ function Update-WinstStaleSources {
             # 解析锁可能是部分结果，缺失不能证明软件不属于本源；检查正文或刷新确认。
             foreach ($id in @($OnlyIds)) {
                 if (-not $resolvedAtById.ContainsKey($id)) {
-                    if (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id) {
+                    if (Test-WinstManifestSourceMayContainId -Context $Context -Source $source -Id $id -Lookup $lookup) {
                         $needed += $id
                     }
                     continue

@@ -14,11 +14,13 @@ function Get-WinstListLookups {
     .OUTPUTS
         @{ Ok; Error; Warning; RowById; State; CacheIndex; CacheDirById }
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Context)
+    param([Parameter(Mandatory = $true)][hashtable]$Context, [string[]]$Ids)
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; RowById = $null; State = $null; CacheIndex = $null; CacheDirById = $null }
 
-    $result.RowById = Get-WinstCatalogRowMap -Context $Context
+    $scope = @{}
+    if ($PSBoundParameters.ContainsKey('Ids')) { $scope.Ids = $Ids }
+    $result.RowById = Get-WinstCatalogRowMap -Context $Context @scope
 
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($stateRead.Error -and -not $stateRead.Reset) {
@@ -27,16 +29,17 @@ function Get-WinstListLookups {
     }
     if ($stateRead.Error) { $result.Warning = $stateRead.Error }
     $result.State = $stateRead.State
+    $result.StateRead = $stateRead
 
     $cacheIndex = New-WinstOrdinalDictionary
     if ($Context.PkgDir) {
-        $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+        $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir @scope
         if ($cacheRead.Error -and -not $result.Warning) { $result.Warning = $cacheRead.Error }
         $cacheIndex = $cacheRead.Index
     }
     $result.CacheIndex = $cacheIndex
 
-    $result.CacheDirById = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir
+    $result.CacheDirById = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir @scope
     $result.Ok = $true
     return $result
 }

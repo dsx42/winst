@@ -59,7 +59,7 @@ function Resolve-PageSource {
         $downloadUrl = [string]$click.Url
         $browserPageHash = [string]$click.PageHash
     } else {
-        $link = Get-WinstPageLinkUrl -Context $Context -Source $source -PageUrl $pageUrl -LinkSpec $spec.LinkSpec `
+        $link = Get-WinstPageLinkUrl -Context $Context -Source $source -PageUrl $pageUrl -LinkSpec $spec.LinkSpec -HrefRule $spec.HrefRule `
             -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Item $item -Result $result
         if (-not $link.Ok) { $result.Error = $link.Error; return $result }
         $html = [string]$link.Html

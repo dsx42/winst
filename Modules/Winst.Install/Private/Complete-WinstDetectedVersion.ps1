@@ -27,7 +27,7 @@ function Complete-WinstDetectedVersion {
 
     $rules = @($RewriteRules)
     $items = @()
-    if ($null -ne $Result['Versions']) { $items = @($Result['Versions']) }
+    if ($null -ne $Result['Versions']) { $items = $Result['Versions'] }
     if ($items.Count -eq 0 -and (Get-EntryString -Entry $Result -Key 'Version')) {
         $items = @([ordered]@{
             Version   = (Get-EntryString -Entry $Result -Key 'Version')
@@ -57,22 +57,19 @@ function Complete-WinstDetectedVersion {
             Detail    = (Get-EntryString -Entry $item -Key 'Detail')
             RecordKey = (Get-EntryString -Entry $item -Key 'RecordKey')
             GroupKey  = $groupKey
+            Order     = $unique.Count
         })
     }
 
-    # 从高到低插入排序（本机并存的版本个数很少，直接插入）
-    $sorted = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($item in $unique.ToArray()) {
-        $index = $sorted.Count
-        for ($i = 0; $i -lt $sorted.Count; $i++) {
-            $cmp = 0
-            try { $cmp = Compare-WinstVersion -A ([string]$item['Version']) -B ([string]$sorted[$i]['Version']) } catch { $cmp = 0 }
-            if ($cmp -gt 0) { $index = $i; break }
-        }
-        $sorted.Insert($index, $item)
-    }
-
-    $all = @($sorted.ToArray())
+    $unique.Sort([Comparison[object]]{
+        param($a, $b)
+        $cmp = 0
+        try { $cmp = Compare-WinstVersion -A $b.Version -B $a.Version } catch { }
+        if ($cmp -eq 0) { return $a.Order.CompareTo($b.Order) }
+        return $cmp
+    })
+    $all = $unique.ToArray()
+    foreach ($item in $all) { $item.Remove('Order') }
     $Result['Versions'] = $all
     $Result['OldVersions'] = @()
     if ($all.Count -eq 0) {
@@ -89,7 +86,7 @@ function Complete-WinstDetectedVersion {
     if ($all.Count -gt 1) {
         $newestGroup = [string]$newest['GroupKey']
         $newestVersion = [string]$newest['Version']
-        $old = @()
+        $old = New-Object 'System.Collections.Generic.List[object]'
         for ($i = 1; $i -lt $all.Count; $i++) {
             $candidateVersion = [string]$all[$i]['Version']
             # 只收严格低于最新版本的：同一版本可能由不同路径 / 不同记录重复给出，不能当成旧版本显示
@@ -99,8 +96,8 @@ function Complete-WinstDetectedVersion {
             # 没有 GroupKey 时按「同一批检测结果」处理（单值来源只能确认是同一软件）
             $group = [string]$all[$i]['GroupKey']
             if ($newestGroup -and $group -and $group -ine $newestGroup) { continue }
-            $old += $all[$i]
+            $old.Add($all[$i])
         }
-        $Result['OldVersions'] = @($old)
+        $Result['OldVersions'] = $old.ToArray()
     }
 }

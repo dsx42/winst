@@ -149,11 +149,13 @@ function Invoke-WinstUpdateEntry {
         if (-not $Quiet -and -not $SourceName -and $snap.OriginName -and [string]$chosen[0]['Source'] -ine $snap.OriginName) {
             Write-Host ('  提示: 安装来源「{0}」不可用或没有更新，改用软件源「{1}」。' -f $snap.OriginName, [string]$chosen[0]['Source']) -ForegroundColor DarkYellow
         }
-        $sourceRow = [ordered]@{}
-        foreach ($key in $row.Keys) { $sourceRow[$key] = $row[$key] }
-        $sourceRow['Sources'] = @($chosen[0])
-        $row = $sourceRow
-        $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
+        if (@($row['Sources']).Count -ne 1) {
+            $sourceRow = [ordered]@{}
+            foreach ($key in $row.Keys) { $sourceRow[$key] = $row[$key] }
+            $sourceRow['Sources'] = @($chosen[0])
+            $row = $sourceRow
+            $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
+        }
     }
     $latest = [string]$snap.Latest
     $latestSource = [string]$snap.LatestSource

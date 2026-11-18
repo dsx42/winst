@@ -27,7 +27,8 @@ function Get-WinstFileHash {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [string]$Algorithm = 'SHA256'
+        [string]$Algorithm = 'SHA256',
+        [ref]$IndexHash
     )
 
     $name = ([string]$Algorithm).Trim().ToUpperInvariant()
@@ -41,18 +42,31 @@ function Get-WinstFileHash {
     }
 
     $stream = $null
+    $sha256 = $null
     try {
         # FileShare.ReadWrite：缓存索引 / 台账判哈希时，别的进程可能正开着同一个文件
         $stream = New-Object System.IO.FileStream(
             $Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
-        $bytes = $hash.ComputeHash($stream)
-        $builder = New-Object System.Text.StringBuilder
-        foreach ($b in $bytes) { $null = $builder.Append($b.ToString('X2')) }
-        return $builder.ToString()
+        if ($null -ne $IndexHash -and $name -ne 'SHA256') {
+            $sha256 = [Security.Cryptography.SHA256]::Create()
+            $buffer = New-Object byte[] 131072
+            while (($count = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $null = $hash.TransformBlock($buffer, 0, $count, $null, 0)
+                $null = $sha256.TransformBlock($buffer, 0, $count, $null, 0)
+            }
+            $null = $hash.TransformFinalBlock($buffer, 0, 0)
+            $null = $sha256.TransformFinalBlock($buffer, 0, 0)
+            $IndexHash.Value = [BitConverter]::ToString($sha256.Hash).Replace('-', '')
+            return [BitConverter]::ToString($hash.Hash).Replace('-', '')
+        }
+        $digest = [BitConverter]::ToString($hash.ComputeHash($stream)).Replace('-', '')
+        if ($null -ne $IndexHash) { $IndexHash.Value = $digest }
+        return $digest
     } catch {
         return ''
     } finally {
         if ($stream) { $stream.Dispose() }
+        if ($sha256) { $sha256.Dispose() }
         $hash.Dispose()
     }
 }

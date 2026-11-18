@@ -8,7 +8,7 @@ function Test-AnchorMatches {
         class / id / text 为子串匹配（不区分大小写）；href 为通配匹配，
         多个条件同时给出时需全部满足。
     #>
-    param($Anchor, $Spec)
+    param($Anchor, $Spec, $HrefRule = $null)
 
     if ($null -eq $Spec) { return $true }
 
@@ -37,7 +37,8 @@ function Test-AnchorMatches {
     if ($href) {
         $anchorHref = Get-EntryString -Entry $Anchor -Key 'Href'
         if (-not $anchorHref) { return $false }
-        $rule = New-MatchRule -Rule $href -Kind '链接地址'
+        $rule = $HrefRule
+        if ($null -eq $rule) { $rule = New-MatchRule -Rule $href -Kind '链接地址' }
         if (-not $rule.Ok) { return $false }
         if (-not (Test-CompiledMatchRule -Rule $rule -Text $anchorHref)) { return $false }
     }

@@ -45,6 +45,7 @@ function Set-WinstAppShortcuts {
         return @{ Applied = $applied; Repaired = $repaired; Notes = $notes; Hashes = $hashes }
     }
 
+    $read = $null
     foreach ($link in $shortcutPaths) {
         $exists = Test-Path -LiteralPath $link -PathType Leaf
 
@@ -56,13 +57,14 @@ function Set-WinstAppShortcuts {
                 $notes += ('快捷方式已存在且指向正确，已保留: {0}' -f $link)
                 if ($OwnedShortcuts -contains $link) { $applied += $link }
                 elseif ($Context) {
-                    $read = Read-WinstState -InstallRoot $Context.InstallRoot
+                    if ($null -eq $read) { $read = Read-WinstState -InstallRoot $Context.InstallRoot }
                     if ($read.Error -and -not $read.Reset) { throw ([string]$read.Error) }
-                    $hash = Get-WinstFileHash -Path $link
+                    $hash = ''
                     foreach ($owner in @($read.State.Installed.Values)) {
                         $expected = Get-EntryString -Entry (Get-EntryValue -Entry $owner -Key 'appliedShortcutHashes') -Key $link
-                        if ($expected -and $expected -ceq $hash -and
-                            @(Get-EntryArray -Entry $owner -Key 'appliedShortcuts') -contains $link) {
+                        if (-not $expected -or @(Get-EntryArray -Entry $owner -Key 'appliedShortcuts') -notcontains $link) { continue }
+                        if (-not $hash) { $hash = Get-WinstFileHash -Path $link }
+                        if ($expected -ceq $hash) {
                             $applied += $link
                             $hashes[$link] = $expected
                             break

@@ -29,12 +29,10 @@ function Add-WinstVersionItem {
     )
 
     if (-not $Version) { return }
-    $items = @()
-    if ($null -ne $Result['Versions']) { $items = @($Result['Versions']) }
-    $Result['Versions'] = @($items + @([ordered]@{
+    $Result.Versions.Add([ordered]@{
         Version   = $Version
         Detail    = $Detail
         RecordKey = $RecordKey
         GroupKey  = $GroupKey
-    }))
+    })
 }

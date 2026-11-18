@@ -15,7 +15,8 @@ function Show-WinstListContent {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Items,
-        [switch]$Quiet
+        [switch]$Quiet,
+        $StateRead = $null
     )
 
     $list = @($Items)
@@ -32,6 +33,7 @@ function Show-WinstListContent {
         if ($oneId) { $listIds[$oneId] = $true }
     }
 
+    if ($null -eq $StateRead -and -not $Quiet -and $list.Count -gt 0) { $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot }
     $index = 0
     foreach ($item in $list) {
         $index++
@@ -64,7 +66,7 @@ function Show-WinstListContent {
 
         # 依赖（条目的 dependencies，含传递依赖）：清单只写用户选中的软件，依赖不会被自动写进清单——
         # 这里说清「依赖了谁 / 各自什么状态 / 清单里没有的会在安装时自动安装」
-        $depLines = @(Get-WinstDependencyLines -Context $Context -Id ([string]$item['Id']) -Type ([string]$item['Type']))
+        $depLines = @(Get-WinstDependencyLines -Context $Context -Id ([string]$item['Id']) -Type ([string]$item['Type']) -StateRead $stateRead)
         if ($depLines.Count -gt 0) {
             $depTotal = 0
             $depInList = 0

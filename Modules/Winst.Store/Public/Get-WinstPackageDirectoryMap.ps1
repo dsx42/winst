@@ -5,11 +5,19 @@ function Get-WinstPackageDirectoryMap {
     .SYNOPSIS
         扫描安装包位置下实际含文件的 id 目录，返回路径、文件、大小及格式化大小。
     #>
-    param([string]$PkgDir)
+    param([string]$PkgDir, [string[]]$Ids)
 
     $map = New-WinstOrdinalDictionary
     if (-not $PkgDir -or -not (Test-Path -LiteralPath $PkgDir -PathType Container)) { return $map }
-    foreach ($dir in @(Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue)) {
+    $dirs = if ($PSBoundParameters.ContainsKey('Ids')) {
+        foreach ($id in $Ids) {
+            if (-not (Test-WinstSafePathSegment -Name $id)) { continue }
+            foreach ($dir in @(Get-ChildItem -LiteralPath $PkgDir -Filter $id -Directory -ErrorAction SilentlyContinue)) {
+                if ($dir.Name -ceq $id) { $dir }
+            }
+        }
+    } else { Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue }
+    foreach ($dir in $dirs) {
         if (Test-WinstReservedPackageId -Id $dir.Name) { continue }
         $names = New-Object 'System.Collections.Generic.List[string]'
         $size = [long]0

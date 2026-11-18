@@ -31,7 +31,7 @@ function Merge-WinstKeywordSearch {
     $result.Keywords = @($parts)
     $result.Merged = $true
     $ids = New-WinstOrdinalDictionary
-    $merged = @()
+    $merged = New-Object 'System.Collections.Generic.List[object]'
     foreach ($one in $parts) {
         $found = @(& $Match $one)
         if ($found.Count -gt 0) { $result.HitKeywords += $one }
@@ -39,9 +39,9 @@ function Merge-WinstKeywordSearch {
             $idText = [string]$item['Id']
             if (-not $idText -or $ids.Contains($idText)) { continue }
             $ids[$idText] = $true
-            $merged += $item
+            $merged.Add($item)
         }
     }
-    $result.Items = @($merged)
+    $result.Items = $merged.ToArray()
     return $result
 }

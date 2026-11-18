@@ -17,7 +17,7 @@ function Set-WinstEnvironmentVariableEx {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value,
-        [Parameter(Mandatory = $true)][ValidateSet('User', 'Machine')][string]$Scope
+        [Parameter(Mandatory = $true)][ValidateSet('User', 'Machine')][string]$Scope, [hashtable]$Changes
     )
 
     if ($Scope -eq 'Machine' -and -not (Test-WinstIsAdministrator)) {
@@ -26,34 +26,33 @@ function Set-WinstEnvironmentVariableEx {
 
     if (-not $Value) {
         # WMI 不接受空值：按「删除该项」处理（清掉库里的旧值，不留下脏数据）
-        $null = Remove-WinstEnvironmentVariableEx -Name $Name -Scope $Scope
+        $null = Remove-WinstEnvironmentVariableEx -Name $Name -Scope $Scope -Changes $Changes
         return
     }
 
-    $oldPersistentPath = @()
-    foreach ($pathScope in @('Machine', 'User')) {
-        $rawPath = Get-WinstEnvironmentValue -Name 'Path' -Scope $pathScope
-        $oldPersistentPath += @(Get-WinstPathSegments -Value ([Environment]::ExpandEnvironmentVariables([string]$rawPath)))
-    }
-    $sessionPath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Process)
+    $pathBefore = Get-WinstEnvironmentPathSnapshot -Name $Name -Changes $Changes
     try {
         $instances = @(Get-WinstEnvironmentInstance -Name $Name -Scope $Scope)
         if ($instances.Count -gt 0) {
-            $instances | Set-CimInstance -Property @{ VariableValue = $Value } -ErrorAction Stop
+            $updated = foreach ($instance in $instances) {
+                $instance | Set-CimInstance -Property @{ VariableValue = $Value } -PassThru -ErrorAction Stop
+                if ($null -ne $Changes) { $Changes['Changed'] = $true }
+            }
         } else {
             $userName = Get-WinstEnvironmentUserName -Scope $Scope
             if (-not $userName) { throw ('取不到当前账号名，无法写入用户级环境变量（{0}）。' -f $Name) }
-            $null = New-CimInstance -ClassName Win32_Environment -Property @{ Name = $Name; VariableValue = $Value; UserName = $userName } -ErrorAction Stop
+            $updated = New-CimInstance -ClassName Win32_Environment -Property @{ Name = $Name; VariableValue = $Value; UserName = $userName } -ErrorAction Stop
         }
     } catch {
+        $null = Set-WinstState -Name WinstEnvironmentCache -Value $null
         throw ('写入环境变量失败（{0}）：{1}' -f $Name, $_.Exception.Message)
     }
 
+    Update-WinstEnvironmentSnapshot -Before $instances -After $updated
+    if ($null -ne $Changes) { $Changes['Changed'] = $true }
     # 当前会话生效（%VAR% 按当前进程环境展开）
     $sessionValue = [Environment]::ExpandEnvironmentVariables($Value)
     if ($Name -ine 'Path') { [Environment]::SetEnvironmentVariable($Name, $sessionValue, [System.EnvironmentVariableTarget]::Process) }
-    # 库里的值已变：清掉 Win32_Environment 快照，后续读取必须看到新值（TTL 只是外部修改的兜底）
-    $null = Set-WinstState -Name WinstEnvironmentCache -Value ($null)
-    Sync-WinstProcessPath -OldPersistent $oldPersistentPath -SessionPath $sessionPath
-    Send-WinstSettingChange
+    if ($pathBefore) { Sync-WinstProcessPath -OldPersistent $pathBefore.Persistent -SessionPath $pathBefore.Session }
+    if ($null -eq $Changes) { Send-WinstSettingChange }
 }

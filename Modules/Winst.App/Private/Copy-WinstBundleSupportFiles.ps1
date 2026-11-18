@@ -18,8 +18,7 @@ function Copy-WinstBundleSupportFiles {
                 if (-not (Test-Path -LiteralPath $KitAppsDir -PathType Container)) {
                     $null = New-Item -ItemType Directory -Path $KitAppsDir -Force -ErrorAction Stop
                 }
-                Copy-WinstBundleItem -Source $srcManifestDir -Destination (Join-WinstPath $KitAppsDir 'manifests')
-                $manifestCopied = @(Get-ChildItem -LiteralPath (Join-WinstPath $KitAppsDir 'manifests') -Recurse -File -ErrorAction Stop).Count
+                $manifestCopied = Copy-WinstBundleItem -Source $srcManifestDir -Destination (Join-WinstPath $KitAppsDir 'manifests') -CountFiles
             } catch {
                 $errorText = '复制软件源清单数据失败: {0}' -f $_.Exception.Message
                 Write-Host ('  ' + $errorText) -ForegroundColor Red
@@ -55,7 +54,7 @@ function Copy-WinstBundleSupportFiles {
                 Clear-WinstInstallDir -Dir $targetModules -AllowedRoot $TargetDir
                 if (Test-Path -LiteralPath $targetModules) { throw ('无法安全替换套件 Modules 目录：{0}' -f $targetModules) }
             }
-            Copy-WinstBundleItem -Source $modulesDir -Destination $targetModules
+            Copy-WinstBundleItem -Source $modulesDir -Destination $targetModules -SourceChecked
 
             $scriptManifest = Join-WinstPath $scriptDir 'manifest.json'
             if (Test-Path -LiteralPath $scriptManifest -PathType Leaf) {
@@ -101,7 +100,7 @@ function Copy-WinstBundleSupportFiles {
     # 套件索引（只含本次相关条目；已有条目不删除）
     if (-not $DryRun) {
         try {
-            Save-WinstCacheIndex -PkgDir $KitAppsDir -Update {
+            Save-WinstCacheIndex -PkgDir $KitAppsDir -UpdateIds @($KitIndex.Keys) -Update {
                 param($index)
                 foreach ($id in @($KitIndex.Keys)) { $index[$id] = $KitIndex[$id] }
             }

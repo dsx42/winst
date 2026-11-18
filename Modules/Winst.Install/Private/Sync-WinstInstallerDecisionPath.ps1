@@ -12,10 +12,10 @@ function Sync-WinstInstallerDecisionPath {
         [string]$Id,
         $Result,
         $Ledger,
-        [switch]$Quiet
+        [switch]$Quiet, [string]$ProbedDir
     )
 
-    $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir
+    if (-not $PSBoundParameters.ContainsKey('ProbedDir')) { $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir }
     if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
     $ledgerDir = Get-EntryString -Entry $Ledger -Key 'installDir'
     $newDir = $Result.InstallDir

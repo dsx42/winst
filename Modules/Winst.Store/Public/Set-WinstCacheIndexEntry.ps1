@@ -39,9 +39,9 @@ function Set-WinstCacheIndexEntry {
             $DownloadedAt = Get-EntryString -Entry $Index[$Id] -Key 'downloadedAt'
         }
     }
-    if ($null -eq $Hashes) { $Hashes = New-WinstOrdinalDictionary }
-    if ($null -eq $ManifestHashes) { $ManifestHashes = New-WinstOrdinalDictionary }
-    if ($null -eq $FileMeta) { $FileMeta = New-WinstOrdinalDictionary }
+    if ($null -eq $Hashes) { $Hashes = New-WinstOrdinalDictionary -IgnoreCase }
+    if ($null -eq $ManifestHashes) { $ManifestHashes = New-WinstOrdinalDictionary -IgnoreCase }
+    if ($null -eq $FileMeta) { $FileMeta = New-WinstOrdinalDictionary -IgnoreCase }
 
     Assert-WinstDistinctIds -Ids @(@($Index.Keys) + @($Id))
 

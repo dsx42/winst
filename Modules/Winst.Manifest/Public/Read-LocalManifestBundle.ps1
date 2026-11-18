@@ -33,14 +33,14 @@ function Read-LocalManifestBundle {
         try { $fileName = Split-Path -Leaf $filePath } catch { $fileName = $filePath }
 
         # 按文件缓存解析结果：本地清单在一次会话里会被反复汇总（搜索 / 依赖索引 / 刷新都会读）
-        $read = Read-WinstJsonFileCached -Path $filePath
+        $read = Read-WinstJsonFileCached -ParsedOnly -Path $filePath
         if (-not $read.Ok) {
             $result.Error = ('读取本地清单失败: {0}（{1}）（清单文件一律使用 UTF-8 编码）' -f $filePath, $read.Error)
             return $result
         }
         $obj = $read.Value
         try {
-            if (-not ([string]$read.Raw).Trim()) { throw '清单内容为空' }
+            if ($read.Empty) { throw '清单内容为空' }
             $fileEntries = @(Get-ManifestEntries -Manifest $obj)
         } catch { $result.Error = ('本地清单结构无效（{0}）：{1}' -f $filePath, $_.Exception.Message); return $result }
 

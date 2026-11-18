@@ -37,6 +37,7 @@ function Set-WinstAppSystemItems {
 
     $errorText = ''
     $scope = ''
+    $changes = @{}
     try {
         $scope = Get-WinstInstallScope -InstallDir $InstallDir
 
@@ -56,7 +57,7 @@ function Set-WinstAppSystemItems {
                 }
                 if ($current -ceq $value) { continue }
             }
-            Set-WinstEnvironmentVariableEx -Name $name -Value $value -Scope $scope
+            Set-WinstEnvironmentVariableEx -Name $name -Value $value -Scope $scope -Changes $changes
             # 记下覆盖前的原值：卸载时据此还原，否则「本来就有、被本软件覆盖」的变量会被直接删掉
             $appliedEnv += [ordered]@{
                 name     = $name
@@ -92,7 +93,7 @@ function Set-WinstAppSystemItems {
                 $changed = $true
             }
             if ($changed) {
-                Set-WinstEnvironmentVariableEx -Name 'Path' -Value ($segments -join ';') -Scope $scope
+                Set-WinstEnvironmentVariableEx -Name 'Path' -Value ($segments -join ';') -Scope $scope -Changes $changes
                 $appliedPath = $pendingPath
             }
         }
@@ -106,7 +107,7 @@ function Set-WinstAppSystemItems {
 
     } catch {
         $errorText = ('写入系统项失败：{0}' -f $_.Exception.Message)
-    }
+    } finally { Complete-WinstEnvironmentChanges -Changes $changes }
 
     return @{ AppliedEnv = $appliedEnv; AppliedPath = $appliedPath; AppliedShortcuts = $appliedShortcuts; ShortcutHashes = $shortcutHashes
               RepairedShortcuts = $repairedShortcuts; Notes = $notes; Scope = $scope; Error = $errorText }

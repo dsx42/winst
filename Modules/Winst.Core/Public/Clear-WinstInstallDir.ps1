@@ -36,8 +36,9 @@ function Clear-WinstInstallDir {
         }
 
         $Keep = @($Keep | Where-Object { $null -ne $_ })
+        $rules = @(ConvertTo-WinstKeepRule -Keep $Keep)
         foreach ($item in @(Get-WinstChildItem -Path $dirFull)) {
-            try { Remove-WinstItemWithKeep -Item $item -Base $dirFull -Keep $Keep }
+            try { $null = Remove-WinstItemWithKeep -Item $item -Base $dirFull -Rules $rules }
             catch {
                 if ($Strict) { throw }
                 Write-Warning ('未能清理 {0}：{1}' -f $item.FullName, $_.Exception.Message)

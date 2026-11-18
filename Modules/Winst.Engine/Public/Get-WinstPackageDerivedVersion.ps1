@@ -15,15 +15,16 @@ function Get-WinstPackageDerivedVersion {
         $Context,
         [string]$PkgDir,
         $Plan,
-        [string]$FileName
+        [string]$FileName,
+        [hashtable]$InputLease
     )
 
-    $result = @{ Ok = $false; Version = ''; Source = ''; MatchedPath = ''; Error = '' }
+    $result = @{ Ok = $false; Version = ''; Source = ''; MatchedPath = ''; InputName = ''; Error = '' }
 
+    $packagePath = ''
     $spec = Get-EntryValue -Entry $Plan -Key 'packageVersion' -Default $null
     if ($null -ne $spec) {
         # 主包路径：规格声明 file 时按通配在包目录里找；否则用调用方给的主包名
-        $packagePath = ''
         $fileGlob = ([string](Get-EntryString -Entry $spec -Key 'file')).Trim()
         if ($PkgDir -and (Test-Path -LiteralPath $PkgDir -PathType Container)) {
             if ($fileGlob) {
@@ -39,6 +40,35 @@ function Get-WinstPackageDerivedVersion {
             $result.Error = '缓存里没有可读的安装包，无法按包内结构识别版本'
             return $result
         }
+    } elseif ($PkgDir -and $FileName) {
+        $packagePath = Join-WinstPath $PkgDir $FileName
+    }
+
+    if ($packagePath) { $result.InputName = [IO.Path]::GetFileName($packagePath) }
+    if ($null -ne $InputLease -and $packagePath) {
+        $rule = ''
+        if ($null -ne $spec) {
+            $rule = ConvertTo-Json -Compress -InputObject ([ordered]@{
+                file = Get-EntryString -Entry $spec -Key 'file'
+                inner = Get-EntryString -Entry $spec -Key 'inner'
+                path = Get-EntryString -Entry $spec -Key 'path'
+                kind = Get-EntryString -Entry $spec -Key 'kind'
+                between = @(Get-EntryArray -Entry $spec -Key 'between')
+            })
+        }
+        if ($InputLease['Stream'] -and $InputLease['Stream'].Name -ieq $packagePath -and
+                $InputLease['Rule'] -ceq $rule -and $InputLease['Result']) {
+            return $InputLease['Result']
+        }
+        if ($InputLease['Stream']) { $InputLease['Stream'].Dispose(); $InputLease.Clear() }
+        try {
+            $InputLease['Stream'] = [IO.File]::Open($packagePath, 'Open', 'Read', 'Read')
+            $InputLease['Rule'] = $rule
+        }
+        catch [IO.IOException], [UnauthorizedAccessException] { } # 无法持有只读句柄时，本次取版仍按普通路径执行。
+    }
+
+    if ($null -ne $spec) {
         $sevenZip = ''
         if ($Context) { $sevenZip = Get-WinstEngineExe -Context $Context -Id (Get-WinstExtractEngineId) }
         if (-not $sevenZip) {
@@ -51,6 +81,7 @@ function Get-WinstPackageDerivedVersion {
             return $result
         }
         $result.Ok = $true
+        if ($null -ne $InputLease -and $InputLease['Stream']) { $InputLease['Result'] = $result }
         $result.Version = [string]$derived.Version
         $result.Source = 'packagePath'
         $result.MatchedPath = [string]$derived.MatchedPath
@@ -62,6 +93,7 @@ function Get-WinstPackageDerivedVersion {
     if ($PkgDir -and $FileName) { $fileVersion = Get-WinstPackageFileVersion -PkgDir $PkgDir -FileName $FileName }
     if ($fileVersion) {
         $result.Ok = $true
+        if ($null -ne $InputLease -and $InputLease['Stream']) { $InputLease['Result'] = $result }
         $result.Version = [string]$fileVersion
         $result.Source = 'fileInfo'
         return $result

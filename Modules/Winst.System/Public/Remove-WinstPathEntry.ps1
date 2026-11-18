@@ -12,7 +12,7 @@ function Remove-WinstPathEntry {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$PathValue,
-        [Parameter(Mandatory = $true)][ValidateSet('User', 'Machine')][string]$Scope
+        [Parameter(Mandatory = $true)][ValidateSet('User', 'Machine')][string]$Scope, [hashtable]$Changes
     )
 
     $result = @{ Ok = $false; Removed = 0; Error = '' }
@@ -33,7 +33,7 @@ function Remove-WinstPathEntry {
     }
 
     try {
-        Set-WinstEnvironmentVariableEx -Name 'Path' -Value (@($plan.Kept) -join ';') -Scope $Scope
+        Set-WinstEnvironmentVariableEx -Name 'Path' -Value (@($plan.Kept) -join ';') -Scope $Scope -Changes $Changes
         $result.Ok = $true
     } catch {
         $result.Error = $_.Exception.Message

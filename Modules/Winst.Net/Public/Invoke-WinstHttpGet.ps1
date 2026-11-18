@@ -14,6 +14,6 @@ function Invoke-WinstHttpGet {
         [switch]$NoCache
     )
 
-    $result = Invoke-WinstHttpRequest -Uri $Uri -Context $Context -TimeoutSec $TimeoutSec -Headers $Headers -NoCache:$NoCache
+    $result = Invoke-WinstHttpRequest -Uri $Uri -Context $Context -TimeoutSec $TimeoutSec -Headers $Headers -NoCache:$NoCache -TextOnly
     return $result.Content
 }

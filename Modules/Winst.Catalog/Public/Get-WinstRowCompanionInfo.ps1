@@ -26,10 +26,11 @@ function Get-WinstRowCompanionInfo {
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)]$Row
+        [Parameter(Mandatory = $true)]$Row,
+        [switch]$Prepare
     )
 
     $planEntry = Get-WinstRowBestPlanEntry -Row $Row
     if (-not $planEntry -or -not $planEntry['Plan']) { return $null }
-    return (Get-WinstCompanionUpdateInfo -Context $Context -Plan $planEntry['Plan'])
+    return (Get-WinstCompanionUpdateInfo -Context $Context -Plan $planEntry['Plan'] -Prepare:$Prepare)
 }

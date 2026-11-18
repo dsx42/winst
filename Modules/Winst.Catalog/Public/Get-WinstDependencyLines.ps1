@@ -22,7 +22,8 @@ function Get-WinstDependencyLines {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
         [string]$Type = '',
-        $Plan = $null
+        $Plan = $null,
+        $StateRead = $null
     )
 
     $lines = New-Object 'System.Collections.Generic.List[object]'
@@ -33,10 +34,11 @@ function Get-WinstDependencyLines {
     if (-not $index['Deps'].Contains($Id)) { return $lines }
 
     $resolved = Resolve-WinstDependencyOrder -Context $Context -Id $Id -Plan $Plan
-    if (-not $resolved.Ok) { return $lines }
+    if (-not $resolved.Ok -or ($resolved.Order.Count -eq 0 -and $resolved.Missing.Count -eq 0)) { return $lines }
 
     $rows = $index['Rows']
-    $read = Read-WinstState -InstallRoot $Context.InstallRoot
+    $read = $StateRead
+    if ($null -eq $read) { $read = Read-WinstState -InstallRoot $Context.InstallRoot }
     if ($read.Error) {
         $label = if ($read.Reset) { '安装台账已备份重置：' } else { '安装台账不可用：' }
         $lines.Add(@{ Text = ($label + $read.Error); Color = 'DarkYellow'; Id = ''; Missing = $false })

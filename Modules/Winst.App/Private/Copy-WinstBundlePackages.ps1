@@ -23,6 +23,9 @@ function Copy-WinstBundlePackages {
         try { $kitIndex = (Read-WinstCacheIndex -PkgDir $KitAppsDir).Index } catch { $kitIndex = New-WinstOrdinalDictionary }
     }
 
+    $existingIds = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
+    Assert-WinstDistinctIds -Ids @($kitIndex.Keys)
+    foreach ($key in $kitIndex.Keys) { $existingIds[$key] = $key }
     $updatedIndex = New-WinstOrdinalDictionary
     $errors = @()
     $copied = 0
@@ -48,15 +51,22 @@ function Copy-WinstBundlePackages {
         $changedFiles = @()
         try {
             Assert-WinstSafeWritePath -Path $targetIdDir -Directory
-            Assert-WinstDistinctIds -Ids @(@($kitIndex.Keys) + @($id))
-            Assert-WinstTreeWithoutReparsePoint -Path $sourceDir
+            if ($existingIds.ContainsKey($id)) { Assert-WinstDistinctIds -Ids @($existingIds[$id], $id) }
+            $existingIds[$id] = $id
+            if ((Test-WinstPathUnderRoot -Path $targetIdDir -Root $sourceDir -AllowEqual) -or
+                (Test-WinstPathUnderRoot -Path $sourceDir -Root $targetIdDir -AllowEqual)) { throw '套件包目录不能与来源目录重叠。' }
+            Assert-WinstSafeWritePath -Path $sourceDir
             foreach ($fileName in $sourceFiles) {
                 if (-not (Test-WinstSafePathSegment -Name ([string]$fileName))) { throw ('缓存文件名不合法：{0}' -f $fileName) }
                 $sourcePath = Join-WinstPath $sourceDir $fileName
                 $targetPath = Join-WinstPath $targetIdDir $fileName
+                Assert-WinstSafeWritePath -Path $sourcePath
+                $sourceFile = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
+                if ($sourceFile.PSIsContainer) { throw ('缓存成员不是文件：{0}' -f $fileName) }
                 Assert-WinstSafeWritePath -Path $targetPath
                 $identical = $false
-                if ($sameVersion -and (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+                if ($sameVersion -and (Test-Path -LiteralPath $targetPath -PathType Leaf) -and
+                    $sourceFile.Length -eq (Get-Item -LiteralPath $targetPath -Force -ErrorAction Stop).Length) {
                     $sourceHash = Get-WinstFileHash -Path $sourcePath -Algorithm SHA256
                     $targetHash = Get-WinstFileHash -Path $targetPath -Algorithm SHA256
                     if (-not $sourceHash -or -not $targetHash) { throw ('无法比较套件文件：{0}' -f $fileName) }
@@ -94,7 +104,6 @@ function Copy-WinstBundlePackages {
         if (-not $skipCopy) {
             try {
                 Assert-WinstSafeWritePath -Path $targetIdDir -Directory
-                Assert-WinstDistinctIds -Ids @(@($kitIndex.Keys) + @($id))
                 # 版本不同：先删掉 U 盘上这个软件的旧目录，避免新旧文件混在一起
                 if ($replacing) {
                     Clear-WinstInstallDir -Dir $targetIdDir -AllowedRoot $TargetDir

@@ -15,12 +15,12 @@ function Get-WinstCachedOverviewReady {
     #>
     param([hashtable]$Context)
 
-    $preview = Get-WinstCachedOverview -Context $Context
-    $displayIds = @(Get-WinstDisplayIds -Items $(if ($preview.Ok) { $preview.Items } else { @() }))
+    $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir
+    $displayIds = @($packageDirs.Keys)
     $refresh = Update-WinstDisplaySources -Context $Context -Ids $displayIds
     Write-WinstRefreshErrors -Errors $refresh.Errors
 
-    $overview = Get-WinstCachedOverview -Context $Context
+    $overview = Get-WinstCachedOverview -Context $Context -PackageDirs $packageDirs
     if (-not $overview.Ok) {
         return @{ Ok = $false; Error = [string]$overview.Error; Warning = ''; Items = @() }
     }

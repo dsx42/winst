@@ -8,14 +8,14 @@ function Update-WinstPlanVersionFromPackage {
         [string] 更新后的版本号
     #>
     param([hashtable]$Context, $Plan, $Plans, [string]$PkgDir, [string]$Version, [bool]$VersionFromCachedPackage,
-        [switch]$MainDownloaded, [switch]$Quiet)
+        [string[]]$DownloadedNames = @(), [switch]$Quiet, [hashtable]$InputLease)
 
     if (($Version -and -not $VersionFromCachedPackage) -or -not (Get-EntryBool -Entry $Plan -Key 'versionFromPackage')) {
         return $Version
     }
 
     # 派生路由：声明 packageVersion 的条目用 7-Zip 读包内结构（权威口径），否则读主包文件信息
-    $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir $PkgDir -Plan $Plan -FileName ([string]$Plans[0]['Name'])
+    $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir $PkgDir -Plan $Plan -FileName ([string]$Plans[0]['Name']) -InputLease $InputLease
     if ($derivedResult.Ok) {
         $derived = [string]$derivedResult.Version
         # 同上一处：包内派生的版本按源侧规则 source.versionRewrite 改写
@@ -34,6 +34,13 @@ function Update-WinstPlanVersionFromPackage {
         }
         return $derived
     }
-    if (-not $MainDownloaded -and $VersionFromCachedPackage -and $Version) { return $Version }
-    throw ('无法读取主包版本，未更新缓存索引或执行安装：{0}' -f [string]$derivedResult.Error)
+    $inputChanged = $DownloadedNames -contains $derivedResult.InputName
+    if (-not $derivedResult.InputName) {
+        $fileRule = Get-EntryString -Entry (Get-EntryValue -Entry $Plan -Key 'packageVersion') -Key 'file'
+        foreach ($name in $DownloadedNames) {
+            if ($name -ieq $Plans[0]['Name'] -or ($fileRule -and $name -like $fileRule)) { $inputChanged = $true; break }
+        }
+    }
+    if (-not $inputChanged -and $VersionFromCachedPackage -and $Version) { return $Version }
+    throw ('无法读取安装包版本，未更新缓存索引或执行安装：{0}' -f [string]$derivedResult.Error)
 }

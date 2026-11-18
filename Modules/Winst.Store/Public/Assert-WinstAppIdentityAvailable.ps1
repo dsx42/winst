@@ -21,7 +21,7 @@ function Assert-WinstAppIdentityAvailable {
     }
     foreach ($rootDir in @($Context.InstallRoot, $Context.PkgDir)) {
         if (-not $rootDir -or -not (Test-Path -LiteralPath $rootDir -PathType Container)) { continue }
-        foreach ($item in @(Get-ChildItem -LiteralPath $rootDir -Force -ErrorAction Stop)) {
+        foreach ($item in @(Get-ChildItem -LiteralPath $rootDir -Filter $Id -Force -ErrorAction Stop)) {
             if ($item.Name -ieq $Id) { $identities += $item.Name }
         }
     }

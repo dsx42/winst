@@ -45,7 +45,7 @@ function Get-WinstRunningAppProcess {
 
     $result = @()
     $self = $PID
-    foreach ($proc in @(Get-WinstProcessSnapshot -Refresh:$Refresh)) {
+    foreach ($proc in @(Get-WinstProcessSnapshot -Refresh:$Refresh -Discard:$Refresh)) {
         $procId = [int]$proc['Id']
         if ($procId -eq $self) { continue }
 

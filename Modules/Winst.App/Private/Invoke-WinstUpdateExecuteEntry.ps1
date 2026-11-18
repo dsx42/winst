@@ -20,6 +20,7 @@ function Invoke-WinstUpdateExecuteEntry {
     # 无法比较版本的两种按软件源里的定义安装：它们本来就没有「降级」这回事（没有可比对的版本），
     # 只需放行安装侧的「已装检查」（等同 --force，只作用于这一条）；「本机版本比软件源里新」的保护不变。
     $forceThisItem = [bool]$Force
+    $companionInfo = $null
     if (-not $comparable -or -not $latest) {
         if ($Snap.VersionFromPackage) {
             # 「版本号取自主包文件信息」的条目交给安装流程「先取包、再决定」——不强制重装
@@ -41,7 +42,7 @@ function Invoke-WinstUpdateExecuteEntry {
         # 版本相同、只有配套文件有变化 → 走「仅配套文件更新」
         # 注意：-Force 时这一段整体被上面的条件短路掉 —— 用户明确要求重装，就不该走「只更新附加文件」
         $companionOnlyExec = $false
-        $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row
+        $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row -Prepare
         if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
         if ($companionInfo -and $companionInfo.CompanionsOnly) {
             $companionOnlyExec = $true
@@ -102,7 +103,7 @@ function Invoke-WinstUpdateExecuteEntry {
     } elseif ((-not $ForceSystemItems) -and [bool](Get-ConfigValue -Config $Context.Config -Key 'updateFilesOnly' -Default $true)) {
         Write-Host '    只更新文件：环境变量 / PATH 保持原样；快捷方式只修正不新建' -ForegroundColor DarkGray
     }
-    $one = Invoke-WinstInstallTarget -Context $Context -Row $targetRow -Force:$forceThisItem -DownloadOnly:$DownloadOnly `
+    $one = Invoke-WinstInstallTarget -Context $Context -Row $targetRow -PreparedCompanions $companionInfo -Force:$forceThisItem -DownloadOnly:$DownloadOnly `
         -Yes:$Yes -AutoPickSource:$AutoPick -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     if ($one.Cancelled) {

@@ -23,17 +23,8 @@ function Move-WinstStagedInstall {
         if ($source -ine $stage -and -not (Test-WinstPathUnderRoot -Path $source -Root $stage)) {
             throw '安装内容必须位于本次解压暂存目录内'
         }
-        Assert-WinstTreeWithoutReparsePoint -Path $source
-        $sourceItem = Get-WinstFileSystemItem -Path $source -ErrorAction Stop
-        if ($sourceItem.PSIsContainer -and -not (Get-WinstChildItem -Path $source -File -Recurse -ErrorAction Stop | Select-Object -First 1)) {
-            throw '解压结果没有文件，拒绝清理安装目录'
-        }
-        if ((Test-WinstFileSystemPath -Path $target) -and -not (Test-WinstFileSystemPath -Path $target -PathType Container)) {
-            throw ('安装目标不是目录：' + $target)
-        }
-        # clean 的性能约定：原地清理后复制，失败直接报错，不备份旧树或逐文件计算摘要。
-        if ($Clean) { Clear-WinstInstallDir -Dir $target -Keep $Keep -Strict }
-        return (Move-WinstArchiveSelection -Path $source -DestDir $target -Copy)
+        Assert-WinstTreeWithoutReparsePoint -Path $source -RequireFile
+        return (Move-WinstArchiveSelection -Path $source -DestDir $target -Copy -Clean:$Clean -Keep $Keep)
     } catch {
         return @{ Ok = $false; Error = ('安装文件落位失败：' + $_.Exception.Message) }
     }

@@ -24,7 +24,7 @@ function Get-WinstRowCachedPackageVersion {
     if (-not $PkgDir) { return '' }
     $id = [string](Get-EntryString -Entry $Row -Key 'Id')
     if (-not $id) { return '' }
-    $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir
+    $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir -Ids @($id)
     if (-not $indexRead -or [string]$indexRead.Error -or -not $indexRead.Index.Contains($id)) { return '' }
     if (-not $chosen -or -not (Get-EntryBool -Entry $chosen['Plan'] -Key 'versionFromPackage')) { return '' }
     $download = Get-EntryValue -Entry $chosen['Plan'] -Key 'download' -Default $null

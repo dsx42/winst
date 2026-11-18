@@ -15,8 +15,19 @@ function Set-WinstHttpCacheEntry {
     if (-not (Get-WinstState -Name WinstHttpCache)) {
         $null = Set-WinstState -Name WinstHttpCache -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal))
     }
-    (Get-WinstState -Name WinstHttpCache)[$Key] = @{
-        At       = [DateTime]::Now
+    $cache = Get-WinstState -Name WinstHttpCache
+    $now = [DateTime]::Now
+    $sweepAt = Get-WinstState -Name WinstHttpCacheSweepAt
+    if ($now -ge $sweepAt) {
+        $ttl = Get-WinstHttpCacheTtlSec
+        $cutoff = $now.AddSeconds(-$ttl)
+        foreach ($existing in @($cache.Keys)) {
+            if ($cache[$existing]['At'] -lt $cutoff) { $cache.Remove($existing) }
+        }
+        $null = Set-WinstState -Name WinstHttpCacheSweepAt -Value $now.AddSeconds($ttl)
+    }
+    $cache[$Key] = @{
+        At       = $now
         Content  = $Content
         Links    = $Links
         FinalUri = $FinalUri

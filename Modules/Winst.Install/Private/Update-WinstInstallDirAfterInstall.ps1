@@ -13,8 +13,13 @@ function Update-WinstInstallDirAfterInstall {
     # 部分安装器由子进程稍后写安装记录，一时读不到就短暂重试几次，别把刚装好的软件记成「没有目录」。
     $assumedDir = $InstallDir
     $actual = @{ Dir = ''; FromRegistry = $false }
+    $detect = Get-EntryValue -Entry $Plan -Key 'detect'
+    $useAppx = (Get-EntryString -Entry $detect -Key 'method') -ieq 'appx'
     for ($attempt = 1; $attempt -le 3; $attempt++) {
-        Reset-WinstSystemCache
+        if ($attempt -gt 1) {
+            $null = Set-WinstState -Name WinstRegistryEntriesCache -Value $null
+            if ($useAppx) { $null = Set-WinstState -Name WinstAppxCache -Value $null }
+        }
         $actual = Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $assumedDir
         if ($actual.FromRegistry -or $attempt -ge 3) { break }
         Start-Sleep -Milliseconds 1200

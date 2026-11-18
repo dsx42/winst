@@ -8,6 +8,10 @@ function Get-WinstRegistryScanRecords {
     param([hashtable]$Context, $Plan, $Source, $Found, [switch]$Quiet, [switch]$VerboseOutput)
 
     # 先于目录登记执行：安装版软件可能装在 installRoot 之外，命中注册表即登记，installDir 取 InstallLocation。
+    $ids = @($Plan.Keys | Where-Object {
+        -not $Found.Contains($_) -and (Get-EntryString -Entry $Plan[$_] -Key 'type').Trim() -ieq 'installer'
+    })
+    if (-not $ids.Count) { return }
     $registryEntries = @()
     $query = @{}
     try { $registryEntries = @(Get-WinstInstalledRegistryEntries -Status $query) } catch { $query.Ok = $false; $query.Error = [string]$_.Exception.Message }
@@ -18,11 +22,11 @@ function Get-WinstRegistryScanRecords {
     if ($registryEntries.Count -eq 0) { return }
 
     if (-not $Quiet) { Write-Host '  正在扫描系统安装记录（注册表）…' -ForegroundColor Gray }
-    foreach ($id in @($Plan.Keys)) {
-        if ($Found.Contains($id)) { continue }
+    $byKey = @{}
+    foreach ($entry in $registryEntries) { $byKey[[string]$entry.KeyPath] = $entry }
+    foreach ($id in $ids) {
         $app = $Plan[$id]
-        $type = (Get-EntryString -Entry $app -Key 'type').Trim().ToLowerInvariant()
-        if ($type -ne 'installer') { continue }
+        $type = 'installer'
 
         # 名称规则：优先 detect.name；未声明时按条目 name 推导（安装版软件装在别处也照样识别）
         $detect = Get-EntryValue -Entry $app -Key 'detect' -Default $null
@@ -36,12 +40,14 @@ function Get-WinstRegistryScanRecords {
         if (-not $rule.Ok) { continue }
 
         # 检测前先选参考目录；registry 检出版本后再采用该版本对应记录的位置。
+        $nameMatches = New-Object 'System.Collections.Generic.List[object]'
         $hit = $null
         $fallback = $null
         foreach ($entry in $registryEntries) {
             if (-not (Test-CompiledMatchRule -Rule $rule -Text ([string]$entry['DisplayName']))) { continue }
+            $nameMatches.Add($entry)
             if (-not $fallback) { $fallback = $entry }
-            if (Test-WinstUnderInstallRoot -Path ([string]$entry['InstallLocation']) -InstallRoot $Context.InstallRoot) { $hit = $entry; break }
+            if (-not $hit -and (Test-WinstUnderInstallRoot -Path ([string]$entry['InstallLocation']) -InstallRoot $Context.InstallRoot)) { $hit = $entry }
         }
         if (-not $hit) { $hit = $fallback }
         if (-not $hit) { continue }
@@ -54,8 +60,12 @@ function Get-WinstRegistryScanRecords {
         # 默认的 registry + 名称匹配，同样走这条路径。检测未命中才退回这条记录的 DisplayVersion，同样按
         # **检测侧**规则 detect.versionRewrite 归一。
         $version = ''
-        $detectResult = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir $location
         $detectMethod = Get-EntryString -Entry $detect -Key 'method'
+        $known = @{}
+        if ($detectMethod -ieq 'registry' -and $nameRule -ceq (Get-WinstRegistryNameRuleForPlan -Plan $app)) {
+            $known.RegistryMatches = $nameMatches.ToArray()
+        }
+        $detectResult = Get-WinstDetectedVersionCore -Context $Context -Plan $app -InstallDir $location @known
         if (@('registry', 'appx') -contains $detectMethod -and -not [bool]$detectResult.QuerySucceeded) {
             Write-Host ('    {0} 的系统安装记录查询未完成：{1}' -f $id, $detectResult.Note) -ForegroundColor Yellow
             continue
@@ -68,11 +78,7 @@ function Get-WinstRegistryScanRecords {
                 $selectedKey = ''
                 if ($versions.Count -gt 0) { $selectedKey = Get-EntryString -Entry $versions[0] -Key 'RecordKey' }
                 $selectedEntry = $null
-                if ($selectedKey) {
-                    foreach ($entry in $registryEntries) {
-                        if ((Get-EntryString -Entry $entry -Key 'KeyPath') -ieq $selectedKey) { $selectedEntry = $entry; break }
-                    }
-                }
+                if ($selectedKey) { $selectedEntry = $byKey[$selectedKey] }
                 if (-not $selectedEntry) {
                     Write-Host ('    {0} 的版本检测记录与本次注册表快照不一致，保留现有台账。' -f $id) -ForegroundColor Yellow
                     continue

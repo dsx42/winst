@@ -17,12 +17,15 @@ function Invoke-WinstCapturedCommand {
         [int]$TimeoutMs = 10000,
         [switch]$NoTimeout,
         [ValidateRange(1, 2147483647)][int]$MaxOutputChars = 16777216,
-        [switch]$TailOutput
+        [switch]$TailOutput,
+        [scriptblock]$ReadOutput
     )
 
     $result = @{ Ok = $false; TimedOut = $false; ExitCode = -1; Text = ''; ErrText = ''; Error = '' }
     # -NoTimeout：不限时等待（下载这类可能跑很久的动作用它）；否则 TimeoutMs <= 0 仍按默认 10 秒处理（版本检测的既有行为）
     if (-not $NoTimeout -and $TimeoutMs -le 0) { $TimeoutMs = 10000 }
+
+    if ($ReadOutput -and -not $NoTimeout) { throw '逐行读取命令输出必须指定 NoTimeout' }
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $FilePath
@@ -47,10 +50,16 @@ function Invoke-WinstCapturedCommand {
 
     try {
         # 两路输出都异步读走（任一路管道写满都会让子进程卡住），随后立刻关掉 stdin 给它一个 EOF
-        $outTask = [Winst.State]::CaptureAsync($p.StandardOutput, $MaxOutputChars, [bool]$TailOutput)
+        $outTask = $null
+        if (-not $ReadOutput) { $outTask = [Winst.State]::CaptureAsync($p.StandardOutput, $MaxOutputChars, [bool]$TailOutput) }
         $errTask = [Winst.State]::CaptureAsync($p.StandardError, 65536, $true)
         try { $p.StandardInput.Close() } catch { }
 
+        if ($ReadOutput) {
+            try { & $ReadOutput $p.StandardOutput }
+            catch { $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.Message) }
+            finally { $p.StandardOutput.Close() }
+        }
         $finished = $false
         if ($NoTimeout) {
             $p.WaitForExit()
@@ -69,10 +78,10 @@ function Invoke-WinstCapturedCommand {
         }
 
         $result.ExitCode = $p.ExitCode
-        $result.Ok = $true
+        $result.Ok = -not [bool]$result.Error
         try {
-            if (-not $outTask.Wait(2000)) { throw '命令结束后输出流未关闭' }
-            $result.Text = [string]$outTask.Result
+            if ($outTask -and -not $outTask.Wait(2000)) { throw '命令结束后输出流未关闭' }
+            if ($outTask) { $result.Text = [string]$outTask.Result }
         } catch {
             $result.Ok = $false
             $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.GetBaseException().Message)

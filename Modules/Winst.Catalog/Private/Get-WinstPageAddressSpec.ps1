@@ -95,6 +95,7 @@ function Get-WinstPageAddressSpec {
         }
     }
 
+    $hrefRule = $null
     if ($null -ne $linkSpec -and (Get-EntryString -Entry $linkSpec -Key 'href').Trim()) {
         $hrefRule = New-MatchRule -Rule (Get-EntryString -Entry $linkSpec -Key 'href') -Kind '链接地址'
         if (-not $hrefRule.Ok) { return @{ Error = [string]$hrefRule.Error } }
@@ -105,6 +106,7 @@ function Get-WinstPageAddressSpec {
         Item          = $item
         Declared      = $declared
         FileRule      = $fileRule
+        HrefRule      = $hrefRule
         LinkSpec      = $linkSpec
         ClickSpec     = $clickSpec
         ThenClickSpec = $thenClickSpec

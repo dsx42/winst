@@ -20,9 +20,9 @@ function Resolve-WinstOldVersionCandidateKeys {
     .OUTPUTS
         [string[]]：卸载键路径；查不到返回空数组
     #>
-    param($Plan, [string]$Version)
+    param($Plan, [string]$Version, $Entries = $null)
 
-    $matched = @(Find-WinstRecordsForVersion -Plan $Plan -Version $Version)
+    $matched = @(Find-WinstRecordsForVersion -Plan $Plan -Version $Version -Entries $Entries)
     if ($matched.Count -eq 0) { return @() }
 
     $usable = @()

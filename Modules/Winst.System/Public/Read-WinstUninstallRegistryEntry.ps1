@@ -10,10 +10,6 @@ function Read-WinstUninstallRegistryEntry {
     $key = Open-WinstUninstallRegistryKey -KeyPath $KeyPath
     if ($null -eq $key) { return $null }
     try {
-        $row = [ordered]@{ KeyPath = $KeyPath }
-        foreach ($field in @('DisplayName','DisplayVersion','InstallLocation','UninstallString','DisplayIcon')) {
-            $row[$field] = [string]$key.GetValue($field, '')
-        }
-        return $row
+        return (Read-WinstRegistryEntryFields -Key $key -KeyPath $KeyPath)
     } finally { $key.Dispose() }
 }

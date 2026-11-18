@@ -30,11 +30,12 @@ function Get-WinstPackageFilePlans {
         # 套件完整性检查只消费本地文件与匹配的校验信息。
         [switch]$Offline,
         [switch]$CheckValidators,
+        # 随后逐包调用 Confirm-WinstCachedFilePlan 时，将缺失的现场摘要推迟到消费校验。
+        [switch]$ConfirmBeforeUse,
         [switch]$FreshMain,
         [string]$FreshMainReason = '版本号取自主包文件信息（软件源里没有版本号），每次都重新取包'
     )
 
-    $plans = @()
     if (-not (Test-WinstSafePathSegment -Name $Id) -or (Test-WinstReservedPackageId -Id $Id)) { throw ('软件 id 不合法或使用了保留目录名：' + $Id) }
     $dir = Join-WinstPath $Context.PkgDir $Id
     $entry = $null
@@ -48,9 +49,8 @@ function Get-WinstPackageFilePlans {
     $fileIndex = -1
     foreach ($file in @($Files)) {
         $fileIndex++
-        $plans += (Get-WinstFilePlan -Context $Context -File $file -FileIndex $fileIndex -Dir $dir -Entry $entry `
+        Get-WinstFilePlan -Context $Context -File $file -FileIndex $fileIndex -Dir $dir -Entry $entry `
                 -Offline:$offline -DryRun:$dryRun -CanCheckRemote:$canCheckRemote -FreshMain:$FreshMain `
-                -FreshMainReason $FreshMainReason)
+                -ConfirmBeforeUse:$ConfirmBeforeUse -FreshMainReason $FreshMainReason
     }
-    return @($plans)
 }

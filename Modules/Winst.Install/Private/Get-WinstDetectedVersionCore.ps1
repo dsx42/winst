@@ -15,7 +15,8 @@ function Get-WinstDetectedVersionCore {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$InstallDir = ''
+        [string]$InstallDir = '',
+        $RegistryMatches = $null
     )
 
     # Detail = 检测途径（命令 / 文件 / 记录，供详情展示）；Note = 需要提醒用户的异常原因（超时、缺 java 等，
@@ -24,7 +25,7 @@ function Get-WinstDetectedVersionCore {
         Ok          = $false
         Found       = $false
         Version     = ''
-        Versions    = @()
+        Versions    = New-Object 'System.Collections.Generic.List[object]'
         OldVersions = @()
         Method      = 'none'
         Detail      = ''
@@ -44,7 +45,7 @@ function Get-WinstDetectedVersionCore {
     switch ($method) {
         'registry' {
             Get-WinstVersionFromRegistry -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
-                -Kind $kind -Between $between -Result $result
+                -Kind $kind -Between $between -Result $result -RegistryMatches $RegistryMatches
         }
         'fileVersion' {
             Get-WinstVersionFromFileVersion -Context $Context -Plan $Plan -Detect $detect -InstallDir $InstallDir `
@@ -77,7 +78,8 @@ function Get-WinstDetectedVersionCore {
     # 旧版本缺移除入口时（文件类检测只知道「还有这个版本的文件」），按版本号反查系统安装记录把它补上；
     # 已有入口但那条记录现在卸不了（外层引导包的卸载器被磁盘清理删掉）时，换成同版本里可用的那条
     if (@($result.OldVersions).Count -gt 0) {
-        $patched = @()
+        $patched = New-Object 'System.Collections.Generic.List[object]'
+        $productEntries = $null
         foreach ($item in @($result.OldVersions)) {
             $version = [string]$item['Version']
             $recordKey = [string]$item['RecordKey']
@@ -99,16 +101,17 @@ function Get-WinstDetectedVersionCore {
                 }
             }
             if (-not $keep) {
-                $fallback = Resolve-WinstOldVersionRecordKey -Plan $Plan -Version $version
+                if ($null -eq $productEntries) { $productEntries = @(Get-WinstRegistryEntriesForPlan -Plan $Plan) }
+                $fallback = Resolve-WinstOldVersionRecordKey -Plan $Plan -Version $version -Entries $productEntries
                 if ($fallback) { $recordKey = $fallback }
             }
-            $patched += [ordered]@{
+            $patched.Add([ordered]@{
                 Version   = $version
                 Detail    = [string]$item['Detail']
                 RecordKey = $recordKey
-            }
+            })
         }
-        $result['OldVersions'] = @($patched)
+        $result['OldVersions'] = $patched.ToArray()
     }
     return $result
 }

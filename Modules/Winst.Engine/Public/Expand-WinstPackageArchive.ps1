@@ -22,19 +22,6 @@ function Expand-WinstPackageArchive {
         $result.Error = ('找不到压缩包：{0}' -f $ArchivePath)
         return $result
     }
-    try {
-        Assert-WinstSafeWritePath -Path $DestDir -Directory
-        if (Test-WinstFileSystemPath -Path $DestDir) {
-            if (-not (Test-WinstFileSystemPath -Path $DestDir -PathType Container)) { throw '解压暂存路径不是目录' }
-            if (Get-WinstChildItem -Path $DestDir -ErrorAction Stop | Select-Object -First 1) {
-                throw '解压暂存目录必须为空，拒绝覆盖已有文件'
-            }
-        }
-    } catch {
-        $result.Error = $_.Exception.Message
-        return $result
-    }
-
     $errors = New-Object 'System.Collections.Generic.List[string]'
     $expand = Expand-WinstArchiveWithTool -Context $Context -ArchivePath $ArchivePath -DestDir $DestDir -Errors $errors -SevenZipPath $SevenZipPath
     $result.ValidationFailed = $expand.ValidationFailed

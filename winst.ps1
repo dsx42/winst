@@ -160,10 +160,10 @@ function Get-WinstArgumentScan {
 }
 
 function Test-WinstNeedsElevation {
-    param([string[]]$Arguments = @())
+    param([bool]$ReadOnly)
 
     if ($env:WINST_NO_ELEVATE -eq '1') { return $false }
-    if ((Get-WinstArgumentScan -Arguments $Arguments).ReadOnly) { return $false }
+    if ($ReadOnly) { return $false }
     try {
         $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
         $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -177,7 +177,7 @@ function Test-WinstNeedsElevation {
 
 $winstScan = Get-WinstArgumentScan -Arguments $script:WinstArguments
 
-if (Test-WinstNeedsElevation -Arguments $script:WinstArguments) {
+if (Test-WinstNeedsElevation -ReadOnly $winstScan.ReadOnly) {
     $winstElevateArgs = New-Object 'System.Collections.Generic.List[string]'
     $winstElevateArgs.Add('-NoProfile')
     $winstElevateArgs.Add('-ExecutionPolicy')
@@ -293,10 +293,6 @@ function Import-WinstLocalModule {
         [Parameter(Mandatory = $true)]
         [string]$ManifestPath
     )
-
-    if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
-        throw ('缺少模块清单：{0}' -f $ManifestPath)
-    }
 
     $parameters = @{
         Name                = $ManifestPath

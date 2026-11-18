@@ -32,8 +32,11 @@ function Get-WinstInstalledRegistryEntries {
                 foreach ($name in $root.GetSubKeyNames()) {
                     $path = '{0}::{1}\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{2}' -f $view, $hiveName, $name
                     try {
-                        $row = Read-WinstUninstallRegistryEntry -KeyPath $path
-                        if ($null -ne $row) { $list.Add($row) }
+                        $child = $root.OpenSubKey($name)
+                        if ($null -ne $child) {
+                            try { $list.Add((Read-WinstRegistryEntryFields -Key $child -KeyPath $path)) }
+                            finally { $child.Dispose() }
+                        }
                     } catch { $queryErrors += ('{0}: {1}' -f $path, $_.Exception.Message) }
                 }
             } catch { $queryErrors += ('{0}/{1}: {2}' -f $view, $hive, $_.Exception.Message) }

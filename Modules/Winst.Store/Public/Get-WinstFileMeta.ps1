@@ -30,10 +30,7 @@ function Get-WinstFileMeta {
     $map = Get-EntryValue -Entry $Entry -Key 'fileMeta' -Default $null
     if ($null -eq $map -or ($map -isnot [System.Collections.IDictionary])) { return $result }
 
-    $item = $null
-    foreach ($key in @($map.Keys)) {
-        if ([string]$key -ieq $FileName) { $item = $map[$key]; break }
-    }
+    $item = $map[(Get-WinstFileMapKey -Map $map -Name $FileName)]
     if ($null -eq $item) { return $result }
 
     $result.Exists = $true

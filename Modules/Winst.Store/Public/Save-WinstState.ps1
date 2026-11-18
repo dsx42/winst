@@ -26,34 +26,5 @@ function Save-WinstState {
     Assert-WinstDistinctIds -Ids @($installed.Keys)
     $normalized = New-WinstOrdinalDictionary
     foreach ($id in @($installed.Keys)) { $normalized[$id] = ConvertTo-WinstInstalledEntry -Entry $installed[$id] }
-    $obj = [ordered]@{
-        schemaVersion = (Get-WinstStateSchemaVersion)
-        installed     = $installed
-    }
-    $path = Get-WinstStatePath -InstallRoot $InstallRoot
-    Write-FileAtomic -Path $path -Content (ConvertTo-WinstJson -InputObject $obj -Depth 12)
-
-    # 台账变化意味着本机可能刚装 / 刚卸了软件：注册表卸载项、Appx 包、环境变量、引擎路径
-    # 都要重读（不带 -All：进程快照与本地清单文件列表不受台账影响，见函数说明）。
-    # 这一步必须在写缓存**之前**：它不会清台账读缓存，但保持「先失效、后刷新」的顺序更稳。
-    Reset-WinstSystemCache
-
-    # 刷新读缓存：内容就是刚落盘这一份（文件戳重新取，与磁盘一致）。
-    # 迁移标记随本次保存一并落盘，因此不保留 NeedSave。
-    # 存副本而不是 $installed 本身：调用方常常在保存后继续就地修改手里的对象
-    # （再保存一次、或只改内存），缓存若持有同一引用就会跟着变，下次读到的将是未落盘的内容。
-    $cache = Get-WinstState -Name WinstStateReadCache
-    if ($null -ne $cache) {
-        $stamp = Get-WinstFileStamp -Path $path
-        if ($stamp) {
-            $cache[$path] = @{
-                Stamp    = $stamp
-                State    = (Copy-WinstState -State @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $normalized })
-                Migrated = $false
-                NeedSave = $false
-            }
-        } else {
-            $cache.Remove($path)
-        }
-    }
+    Write-WinstInstalledState -InstallRoot $InstallRoot -Installed $installed -Normalized $normalized
 }

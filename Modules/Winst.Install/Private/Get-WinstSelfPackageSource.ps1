@@ -107,11 +107,11 @@ function Get-WinstSelfPackageSource {
                 $archivePath = Join-WinstPath $pkgDir $archiveName
 
                 # 自身包也使用统一索引，复用已记录的远端期望值和本地实测值。
-                $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+                $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($selfId)
                 $prevEntry = $null
                 if ($cacheRead.Index.Contains($selfId)) { $prevEntry = $cacheRead.Index[$selfId] }
                 $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId `
-                    -Files @($files[0]) -CheckValidators)
+                    -Files @($files[0]) -CheckValidators -ConfirmBeforeUse)
                 $filePlan = $packagePlans[0]
                 Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan
                 if ($filePlan['ValidationError']) {

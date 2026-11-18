@@ -15,7 +15,7 @@ function Update-WinstBundleItemCache {
     try {
         $files = @(Get-EntryArray -Entry $chosen['Plan']['download'] -Key 'files')
         if ($files.Count -eq 0) { throw '下载计划没有必需文件' }
-        $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $Lookup.CacheIndex -Id ([string]$Item['Id']) -Files $files -Offline)
+        $plans = @(Get-WinstPackageFilePlans -ConfirmBeforeUse -Context $Context -Index $Lookup.CacheIndex -Id ([string]$Item['Id']) -Files $files -Offline)
         $names = @()
         foreach ($file in $plans) {
             Confirm-WinstCachedFilePlan -Context $Context -FilePlan $file -Offline

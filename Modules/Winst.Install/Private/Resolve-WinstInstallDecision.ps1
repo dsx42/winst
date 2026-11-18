@@ -80,17 +80,17 @@ function Resolve-WinstInstallDecision {
         # 版本一致：跳过安装，由用户决定是否强制重装
         if ($hasTarget -and $cmp -eq 0 -and -not $Force -and -not $deferVersionDecision) {
             if ($Type -eq 'installer') {
+                $probedDir = Get-EntryString -Entry $detect -Key 'Location'
+                if (-not $probedDir) { $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir }
+                $Result.InstallDir = $probedDir
                 if ($Ledger) {
                     Sync-WinstInstallerDecisionPath -Context $Context -Plan $Plan -InstallDir $InstallDir -Id $Id `
-                        -Result $Result -Ledger $Ledger -Quiet:$Quiet
-                } else {
-                    $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir
-                    if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
+                        -Result $Result -Ledger $Ledger -Quiet:$Quiet -ProbedDir $probedDir
                 }
             }
             if (-not $Ledger) {
                 Register-WinstExternalInstallRecord -Context $Context -Plan $Plan -Type $Type -InstallDir $InstallDir `
-                    -Id $Id -Version $detected -SourceName $SourceName -Result $Result -OldVersions @($detect.OldVersions)
+                    -Id $Id -Version $detected -SourceName $SourceName -Result $Result -OldVersions @($detect.OldVersions) -LocationKnown
             }
             $same = Resolve-WinstSameVersionAction -Install $Install -InstallDir $InstallDir -DisplayName $DisplayName `
                 -Detected $detected -CompanionDownloadCount $CompanionDownloadCount -HasCompanionUpdate:$CompanionsOnly `

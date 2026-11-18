@@ -17,9 +17,9 @@ function Resolve-WinstOldVersionRecordKey {
     .OUTPUTS
         [string] 卸载键路径；查不到返回空串
     #>
-    param($Plan, [string]$Version)
+    param($Plan, [string]$Version, $Entries = $null)
 
-    $candidates = @(Resolve-WinstOldVersionCandidateKeys -Plan $Plan -Version $Version)
+    $candidates = @(Resolve-WinstOldVersionCandidateKeys -Plan $Plan -Version $Version -Entries $Entries)
     if ($candidates.Count -eq 0) { return '' }
     return [string]$candidates[0]
 }

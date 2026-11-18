@@ -21,7 +21,7 @@ function Read-ManifestMeta {
     try {
         # 解析结果进程内缓存：按 id 查 / 按源查 / 刷新过程中会反复读同一份 meta.json，
         # 每次 Get-Content + ConvertFrom-Json 是主要开销（时间戳或长度变了才重解析）
-        $read = Read-WinstJsonFileCached -Path $path
+        $read = Read-WinstJsonFileCached -ParsedOnly -Path $path
         if (-not $read.Ok) { return $null }
         $obj = $read.Value
         if ($null -eq $obj) { return $null }

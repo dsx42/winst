@@ -17,13 +17,13 @@ function Invoke-WinstEngineDownload {
 
     $primaryPath = ''
     $indexNames = @()
-    $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
+    $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($PlanId)
     $index = $indexRead.Index
     $previousEntry = $null
     if ($index.Contains($PlanId)) { $previousEntry = $index[$PlanId] }
 
     # 缓存里已有需要的包（且校验码一致 / 新鲜度判定命中）就跳过下载，不重复下载
-    $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $PlanId -Files $files -CheckValidators)
+    $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $PlanId -Files $files -CheckValidators -ConfirmBeforeUse)
     $downloadedNames = @()
     foreach ($filePlan in $plans) {
         $url = [string]$filePlan['Url']

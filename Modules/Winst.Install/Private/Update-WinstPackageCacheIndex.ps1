@@ -8,8 +8,8 @@ function Update-WinstPackageCacheIndex {
     param([hashtable]$Context, [string]$Id, $Plans, $PrevEntry, [string]$Version, $DownloadedNames)
 
     $indexNames = @()
-    $indexHashes = New-WinstOrdinalDictionary
-    $indexManifestHashes = New-WinstOrdinalDictionary
+    $indexHashes = New-WinstOrdinalDictionary -IgnoreCase
+    $indexManifestHashes = New-WinstOrdinalDictionary -IgnoreCase
     # fileMeta：每个文件的实际地址 / 本次版本 / 校验器基线 / 大小与时间——
     # 先继承索引里已有的记账（本次没重新确认的文件保留原值），再按本次解析与确认结果更新
     $indexFileMeta = Copy-WinstFileMeta -FileMeta (Get-EntryValue -Entry $PrevEntry -Key 'fileMeta' -Default $null)
@@ -63,7 +63,7 @@ function Update-WinstPackageCacheIndex {
     foreach ($metaKey in @($indexFileMeta.Keys)) {
         if ($indexNames -notcontains [string]$metaKey) { $indexFileMeta.Remove($metaKey) }
     }
-    Save-WinstCacheIndex -PkgDir $Context.PkgDir -Update {
+    Save-WinstCacheIndex -PkgDir $Context.PkgDir -UpdateIds @($Id) -Update {
         param($index)
         Set-WinstCacheIndexEntry -Index $index -Id $Id -Version $Version -Files $indexNames -Hashes $indexHashes -ManifestHashes $indexManifestHashes -FileMeta $indexFileMeta
     }

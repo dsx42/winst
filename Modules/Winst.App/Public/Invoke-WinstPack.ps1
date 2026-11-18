@@ -60,7 +60,7 @@ function Invoke-WinstPack {
 
     # —— ② 列出清单软件 ③ 目标目录 ④ 需求清单 ——
     try {
-        $TargetDir = Resolve-WinstBundleTarget -Context $Context -TargetDir $TargetDir -ListPath $ListPath -Items $loaded.Items
+        $TargetDir = Resolve-WinstBundleTarget -Context $Context -TargetDir $TargetDir -ListPath $ListPath -Items $loaded.Items -StateRead $lookup.StateRead
     } catch [System.ArgumentException], [System.NotSupportedException], [System.IO.PathTooLongException], [System.Management.Automation.ProviderNotFoundException], [System.Management.Automation.DriveNotFoundException] {
         $result.Error = ('目标目录不合法：{0}' -f $_.Exception.Message)
         return $result

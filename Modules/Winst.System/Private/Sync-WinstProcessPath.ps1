@@ -9,24 +9,27 @@ function Sync-WinstProcessPath {
     #>
     param([string[]]$OldPersistent = @(), [string]$SessionPath)
 
-    $persistent = @()
+    $persistent = New-Object 'System.Collections.Generic.List[string]'
+    $persistentKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::InvariantCultureIgnoreCase)
     foreach ($scope in @('Machine', 'User')) {
         $raw = Get-WinstEnvironmentValue -Name 'Path' -Scope $scope
         foreach ($part in @(Get-WinstPathSegments -Value ([Environment]::ExpandEnvironmentVariables([string]$raw)))) {
-            if (-not (Test-WinstPathSegmentExists -Segments $persistent -Value $part)) { $persistent += $part }
+            if ($persistentKeys.Add($part.Trim().Trim('"'))) { $persistent.Add($part) }
         }
     }
-    $before = @()
-    $after = @()
-    $seenPersistent = $false
+    $oldKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::InvariantCultureIgnoreCase)
+    foreach ($part in $OldPersistent) { [void]$oldKeys.Add($part.Trim().Trim('"')) }
+    $before = New-Object 'System.Collections.Generic.List[string]'
+    $after = New-Object 'System.Collections.Generic.List[string]'
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::InvariantCultureIgnoreCase)
+    $outputParts = $before
     foreach ($part in @(Get-WinstPathSegments -Value $SessionPath)) {
-        if (Test-WinstPathSegmentExists -Segments $OldPersistent -Value $part) { $seenPersistent = $true; continue }
-        if (Test-WinstPathSegmentExists -Segments $persistent -Value $part) { continue }
-        if ($seenPersistent) {
-            if (-not (Test-WinstPathSegmentExists -Segments $after -Value $part)) { $after += $part }
-        } else {
-            if (-not (Test-WinstPathSegmentExists -Segments $before -Value $part)) { $before += $part }
+        $key = $part.Trim().Trim('"')
+        if ($oldKeys.Contains($key)) {
+            if ([object]::ReferenceEquals($outputParts, $before)) { $seen.Clear(); $outputParts = $after }
+            continue
         }
+        if (-not $persistentKeys.Contains($key) -and $seen.Add($key)) { $outputParts.Add($part) }
     }
-    [Environment]::SetEnvironmentVariable('Path', (@($before) + @($persistent) + @($after) -join ';'), [System.EnvironmentVariableTarget]::Process)
+    [Environment]::SetEnvironmentVariable('Path', ($before.ToArray() + $persistent.ToArray() + $after.ToArray() -join ';'), [System.EnvironmentVariableTarget]::Process)
 }

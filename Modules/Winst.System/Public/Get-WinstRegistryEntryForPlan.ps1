@@ -13,13 +13,12 @@ function Get-WinstRegistryEntryForPlan {
     #>
     param($Plan, [string]$InstallDir = '')
 
-    $versions = @(Get-WinstRegistryVersionEntries -Plan $Plan -InstallDir $InstallDir)
+    $status = @{}
+    $versions = @(Get-WinstRegistryVersionEntries -Plan $Plan -InstallDir $InstallDir -Status $status)
     $best = $null
     foreach ($item in $versions) {
         if ($null -eq $best -or (Compare-WinstVersion -A ([string]$item.CompareVersion) -B ([string]$best.CompareVersion)) -gt 0) { $best = $item }
     }
     if ($null -ne $best) { return $best.Entry }
-    $hits = @(Get-WinstRegistryEntriesForPlan -Plan $Plan -InstallDir $InstallDir)
-    if ($hits.Count -eq 0) { return $null }
-    return $hits[0]
+    return $status.First
 }

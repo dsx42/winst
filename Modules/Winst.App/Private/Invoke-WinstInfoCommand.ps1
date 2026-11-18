@@ -42,7 +42,7 @@ function Invoke-WinstInfoCommand {
         $refresh = Update-WinstDisplaySources -Context $Context -Ids @($id) -Quiet
         Write-WinstRefreshErrors -Errors $refresh.Errors
     }
-    $overview = Get-WinstSoftwareOverview -Context $Context
+    $overview = Get-WinstSoftwareOverview -Context $Context -OnlyId $id
     if (-not $overview.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
@@ -51,9 +51,7 @@ function Invoke-WinstInfoCommand {
     if ($overview.Warning) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor DarkYellow }
 
     $item = $null
-    foreach ($one in @($overview.Items)) {
-        if ([string]$one['Id'] -ceq $id) { $item = $one; break }
-    }
+    if ($overview.Items.Count) { $item = $overview.Items[0] }
     if (-not $item) {
         Write-Host ''
         Write-Host ('  软件源里没有「{0}」这个软件。' -f $id) -ForegroundColor Yellow

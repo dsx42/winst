@@ -11,13 +11,13 @@ function ConvertTo-WinstCacheIndexEntry {
 
     $version = Get-EntryString -Entry $Entry -Key 'version'
     $downloadedAt = Get-EntryString -Entry $Entry -Key 'downloadedAt'
-    $files = @()
+    $files = New-Object 'System.Collections.Generic.List[string]'
     foreach ($f in @(Get-EntryArray -Entry $Entry -Key 'files')) {
         $text = [string]$f
-        if ($text.Trim()) { $files += $text }
+        if ($text.Trim()) { $files.Add($text) }
     }
     # 每个包文件的 sha256
-    $hashes = New-WinstOrdinalDictionary
+    $hashes = New-WinstOrdinalDictionary -IgnoreCase
     $hashObj = Get-EntryValue -Entry $Entry -Key 'hashes' -Default $null
     if ($null -ne $hashObj) {
         if ($hashObj -is [System.Collections.IDictionary]) {
@@ -33,14 +33,14 @@ function ConvertTo-WinstCacheIndexEntry {
     }
     # 每个包文件「按软件源声明算法」的摘要（如 Maven 的 sha512；软件源声明非 sha256 时用它免去重算）
     # 读自 JSON 时嵌套对象是 PSCustomObject（不是 IDictionary），两种形态都要认
-    $manifestHashes = New-WinstOrdinalDictionary
+    $manifestHashes = New-WinstOrdinalDictionary -IgnoreCase
     $manifestObj = Get-EntryValue -Entry $Entry -Key 'manifestHashes' -Default $null
     if ($null -ne $manifestObj) {
         foreach ($pair in @(Get-WinstEntryPairs -Entry $manifestObj)) {
             $fileKey = [string]$pair[0]
             $perFile = $pair[1]
             if (-not $fileKey -or $null -eq $perFile) { continue }
-            $algorithms = New-WinstOrdinalDictionary
+            $algorithms = New-WinstOrdinalDictionary -IgnoreCase
             foreach ($innerPair in @(Get-WinstEntryPairs -Entry $perFile)) {
                 $algorithmKey = [string]$innerPair[0]
                 $value = [string]$innerPair[1]
@@ -55,9 +55,7 @@ function ConvertTo-WinstCacheIndexEntry {
 
     return [ordered]@{
         version        = $version
-        # $files 是 PowerShell 数组（@() += 得到），没有 ToArray() 方法：
-        # 写成 $files.ToArray() 会走「成员枚举」逐个元素调用，String 上不存在该方法直接抛异常
-        files          = @($files)
+        files          = $files.ToArray()
         hashes         = $hashes
         manifestHashes = $manifestHashes
         fileMeta       = $fileMeta

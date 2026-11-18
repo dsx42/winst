@@ -10,7 +10,8 @@ function Save-WinstCacheIndex {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$PkgDir,
-        [Parameter(Mandatory = $true)][scriptblock]$Update
+        [Parameter(Mandatory = $true)][scriptblock]$Update,
+        [string[]]$UpdateIds
     )
 
     $path = Get-WinstCacheIndexPath -PkgDir $PkgDir
@@ -35,12 +36,46 @@ function Save-WinstCacheIndex {
         }
         # 拿锁前的快照不能作为写入基线，即使远端文件戳恰好没有变化。
         Clear-WinstJsonCache -Path $path
-        $read = Read-WinstCacheIndex -PkgDir $PkgDir
+        $stored = $null
+        $read = Read-WinstCacheIndex -PkgDir $PkgDir -StoredValue ([ref]$stored)
         if (-not $read.CanSave) { throw $read.BackupError }
         $index = $read.Index
-        $null = & $Update $index
+        if ($PSBoundParameters.ContainsKey('UpdateIds')) {
+            $selected = New-WinstOrdinalDictionary
+            $allowed = New-WinstOrdinalDictionary
+            foreach ($id in $UpdateIds) {
+                if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) {
+                    throw ('无效的索引条目：{0}' -f $id)
+                }
+                $allowed[$id] = $true
+                if ($index.Contains($id)) { $selected[$id] = $index[$id] }
+            }
+            $null = & $Update $selected
+            foreach ($id in $selected.Keys) {
+                if (-not $allowed.Contains($id)) { throw ('索引修改超出指定条目：{0}' -f $id) }
+            }
+            $changed = $read.Changed -or $read.Rebuilt -or $null -eq $stored
+            foreach ($id in $allowed.Keys) {
+                $prior = $null
+                if ($null -ne $stored) { $prior = $stored.PSObject.Properties[$id] }
+                if ($selected.Contains($id)) {
+                    $index[$id] = $selected[$id]
+                    if (-not $changed) {
+                        $changed = -not $prior -or $prior.Name -cne $id -or -not (Test-WinstJsonValueEqual -Left $prior.Value -Right $selected[$id])
+                    }
+                } else {
+                    $index.Remove($id)
+                    if ($prior -and $prior.Name -ceq $id) { $changed = $true }
+                }
+            }
+        } else {
+            $null = & $Update $index
+            $changed = $null -eq $stored -or -not (Test-WinstJsonValueEqual -Left $stored -Right $index)
+        }
         Assert-WinstDistinctIds -Ids @($index.Keys)
-        $null = Write-WinstJsonFileIfChanged -Path $path -InputObject $index -Depth 8
+        if ($changed) {
+            Write-FileAtomic -Path $path -Content (ConvertTo-WinstJson -InputObject $index -Depth 8)
+        }
     } finally {
         if ($null -ne $stream) { $stream.Dispose() }
     }

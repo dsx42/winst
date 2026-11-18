@@ -39,7 +39,7 @@ function Invoke-WinstBundleInstallCli {
 
     Write-Host ''
     Write-Host ('  安装清单: {0}（{1} 项）' -f [string]$target.Path, @($loaded.Items).Count) -ForegroundColor Gray
-    $null = Show-WinstListContent -Context $Context -Items $loaded.Items -Quiet
+    $null = Show-WinstListContent -Context $Context -Items $loaded.Items -StateRead $loaded.Lookup.StateRead -Quiet
 
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
     $stats = Invoke-WinstBundleInstallRun -Context $Context -Items @($loaded.Items) -InstallYes:$yes `

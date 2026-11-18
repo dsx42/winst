@@ -18,28 +18,28 @@ function Resolve-WinstDependencyOrder {
 
     $result = @{ Ok = $false; Order = @(); Missing = @(); Error = '' }
     $index = Get-WinstDependencyIndex -Context $Context
-    $deps = New-WinstOrdinalDictionary
-    foreach ($key in @($index['Deps'].Keys)) { $deps[$key] = $index['Deps'][$key] }
-    # 本体按已选来源覆盖，不能修改进程缓存或合并其它来源的依赖。
-    if ($null -ne $Plan) { $deps[$Id] = @(Get-EntryArray -Entry $Plan -Key 'dependencies') }
-    if (-not $deps.Contains($Id)) {
+    $deps = $index['Deps']
+    if ($null -eq $Plan -and -not $deps.Contains($Id)) {
         $result.Error = ('软件源里没有找到「{0}」，无法解析它的依赖。' -f $Id)
         return $result
     }
 
+    $rootDeps = $deps[$Id]
+    if ($null -ne $Plan) { $rootDeps = @(Get-EntryArray -Entry $Plan -Key 'dependencies') }
+
     $state = @{
         Deps        = $deps
-        Order       = @()
+        Order       = New-Object 'System.Collections.Generic.List[string]'
         Levels      = New-WinstOrdinalDictionary
         Via         = New-WinstOrdinalDictionary
         Visiting    = New-WinstOrdinalDictionary
         Done        = New-WinstOrdinalDictionary
-        Missing     = @()
+        Missing     = New-Object 'System.Collections.Generic.List[object]'
         MissingSeen = New-WinstOrdinalDictionary
     }
     $state['Done'][$Id] = $true   # 本体不入依赖序；依赖成环绕回本体时直接跳过
 
-    foreach ($depId in @($deps[$Id])) {
+    foreach ($depId in @($rootDeps)) {
         if (-not $state['Levels'].Contains($depId)) {
             $state['Levels'][$depId] = 1
             $state['Via'][$depId] = $Id
@@ -47,12 +47,10 @@ function Resolve-WinstDependencyOrder {
         Add-WinstDependencyClosure -State $state -Id $depId -Level 1
     }
 
-    $order = @()
-    foreach ($depId in @($state['Order'])) {
-        $order += @{ Id = $depId; Level = [int]$state['Levels'][$depId]; Via = [string]$state['Via'][$depId] }
-    }
-    $result.Order = @($order)
-    $result.Missing = @($state['Missing'])
+    $result.Order = @(foreach ($depId in $state['Order']) {
+        @{ Id = $depId; Level = [int]$state['Levels'][$depId]; Via = [string]$state['Via'][$depId] }
+    })
+    $result.Missing = $state['Missing'].ToArray()
     $result.Ok = $true
     return $result
 }

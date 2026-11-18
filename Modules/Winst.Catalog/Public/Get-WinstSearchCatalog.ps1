@@ -12,25 +12,30 @@ function Get-WinstSearchCatalog {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Keyword = ''
+        [string]$Keyword = '',
+        [string[]]$Ids
     )
 
     $keywordText = ''
     if ($null -ne $Keyword) { $keywordText = ([string]$Keyword).Trim() }
 
-    # 搜索结果按关键字缓存：搜索 / 安装命令会对同一关键字反复调用（每个 id 一次全量扫描）；
-    # 软件清单变动后由 Reset-WinstCatalogCache 移除条目
+    # 搜索各来源的名称和说明后再合并，同一 id 可以只命中部分来源。
+    $filtered = $PSBoundParameters.ContainsKey('Ids')
     $cache = Get-WinstState -Name WinstSearchCatalogCache
-    if ($null -eq $cache) {
-        $cache = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
-        $null = Set-WinstState -Name WinstSearchCatalogCache -Value $cache
-    }
-    if ($cache.ContainsKey($keywordText)) {
-        return @($cache[$keywordText])
-    }
+    if (-not $filtered -and -not $keywordText -and $cache -and $cache.ContainsKey('')) { return $cache[''] }
 
     $groups = New-WinstOrdinalDictionary
-    foreach ($item in @(Get-WinstAllResolvedApps -Context $Context)) {
+    if ($filtered) {
+        $wanted = New-WinstOrdinalDictionary
+        foreach ($id in $Ids) { $wanted[$id] = $true }
+        $records = @(foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
+            $sourceName = [string]$source['name']
+            foreach ($app in @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $sourceName)) {
+                if ($wanted.Contains((Get-EntryString -Entry $app -Key 'id'))) { @{ Source = $sourceName; App = $app } }
+            }
+        })
+    } else { $records = @(Get-WinstAllResolvedApps -Context $Context) }
+    foreach ($item in $records) {
         $app = $item['App']
         $id = Get-EntryString -Entry $app -Key 'id'
         if (-not $id) { continue }
@@ -71,13 +76,8 @@ function Get-WinstSearchCatalog {
         $rows.Add($row)
     }
     $finalRows = @($rows.ToArray())
-    # 写回缓存前要重新确认容器：上面的 Get-WinstAllResolvedApps 可能触发软件源自动刷新
-    # （Update-ManifestSource → Write-ManifestMeta），那会把缓存置空，
-    # 于是这里的赋值变成「向 Null 数组建立索引」。
-    if (-not (Test-WinstState -Name WinstSearchCatalogCache)) {
-        $null = Set-WinstState -Name WinstSearchCatalogCache -Value (New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase))
+    if (-not $filtered -and -not $keywordText) {
+        $null = Set-WinstState -Name WinstSearchCatalogCache -Value @{ '' = $finalRows }
     }
-    # 空结果也缓存：搜不到的关键字同样会被反复查询（安装流程里每个 id 一次）
-    (Get-WinstState -Name WinstSearchCatalogCache)[$keywordText] = $finalRows
     return $finalRows
 }

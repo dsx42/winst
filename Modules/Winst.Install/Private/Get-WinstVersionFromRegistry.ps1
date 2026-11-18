@@ -23,17 +23,19 @@ function Get-WinstVersionFromRegistry {
         [string]$InstallDir = '',
         [string]$Kind = '',
         $Between = @(),
-        [hashtable]$Result
+        [hashtable]$Result, $RegistryMatches = $null
     )
 
     $query = @{}
-    $hits = @(Get-WinstRegistryVersionEntries -Plan $Plan -InstallDir $InstallDir -Status $query)
+    $hits = @(Get-WinstRegistryVersionEntries -Plan $Plan -InstallDir $InstallDir -Status $query -NameMatches $RegistryMatches)
     $Result['QuerySucceeded'] = [bool]$query.Ok
     $Result.Found = [bool]$query.Found
     if (-not $query.Ok) { $Result.Note = ('查询系统安装记录未完成：{0}' -f $query.Error) }
     if ($hits.Count -eq 0) { return }
 
+    $best = $hits[0]
     foreach ($hit in $hits) {
+        if ((Compare-WinstVersion -A $hit.CompareVersion -B $best.CompareVersion) -gt 0) { $best = $hit }
         $chosen = $hit.Entry
         $displayName = Get-EntryString -Entry $chosen -Key 'DisplayName'
         $detail = '系统安装记录: {0}' -f $displayName
@@ -41,4 +43,5 @@ function Get-WinstVersionFromRegistry {
         Add-WinstVersionItem -Result $Result -Version ([string]$hit.Version) -Detail $detail `
             -RecordKey ([string]$chosen['KeyPath']) -GroupKey (Get-WinstProductNameKey -DisplayName $displayName)
     }
+    $Result.Location = Get-WinstRegistryEntryInstallDir -Entry $best.Entry
 }

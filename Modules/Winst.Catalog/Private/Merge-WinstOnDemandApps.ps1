@@ -26,11 +26,10 @@ function Merge-WinstOnDemandApps {
         if ($id) { $resolvedMap[$id] = $app }
     }
 
-    $merged = @()
-    foreach ($entry in @($Entries)) {
+    $merged = @(foreach ($entry in @($Entries)) {
         $id = Get-EntryString -Entry $entry -Key 'id'
-        if ($id -and $resolvedMap.ContainsKey($id)) { $merged += $resolvedMap[$id] }
-        elseif ($id -and $prevMap.ContainsKey($id)) { $merged += $prevMap[$id] }
-    }
+        if ($id -and $resolvedMap.ContainsKey($id)) { $resolvedMap[$id] }
+        elseif ($id -and $prevMap.ContainsKey($id)) { $prevMap[$id] }
+    })
     return @{ Apps = $merged; Resolved = $resolvedMap.Count }
 }
