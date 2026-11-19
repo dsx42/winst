@@ -69,6 +69,7 @@ function Invoke-WinstUninstallApp {
         return $result
     }
 
+    $uninstallTimer = [Diagnostics.Stopwatch]::StartNew()
     # 卸载过程共享的可变状态（备注 / 残留目录 / 是否「只移除记录」；结果对象用于 Missing / NeedRestart）
     $runState = @{ Notes = @(); Leftovers = @(); ForceRemove = [bool]$Force; Result = $result }
 
@@ -95,7 +96,7 @@ function Invoke-WinstUninstallApp {
         }
 
         # —— ① 删除程序本体 ——
-        $payload = Invoke-WinstRemovePayload -Context $Context -Id $Id -Targets $targets -Ledger $ledger -RunState $runState -Yes:$Yes -Quiet:$Quiet
+        $payload = Invoke-WinstRemovePayload -Context $Context -Id $Id -Targets $targets -RunState $runState -Yes:$Yes -Quiet:$Quiet
         if ($payload.Abort) {
             $result.Error = [string]$payload.Error
             return $result
@@ -121,6 +122,9 @@ function Invoke-WinstUninstallApp {
         $result.Message = Format-WinstUninstallMessage -Id $Id -Targets $targets
         return $result
     } finally {
+        $elapsed = '（总耗时 {0:F1} 秒）' -f $uninstallTimer.Elapsed.TotalSeconds
+        if ($result.Ok) { $result.Message += $elapsed }
+        elseif ($result.Error -and -not $result.Cancelled) { $result.Error += $elapsed }
         $result.Leftovers = @($runState.Leftovers)
         $result.Notes = @($runState.Notes)
     }

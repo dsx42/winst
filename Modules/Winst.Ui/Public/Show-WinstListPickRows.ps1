@@ -30,7 +30,6 @@ function Show-WinstListPickRows {
     if (Test-WinstInputRedirected) { return @{ Action = 'cancel'; Ids = @(); Filter = $filterText } }
 
     while ($true) {
-        $visible = @()
         if ($filterText) {
             $visible = @($all | Where-Object { Test-WinstListItemKeyword -Item $_ -Keyword $filterText -NameField 'Name' })
         } else {

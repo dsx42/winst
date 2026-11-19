@@ -32,8 +32,6 @@ function Get-WinstCompanionVersionLines {
             if ($snapshots) { $names = @($snapshots.Keys) }
         } else { $names = @($declarations.Keys) }
         foreach ($name in $names) {
-            $decl = $null
-            $meta = $null
             if ($kind -eq '已安装附件') {
                 $decl = $snapshots[$name]
                 $meta = Get-WinstFileMeta -Entry @{ fileMeta = $snapshots } -FileName $name

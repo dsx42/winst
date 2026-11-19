@@ -32,7 +32,6 @@ function Set-WinstInstallLedger {
         $merged = @()
         $seen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
         foreach ($item in @($items)) {
-            $k = ''
             if ($item -is [string]) { $k = [string]$item } else { $k = (Get-EntryString -Entry $item -Key $keyName) }
             if (-not $k) { continue }
             $scope = Get-EntryString -Entry $item -Key 'scope'

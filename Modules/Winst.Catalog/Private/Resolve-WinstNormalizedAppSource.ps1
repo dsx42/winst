@@ -25,7 +25,7 @@ function Resolve-WinstNormalizedAppSource {
             'page' { $result = Resolve-PageSource -Context $Context -Entry $Entry }
             'json' { $result = Resolve-JsonSource -Context $Context -Entry $Entry }
             'xml' { $result = Resolve-XmlSource -Context $Context -Entry $Entry }
-            'magnet' { $result = Resolve-MagnetSource -Context $Context -Entry $Entry }
+            'magnet' { $result = Resolve-MagnetSource -Entry $Entry }
             default {
                 $result = New-SourceResolveResult -Kind $kind
                 $result.Error = ('未知的来源类型: {0}' -f $kind)

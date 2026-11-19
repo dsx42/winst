@@ -195,10 +195,10 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `dependencies` | `[]` | 依赖 id 列表；安装 / 更新前先处理「未装 / 可更新」的依赖；卸载时提示但不拦截；`download` 条目不参与 |
 | `version` | 不填写 | 固定版本的兼容字段，只能用于 `direct`；推荐 `source.version.value`。不能与 `source.version` 或动态取版规则混写 |
 | `source` | 必填 | 下载来源定义，见「下载来源」 |
-| `stripTopDir` | `true` | `portable` 的主包解压规则，或 `installer` 声明 `installerExe` 时的外层包解压规则。`true` 剥掉唯一顶层目录；`false` 原样解压；字符串 = 只取包内该路径（目录取内容、文件取自身；该文件本身是压缩包则再解压一层）；路径不存在即报错 |
-| `extractFiles` | `[]` | 仅 `portable`：只取包内这几个路径；声明后不再看 `stripTopDir`；任一不存在即报错 |
-| `portableMode` | `clean` | 仅 `portable`：确认解压引擎可用后，在 Temp 下的固定 `.winst-stage` 完成解压、布局选择、非空及路径安全检查；`clean` 在原安装位置按 `keep` 清理，清理成功后复制新文件，不改旧目录名、不备份、不回滚，不计算暂存或落位文件摘要。`overwrite` 不清理旧目录，直接复制并合并覆盖，也不回滚。引擎不可用或暂存检查失败时保留旧目录；清理失败不开始复制，清理或复制失败可能留下不完整目录并明确报错。省略或空字符串按 `clean`；其它非空值必须是 `clean` / `overwrite`，写错报「不支持的 portableMode」 |
-| `keep` | `[]` | 仅 `portable` 的 `clean` 模式：相对安装目录的保留路径通配；支持 `*`（单层）/ `**`（跨层）/ `?`，不写分隔符时按文件名匹配（任意层都保留）；新包中的同名文件仍会覆盖保留内容；`overwrite` 模式不使用 |
+| `stripTopDir` | `true` | `portable` 的主包解压规则，或 `installer` 声明 `installerExe` 时的外层包解压规则。`true` 剥掉唯一顶层目录，`false` 保留原布局。字符串选取包内相对路径。目录取内容，文件按解析后的扩展名决定是否再解一层（见下表），其余文件取自身。路径不存在即报错 |
+| `extractFiles` | `[]` | 仅 `portable`。有有效条目时优先于 `stripTopDir`。选中单目录直接取其内容，单文件或多个路径集中到 `.winst-layout`。指定路径不存在时报错 |
+| `portableMode` | `clean` | 仅 `portable`。省略或空字符串按 `clean`，其它值必须是 `clean` 或 `overwrite`，写错报「不支持的 portableMode」。两种模式都在 Temp 的 `.winst-stage` 解压并选择交付目录，允许空目录。交付源和目标按普通目录树处理，省略逐项属性检查，按复制命令结果判定成功。`clean` 在整理 `keep` 前检查进程工作目录和 PowerShell 当前文件系统位置。任一位于安装目标的子目录即报错。命中的 `keep` 先复制到暂存。任一工作目录等于目标时清空根目录并复制新内容，均在目标之外时整删旧目录并整树复制。`overwrite` 合并覆盖，保留仅在旧目录中存在的文件。删旧失败即停止，删旧或复制失败可能留下不完整安装目录 |
+| `keep` | `[]` | 仅 `portable` 的 `clean` 模式使用。相对安装目录匹配，`*` 匹配单层，`**` 跨层，`?` 匹配单个字符，无分隔符时按任意层的文件名或目录名匹配。命中目录后直接复制整棵子树，命中文件按相对路径保留，旧文件覆盖新版同名文件。`overwrite` 忽略此字段 |
 | `mainExe` | 空 | 仅 `portable`：主程序相对路径（快捷方式目标、进程检测、`cliVersion` 入口）；`file` 的主程序自动取主包落位文件 |
 | `addToPath` | `[]` | `portable` / `file` 加入 PATH 的路径；布尔 `true` 或字符串 `"true"` 表示安装目录本身；字符串 `"false"` / `"0"` / `"no"` / `"off"` 会被忽略 |
 | `env` | `{}` | `portable` / `file` 的环境变量；必须为对象，值必须为字符串；`{installDir}` 展开为实际安装目录，`%VAR%` 原样写入；作用域按安装目录自动判定（`%USERPROFILE%` 下 → User，否则 Machine） |
@@ -225,12 +225,12 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | 解压并去掉唯一顶层目录 | 省略 `stripTopDir`，或填写 `true` | 没有唯一顶层目录时保留原布局 |
 | 保留包内完整布局 | `stripTopDir: false` | 不去顶层目录 |
 | 只取一个目录的内容或一个普通文件 | `stripTopDir` 写包内相对路径字符串 | 路径不存在时报错；目录取内容，文件取自身 |
-| 先解出内层压缩包，再解开它 | `stripTopDir` 写内层压缩包相对路径 | 选中项为受支持的压缩包时再解一层 |
+| 先解出内层压缩包，再解开它 | `stripTopDir` 写内层压缩包相对路径 | 选中现存文件且扩展名为 `.7z`、`.zip`、`.tar`、`.gz`、`.tgz`、`.xz`、`.bz2`、`.rar` 或 `.cab` 时再解一层，大小写均可。`"inner.zip/"` 与 `"inner.zip"` 选中同一项。若该项是目录，则取目录内容 |
 | 选择多个文件或目录 | `extractFiles` 写相对路径数组 | 仅 portable；覆盖 `stripTopDir`，目录取内容，文件取自身；不会把选中的压缩文件再自动解开 |
 
 `extractFiles` 非空时不必再写 `stripTopDir`。配套文件使用自己的 `extract: true`、`dest` 与 `stripTopDir`，其剥顶层默认是 `false`，不会继承主包的默认 `true`。路径选择与数据保留是两件事：`portableMode` / `keep` 决定如何处理旧安装目录。
 
-展开内层压缩包时，外层包根目录须留出 `.winst-inner`。合并多个选中路径时须留出 `.winst-layout`。已有对应的同名文件或目录会报保留名称冲突。未使用相应功能时可正常使用该名称。[安装流程](install-flows.md#2-主包与配套文件落位)
+展开内层压缩包时，外层包根目录须留出 `.winst-inner`。选中单个普通文件或合并多个路径时须留出 `.winst-layout`。相应工作目录已被包内文件或目录占用时报告名称冲突。[安装流程](install-flows.md#2-主包与配套文件落位)
 
 ### 进程占用检测
 

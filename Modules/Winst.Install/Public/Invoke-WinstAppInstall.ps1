@@ -194,7 +194,7 @@ function Invoke-WinstAppInstall {
                 if ($ledgerDir) { $checkDirs += $ledgerDir }
             }
             $nonInteractive = [bool](((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes) -or (Test-WinstInputRedirected))
-            $runningCheck = Confirm-WinstAppNotRunning -Context $Context -Plan $Plan -InstallDir $installDir -ExtraDirs $checkDirs `
+            $runningCheck = Confirm-WinstAppNotRunning -Plan $Plan -InstallDir $installDir -ExtraDirs $checkDirs `
                 -Kill:$KillRunning -NonInteractive:$nonInteractive -Quiet:$Quiet
             if (-not $runningCheck.Ok) {
                 if ($runningCheck.Cancelled) {

@@ -5,8 +5,6 @@ function New-WinstListItem {
     .SYNOPSIS
         把清单里的一行（id 或 id==版本）解析成「清单条目」视图对象。
     .DESCRIPTION
-        结论口径与「已装软件 / 已下载包 / 软件列表」共用同一批判定函数（Get-WinstRowBestEntry /
-        Get-WinstRowSourceText / Compare-WinstVersion），不另写一套版本结论。
         PlanAvailable 表示可执行的下载计划；VersionPending 表示计划可用、版本需取包后确认。
         PinMismatch：清单里写了 `id==版本`，而软件源里最高可用版本不是它（由调用方提示，不悄悄忽略）。
     .OUTPUTS

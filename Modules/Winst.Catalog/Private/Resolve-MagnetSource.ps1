@@ -5,7 +5,7 @@ function Resolve-MagnetSource {
     .SYNOPSIS
         解析 magnet 源：不做占位符展开，版本从磁力链接的文件名（dn）按 versionKind / versionBetween 识别。
     #>
-    param([hashtable]$Context, $Entry)
+    param($Entry)
 
     $result = New-SourceResolveResult -Kind 'magnet'
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null

@@ -5,8 +5,6 @@ function Get-WinstRowBestSourceEntry {
     .SYNOPSIS
         取一行里可用来源中版本最高的那条来源记录（含 Plan）；没有可用来源时返回 $null。
     .DESCRIPTION
-        **这是「取最高可用版本」的唯一实现**：Get-WinstRowBestEntry 与 Get-WinstRowBestPlanEntry
-        都投影自它，比较规则只在这里定义一次。
         只统计可用来源（Ok = $true）的明确远端版本，缓存派生版本不参与比较；同版本取先出现的。
     .OUTPUTS
         @{ Source; Version; Ok; Error; Plan } 或 $null

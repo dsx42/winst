@@ -6,7 +6,7 @@ function Get-WinstRowCachedPackageVersion {
         取一行（versionFromPackage 条目）「已下载安装包」的版本号：取不到返回空串。
     .DESCRIPTION
         优先用解析锁里的 version（解析时已从缓存里那份包的文件信息 / 缓存索引取得，带 versionFromCache
-        标记，见 New-ResolvedAppPlan）；解析锁里没有时再读缓存索引——下载完成时从包内文件信息确认的
+        标记）；解析锁里没有时再读缓存索引——下载完成时从包内文件信息确认的
         版本号写在那里。两者都只代表「缓存里那份」，不代表软件源当前提供的那一份。
     #>
     param(

@@ -12,7 +12,9 @@ function Install-WinstInstallerPayload {
     $work = $PrimaryPath
     $localDir = ''
     $unpackDir = ''
+    $result = $null
     try {
+    $result = . {
     if ($work.StartsWith('\\')) {
         $localDir = Join-WinstPath ([IO.Path]::GetTempPath()) ('winst-inst-local-' + [Guid]::NewGuid().ToString('N'))
         try {
@@ -90,7 +92,6 @@ function Install-WinstInstallerPayload {
     } else {
         if (-not $Quiet) { Write-Host ('    正在运行安装程序 {0} …' -f (Split-Path -Leaf $work)) -ForegroundColor Gray }
         try {
-            $exitCode = 0
             if ($ext -eq '.msi') {
                 # 逐项加引号：路径含空格时 `/i "C:\Program Files\x.msi"` 才不会被拆成多个参数；
                 # TARGETDIR 只把值加引号（msiexec 的公共属性写法）；清单给的 installArgs 原样附在后面
@@ -149,9 +150,18 @@ function Install-WinstInstallerPayload {
     $actualDir = Update-WinstInstallDirAfterInstall -Context $Context -Plan $Plan -InstallDir $InstallDir -Ledger $Ledger `
         -Id $Id -InstallArgs $argsText -Quiet:$Quiet
     return @{ Ok = $true; Error = ''; InstallDir = $actualDir }
-    } finally {
-        foreach ($temporaryDir in @($unpackDir, $localDir)) {
-            if ($temporaryDir -and (Test-Path -LiteralPath $temporaryDir)) { Clear-WinstInstallDir -Dir $temporaryDir }
-        }
     }
+    } finally {
+        if ($unpackDir) {
+            try { Invoke-WinstFileStep -Name '删暂存' -Action { Remove-WinstDirectoryTree -Path $unpackDir } }
+            catch {
+                $detail = ('安装包暂存清理失败（{0}）：{1}' -f $unpackDir, $_.Exception.Message)
+                if ($null -eq $result) { Write-Warning $detail }
+                elseif ($result.Ok) { $result.Ok = $false; $result.Error = '安装程序已完成，' + $detail }
+                else { $result.Error += '；' + $detail }
+            }
+        }
+        if ($localDir -and (Test-Path -LiteralPath $localDir)) { Clear-WinstInstallDir -Dir $localDir }
+    }
+    return $result
 }

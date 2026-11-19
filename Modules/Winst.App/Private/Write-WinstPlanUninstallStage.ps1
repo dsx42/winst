@@ -8,7 +8,6 @@ function Write-WinstPlanUninstallStage {
     param($Plan, [hashtable]$View)
 
     $installDir = $View.InstallDir
-    $shortcuts = Get-EntryValue -Entry $Plan -Key 'shortcuts' -Default $null
     $uninstall = Get-EntryValue -Entry $Plan -Key 'uninstall' -Default $null
     $uninstallLines = @()
     switch (Get-EntryString -Entry $uninstall -Key 'method') {

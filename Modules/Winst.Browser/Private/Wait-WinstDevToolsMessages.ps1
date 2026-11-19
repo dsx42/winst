@@ -12,7 +12,6 @@ function Wait-WinstDevToolsMessages {
         $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -le 0) { return }
 
-        $raw = ''
         $raw = Receive-WinstDevToolsMessage -Session $Session -TimeoutMs $remaining
         if (-not $raw) { return }
 

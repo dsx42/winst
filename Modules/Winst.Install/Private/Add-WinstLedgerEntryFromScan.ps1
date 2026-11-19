@@ -5,7 +5,7 @@ function Add-WinstLedgerEntryFromScan {
     .SYNOPSIS
         为扫描发现的软件新建记录；扫描不能证明系统项由 winst 写入，不认领 applied*。
     #>
-    param([hashtable]$Context, $State, [string]$Id, $Info, $Plan, [string]$Now, [hashtable]$Counters)
+    param($State, [string]$Id, $Info, $Plan, [string]$Now, [hashtable]$Counters)
 
     $app = $null
     if ($Plan.Contains($Id)) { $app = $Plan[$Id] }

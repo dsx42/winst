@@ -11,7 +11,6 @@ function New-WinstCachedItem {
           ③ 已装软件能否升级：InstalledUpdateState / InstalledUpdateHint（update / latest / newer / unknown / missing）；
           ④ 软件源里的版本：SourceText（**全部来源并排**，如 `local (21.0.5)、dsx42/winst-manifest (21.0.6)`）；
           ⑤ 安装包能否更新：HasPackageUpdate / PackageUpdateHint（缓存版本 vs 软件源最高可用版本）。
-        版本结论的文案与「已装软件」共用同一套（Get-WinstRowBestEntry / Get-WinstUpgradeHint），不另写一份。
     .OUTPUTS
         [ordered]@{ CompanionVersionLines; Id; DisplayName; Group; CacheVersion; CacheVersionText; CacheDir; CacheFiles; CacheFileCount;
                     CacheSizeText; Installed; InstalledVersion; InstalledVersionText;

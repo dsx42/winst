@@ -4,6 +4,8 @@ Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` 
 
 ## 硬性约束
 
+实现功能时优先使用 Windows PowerShell 5.1 原生命令。只有原生命令无法满足所需行为时才使用 .NET API。
+
 | 对象 | 要求 |
 |---|---|
 | `.ps1` / `.psm1` / `.psd1` | UTF-8 **with** BOM + CRLF。5.1 按系统 ANSI 读无 BOM 文件，中文静默乱码；`build.ps1` 会列出违规文件，不自动修 |
@@ -44,11 +46,13 @@ App         Core、Ui、Version、Manifest、Store、Install、Catalog
 
 ## 安装暂存与 clean 设计
 
-- 解压与安装暂存统一放在 `[IO.Path]::GetTempPath()` 下，不放在安装目录同级。绿色软件、引擎、包内安装器和解压附件通过 `Expand-WinstArchiveLayout` 使用固定 `.winst-stage`；winst 自身安装及 UNC 安装包本地复制使用随机目录。
-- 入口同时持有数据目录的 `winst.lock` 与 Temp 下的 `.winst-stage.lock`，直到业务及暂存清理结束；任一锁冲突均拒绝启动，申请失败释放已取得的锁。固定暂存根按单实例、串行安装使用，只存可丢弃的中间文件；不得包含输入压缩包，也不得与最终安装目录重叠。开始解压前提示并严格清理已有 `.winst-stage`，清理失败立即停止；交付结束或失败后清理该根目录。解压前检查当前 Temp 与持锁目录一致，变化时明确失败，不触碰暂存目录。
-- 内层解压使用 `.winst-stage\.winst-inner`，多个选中路径需要合并时使用 `.winst-stage\.winst-layout`；均按需创建，包内已存在同名文件或目录时明确报错，不清空复用包内同名路径。
-- 绿色软件、引擎和 winst 自更新的 clean 流程：完整暂存并检查布局、非空和路径安全 → 原安装位置按保留规则清理 → 复制新文件。旧目录不改名、不备份、不回滚；暂存和落位文件不计算摘要，下载包的 checksum 校验仍保留。
-- 这是减少整树读写的明确设计，不应仅因缺少备份、回滚或落位摘要而报告缺陷。清理开始前失败保留旧目录；清理失败不开始复制；清理或复制失败必须明确报错，允许留下不完整目录供重装处理。
+- 绿色软件、引擎、winst 自身、包内安装器及解压附件在 `[IO.Path]::GetTempPath()` 下的 `.winst-stage` 串行暂存。UNC 安装器的本地副本使用随机目录。
+- 入口同时持有数据目录的 `winst.lock` 与 Temp 下的 `.winst-stage.lock`，直到业务及清理结束。暂存与安装目录互不包含，输入包位于暂存外，当前 Temp 必须与持锁位置一致。开始使用固定暂存前先检查旁边的 `.winst-stage.recovery.json`，存在即提示恢复位置并停止。普通残留用一条 `Remove-Item` 清理，失败即停止。
+- 没有有效的 `extractFiles` 时，字符串 `stripTopDir` 解析到现存文件才按该文件的扩展名判断是否解到 `.winst-inner`。选中单文件或多个路径时整理到 `.winst-layout`。两者均按需创建，包内同名路径会报错。
+- 绿色软件、引擎和 winst 自更新共用批量落位。`clean` 在整理 `keep` 前检查进程工作目录和 PowerShell 当前文件系统位置。任一位于安装目标的子目录即报错。命中的 `keep` 按相对路径复制到交付目录，旧文件覆盖新版同名文件，有命中才写恢复标记。工作目录等于目标时保留根目录、清空内容再复制，两者均在目标外时整删旧目录并整树复制。`overwrite` 跳过 `keep` 和删旧，将交付内容合并到目标。解压、复制与删除按命令结果判定，允许空目录，下载包仍按清单校验。
+- 批量交付按普通目录树处理。为筛查重解析点或核对内容而递归扫描交付目录、已有的 `overwrite` 目标或 `keep` 命中的子树，属于过度防御。检查操作根路径和目录边界，按需定位清单路径、匹配 `keep`，命中目录后直接复制整棵子树。
+- Windows PowerShell 5.1 批量复制遇到以下类型冲突时可能跳过子树，属于已接受的行为，后续评审将这两种情形排除在缺陷报告范围之外。`keep` 命中的旧目录内部有子目录而交付目录同路径是文件。`overwrite` 的新目录与旧安装同路径的文件冲突。
+- 安装、更新的文件阶段只在结束时报告结果和耗时。卸载整目录时校验目标路径和目录边界，直接用 `Remove-Item` 删除并报告耗时，省去目录内的文件检查。删旧失败不开始复制。标记生效后若中断、删旧或复制失败，保留暂存供手动恢复。文件落位后先撤销标记再清暂存，任一步失败都须报告文件已落位。
 
 ## 状态与台账
 
@@ -81,7 +85,7 @@ $env:CI='1'; cmd /c build.cmd
 
 - 目标运行时是 `powershell` 5.1（`CompatiblePSEditions = Desktop`），不要拿 pwsh 7 的行为当基准。
 - 开发树冷启动慢（逐个 `Import-Module`），别反复跑完整入口；改完模块可设 `WINST_DEV=1` 强制重新导入。
-- 实验前隔离：`WINST_HOME` / `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 指到 `%TEMP%` 下；并行实验还须分别设置 `TEMP` / `TMP` 到独立目录；`list` / `search` / `info` / `update` 会联网，`--offline` 可避免。
+- 实验前设置 `WINST_NO_ELEVATE=1`，避免提权重启丢失进程内的隔离环境变量。将 `WINST_HOME` / `WINST_INSTALL_ROOT` / `WINST_PKG_DIR` 指到 `%TEMP%` 下；并行实验还须分别设置 `TEMP` / `TMP` 到独立目录；`list` / `search` / `info` / `update` 会联网，`--offline` 可避免。
 
 ## 关键位置
 
@@ -91,7 +95,7 @@ $env:CI='1'; cmd /c build.cmd
 | 构建 / 打包 | `build.ps1` |
 | 模块发现 | `winst.ps1` 的 `Get-WinstModulePlan` |
 | CLI 解析 / 分发 / 退出码 | `Winst.App`（`Read-WinstCommandLine`、`Invoke-WinstCommand`、`Invoke-WinstApplication`） |
-| 下载来源解析 | `Winst.Catalog\Private\Resolve-*Source.ps1`，分派器 `Public\Resolve-AppSource.ps1` |
+| 下载来源解析 | `Winst.Catalog\Private\Resolve-*Source.ps1`，分派器 `Private\Resolve-WinstNormalizedAppSource.ps1` |
 | 安装决策 / 七阶段流程 | `Winst.Install`（`Resolve-WinstInstallDecision`、`Invoke-WinstAppInstall`） |
 | 版本检测 | `Winst.Install\Private\Get-WinstVersionFrom*.ps1` |
 | 状态文件格式 | `Winst.Store`（`Read/Save-WinstState`、`Read/Save-WinstCacheIndex`） |

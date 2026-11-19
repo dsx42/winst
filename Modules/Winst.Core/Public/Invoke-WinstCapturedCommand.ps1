@@ -60,7 +60,6 @@ function Invoke-WinstCapturedCommand {
             catch { $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.Message) }
             finally { $p.StandardOutput.Close() }
         }
-        $finished = $false
         if ($NoTimeout) {
             $p.WaitForExit()
             $finished = $true

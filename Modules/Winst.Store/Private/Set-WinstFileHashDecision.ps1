@@ -26,7 +26,6 @@ function Set-WinstFileHashDecision {
         $Plan['IndexHash'] = $recordedSha256
     }
 
-    $recorded = ''
     if ($wantedAlgorithm -eq 'SHA256') {
         $recorded = $recordedSha256
     } else {

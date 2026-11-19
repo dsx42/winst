@@ -7,7 +7,7 @@ function Invoke-WinstUninstallRegistryPayload {
     .OUTPUTS
         @{ Abort; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Targets, $Ledger, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
+    param([string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
 
     $result = $RunState.Result
     # installer：用安装记录里的名称规则 + 卸载参数（软件源里删掉该软件也照样能定位卸载程序）
@@ -20,7 +20,7 @@ function Invoke-WinstUninstallRegistryPayload {
     $selectedRecord = Get-WinstRegistryEntryForPlan -Plan $uninstallPlan -InstallDir ([string]$Targets['InstallDir'])
     $recordDir = ''
     if ($selectedRecord) { $recordDir = Get-WinstRegistryEntryInstallDir -Entry $selectedRecord }
-    $run = Invoke-WinstRunUninstaller -Context $Context -Plan $uninstallPlan -Quiet:$Quiet
+    $run = Invoke-WinstRunUninstaller -Plan $uninstallPlan -Quiet:$Quiet
     $result.RestartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
     if (-not $run.Ok) {
         if (Get-EntryBool -Entry $run -Key 'Cancelled') {
@@ -48,36 +48,7 @@ function Invoke-WinstUninstallRegistryPayload {
         $RunState.Notes += '系统安装记录里仍有该软件，可能需重启电脑后才会完全移除'
     }
 
-    # 按 detect 规则复查软件文件：卸载器报成功、文件却还在（Windows Installer 状态
-    # 异常 / 卸载器没清理干净 / 需重启才完成移除）时不静默放行，把残留明说——否则下次安装会被
-    # 「已是 x.y，无需重复安装」挡回去，用户却以为已经卸干净了。
-    # detect 本身走 registry 的条目上面一步已覆盖，不重复；检测出的是同族其它版本
-    # （如运行时共存的新旧两版）时不算残留，只提示一句、不当成本次没卸掉
-    $recheckPlan = $Targets['ManifestPlan']
-    $recheckMethod = ''
-    if ($recheckPlan) {
-        $recheckMethod = (Get-EntryString -Entry (Get-EntryValue -Entry $recheckPlan -Key 'detect' -Default $null) -Key 'method').Trim().ToLowerInvariant()
-    }
-    if ($recheckPlan -and $recheckMethod -and $recheckMethod -ne 'registry') {
-        $recheck = Get-WinstDetectedVersion -Context $Context -Plan $recheckPlan -InstallDir ([string]$Targets['InstallDir'])
-        if ($recheck.Found) {
-            $recheckVersion = [string]$recheck.Version
-            $ledgerName = Get-EntryString -Entry $Ledger -Key 'name'
-            if (-not $ledgerName) { $ledgerName = $Id }
-            $uninstalledVersion = [string]$Targets['Version']
-            if ($recheckVersion -and $uninstalledVersion -and ($recheckVersion -ine $uninstalledVersion)) {
-                if (-not $Quiet) { Write-Host ('    提示: 系统里仍有 {0} 的其它版本 {1}（不属于本次卸载范围，未处理）。' -f $ledgerName, $recheckVersion) -ForegroundColor DarkGray }
-            } else {
-                $recheckWhere = [string]$recheck.Detail
-                if ($recheckWhere) { $recheckWhere = ('（{0}）' -f $recheckWhere) }
-                $residueNote = ('卸载程序已执行完成，但按检测规则仍能找到 {0} {1} 的文件{2}——可能是卸载器未清理干净，或需重启电脑完成移除' -f $ledgerName, $recheckVersion, $recheckWhere)
-                if (-not $Quiet) { Write-Host ('    警告: {0}。' -f $residueNote) -ForegroundColor Yellow }
-                $RunState.Notes += $residueNote
-            }
-        }
-    }
-
-    # 安装目录残留：列出并询问是否删除（默认保留，非交互 / --yes 时保留）
+    # 官方卸载器留下的目录默认保留，交互确认后才删除。
     $dir = [string]$Targets['InstallDir']
     if ($dir -and (Test-Path -LiteralPath $dir -PathType Container)) {
         $verified = $false
@@ -90,24 +61,22 @@ function Invoke-WinstUninstallRegistryPayload {
             $RunState.Notes += ('安装目录无法与本次系统记录安全对应，残留已保留：{0}' -f $dir)
             return @{ Abort = $false; Error = '' }
         }
-        $remain = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue)
-        if ($remain.Count -gt 0) {
-            Write-Host ''
-            Write-Host ('    安装目录里还有 {0} 项残留: {1}' -f $remain.Count, $dir) -ForegroundColor DarkYellow
-            $deleteLeftover = $false
-            if (-not $Yes -and -not (Test-WinstInputRedirected)) {
-                $deleteLeftover = Read-WinstConfirm -Prompt '    是否删除这些残留文件？(y/N，默认保留)' -Default 'n'
-            }
-            if ($deleteLeftover) {
-                Clear-WinstInstallDir -Dir $dir
-                if (Test-Path -LiteralPath $dir -PathType Container) {
-                    $RunState.Leftovers += $dir
-                    $RunState.Notes += ('残留文件未能全部删除，请手动检查: {0}' -f $dir)
-                }
-            } else {
+        Write-Host ''
+        Write-Host ('    卸载后安装目录仍存在：{0}' -f $dir) -ForegroundColor DarkYellow
+        $deleteLeftover = $false
+        if (-not $Yes -and -not (Test-WinstInputRedirected)) {
+            $deleteLeftover = Read-WinstConfirm -Prompt '    是否删除此目录及其内容？(y/N，默认保留)' -Default 'n'
+        }
+        if ($deleteLeftover) {
+            try {
+                Invoke-WinstFileStep -Name '删除残留目录' -Quiet:$Quiet -Action { Remove-WinstDirectoryTree -Path $dir }
+            } catch {
                 $RunState.Leftovers += $dir
-                $RunState.Notes += ('残留文件已保留，可自行删除: {0}' -f $dir)
+                $RunState.Notes += ('残留目录删除失败，请手动检查 {0}：{1}' -f $dir, $_.Exception.Message)
             }
+        } else {
+            $RunState.Leftovers += $dir
+            $RunState.Notes += ('残留目录已保留，可自行删除：' + $dir)
         }
     }
 

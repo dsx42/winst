@@ -51,7 +51,7 @@ function Invoke-WinstPackageDownloadLoop {
         if ($Offline) {
             # 离线时不能拿「当前运行的脚本」顶替安装包：缓存里的目标名是清单声明的文件名
             # （winst 是 winst.zip，type: portable），把 winst.ps1 的内容写进 winst.zip 会让后续
-            # 解压必然失败（7z / tar / Expand-Archive 都打不开），报错却是「包损坏」。
+            # 解压必然失败（7z / tar / .NET ZIP 都打不开），报错却是「包损坏」。
             # 离线安装 winst 自身请走 Install-WinstSelf 的本地包分支：
             #     winst install winst --from <winst.zip 或已解压目录>
             $offlineError = ('离线缺包：{0} 的安装包不在缓存里。请在联网机器上刷新缓存（bundle pack / update --download-only）后重试。' -f $DisplayName)

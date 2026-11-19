@@ -3,7 +3,7 @@
 function Clear-WinstInstallDir {
     <#
     .SYNOPSIS
-        清理安装目录：无 keep 时整目录删除，有 keep 时逐项删除并保留命中内容。
+        逐项清理目录，最后删除根目录。
     .DESCRIPTION
         AllowedRoot 要求目录位于允许根目录之下；目录及祖先路径禁止经过重解析点。
         支持长路径，嵌套链接只删除链接自身，不进入链接目标。
@@ -11,7 +11,6 @@ function Clear-WinstInstallDir {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Dir,
-        [string[]]$Keep = @(),
         [string]$AllowedRoot = '',
         [switch]$Strict
     )
@@ -35,17 +34,15 @@ function Clear-WinstInstallDir {
             throw ('拒绝清理允许根目录之外的目录：{0}' -f $Dir)
         }
 
-        $Keep = @($Keep | Where-Object { $null -ne $_ })
-        $rules = @(ConvertTo-WinstKeepRule -Keep $Keep)
         foreach ($item in @(Get-WinstChildItem -Path $dirFull)) {
-            try { $null = Remove-WinstItemWithKeep -Item $item -Base $dirFull -Rules $rules }
+            try { Remove-WinstChildTree -Item $item -Base $dirFull }
             catch {
                 if ($Strict) { throw }
                 Write-Warning ('未能清理 {0}：{1}' -f $item.FullName, $_.Exception.Message)
             }
         }
-        # 无 keep 时只做非递归删除，不跟随嵌套重解析点。
-        if (@($Keep).Count -eq 0) { Remove-WinstFileSystemItem -Path $dirFull }
+        # 直接删除已清空的根目录。
+        Remove-WinstFileSystemItem -Path $dirFull
     } catch {
         if ($Strict) { throw }
         Write-Warning ('未能清理目录 {0}：{1}' -f $Dir, $_.Exception.Message)

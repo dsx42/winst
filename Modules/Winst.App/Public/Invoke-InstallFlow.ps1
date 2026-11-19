@@ -67,7 +67,6 @@ function Invoke-InstallFlow {
         $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
         $state = $stateRead.State
 
-        $selection = @()
         if ($rows.Count -eq 1) {
             $selection = @(1)
         } else {

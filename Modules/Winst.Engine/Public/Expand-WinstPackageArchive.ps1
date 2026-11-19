@@ -3,7 +3,7 @@
 function Expand-WinstPackageArchive {
     <#
     .SYNOPSIS
-        解压压缩包到独立空暂存目录：7z.exe（7-Zip-CLI 引擎）→ 系统 tar.exe → Expand-Archive（仅 zip）。
+        解压压缩包到独立空暂存目录：7z.exe（7-Zip-CLI 引擎）→ 系统 tar.exe → .NET ZIP（仅 zip）。
     .DESCRIPTION
         目标必须是调用方拥有的独立空目录。工具失败后清理本次残留，再尝试下一工具；
         全部失败时返回各工具错误，成功后由调用方负责交付内容并清理暂存目录。指定 SevenZipPath 时只用该程序。
@@ -19,6 +19,7 @@ function Expand-WinstPackageArchive {
 
     $result = @{ Ok = $false; Tool = ''; Error = ''; ValidationFailed = $false }
     if (-not (Test-WinstFileSystemPath -Path $ArchivePath -PathType Leaf)) {
+        $result.ValidationFailed = $true
         $result.Error = ('找不到压缩包：{0}' -f $ArchivePath)
         return $result
     }

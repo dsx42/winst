@@ -27,7 +27,7 @@ function Confirm-WinstUninstallRunning {
         if ($dirText) { $checkDirs += $dirText }
     }
     $nonInteractive = [bool]($Yes -or (Test-WinstInputRedirected))
-    $runningCheck = Confirm-WinstAppNotRunning -Context $Context -Plan $checkPlan `
+    $runningCheck = Confirm-WinstAppNotRunning -Plan $checkPlan `
         -InstallDir ([string]$Targets['InstallDir']) -ExtraDirs $checkDirs `
         -Action '卸载' -Kill:$Kill -NonInteractive:$nonInteractive -Quiet:$Quiet
     if (-not $runningCheck.Ok) {

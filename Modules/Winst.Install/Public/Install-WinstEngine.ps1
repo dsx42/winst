@@ -78,14 +78,7 @@ function Install-WinstEngine {
         $result.Error = [string]$layout.Error
         return $result
     }
-    if ($mainExe) {
-        $exePath = Join-WinstPath $installDir $mainExe
-        if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
-            $result.Error = ('安装完成后没有找到 {0}（{1}），请检查软件源里的主程序设置' -f $mainExe, $exePath)
-            return $result
-        }
-        $result.Exe = $exePath
-    }
+    if ($mainExe) { $result.Exe = Join-WinstPath $installDir $mainExe }
 
     # ④ 台账只登记引擎专用目录
     Register-WinstEngineLedger -Context $Context -Plan $plan -PlanId $planId -InstallDir $installDir `

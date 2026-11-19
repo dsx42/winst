@@ -9,7 +9,7 @@ function Update-WinstLedgerFromScan {
         版本号一致时也要写，否则升级后新出现的旧版本不会被记下来、界面也就不会提醒清理。
         它只在「本机真有多个版本」时有内容，平时是空数组，写回不产生可见变化。
     #>
-    param([hashtable]$Context, $State, $Found, $Plan, [string]$Now, [hashtable]$Counters, [switch]$Quiet)
+    param($State, $Found, $Plan, [string]$Now, [hashtable]$Counters, [switch]$Quiet)
 
     foreach ($id in @($Found.Keys)) {
         $info = $Found[$id]
@@ -121,6 +121,6 @@ function Update-WinstLedgerFromScan {
 
         if (Merge-WinstLedgerIdCase -State $State -Id $id -Info $info -Counters $Counters) { continue }
 
-        Add-WinstLedgerEntryFromScan -Context $Context -State $State -Id $id -Info $info -Plan $Plan -Now $Now -Counters $Counters
+        Add-WinstLedgerEntryFromScan -State $State -Id $id -Info $info -Plan $Plan -Now $Now -Counters $Counters
     }
 }

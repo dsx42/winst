@@ -42,28 +42,26 @@ function Install-WinstPortablePayload {
         return $delivery
     }
 
-    $stage = ''
-    $tempPath = [IO.Path]::GetTempPath()
     try {
-        $target = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\', '/')
-        if (-not (Test-WinstPathUnderRoot -Path $target -Root $Context.InstallRoot)) {
-            throw '绿色软件安装目录必须位于安装根目录之下'
-        }
+        Invoke-WinstFileStep -Name '文件阶段' -Action {
+            $target = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\', '/')
+            if (-not (Test-WinstPathUnderRoot -Path $target -Root $Context.InstallRoot)) {
+                throw '绿色软件安装目录必须位于安装根目录之下'
+            }
 
-        $stripTopDir = Get-EntryValue -Entry $Install -Key 'stripTopDir' -Default $true
-        $extractFiles = @(Get-EntryArray -Entry $Install -Key 'extractFiles')
-        $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target `
-            -StripTopDir $stripTopDir -ExtractFiles $extractFiles -Deliver -Clean:$clean -Keep $keepList
-        if (-not $layout.Ok) {
-            return @{ Ok = $false; Error = ('解压 {0} 失败：{1}' -f (Split-Path -Leaf $PrimaryPath), $layout.Error) }
+            $stripTopDir = Get-EntryValue -Entry $Install -Key 'stripTopDir' -Default $true
+            $extractFiles = @(Get-EntryArray -Entry $Install -Key 'extractFiles')
+            $layout = Expand-WinstArchiveLayout -Context $Context -ArchivePath $PrimaryPath -DestDir $target `
+                -StripTopDir $stripTopDir -ExtractFiles $extractFiles
+            if (-not $layout.Ok) { throw $layout.Error }
+
+            $delivery = Move-WinstStagedInstall -StageDir $layout.TempRoot -SourceDir $layout.SourceDir `
+                -InstallDir $target -Clean:$clean -Keep $keepList -Id $id
+            $delivery = Complete-WinstFileStage -StageDir $layout.TempRoot -Delivery $delivery
+            if (-not $delivery.Ok) { throw $delivery.Error }
         }
-        $stage = [string]$layout.TempRoot
         return @{ Ok = $true; Error = ''; PostInstallCopyApplied = $false }
     } catch {
-        return @{ Ok = $false; Error = ('准备安装目录失败：' + $_.Exception.Message) }
-    } finally {
-        if ($stage) {
-            Clear-WinstInstallDir -Dir $stage -AllowedRoot $tempPath
-        }
+        return @{ Ok = $false; Error = $_.Exception.Message }
     }
 }

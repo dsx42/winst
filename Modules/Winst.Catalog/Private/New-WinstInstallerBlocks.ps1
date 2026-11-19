@@ -78,7 +78,6 @@ function New-WinstInstallerBlocks {
         if ($key -eq 'stripTopDir' -and $installerExeRel) { continue }
         $value = Get-EntryValue -Entry $Entry -Key $key -Default $null
         if ($null -eq $value) { continue }
-        $isEmpty = $false
         if ($value -is [bool]) { $isEmpty = $false }
         elseif ($value -is [string]) { $isEmpty = -not ([string]$value).Trim() }
         else { $isEmpty = (@($value).Count -eq 0) }

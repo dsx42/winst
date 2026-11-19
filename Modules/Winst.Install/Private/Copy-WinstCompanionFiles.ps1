@@ -78,17 +78,20 @@ function Copy-WinstCompanionFiles {
                 return $result
             }
             # 完整解压后直接把选中的内容合并到 dest，临时解压树由本次调用清理。
-            $expand = Expand-WinstArchiveLayout -Context $Context -ArchivePath $source -DestDir $destPath -StripTopDir $stripValue -Deliver
+            $expand = Expand-WinstArchiveLayout -Context $Context -ArchivePath $source -DestDir $destPath -StripTopDir $stripValue
             if (-not $expand.Ok) {
                 $result.Ok = $false
                 $result.Error = ('附加文件解压失败（{0}）：{1}' -f $dest, $expand.Error)
                 return $result
             }
-            try {
-                $result.UpdatedNames += $name
-            } finally {
-                if ($expand.TempRoot) { Clear-WinstInstallDir -Dir $expand.TempRoot }
+            $delivery = Move-WinstStagedInstall -StageDir $expand.TempRoot -SourceDir $expand.SourceDir -InstallDir $destPath
+            $delivery = Complete-WinstFileStage -StageDir $expand.TempRoot -Delivery $delivery
+            if (-not $delivery.Ok) {
+                $result.Ok = $false
+                $result.Error = ('附加文件落位失败（{0}）：{1}' -f $dest, $delivery.Error)
+                return $result
             }
+            $result.UpdatedNames += $name
             continue
         }
         $target = $destPath

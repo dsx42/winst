@@ -15,7 +15,6 @@ function Get-WinstRunningAppProcess {
         @( @{ Id; Name; Path; StartedAt; Certain } )
     #>
     param(
-        [hashtable]$Context,
         $Plan,
         [string]$InstallDir = '',
         [string[]]$ExtraDirs = @(),

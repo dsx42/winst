@@ -3,10 +3,10 @@
 function Invoke-WinstUninstallPortablePayload {
     <#
     .SYNOPSIS
-        portable / file（含 winst 自身）：整目录删除安装目录，并检查残留。
+        portable / file（含 winst 自身）：批量删除安装目录。
     .DESCRIPTION
         两处都没有卸载定义时，回退到「安装记录里的目录」→「软件安装位置\id」。
-        删除失败、路径被拒绝或仍有残留时中止卸载，保留安装记录与系统项，解决原因后可以重试。
+        删除失败或路径被拒绝时中止卸载，保留安装记录与系统项，解决原因后可以重试。
     .OUTPUTS
         @{ Abort; Error }
     #>
@@ -14,8 +14,7 @@ function Invoke-WinstUninstallPortablePayload {
 
     $dir = [string]$Targets['InstallDir']
     if (-not $dir) {
-        $candidate = Join-WinstPath $Context.InstallRoot $Id
-        if (Test-Path -LiteralPath $candidate -PathType Container) { $dir = $candidate }
+        $dir = Join-WinstPath $Context.InstallRoot $Id
     }
 
     # winst 安装的 portable / file 条目一律落在 <installRoot>\<id>（见 Initialize-WinstInstallContext）。
@@ -29,18 +28,14 @@ function Invoke-WinstUninstallPortablePayload {
         return @{ Abort = $true; Error = ('安装记录里的目录不在安装位置之下，已拒绝删除并保留安装记录：{0}' -f $dir) }
     }
 
-    if ($dir -and (Test-Path -LiteralPath $dir -PathType Container)) {
-        if (-not $Quiet) { Write-Host ('    正在删除 {0} …' -f $dir) -ForegroundColor Gray }
-        try {
-            Clear-WinstInstallDir -Dir $dir
-        } catch {
-            return @{ Abort = $true; Error = ('删除安装目录失败，已保留安装记录：{0}' -f $_.Exception.Message) }
+    try {
+        if (Test-WinstFileSystemPath -Path $dir) {
+            Invoke-WinstFileStep -Name '删除安装目录' -Quiet:$Quiet -Action { Remove-WinstDirectoryTree -Path $dir }
+            return @{ Abort = $false; Error = '' }
         }
-        if (Test-Path -LiteralPath $dir -PathType Container) {
-            $RunState.Leftovers += $dir
-            return @{ Abort = $true; Error = ('安装目录未删除，已保留安装记录与系统项；请关闭占用程序或检查权限后重试：{0}' -f $dir) }
-        }
-        return @{ Abort = $false; Error = '' }
+    } catch {
+        $RunState.Leftovers += $dir
+        return @{ Abort = $true; Error = ('删除安装目录失败，已保留安装记录与系统项：{0}' -f $_.Exception.Message) }
     }
     # 安装目录已不存在：只移除安装记录与登记的系统项，不提示 winst 自身
     if (-not [bool]$Targets['IsSelf']) {

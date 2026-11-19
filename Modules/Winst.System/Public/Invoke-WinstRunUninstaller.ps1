@@ -5,7 +5,7 @@ function Invoke-WinstRunUninstaller {
     .SYNOPSIS
         按名称规则卸载全部匹配记录；每次执行前通过单键入口实时回读。
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Context, [Parameter(Mandatory = $true)]$Plan, [switch]$Quiet)
+    param([Parameter(Mandatory = $true)]$Plan, [switch]$Quiet)
 
     $result = @{ Ok=$false; Missing=$false; Cancelled=$false; NeedRestart=$false; RestartInitiated=$false; Error=''; Command=''; ExitCode=0 }
     $status = @{}

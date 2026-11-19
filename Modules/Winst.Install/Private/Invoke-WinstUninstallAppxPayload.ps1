@@ -7,7 +7,7 @@ function Invoke-WinstUninstallAppxPayload {
     .OUTPUTS
         @{ Abort; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
+    param([string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
 
     $remove = Remove-WinstAppxPackage -NameRule $Targets['NameRule'] -Quiet:$Quiet
     if ($remove.Ok) {

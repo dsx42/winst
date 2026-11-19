@@ -7,7 +7,7 @@ function Invoke-WinstRemovePayload {
     .OUTPUTS
         @{ Abort; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Targets, $Ledger, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
+    param([hashtable]$Context, [string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
 
     switch ([string]$Targets['Method']) {
         'record-only' {
@@ -15,14 +15,13 @@ function Invoke-WinstRemovePayload {
             return @{ Abort = $false; Error = '' }
         }
         'registry' {
-            return (Invoke-WinstUninstallRegistryPayload -Context $Context -Id $Id -Targets $Targets -Ledger $Ledger -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
+            return (Invoke-WinstUninstallRegistryPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
         }
         'appx' {
-            return (Invoke-WinstUninstallAppxPayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
+            return (Invoke-WinstUninstallAppxPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
         }
         'clean-cache' {
-            Invoke-WinstUninstallCachePayload -Context $Context -Id $Id -Quiet:$Quiet
-            return @{ Abort = $false; Error = '' }
+            return (Invoke-WinstUninstallCachePayload -Context $Context -Id $Id -Quiet:$Quiet)
         }
         default {
             return (Invoke-WinstUninstallPortablePayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState -Quiet:$Quiet)

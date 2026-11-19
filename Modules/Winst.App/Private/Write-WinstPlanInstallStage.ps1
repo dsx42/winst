@@ -15,7 +15,7 @@ function Write-WinstPlanInstallStage {
     $mainProgram = ''
     switch (Get-EntryString -Entry $install -Key 'method') {
         'portable' {
-            $installLines += ('解压到: {0}' -f $installDir)
+            $installLines += ('安装目录: {0}' -f $installDir)
             $extractList = @(Get-EntryArray -Entry $install -Key 'extractFiles')
             if ($extractList.Count -gt 0) {
                 # extractFiles 优先于 stripTopDir：只把包内这几个路径落地（引擎包只取 7z.exe + 7z.dll）
@@ -24,12 +24,14 @@ function Write-WinstPlanInstallStage {
                 $installLines += ('解压方式: ' + (Get-WinstStripTopDirText -Install $install))
             }
 
-            $modeText = '先删掉旧目录再解压'
-            if ((Get-EntryString -Entry $install -Key 'portableMode') -eq 'overwrite') { $modeText = '直接覆盖旧文件' }
             $keepCount = @(Get-EntryArray -Entry $install -Key 'keep').Count
-            $modeLine = ('重新安装时: ' + $modeText)
-            if ($keepCount -gt 0) { $modeLine += ('，保留 {0} 项内容' -f $keepCount) }
-            $installLines += $modeLine
+            if ((Get-EntryString -Entry $install -Key 'portableMode') -eq 'overwrite') {
+                $installLines += '重新安装时: 解压后合并到旧目录，同名文件由新版覆盖'
+            } elseif ($keepCount -gt 0) {
+                $installLines += ('重新安装时: 解压后按 {0} 条规则保留旧内容，旧文件优先，再清理旧内容并复制新版文件' -f $keepCount)
+            } else {
+                $installLines += '重新安装时: 解压完成后清理旧内容并复制新版文件'
+            }
 
             $mainProgram = Get-EntryString -Entry $install -Key 'mainExe'
         }
@@ -51,7 +53,6 @@ function Write-WinstPlanInstallStage {
             }
             $argumentExpansion = Expand-WinstInstallerArguments -Template (Get-EntryString -Entry $install -Key 'installArgs') `
                 -InstallDir $installDir -InstallRoot $View.InstallRoot
-            $installArgs = ''
             if ($argumentExpansion.Ok) { $installArgs = [string]$argumentExpansion.Value }
             else { $installArgs = Get-EntryString -Entry $install -Key 'installArgs' }
             if ($installArgs) { $installLines += ('安装参数: {0}' -f $installArgs) }

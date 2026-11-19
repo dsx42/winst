@@ -70,7 +70,7 @@ function Invoke-Repair {
 
     # —— ⑤ 合并台账 ——
     $counters = @{ Added = 0; Filled = 0; Updated = 0; Kept = 0; DirOnlyAdded = 0; Changed = $false }
-    Update-WinstLedgerFromScan -Context $Context -State $state -Found $found -Plan $planLookup `
+    Update-WinstLedgerFromScan -State $state -Found $found -Plan $planLookup `
         -Now ((Get-Date).ToString('s')) -Counters $counters -Quiet:$Quiet
 
     # —— ⑥ 目录缺失的台账条目（只报告） ——

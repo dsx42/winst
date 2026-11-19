@@ -50,7 +50,6 @@ function ConvertTo-WinstInstalledEntry {
     }
 
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'appliedEnv')) {
-        $name = ''
         $scope = 'User'
         if ($item -is [string]) {
             $name = [string]$item
@@ -73,7 +72,6 @@ function ConvertTo-WinstInstalledEntry {
     }
 
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'appliedPath')) {
-        $path = ''
         $scope = 'User'
         if ($item -is [string]) {
             $path = [string]$item

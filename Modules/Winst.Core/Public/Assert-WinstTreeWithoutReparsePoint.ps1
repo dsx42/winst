@@ -3,18 +3,13 @@
 function Assert-WinstTreeWithoutReparsePoint {
     <#
     .SYNOPSIS
-        校验路径链及整棵目录树；逐层枚举，发现重解析点即停止，绝不跟随其目标。
+        复制前筛查路径链和树内重解析点，防止递归复制进入链接目标。
     #>
-    param([Parameter(Mandatory = $true)][string]$Path, [switch]$RequireFile)
+    param([Parameter(Mandatory = $true)][string]$Path)
 
     Assert-WinstSafeWritePath -Path $Path
     $root = Get-WinstFileSystemItem -Path $Path
-    if (($root.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw ('目录树含有重解析点，已拒绝处理：{0}' -f $Path)
-    }
-    if ($root.PSIsContainer) {
-        $hasFile = $false
-        Get-WinstChildItem -Path $Path -Recurse -File | ForEach-Object { $hasFile = $true }
-        if ($RequireFile -and -not $hasFile) { throw ('目录中没有可交付的文件：{0}' -f $Path) }
-    }
+    if (-not $root.PSIsContainer) { return }
+    $link = Get-ChildItem -LiteralPath $root.ExtendedPath -Recurse -Force -Attributes ReparsePoint -ErrorAction Stop | Select-Object -First 1
+    if ($link) { throw ('目录树含有重解析点，已拒绝处理：' + $link.FullName) }
 }

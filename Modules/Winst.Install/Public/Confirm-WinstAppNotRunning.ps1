@@ -16,7 +16,6 @@ function Confirm-WinstAppNotRunning {
         @{ Ok; Cancelled; Error; Killed; Running }
     #>
     param(
-        [hashtable]$Context,
         $Plan,
         [string]$InstallDir = '',
         [string[]]$ExtraDirs = @(),
@@ -40,7 +39,7 @@ function Confirm-WinstAppNotRunning {
     while ($true) {
         $attempt++
         # 每次都强制实时枚举：3 秒快照会让刚刚关闭的进程继续出现在列表里
-        $running = @(Get-WinstRunningAppProcess -Context $Context -Plan $Plan -InstallDir $InstallDir `
+        $running = @(Get-WinstRunningAppProcess -Plan $Plan -InstallDir $InstallDir `
             -ExtraDirs $ExtraDirs -Refresh)
         if ($running.Count -eq 0) { return $result }
         $result.Running = $running
@@ -143,7 +142,7 @@ function Confirm-WinstAppNotRunning {
         }
         # 最后一次尝试之后先重新检测：结束可能刚刚生效，不能拿旧的判断直接中止
         if ($attempt -ge 5) {
-            $left = @(Get-WinstRunningAppProcess -Context $Context -Plan $Plan -InstallDir $InstallDir `
+            $left = @(Get-WinstRunningAppProcess -Plan $Plan -InstallDir $InstallDir `
                 -ExtraDirs $ExtraDirs -Refresh)
             if ($left.Count -eq 0) { return $result }
             $result.Ok = $false

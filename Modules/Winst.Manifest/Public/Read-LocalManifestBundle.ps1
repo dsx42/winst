@@ -12,7 +12,6 @@ function Read-LocalManifestBundle {
         @{ Entries; Version; FetchedAt; Error; Notes }
     #>
     param(
-        [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Source
     )
 

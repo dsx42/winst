@@ -79,14 +79,6 @@ namespace Winst
             }
         }
 
-        public static void Clear()
-        {
-            lock (Gate)
-            {
-                Values.Clear();
-            }
-        }
-
         public static async System.Threading.Tasks.Task<string> CaptureAsync(
             System.IO.StreamReader reader, int limit, bool tail)
         {
