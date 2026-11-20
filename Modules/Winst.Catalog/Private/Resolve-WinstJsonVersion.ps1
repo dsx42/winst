@@ -3,14 +3,13 @@
 function Resolve-WinstJsonVersion {
     <#
     .SYNOPSIS
-        ④ 版本：versionKey 优先，否则组合 versionBetween / versionKind；没有识别规则时采用条目 version。
+        优先读取 versionKey，否则从下载地址提取版本。未声明规则时返回空串。
     .OUTPUTS
         [string]
     #>
-    param($Source, $Entry, $Chosen, [string]$ApiUrl, [string]$DownloadUrl, $Result)
+    param($Source, $Chosen, [string]$ApiUrl, [string]$DownloadUrl, $Result)
 
     $versionKey = (Get-EntryString -Entry $Source -Key 'versionKey').Trim()
-    $version = ''
     if ($versionKey) {
         $found = Get-JsonNodeValue -Node $Chosen -Key $versionKey
         if (-not $found.Ok -or -not $found.Text) {
@@ -18,17 +17,9 @@ function Resolve-WinstJsonVersion {
                 $ApiUrl, $versionKey, (Get-JsonFieldNameText -Node $Chosen))
             return ''
         }
-        $version = Get-NormalizedVersionString -Value $found.Text
-    } else {
-        $found = Get-VersionFromSourceText -Source $Source -Text $DownloadUrl -Where '下载地址'
-        if ($found.Missing) {
-            $version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
-        } elseif (-not $found.Ok) {
-            $Result.Error = [string]$found.Error
-            return ''
-        } else {
-            $version = [string]$found.Version
-        }
+        return (Get-NormalizedVersionString -Value $found.Text)
     }
-    return $version
+    $found = Get-VersionFromSourceText -Source $Source -Text $DownloadUrl -Where '下载地址'
+    if (-not $found.Missing -and -not $found.Ok) { $Result.Error = [string]$found.Error }
+    return [string]$found.Version
 }

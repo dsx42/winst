@@ -54,7 +54,7 @@ function Copy-WinstBundleSupportFiles {
                 Clear-WinstInstallDir -Dir $targetModules -AllowedRoot $TargetDir
                 if (Test-Path -LiteralPath $targetModules) { throw ('无法安全替换套件 Modules 目录：{0}' -f $targetModules) }
             }
-            Copy-WinstBundleItem -Source $modulesDir -Destination $targetModules -SourceChecked
+            Copy-Item -LiteralPath (ConvertTo-WinstExtendedPath -Path $modulesDir) -Destination (ConvertTo-WinstExtendedPath -Path $targetModules) -Recurse -Force -ErrorAction Stop
 
             $scriptManifest = Join-WinstPath $scriptDir 'manifest.json'
             if (Test-Path -LiteralPath $scriptManifest -PathType Leaf) {

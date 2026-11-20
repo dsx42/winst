@@ -10,7 +10,6 @@ function Get-WinstInstallScope {
     #>
     param([string]$InstallDir)
 
-    $profileDir = ''
     try { $profileDir = [Environment]::GetFolderPath('UserProfile') } catch { $profileDir = '' }
     if (-not $profileDir -and $env:USERPROFILE) { $profileDir = $env:USERPROFILE }
     if (-not $InstallDir -or -not $profileDir) { return 'User' }

@@ -20,24 +20,23 @@ function Get-LocalManifestFiles {
     $cache = Get-WinstState -Name WinstLocalManifestFilesCache
     if ($cache -and $cache.PkgDir -ieq $PkgDir) { return $cache.Files }
 
-    $files = New-Object 'System.Collections.Generic.List[string]'
-    $directories = @()
-    $scriptDir = Get-WinstState -Name WinstScriptDir
-    if ($scriptDir) {
-        $main = Join-WinstPath $scriptDir 'manifest.json'
-        if (Test-Path -LiteralPath $main -PathType Leaf) { $files.Add($main) }
-        $directories += Join-WinstPath $scriptDir 'manifests'
-    }
-    $directories += Get-ManifestRootDir -PkgDir $PkgDir
-    foreach ($dir in (Get-DistinctValues -Values $directories)) {
-        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
-        foreach ($item in @(Get-ChildItem -LiteralPath $dir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
-            if ($item.Name -like '*.meta.json' -or $item.Name -ieq (Get-WinstManifestSourcesFileName)) { continue }
-            $files.Add($item.FullName)
+    [string[]]$finalFiles = @(
+        $directories = @()
+        $scriptDir = Get-WinstState -Name WinstScriptDir
+        if ($scriptDir) {
+            $main = Join-WinstPath $scriptDir 'manifest.json'
+            if (Test-Path -LiteralPath $main -PathType Leaf) { $main }
+            $directories += Join-WinstPath $scriptDir 'manifests'
         }
-    }
-
-    $finalFiles = $files.ToArray()
+        $directories += Get-ManifestRootDir -PkgDir $PkgDir
+        foreach ($dir in (Get-DistinctValues -Values $directories)) {
+            if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+            foreach ($item in @(Get-ChildItem -LiteralPath $dir -Filter '*.json' -File -ErrorAction SilentlyContinue | Sort-Object -Property Name)) {
+                if ($item.Name -like '*.meta.json' -or $item.Name -ieq (Get-WinstManifestSourcesFileName)) { continue }
+                $item.FullName
+            }
+        }
+    )
     $null = Set-WinstState -Name WinstLocalManifestFilesCache -Value (@{ PkgDir = $PkgDir; Files = $finalFiles })
     return $finalFiles
 }

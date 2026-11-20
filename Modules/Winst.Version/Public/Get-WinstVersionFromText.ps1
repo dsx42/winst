@@ -16,7 +16,6 @@ function Get-WinstVersionFromText {
     #>
     param([string]$Text, [string]$Kind, $Between)
 
-    if ($null -eq $Text) { return '' }
     $value = [string]$Text
     # 先按标记截取、再按识别器提取（两者都声明时可组合；只声明其一时与旧行为一致，见 Get-VersionFromSourceText）
     if ($Between -and @($Between).Count -gt 0) {

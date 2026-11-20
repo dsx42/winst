@@ -9,8 +9,7 @@ function New-MatchRule {
     #>
     param([string]$Rule, [string]$Kind = '')
 
-    $text = ''
-    if ($null -ne $Rule) { $text = [string]$Rule }
+    $text = $Rule
 
     $result = @{ Ok = $false; IsRegex = $false; Pattern = ''; Source = $text; Error = ''; Kind = $Kind }
     if (-not $text.Trim()) { $result.Error = '匹配规则为空'; return $result }

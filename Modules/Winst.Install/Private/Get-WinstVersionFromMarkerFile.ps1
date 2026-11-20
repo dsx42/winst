@@ -22,7 +22,6 @@ function Get-WinstVersionFromMarkerFile {
     $Result.Found = $true
 
     foreach ($file in @($probe.Files)) {
-        $text = ''
         try { $text = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue } catch { $text = '' }
         # 标记文件内容常常就是版本号本身 → 无条件兜底（-Fallback always）
         $one = @{ Ok = $false; Found = $true; Version = ''; Detail = '' }

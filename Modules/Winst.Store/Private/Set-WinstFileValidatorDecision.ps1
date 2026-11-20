@@ -38,7 +38,7 @@ function Set-WinstFileValidatorDecision {
             return
         }
 
-        # 校验器拿不到：不否定缓存（见 12）。check 按重取处理，其余退到 TTL 兜底。
+        # 校验器不可用且校验码尚未确认时，check 重新下载，其余模式按缓存有效期判断。
         # 命中（不下载）时 Reason 不会被打印，因此另给一行 Hint 让调用方一定提示用户
         # ——静默退化会让人误以为「已经确认过没变化」
         if ($Refresh.Mode -ne 'check' -and $HasLastChecked -and $AgeHours -lt $Refresh.MaxAgeHours) {

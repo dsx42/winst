@@ -135,6 +135,5 @@ function Invoke-WinstPack {
     }
     $result.Copied = $copied
     $result.Skipped = $skipped
-    $result.Missing = $missingCount
     return $result
 }

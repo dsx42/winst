@@ -5,18 +5,17 @@ function Invoke-WinstEngineDownload {
     .SYNOPSIS
         ① 引擎自动引导下载（直接 HTTP）：逐文件下载 + 校验 + 写缓存索引 + 清理旧包。
     .OUTPUTS
-        @{ Ok; Error; PrimaryPath; Files }
+        @{ Ok; Error; PrimaryPath }
     #>
     param([hashtable]$Context, [string]$Id, $Plan, [string]$PlanId, [switch]$Quiet)
 
     $download = Get-EntryValue -Entry $Plan -Key 'download' -Default $null
     $files = @(Get-EntryArray -Entry $download -Key 'files')
     if ($files.Count -eq 0) {
-        return @{ Ok = $false; Error = ('{0} 的软件定义里没有可下载的文件' -f $Id); PrimaryPath = ''; Files = @() }
+        return @{ Ok = $false; Error = ('{0} 的软件定义里没有可下载的文件' -f $Id); PrimaryPath = '' }
     }
 
     $primaryPath = ''
-    $indexNames = @()
     $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($PlanId)
     $index = $indexRead.Index
     $previousEntry = $null
@@ -30,7 +29,7 @@ function Invoke-WinstEngineDownload {
         $name = [string]$filePlan['Name']
         $target = [string]$filePlan['Target']
         if (-not $name -or -not $target) {
-            return @{ Ok = $false; Error = ('{0} 的下载地址里无法确定文件名：{1}' -f $Id, $url); PrimaryPath = $primaryPath; Files = $indexNames }
+            return @{ Ok = $false; Error = ('{0} 的下载地址里无法确定文件名：{1}' -f $Id, $url); PrimaryPath = $primaryPath }
         }
         if ($filePlan['Notice'] -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
             Write-Host ('  [verbose] {0}' -f [string]$filePlan['Notice']) -ForegroundColor DarkGray
@@ -41,7 +40,7 @@ function Invoke-WinstEngineDownload {
 
         Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan
         if ($filePlan['ValidationError']) {
-            return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); PrimaryPath = $primaryPath; Files = $indexNames }
+            return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); PrimaryPath = $primaryPath }
         }
         if ($filePlan['NeedDownload']) {
             if ($filePlan['Reason'] -and -not $Quiet) {
@@ -50,19 +49,18 @@ function Invoke-WinstEngineDownload {
             if (-not $Quiet) { Write-Host ('    下载 {0} …' -f $name) -ForegroundColor Gray }
             $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $target
             if (-not $dl.Ok) {
-                return @{ Ok = $false; Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error); PrimaryPath = $primaryPath; Files = $indexNames }
+                return @{ Ok = $false; Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error); PrimaryPath = $primaryPath }
             }
             $check = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl'] `
                 -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
             if (-not $check.Ok) {
                 Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
-                return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); PrimaryPath = $primaryPath; Files = $indexNames }
+                return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); PrimaryPath = $primaryPath }
             }
             Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
             $downloadedNames += $name
         }
 
-        $indexNames += $name
         if (-not $primaryPath) { $primaryPath = $target }
     }
 
@@ -70,5 +68,5 @@ function Invoke-WinstEngineDownload {
         -Version (Get-EntryString -Entry $Plan -Key 'version') -DownloadedNames $downloadedNames
     Remove-WinstObsoletePackages -Context $Context -Id $PlanId -Plans $plans -DownloadedAny ($downloadedNames.Count -gt 0)
 
-    return @{ Ok = $true; Error = ''; PrimaryPath = $primaryPath; Files = $indexNames }
+    return @{ Ok = $true; Error = ''; PrimaryPath = $primaryPath }
 }

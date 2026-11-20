@@ -7,8 +7,7 @@ function ConvertTo-ShortcutName {
     #>
     param([string]$Name)
 
-    $text = ''
-    if ($null -ne $Name) { $text = ([string]$Name).Trim() }
+    $text = $Name.Trim()
     if (-not $text) { return '' }
     foreach ($ch in [IO.Path]::GetInvalidFileNameChars()) { $text = $text.Replace($ch, '_') }
     $text = $text.TrimEnd(' ', '.')

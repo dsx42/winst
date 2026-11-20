@@ -47,8 +47,7 @@ function Confirm-WinstSelf {
     $launcherPath = Join-WinstPath $installDir 'winst.cmd'
     $scriptPath = Join-WinstPath $installDir 'winst.ps1'
 
-    # 启动器或脚本任一匹配，即认为当前进程跑的是已安装副本；
-    # 用户可能直接启动其中任何一个。
+    # 正常入口记录脚本路径。显式指定入口路径的调用方也可指向已安装的启动器。
     $runningInstalledCopy = $false
     $currentScript = [string](Get-WinstState -Name WinstScriptPath)
 
@@ -63,9 +62,6 @@ function Confirm-WinstSelf {
                 # 路径无法解析：保持 $runningInstalledCopy 原值。
             }
         }
-
-        # 启动器是 .cmd，它会再启 winst.ps1；因此 $PSCommandPath 指向的是
-        # 已安装的 winst.ps1，上面的循环已经覆盖这种情况。
     }
 
     if (-not $runningInstalledCopy -and -not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {

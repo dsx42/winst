@@ -19,7 +19,6 @@ function Get-WinstManifestAppPlan {
     )
 
     $result = @{ Ok = $false; Source = ''; Plan = $null; Error = ''; Matches = @() }
-    if (-not $Id) { $result.Error = '缺少软件 id'; return $result }
 
     $found = @(Get-ResolvedAppsById -Context $Context -Id $Id)
     if ($RequiredSource) { $found = @($found | Where-Object { [string]$_['Source'] -ceq $RequiredSource }) }

@@ -7,6 +7,5 @@ function Test-UrlText {
     #>
     param([string]$Text)
 
-    if ($null -eq $Text) { return $false }
     return (([string]$Text).Trim() -match '^[A-Za-z][A-Za-z0-9+.\-]*://')
 }

@@ -14,7 +14,6 @@ function Test-WinstUncReachable {
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
-    if (-not $Path) { return $false }
     if (-not $Path.StartsWith('\\')) { return $false }
 
     try {

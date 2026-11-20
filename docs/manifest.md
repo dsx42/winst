@@ -142,7 +142,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 - **纯 JSON**：清单文件与本文 JSON 示例均不写注释
 - **编码**：UTF-8（带不带 BOM 均可）；其它编码会导致解析失败并明确报错
-- winst 自己写出的文件（清单缓存、`bundle pack` 复制的清单、`.list`）一律 UTF-8 无 BOM
+- winst 生成或改写的清单缓存和 `.list` 使用 UTF-8 无 BOM。`bundle pack` 原样复制本地清单和选定的 `.list`，保留源文件编码及 BOM 状态
 - `_manifestVersion` 只用于人看与排错，winst 不按它做兼容分支；改内置清单时要一起更新
 
 ## 写法与校验约定
@@ -198,7 +198,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `stripTopDir` | `true` | `portable` 的主包解压规则，或 `installer` 声明 `installerExe` 时的外层包解压规则。`true` 剥掉唯一顶层目录，`false` 保留原布局。字符串选取包内相对路径。目录取内容，文件按解析后的扩展名决定是否再解一层（见下表），其余文件取自身。路径不存在即报错 |
 | `extractFiles` | `[]` | 仅 `portable`。有有效条目时优先于 `stripTopDir`。选中单目录直接取其内容，单文件或多个路径集中到 `.winst-layout`。指定路径不存在时报错 |
 | `portableMode` | `clean` | 仅 `portable`。省略或空字符串按 `clean`，其它值必须是 `clean` 或 `overwrite`，写错报「不支持的 portableMode」。两种模式都在 Temp 的 `.winst-stage` 解压并选择交付目录，允许空目录。交付源和目标按普通目录树处理，省略逐项属性检查，按复制命令结果判定成功。`clean` 在整理 `keep` 前检查进程工作目录和 PowerShell 当前文件系统位置。任一位于安装目标的子目录即报错。命中的 `keep` 先复制到暂存。任一工作目录等于目标时清空根目录并复制新内容，均在目标之外时整删旧目录并整树复制。`overwrite` 合并覆盖，保留仅在旧目录中存在的文件。删旧失败即停止，删旧或复制失败可能留下不完整安装目录 |
-| `keep` | `[]` | 仅 `portable` 的 `clean` 模式使用。相对安装目录匹配，`*` 匹配单层，`**` 跨层，`?` 匹配单个字符，无分隔符时按任意层的文件名或目录名匹配。命中目录后直接复制整棵子树，命中文件按相对路径保留，旧文件覆盖新版同名文件。`overwrite` 忽略此字段 |
+| `keep` | `[]` | 字符串数组，仅 `portable` 的 `clean` 模式使用。每条规则是相对于旧安装根目录的路径或通配模式，每个路径段最长 255 个 UTF-16 代码单元。带根路径（包括单独的 `/` 或 `\`）、含上级目录段（`..`）或路径段超长的规则均报错。`settings.ini`、`data/` 和 `*.ini` 只匹配根目录直属项；`config/settings.ini` 指定子目录中的文件。`*` 和 `?` 分别匹配单层内的任意多个字符和单个字符，`**` 可以跨目录，例如 `**/settings.ini` 匹配各级子目录中的同名项。路径不存在或通配无命中时跳过。命中文件按相对路径保留，命中目录整树复制，旧文件覆盖新版同名文件。`overwrite` 忽略此字段 |
 | `mainExe` | 空 | 仅 `portable`：主程序相对路径（快捷方式目标、进程检测、`cliVersion` 入口）；`file` 的主程序自动取主包落位文件 |
 | `addToPath` | `[]` | `portable` / `file` 加入 PATH 的路径；布尔 `true` 或字符串 `"true"` 表示安装目录本身；字符串 `"false"` / `"0"` / `"no"` / `"off"` 会被忽略 |
 | `env` | `{}` | `portable` / `file` 的环境变量；必须为对象，值必须为字符串；`{installDir}` 展开为实际安装目录，`%VAR%` 原样写入；作用域按安装目录自动判定（`%USERPROFILE%` 下 → User，否则 Machine） |
@@ -632,7 +632,7 @@ XML 请求使用现有 HTTP 代理与进程内缓存。XML 格式非法、文档
   "source": {
     "kind": "magnet",
     "files": ["magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=demo-1.2.3.zip"],
-    "version": {"kind": "semver", "between": ["v", " "]}
+    "version": {"kind": "semver"}
   }
 }
 ```
@@ -1118,7 +1118,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 | `source.hashClick` | `source.files[0].checksum.click`，两者不能同时声明 |
 | 根级 `uninstallArgs` | `uninstall.args`，两者不能同时声明 |
 
-`source.follow.versionKey` / `versionFilter` / `sort`、`detect.versionKind` / `versionBetween` / `versionRewrite`、文件级 `versionKind` / `versionFilter` / `versionRewrite` 及包内派生对象里的 `versionKind` / `versionBetween` 不在这次归组中，字段名不变。报错中的分散字段名可能来自内部读取步骤，可按本表定位对应的作者字段。
+`source.follow.versionKey` / `versionFilter` / `sort`、`detect.versionKind` / `versionBetween` / `versionRewrite`、文件级 `versionKind` / `versionFilter` / `versionRewrite` 及包内派生对象里的 `versionKind` / `versionBetween` 直接使用上述字段名。报错中的分散字段名可能来自内部读取步骤，可按本表定位对应的作者字段。
 
 ## 常见写错与报错
 

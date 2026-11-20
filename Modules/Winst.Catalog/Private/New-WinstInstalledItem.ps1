@@ -70,7 +70,6 @@ function New-WinstInstalledItem {
         $oldVersion = Get-EntryString -Entry $item -Key 'version'
         if (-not $oldVersion) { continue }
         if ($rawVersion -and $rawVersion -ne 'unknown') {
-            $cmp = 0
             try { $cmp = Compare-WinstVersion -A $oldVersion -B $rawVersion } catch { $cmp = 0 }
             if ($cmp -ge 0) { continue }
         }

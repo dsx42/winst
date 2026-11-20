@@ -29,7 +29,6 @@ function New-WinstScriptLauncher {
     $content = ('@echo off' + "`r`n" + 'setlocal DisableDelayedExpansion' + "`r`n" + 'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0{0}" %*' -f $scriptName.Replace('%', '%%'))
 
     if (Test-Path -LiteralPath $launcherPath -PathType Leaf) {
-        $existing = ''
         try { $existing = [IO.File]::ReadAllText($launcherPath) } catch { $existing = '' }
         if ($existing.Trim() -eq $content.Trim()) { return $launcherPath }
     }
@@ -39,7 +38,6 @@ function New-WinstScriptLauncher {
         $null = New-Item -ItemType Directory -Path $parent -Force -ErrorAction SilentlyContinue
     }
     # .cmd 由 cmd.exe 按控制台代码页（OEM）读取，带非 ASCII 文件名时用 OEM 代码页落盘才不会乱码
-    $encoding = $null
     try { $encoding = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage) } catch { $encoding = [Text.Encoding]::Default }
     $encoded = $encoding.GetBytes($content)
     if ($encoding.GetString($encoded) -cne $content) { throw '脚本文件名无法用当前批处理代码页表示，无法生成启动器' }

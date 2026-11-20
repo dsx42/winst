@@ -7,7 +7,7 @@ function Move-WinstStagedInstall {
     .OUTPUTS
         @{ Ok; Error; PreserveStage }
     #>
-    param([string]$StageDir, [string]$InstallDir, [string]$SourceDir = '', [switch]$Clean, [string[]]$Keep = @(), [string]$Id = '', [switch]$KeepTopLevel)
+    param([string]$StageDir, [string]$InstallDir, [string]$SourceDir = '', [switch]$Clean, [string[]]$Keep = @(), [string]$Id = '')
 
     $marked = $false
     $pushedLocation = $false
@@ -51,7 +51,7 @@ function Move-WinstStagedInstall {
         $kept = $false
         if ($Clean -and $existing -and $Keep.Count) {
             $kept = Invoke-WinstFileStep -Name '整理保留项' -Action {
-                Copy-WinstKeptItems -InstallDir $target -SourceDir $source -Keep $Keep -KeepTopLevel:$KeepTopLevel
+                Copy-WinstKeptItems -InstallDir $target -SourceDir $source -Keep $Keep
             }
             if (-not $kept) { Write-Host '    未命中保留规则' }
         } else {

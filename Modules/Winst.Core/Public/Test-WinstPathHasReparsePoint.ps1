@@ -10,8 +10,6 @@ function Test-WinstPathHasReparsePoint {
         [Parameter(Mandatory = $true)][string]$Root
     )
 
-    $fullPath = ''
-    $fullRoot = ''
     try {
         $fullPath = ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $Path)
         $fullRoot = ConvertTo-WinstPlainDevicePath -Path (ConvertTo-WinstExtendedPath -Path $Root)

@@ -9,20 +9,14 @@ function Add-RemoteManifest {
         （<pkgDir>\manifests\sources.json），多机共用同一安装包位置时共享。
         **添加即校验**：实际拉取清单并解析成功才写入；失败报明确原因且不写盘。
     .OUTPUTS
-        @{ Success; Message; Name; Version; Apps }
+        @{ Success; Message }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [string]$RepoOrUrl
     )
 
-    $result = @{
-        Success       = $false
-        Message       = ''
-        Name          = ''
-        Version       = ''
-        Apps          = @()
-    }
+    $result = @{ Success = $false; Message = '' }
 
     $parsed = Resolve-GitHubManifestInput -RepoOrUrl $RepoOrUrl
     if (-not $parsed.Ok) { $result.Message = $parsed.Error; return $result }
@@ -30,10 +24,6 @@ function Add-RemoteManifest {
     $sourceName = [string]$parsed.Name
     if ($sourceName -ieq (Get-WinstOfficialManifestName)) {
         $result.Message = ('软件源 {0} 为内置源，无需添加' -f $sourceName)
-        return $result
-    }
-    if ($sourceName -ieq (Get-WinstLocalManifestName)) {
-        $result.Message = ('{0} 是本地清单的固定名称（自动识别脚本同目录的清单文件），不能添加；把自己的清单文件放到脚本同目录即可' -f (Get-WinstLocalManifestName))
         return $result
     }
     if (Get-RemoteManifestByName -PkgDir $Context.PkgDir -Name $sourceName) {
@@ -61,14 +51,10 @@ function Add-RemoteManifest {
         return $result
     }
 
-    $result.Name = $sourceName
-    $result.Version = [string]$check.Version
-    $result.Apps = @($check.Apps)
-
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) {
         $result.Success = $true
         $result.Message = ('（预览）将添加软件源 {0}；清单可用（版本 {1}），共 {2} 个软件，可用 {3} / 有误 {4}（未保存）' -f `
-            $sourceName, (Format-ManifestVersion -Version $result.Version), $check.Total, $check.Resolved, $check.ResolveFailed)
+            $sourceName, (Format-ManifestVersion -Version $check.Version), $check.Total, $check.Resolved, $check.ResolveFailed)
         return $result
     }
 
@@ -92,6 +78,6 @@ function Add-RemoteManifest {
 
     $result.Success = $true
     $result.Message = ('已添加软件源 {0}（清单版本 {1}）；共 {2} 个软件，可用 {3} / 有误 {4}' -f `
-        $sourceName, (Format-ManifestVersion -Version $result.Version), $check.Total, $check.Resolved, $check.ResolveFailed)
+        $sourceName, (Format-ManifestVersion -Version $check.Version), $check.Total, $check.Resolved, $check.ResolveFailed)
     return $result
 }

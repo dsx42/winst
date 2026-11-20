@@ -25,7 +25,7 @@ function Resolve-WinstGithubSourceForTag {
 
     $out = @{ Ok = $false; Error = ''; Files = @(); ResultVersion = ''; MissingFile = $false }
 
-    # 声明 releaseTag 前缀时先去前缀，再按 8.5 规范化（去 v 前缀），使 {version} 可直接用于 URL 模板
+    # 去掉 releaseTag 前缀并规范化版本，供地址模板中的 {version} 使用。
     $version = Get-WinstGithubTagVersion -Tag $Tag -ReleaseTagPrefix $ReleaseTagPrefix
     if (-not $version) {
         $out.Error = ('{0} 的发布版本号为空，无法确定版本' -f $Repo)

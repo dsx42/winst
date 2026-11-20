@@ -20,10 +20,8 @@ function Get-GitHubReleaseAssets {
     )
 
     $result = @{ Ok = $false; Names = @() }
-    if (-not $Repo -or -not $Tag) { return $result }
 
     $url = 'https://github.com/{0}/releases/expanded_assets/{1}' -f $Repo, ([Uri]::EscapeDataString($Tag))
-    $html = ''
     try {
         $html = Invoke-WinstHttpGet -Uri $url -Context $Context
     } catch {

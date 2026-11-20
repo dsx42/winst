@@ -10,7 +10,7 @@ function Resolve-WinstDeferredDecision {
         是否强制重装）；仍是本机更新 → 不自动降级；连包内也没有版本信息 → 仍按「要用户确认才继续」处理
         （命令行侧提示加 --force，菜单侧紧跟着问是否强制重装，见 Get-WinstForceHint）。
     .OUTPUTS
-        @{ Return; Result; CompanionOnly }
+        立即返回时含 Return、Result，继续安装时含 Return、CompanionOnly。
     #>
     param(
         [hashtable]$Context,
@@ -31,29 +31,22 @@ function Resolve-WinstDeferredDecision {
         [string]$SourceName = ''
     )
 
-    if (-not $Defer) { return @{ Return = $false; Result = $null; CompanionOnly = $false } }
+    if (-not $Defer) { return @{ Return = $false; CompanionOnly = $false } }
 
     if (-not $Version) {
         return (Complete-WinstInstallSkip -Result $Result -Version $Detected `
             -Message ('{0} 已安装（{1}），但软件源里没有可用版本信息{2}' -f $DisplayName, $Detected, (Get-WinstForceHint -Kind 'continue')))
     }
 
-    $companionOnlyUpdate = $false
     $cmpAfterPackage = Compare-WinstVersion -A $Detected -B $Version
     if ($cmpAfterPackage -eq 0) {
         if (-not $Ledger) {
             Register-WinstExternalInstallRecord -Context $Context -Plan $Plan -Type $Type -InstallDir $InstallDir `
                 -Id $Id -Version $Detected -SourceName $SourceName -Result $Result
         }
-        $same = Resolve-WinstSameVersionAction -Install $Install -InstallDir $InstallDir -DisplayName $DisplayName `
+        return (Resolve-WinstSameVersionAction -Install $Install -InstallDir $InstallDir -DisplayName $DisplayName `
             -Detected $Detected -CompanionDownloadCount $CompanionDownloadCount `
-            -HasCompanionUpdate:($CompanionDownloadCount -gt 0) -Ledger $Ledger -Result $Result -Quiet:$Quiet
-        if ($same.CompanionOnly) {
-            return @{ Return = $false; Result = $null; CompanionOnly = $true }
-        }
-        if ($same.Return) {
-            return @{ Return = $true; Result = $same.Result; CompanionOnly = $false }
-        }
+            -HasCompanionUpdate:($CompanionDownloadCount -gt 0) -Ledger $Ledger -Result $Result -Quiet:$Quiet)
     } elseif ($cmpAfterPackage -gt 0) {
         return (Complete-WinstInstallSkip -Result $Result -Version $Detected `
             -Message ('{0} 本机已安装 {1}，比软件源里的 {2} 更新{3}' -f $DisplayName, $Detected, $Version, (Get-WinstForceHint -Kind 'downgrade')))
@@ -61,5 +54,5 @@ function Resolve-WinstDeferredDecision {
         Write-Host ('  发现新版本：已安装 {0}  →  {1}  ↑' -f $Detected, $Version) -ForegroundColor Green
     }
 
-    return @{ Return = $false; Result = $null; CompanionOnly = $companionOnlyUpdate }
+    return @{ Return = $false; CompanionOnly = $false }
 }

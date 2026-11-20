@@ -10,7 +10,7 @@ function Select-WinstListFile {
           输入非编号时重新提示；一个清单都没有时给出「到 高级功能 → 管理X清单 新建」的指引后返回。
         - 不带 `-NoCreate`：输入其它文本 = 按文件名 / 路径解析（编辑清单用）。
     .OUTPUTS
-        @{ Ok; Cancelled; Error; Path; Name; Exists }
+        @{ Ok; Cancelled; Error; Path }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -19,7 +19,7 @@ function Select-WinstListFile {
 
     $kindText = (Get-WinstListKindText)
     $files = @(Get-WinstListFiles -Context $Context)
-    $cancel = @{ Ok = $false; Cancelled = $true; Error = ''; Path = ''; Name = ''; Exists = $false }
+    $cancel = @{ Ok = $false; Cancelled = $true; Error = ''; Path = '' }
 
     # 只挑现成清单时，一个都没有就直接说清去哪建，不提示「输入文件名新建」
     if ($NoCreate -and $files.Count -eq 0) {
@@ -65,7 +65,7 @@ function Select-WinstListFile {
         if ($isNumber) {
             if ($number -ge 1 -and $number -le $files.Count) {
                 $path = [string]$files[$number - 1]['Path']
-                return @{ Ok = $true; Cancelled = $false; Error = ''; Path = $path; Name = [string]$files[$number - 1]['Name']; Exists = $true }
+                return @{ Ok = $true; Cancelled = $false; Error = ''; Path = $path }
             }
             # 纯数字但越界：说清范围再问一次，不把它当成文件名去解析
             if ($NoCreate) {
@@ -81,8 +81,7 @@ function Select-WinstListFile {
             continue
         }
         $resolved = Resolve-WinstListPath -Context $Context -Text $text
-        if (-not $resolved.Ok) { return @{ Ok = $false; Cancelled = $false; Error = $resolved.Error; Path = ''; Name = ''; Exists = $false } }
-        $name = Split-Path -Leaf $resolved.Path
-        return @{ Ok = $true; Cancelled = $false; Error = ''; Path = $resolved.Path; Name = $name; Exists = (Test-Path -LiteralPath $resolved.Path -PathType Leaf) }
+        if (-not $resolved.Ok) { return @{ Ok = $false; Cancelled = $false; Error = $resolved.Error; Path = '' } }
+        return @{ Ok = $true; Cancelled = $false; Error = ''; Path = $resolved.Path }
     }
 }

@@ -13,14 +13,12 @@ function Read-ManifestSourceAddress {
     param([string]$Prompt = '  GitHub 仓库或清单地址（输入 c 读取剪贴板；直接回车取消）')
 
     while ($true) {
-        $raw = $null
         try { $raw = Read-Host $Prompt } catch { $raw = $null }
         if ($null -eq $raw -or -not ([string]$raw).Trim()) { return '' }
 
         $value = ConvertTo-WinstTrimmedInput -Value $raw
         if ($value -ine 'c') { return $value }
 
-        $clip = ''
         try {
             $clip = ConvertTo-WinstTrimmedInput -Value (Get-Clipboard -Raw -ErrorAction Stop)
         } catch { $clip = '' }

@@ -25,8 +25,7 @@ function Invoke-WinstCommand {
         if ($Context -and ($parsedCommand.Options.InstallRoot -or $parsedCommand.Options.PkgDir)) { Update-WinstContext -Context $Context }
     }
 
-    $name = ''
-    if ($null -ne $Command) { $name = ([string]$Command).Trim().ToLowerInvariant() }
+    $name = $Command.Trim().ToLowerInvariant()
     $rest = @($Arguments)
     if (($name -eq 'repair' -or $name -in @('--version','-v','version')) -and $rest.Count -gt 0) {
         Write-Host ('  {0} 不接受额外参数。' -f $name) -ForegroundColor Yellow

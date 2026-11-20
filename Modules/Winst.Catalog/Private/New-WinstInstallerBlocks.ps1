@@ -47,7 +47,6 @@ function New-WinstInstallerBlocks {
         if (-not $mainPackageName) { $mainPackageName = Get-FileNameFromUrl -Url ([string]$FileList[0]['url']) }
     }
     if ($mainPackageName) {
-        $mainExt = ''
         try { $mainExt = [IO.Path]::GetExtension($mainPackageName).ToLowerInvariant() } catch { $mainExt = '' }
         if (@('.msix', '.msixbundle', '.appx', '.appxbundle') -contains $mainExt) { $isAppxInstall = $true }
     }

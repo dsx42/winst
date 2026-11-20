@@ -26,7 +26,6 @@ function Invoke-WinstListManager {
         Clear-ScreenSafe
         $files = @(Show-WinstListManagerMenu -Context $Context)
 
-        $answer = $null
         try { $answer = Read-Host '  请输入' } catch { $answer = $null }
         $text = ''
         if ($null -ne $answer) { $text = ([string]$answer).Trim() }

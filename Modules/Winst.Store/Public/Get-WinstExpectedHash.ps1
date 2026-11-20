@@ -86,7 +86,6 @@ function Get-WinstExpectedHash {
         return $result
     }
 
-    $text = ''
     try {
         $text = Invoke-WinstHttpGet -Uri $hashFile -Context $Context
     } catch {

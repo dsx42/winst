@@ -17,7 +17,6 @@ function Get-WinstAppxPackageBest {
     $best = $null
     foreach ($package in $candidates) {
         if ($null -eq $best) { $best = $package; continue }
-        $cmp = 0
         try { $cmp = Compare-WinstVersion -A ([string]$package.Version) -B ([string]$best.Version) } catch { $cmp = 0 }
         if ($cmp -gt 0) { $best = $package; continue }
         if ($cmp -lt 0) { continue }

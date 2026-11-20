@@ -17,7 +17,6 @@ function Get-RegexCaptureValue {
     if (-not $Text) { return $result }
     if (-not $Pattern) { return $result }
 
-    $m = $null
     try {
         $m = [regex]::Match($Text, $Pattern, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1))
     } catch {

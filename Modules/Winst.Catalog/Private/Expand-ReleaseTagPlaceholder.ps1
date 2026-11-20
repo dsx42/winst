@@ -11,12 +11,10 @@ function Expand-ReleaseTagPlaceholder {
     #>
     param([string]$Text, [string]$Tag)
 
-    if ($null -eq $Text) { return '' }
-    $text = [string]$Text
-    if (-not [regex]::IsMatch($text, '\{tag\}')) { return $text }
+    if (-not [regex]::IsMatch($Text, '\{tag\}')) { return $Text }
 
     $replacement = ''
     if ($Tag) { $replacement = [Uri]::EscapeDataString([string]$Tag) }
     $replacement = $replacement.Replace('$', '$$')
-    return [regex]::Replace($text, '\{tag\}', $replacement)
+    return [regex]::Replace($Text, '\{tag\}', $replacement)
 }

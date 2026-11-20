@@ -3,7 +3,7 @@
 function Set-EntryValue {
     <#
     .SYNOPSIS
-        写入字典（hashtable / ordered）或 PSCustomObject 的字段——Get-EntryValue 的写入版（见 13）。
+        写入字典（hashtable / ordered）或 PSCustomObject 的字段——Get-EntryValue 的写入版。
     .DESCRIPTION
         解析锁里的条目读自 JSON（ConvertFrom-Json 得到 PSCustomObject，既不能用 ['key'] 读取、
         也不能用 ['key'] = 赋值，会报「Unable to index into an object of type PSObject」），

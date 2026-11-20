@@ -12,9 +12,8 @@ function Resolve-PageSource {
         link 还可以搭配 source.thenClick 做两跳取址：link 命中的是「中间页」地址（如 NTriver 的镜像页：
         列表页只有文件名 + SHA-256 + 镜像页链接，真正的下载地址要在镜像页上点 Download 按钮才生成），
         此时用无头浏览器打开命中地址、执行 thenClick 的点击序列取真正的下载地址（与 click 同一套机制）。
-        版本识别优先级：versionKey（页面数据里的字段名）→ versionKind / versionBetween（在 versionFrom
-        指定的位置识别，默认从下载地址识别）→ 回退条目里的 version；声明 versionFrom: "package" 时以上都不做
-        。
+        header / json 读取外部版本，package 等待取包。其余方式优先读页面的 versionKey，
+        或按 versionKind / versionBetween 从页面或下载地址提取版本，无规则时版本为空。
         files[] 第一条 = 主包：用于在多个候选链接里挑出要下载的文件（file 通配），并可声明校验信息；
         校验值随版本更新的站点可声明 files[0].hashFrom: "page"。取址成功后在同一会话执行已声明的
         source.hashClick。摘要优先按文件名从页面快照就近提取，提取失败时使用点击取得的摘要。
@@ -71,7 +70,7 @@ function Resolve-PageSource {
         -BrowserPageHash $browserPageHash
     if ($result.Error) { return $result }
 
-    $versionResult = Resolve-WinstPageVersion -Entry $Entry -Source $source -Html $html -DownloadUrl $downloadUrl `
+    $versionResult = Resolve-WinstPageVersion -Source $source -Html $html -DownloadUrl $downloadUrl `
         -VersionFrom $versionFrom -PageUrl $pageUrl -Context $Context
     if ($versionResult.Error) { $result.Error = $versionResult.Error; return $result }
     $result.Version = [string]$versionResult.Version

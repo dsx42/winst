@@ -13,7 +13,6 @@ function Test-WinstProtectedDirectory {
     param([string]$Path)
 
     if (-not $Path) { return $true }
-    $full = ''
     try { $full = ([IO.Path]::GetFullPath((ConvertTo-WinstPlainDevicePath -Path ([string]$Path)))).TrimEnd('\', '/') } catch { return $true }
     if (-not $full) { return $true }
     # 剩下的设备路径（\\?\Volume{...} / \\?\GLOBALROOT\... 等）无法归一成盘符路径，也就无法证明它不在关键目录下；

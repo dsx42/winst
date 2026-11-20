@@ -25,11 +25,11 @@ function Split-WinstSafeChildSegments {
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Child,
         [string]$Label = '路径',
-        [switch]$AllowWildcard
+        [switch]$AllowWildcard,
+        [int]$MaxSegmentLength = 100
     )
 
     $result = @{ Ok = $false; Path = ''; Error = '' }
-    if (-not $Root) { $result.Error = ('{0}：缺少根目录' -f $Label); return $result }
 
     $text = ([string]$Child).Trim()
     if (-not $text) { $result.Error = ('{0}为空' -f $Label); return $result }
@@ -57,7 +57,7 @@ function Split-WinstSafeChildSegments {
         # Test-WinstSafePathSegment 不接受通配符；替换成普通字符后复用其余 Win32 名称校验
         $probe = $one
         if ($AllowWildcard) { $probe = $one.Replace('*', 'x').Replace('?', 'x') }
-        if (-not (Test-WinstSafePathSegment -Name $probe)) {
+        if (-not (Test-WinstSafePathSegment -Name $probe -MaxLength $MaxSegmentLength)) {
             $result.Error = ('{0}里有不合法的名称「{1}」：{2}' -f $Label, $one, $Child)
             return $result
         }

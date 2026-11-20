@@ -16,18 +16,17 @@ function Invoke-WinstOldVersionRemoval {
         卸掉之后，同一版本那些「卸载器已不存在」的孤儿记录会一并清理——否则它们会一直留在
         「设置 → 应用」里，用户点了也卸不掉。
     .OUTPUTS
-        @{ Ok; Cancelled; NeedRestart; Error; Command; Cleaned }
+        @{ Ok; Cancelled; NeedRestart; RestartInitiated; Error; Cleaned }
     #>
     param(
         [hashtable]$Context,
         [string]$Id,
         [string]$Version,
-        [string]$RecordKey = '',
-        [switch]$Quiet
+        [string]$RecordKey = ''
     )
 
     $result = @{
-        Ok = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false; Error = ''; Command = ''
+        Ok = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false; Error = ''
         Cleaned = @()
     }
 
@@ -47,12 +46,11 @@ function Invoke-WinstOldVersionRemoval {
 
     $failures = @()
     foreach ($key in $candidates) {
-        $run = Invoke-WinstUninstallRegistryKey -KeyPath $key -Quiet:$Quiet
+        $run = Invoke-WinstUninstallRegistryKey -KeyPath $key -Quiet
         if ($run.Ok) {
             $result.Ok = $true
             $result.NeedRestart = [bool]$run.NeedRestart
             $result.RestartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
-            $result.Command = [string]$run.Command
             break
         }
         $reason = [string]$run.Error
@@ -74,10 +72,9 @@ function Invoke-WinstOldVersionRemoval {
     # 会一直显示一个卸不掉的条目
     if ($plan -and -not $result.RestartInitiated) {
         foreach ($orphanKey in @(Find-WinstOrphanRegistryRecords -Plan $plan -Version $Version)) {
-            $clean = Remove-WinstOrphanRegistryRecord -KeyPath $orphanKey -Quiet:$Quiet
+            $clean = Remove-WinstOrphanRegistryRecord -KeyPath $orphanKey -Quiet
             if ($clean.Ok) { $result.Cleaned += $orphanKey }
         }
-        if (@($result.Cleaned).Count -gt 0) { Reset-WinstSystemCache }
     }
 
     return $result

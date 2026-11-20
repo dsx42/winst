@@ -39,7 +39,6 @@ function Get-WinstProcessSnapshot {
     }
     try {
         foreach ($p in @(Get-Process -ErrorAction SilentlyContinue)) {
-            $path = ''
             try { $path = [string]$p.Path } catch { $path = '' }
             $startedAt = $null
             try { $startedAt = $p.StartTime } catch { }

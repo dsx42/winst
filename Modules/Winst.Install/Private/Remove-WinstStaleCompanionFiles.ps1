@@ -20,7 +20,6 @@ function Remove-WinstStaleCompanionFiles {
     )
 
     $result = @{ Removed = @(); KeptDirs = @(); Notes = @() }
-    if (-not $InstallDir) { return $result }
 
     $current = @()
     foreach ($item in @($CurrentFiles)) {
@@ -42,7 +41,6 @@ function Remove-WinstStaleCompanionFiles {
         }
         if (-not (Test-Path -LiteralPath $full)) { continue }
 
-        $isDir = $false
         try { $isDir = [bool](Get-Item -LiteralPath $full -Force).PSIsContainer } catch { $isDir = $false }
         if ($isDir) {
             # 目录（extract 型配套文件的 dest）不整棵删：里面可能还有主包解压出的或用户自己放的文件，

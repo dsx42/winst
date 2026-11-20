@@ -11,5 +11,5 @@ function Complete-WinstInstallSkip {
     $Result.Skipped = $true
     $Result.Version = $Version
     $Result.Message = $Message
-    return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = $Version }
+    return @{ Return = $true; Result = $Result }
 }

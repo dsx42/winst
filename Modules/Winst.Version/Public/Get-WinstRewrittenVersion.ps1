@@ -10,8 +10,7 @@ function Get-WinstRewrittenVersion {
     #>
     param([string]$Version, $Rules)
 
-    $value = ''
-    if ($null -ne $Version) { $value = [string]$Version }
+    $value = $Version
     if (-not $value) { return $value }
 
     foreach ($rule in @($Rules)) {

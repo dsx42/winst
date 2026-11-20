@@ -12,6 +12,5 @@ function Test-WinstQuitKey {
     #>
     param([string]$Text)
 
-    if ($null -eq $Text) { return $false }
-    return (([string]$Text).Trim() -ieq 'q')
+    return ($Text.Trim() -ieq 'q')
 }

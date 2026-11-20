@@ -14,7 +14,7 @@ function Close-WinstDevToolsSession {
     } catch { }
     if ($Session.ProfileDir) {
         try {
-            $null = Stop-WinstBrowserProfileProcesses -ProfileDir $Session.ProfileDir -Deadline $Session.Deadline
+            Stop-WinstBrowserProfileProcesses -ProfileDir $Session.ProfileDir -Deadline $Session.Deadline
             if (Test-Path -LiteralPath $Session.ProfileDir) { Clear-WinstInstallDir -Dir $Session.ProfileDir }
             if (Test-Path -LiteralPath $Session.ProfileDir) { throw '临时目录未能删除' }
             $Session.ProfileDir = ''

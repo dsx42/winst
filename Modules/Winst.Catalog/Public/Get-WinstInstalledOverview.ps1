@@ -12,10 +12,7 @@ function Get-WinstInstalledOverview {
     .OUTPUTS
         @{ Ok; Error; Warning; Items; State; RowById; CacheIndex }
     #>
-    param(
-        [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Ids = @()
-    )
+    param([Parameter(Mandatory = $true)][hashtable]$Context)
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @(); State = $null; RowById = $null; CacheIndex = $null }
 
@@ -37,19 +34,9 @@ function Get-WinstInstalledOverview {
     }
     $result.CacheIndex = $cacheIndex
 
-    $filter = $null
-    if (@($Ids).Count -gt 0) {
-        $filter = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
-        foreach ($one in @($Ids)) {
-            $text = [string]$one
-            if ($text) { $filter[$text] = $true }
-        }
-    }
-
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($key in @($stateRead.State['Installed'].Keys)) {
         $idText = [string]$key
-        if ($filter -and -not $filter.ContainsKey($idText)) { continue }
         $entry = Get-WinstInstalledApp -State $stateRead.State -Id $idText
         if (-not $entry) { continue }
         $row = $null

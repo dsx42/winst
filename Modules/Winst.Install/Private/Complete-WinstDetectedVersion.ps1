@@ -90,7 +90,6 @@ function Complete-WinstDetectedVersion {
         for ($i = 1; $i -lt $all.Count; $i++) {
             $candidateVersion = [string]$all[$i]['Version']
             # 只收严格低于最新版本的：同一版本可能由不同路径 / 不同记录重复给出，不能当成旧版本显示
-            $cmp = 0
             try { $cmp = Compare-WinstVersion -A $candidateVersion -B $newestVersion } catch { $cmp = 0 }
             if ($cmp -ge 0) { continue }
             # 没有 GroupKey 时按「同一批检测结果」处理（单值来源只能确认是同一软件）

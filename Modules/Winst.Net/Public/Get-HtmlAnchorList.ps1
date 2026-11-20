@@ -11,7 +11,7 @@ function Get-HtmlAnchorList {
     param([string]$Html)
 
     $result = New-Object 'System.Collections.Generic.List[object]'
-    if ($null -eq $Html -or -not $Html) { return @() }
+    if (-not $Html) { return @() }
 
     foreach ($m in [regex]::Matches($Html, '(?is)<a\b([^>]*)>(.*?)</a\s*>')) {
         $attrs = $m.Groups[1].Value

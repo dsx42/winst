@@ -21,7 +21,7 @@ function Sync-WinstInstalledRecord {
 
     $planResult = Get-WinstManifestAppPlan -Context $Context -Id $Id
     if (-not $planResult.Ok) {
-        # 菜单里不出现命令行写法（见 Test-WinstMenuMode / 6.2）
+        # 菜单里不出现命令行写法（见 Test-WinstMenuMode）
         $repairHint = '（命令行侧可用 winst repair 重新扫描）'
         if (Test-WinstMenuMode) { $repairHint = '' }
         $result.Error = ('软件源里没有「{0}」，无法自动检测版本；可到「高级功能 → 管理软件源」刷新软件源后重试{1}。' -f $Id, $repairHint)

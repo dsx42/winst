@@ -16,7 +16,6 @@ function Remove-WinstPathEntry {
     )
 
     $result = @{ Ok = $false; Removed = 0; Error = '' }
-    if (-not $PathValue) { $result.Ok = $true; return $result }
 
     # 当前 PATH 用 WMI 读原值（不展开）——按原样逐项比较
     $current = Get-WinstEnvironmentValue -Name 'Path' -Scope $Scope

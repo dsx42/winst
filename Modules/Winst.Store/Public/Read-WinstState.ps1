@@ -18,8 +18,8 @@ function Read-WinstState {
         写入侧 Save-WinstState 会刷新缓存，因此「写完再读」立即看到新内容；
         文件被外部改动时文件戳变化，缓存自动失效，不依赖调用方手动清理。
 
-        返回的是**副本**（见 Copy-WinstState）：调用方可以就地修改条目，
-        缓存不被污染；要不要落盘只由 Save-WinstState 决定。
+        条目内的数组与嵌套字典按引用共享。命中缓存且指定 ForEntryReplacement 时，
+        整个条目也按引用共享。修改台账须用 Set-WinstInstalledApp 整条替换。
     #>
     param([Parameter(Mandatory = $true)][string]$InstallRoot, [switch]$ForEntryReplacement, [string[]]$Ids)
 
@@ -56,7 +56,6 @@ function Read-WinstState {
 
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $result }
 
-    $raw = ''
     try {
         $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8
     } catch {
@@ -64,15 +63,13 @@ function Read-WinstState {
         return $result
     }
 
-    $obj = $null
     try {
         $obj = $raw | ConvertFrom-Json
     } catch {
         $obj = $null
     }
 
-    if ($null -eq $obj -or ($obj -isnot [System.Collections.IDictionary] -and
-            $obj -isnot [System.Management.Automation.PSCustomObject])) {
+    if ($obj -isnot [System.Management.Automation.PSCustomObject]) {
         $stampText = (Get-Date).ToString('yyyyMMdd-HHmmss')
         $backup = '{0}.bak-{1}-{2}' -f $path, $stampText, ([guid]::NewGuid().ToString('N').Substring(0, 8))
         try {
@@ -82,9 +79,6 @@ function Read-WinstState {
         } catch {
             # 备份失败时不得重建：调用方普遍以 -not $Reset 判错，一旦允许继续，
             # 后续任何一次 Save-WinstState 都会用空台账覆盖唯一副本 → 安装记录全丢。
-            $result.BackupPath = ''
-            $result.Reset = $false
-            $result.NeedSave = $false
             $result.Error = ('安装台账无法解析且备份失败，已停止写入以免丢数据：{0}' -f $_.Exception.Message)
             return $result
         }
@@ -102,16 +96,10 @@ function Read-WinstState {
     }
 
     $version = 0
-    $versionValue = $null
-    if ($obj -is [System.Collections.IDictionary]) {
-        if ($obj.Contains('schemaVersion')) { $versionValue = $obj['schemaVersion'] }
-    } else {
-        $vp = $obj.PSObject.Properties['schemaVersion']
-        if ($vp) { $versionValue = $vp.Value }
-    }
-    if ($null -ne $versionValue) {
+    $vp = $obj.PSObject.Properties['schemaVersion']
+    if ($vp -and $null -ne $vp.Value) {
         $parsed = 0
-        if ([int]::TryParse((ConvertTo-WinstTextValue -Value $versionValue), [ref]$parsed)) { $version = $parsed }
+        if ([int]::TryParse((ConvertTo-WinstTextValue -Value $vp.Value), [ref]$parsed)) { $version = $parsed }
     }
 
     if ($version -gt (Get-WinstStateSchemaVersion)) {
@@ -129,7 +117,6 @@ function Read-WinstState {
     # installed 必须是「id → 条目」的字典 / 对象。写成数组或字符串时，PSObject.Properties
     # 会暴露 Length / Count / Rank 这类成员，它们会被当成软件 id 写进台账并整份落盘。
     $installedShapeOk = ($null -eq $ip) -or ($null -eq $ip.Value) -or
-        ($ip.Value -is [System.Collections.IDictionary]) -or
         ($ip.Value -is [System.Management.Automation.PSCustomObject])
     if (-not $installedShapeOk) {
         $result.Error = '安装台账里的 installed 不是「id → 条目」结构，已停止写入以免覆盖原记录；请人工检查 state.json'
@@ -138,20 +125,11 @@ function Read-WinstState {
     }
     if ($ip -and $null -ne $ip.Value) {
         # 直接逐条归一化写入台账，不先复制进中转数组
-        if ($ip.Value -is [System.Collections.IDictionary]) {
-            foreach ($key in @($ip.Value.Keys)) {
-                $id = [string]$key
-                if (-not $id) { continue }
-                try { $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $ip.Value[$key]) }
-                catch { $result.Error += ('安装条目 {0} 无效：{1}。' -f $id, $_.Exception.Message) }
-            }
-        } else {
-            foreach ($prop in $ip.Value.PSObject.Properties) {
-                $id = [string]$prop.Name
-                if (-not $id) { continue }
-                try { $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $prop.Value) }
-                catch { $result.Error += ('安装条目 {0} 无效：{1}。' -f $id, $_.Exception.Message) }
-            }
+        foreach ($prop in $ip.Value.PSObject.Properties) {
+            $id = [string]$prop.Name
+            if (-not $id) { continue }
+            try { $installed[$id] = (ConvertTo-WinstInstalledEntry -Entry $prop.Value) }
+            catch { $result.Error += ('安装条目 {0} 无效：{1}。' -f $id, $_.Exception.Message) }
         }
     }
 
@@ -159,9 +137,7 @@ function Read-WinstState {
     if ($result.Error) { $result.NeedSave = $false; return $result }
 
     # —— 写入读缓存（缓存归一化结果；NeedSave / Migrated 一并记住，命中时行为与首次一致） ——
-    # 存**副本**、返回原对象：缓存里的那份一旦被调用方就地改到（如 repair 更正版本、
-    # 合并大小写重复 id），下一次读就会读到从未落盘的内容。热路径本来返回副本，
-    # 这里存同一引用会让「冷路径改内存 = 改了缓存」，与文档承诺的「返回副本」相矛盾。
+    # 缓存单独的条目字典，以便调用方替换整条记录。
     if ($stamp) {
         $cache = Get-WinstState -Name WinstStateReadCache
         if ($null -ne $cache) {

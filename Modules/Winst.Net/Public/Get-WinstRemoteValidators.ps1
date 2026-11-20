@@ -9,8 +9,8 @@ function Get-WinstRemoteValidators {
     .DESCRIPTION
         元数据类请求：与 HEAD 可用性探测共用「直连 → 代理重试」链。成功结果按 URL、请求头、超时和
         代理尝试序列记入进程内 TTL 缓存；匹配同一次代理尝试时也复用探测的成功响应。
-        站点不支持 HEAD、超时、代理失败、4xx/5xx 时 Ok = $false 并给出原因；**这一点不视为失败**：
-        调用方按 8.4 的兜底策略继续（check 按重取处理、其余退到 TTL 兜底），不否定缓存（见 12）。
+        站点不支持 HEAD、超时或请求失败时，Ok 为 $false，Error 记录原因。
+        若校验码尚未确认，调用方在 check 模式下重新下载，其余模式按缓存有效期判断。
     #>
     param(
         [hashtable]$Context,
@@ -40,7 +40,6 @@ function Get-WinstRemoteValidators {
             $length = 0L
             if ([long]::TryParse([string]$result.Headers['Content-Length'], [ref]$length)) { $result.Size = $length }
             $result.Ok = $true
-            $lastError = ''
             break
         } catch {
             $lastError = $_.Exception.Message

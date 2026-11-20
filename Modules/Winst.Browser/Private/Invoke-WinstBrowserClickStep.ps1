@@ -45,7 +45,6 @@ function Invoke-WinstBrowserClickStep {
         # 注意：不能写成 @($raw | ConvertFrom-Json)——ConvertFrom-Json 把整个数组当**一个**对象写进管道，
         # 外层 @() 只是把它包起来，于是「候选列表」变成 1 个元素（那个数组本身），
         # 后续 $candidate.id 会触发成员枚举、把整页的 id 拼成一串，匹配结果全错。
-        $parsed = $null
         try { $parsed = $raw | ConvertFrom-Json } catch { $parsed = $null }
         if ($null -ne $parsed) { $candidates = @($parsed) }
     }

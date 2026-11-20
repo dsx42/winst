@@ -34,9 +34,6 @@ function Resolve-DirectSource {
                 return $result
             }
             $version = [string]$found.Version
-        } elseif ($versionFrom -and $versionFrom -ne 'package') {
-            $result.Error = ('不认识的版本来源「{0}」（source.versionFrom）；固定地址来源可用 page / package / header / json' -f $versionFrom)
-            return $result
         }
     }
     if (-not $version -and -not (Test-EntryVersionFromPackage -Entry $Entry)) {

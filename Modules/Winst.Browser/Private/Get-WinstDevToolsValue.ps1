@@ -9,7 +9,6 @@ function Get-WinstDevToolsValue {
 
     $params = @{ expression = $Expression; returnByValue = $true }
     $response = Invoke-WinstDevToolsCommand -Session $Session -Method 'Runtime.evaluate' -Params $params
-    $value = $null
     try { $value = $response.result.result.value } catch { $value = $null }
     return $value
 }

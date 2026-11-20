@@ -98,7 +98,6 @@ function Confirm-WinstAppNotRunning {
             }
             Write-Host ('  回车 / 其它任意输入 = 取消{0}' -f $Action) -ForegroundColor DarkGray
 
-            $answer = ''
             try { $answer = [string](Read-Host '  请选择') } catch { $answer = '' }
             $choice = ''
             if ($null -ne $answer) { $choice = $answer.Trim().ToLowerInvariant() }

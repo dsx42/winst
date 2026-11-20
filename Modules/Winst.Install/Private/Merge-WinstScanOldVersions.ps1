@@ -18,7 +18,6 @@ function Merge-WinstScanOldVersions {
         $version = Get-EntryString -Entry $item -Key 'version'
         if (-not $version) { continue }
         if ($CurrentVersion -and $CurrentVersion -ne 'unknown') {
-            $cmp = 0
             try { $cmp = Compare-WinstVersion -A $version -B $CurrentVersion } catch { $cmp = 0 }
             if ($cmp -ge 0) { continue }
         }

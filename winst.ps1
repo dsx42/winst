@@ -6,7 +6,7 @@
 
 # ---------------------------------------------------------------- 点源保护
 if ($MyInvocation.InvocationName -eq '.') {
-    Write-Warning 'winst.ps1 是应用入口，不支持点源加载。请直接运行它，或 Import-Module Modules\Winst\Winst.psd1。'
+    Write-Warning 'winst.ps1 是应用入口，不支持点源加载。请运行 powershell -NoProfile -ExecutionPolicy Bypass -File .\winst.ps1。'
     return
 }
 
@@ -18,7 +18,6 @@ $ProgressPreference = 'SilentlyContinue'
 # ------------------------------------------------------------------ 根目录
 # 必须在提权之前算好：提权要按它重新启动自己。
 $script:WinstRoot = $PSScriptRoot
-$script:WinstExitCode = 0
 $script:WinstArguments = @($args)
 
 function Test-WinstNeedsElevation {
@@ -40,13 +39,7 @@ function Test-WinstNeedsElevation {
 function Start-WinstElevatedEntry {
     param([bool]$Interactive)
 
-    $winstElevateArgs = New-Object 'System.Collections.Generic.List[string]'
-    $winstElevateArgs.Add('-NoProfile')
-    $winstElevateArgs.Add('-ExecutionPolicy')
-    $winstElevateArgs.Add('Bypass')
-    $winstElevateArgs.Add('-File')
-    $winstElevateArgs.Add($script:WinstRoot + '\winst.ps1')
-    foreach ($one in @($script:WinstArguments)) { $winstElevateArgs.Add([string]$one) }
+    $winstElevateArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ($script:WinstRoot + '\winst.ps1')) + [string[]]$script:WinstArguments
 
     $winstArgText = ($winstElevateArgs | ForEach-Object { Format-WinstCommandArgument -Value $_ }) -join ' '
 
@@ -88,15 +81,11 @@ try {
 }
 
 # ------------------------------------------------------------ 模块搜索路径
-# 从 PowerShell 7 会话启动（winst.cmd 在 pwsh 里跑、双击时继承 pwsh 的环境变量）时，
-# 本进程会继承 PowerShell 7 的 PSModulePath，其中 Microsoft.PowerShell.Utility 等
-# 只适用于 Core 的版本排在 Windows PowerShell 自己的目录之前：Desktop 侧自动加载失败，
-# Get-FileHash / Get-Acl 这类内置命令直接变成「无法识别的命令」，下载后校验、自更新校验
-# 全部报错。这里把系统自带的 Modules 目录补回最前面，让 5.1 的内置模块优先命中。
-# 只影响本进程，不改用户环境变量。
+# 从 PowerShell 7 启动时可能继承它的 PSModulePath。将 Windows PowerShell 的系统模块目录
+# 移到本进程搜索路径首位，使 5.1 优先加载兼容版本。
 try {
     $winstSystemModules = [IO.Path]::Combine([string]$env:WINDIR, 'System32\WindowsPowerShell\v1.0\Modules')
-    if ($winstSystemModules -and (Test-Path -LiteralPath $winstSystemModules -PathType Container)) {
+    if (Test-Path -LiteralPath $winstSystemModules -PathType Container) {
         $winstModulePaths = @()
         foreach ($one in ([string]$env:PSModulePath) -split ';') {
             $text = ([string]$one).Trim()
@@ -116,8 +105,7 @@ function Import-WinstLocalModule {
         按绝对路径导入一个本地模块。
 
     .DESCRIPTION
-        使用 -DisableNameChecking：函数名里有 Write-Section、Read-WinstPause
-        这类非标准动词，改名会波及全部调用点，因此只屏蔽警告、不改名。
+        使用 -DisableNameChecking 屏蔽 Ensure-OfficialManifest 等函数的非标准动词警告。
 
         开发时设置环境变量 WINST_DEV=1 可强制重新导入（避免模块缓存）。
 

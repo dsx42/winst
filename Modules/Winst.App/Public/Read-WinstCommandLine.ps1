@@ -48,7 +48,7 @@ function Read-WinstCommandLine {
 
         # 还没有命令名：遇到 -v / -h 这类「本身就是完整命令」的开关时它就是命令，
         # 后面的 token 只是它的参数（`winst -v repair` 仍然是「查看版本」，不展开成 repair）。
-        # 其它开关先记着继续往后找命令名；遇到非开关即命令名。
+        # 遇到其它未识别的开关立即报错，非开关参数作为命令名。
         if (-not $command) {
             if ($text.StartsWith('-')) {
                 if (Test-WinstReadOnlyCommand -Name $text) {

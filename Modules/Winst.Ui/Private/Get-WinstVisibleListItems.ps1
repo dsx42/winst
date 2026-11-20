@@ -14,14 +14,10 @@ function Get-WinstVisibleListItems {
     param($Items, [string]$Filter)
 
     $all = @($Items)
-    $visible = New-Object 'System.Collections.Generic.List[object]'
-    $indexes = New-Object 'System.Collections.Generic.List[int]'
     $keyword = $Filter.Trim()
-
-    for ($i = 0; $i -lt $all.Count; $i++) {
+    $indexes = @(for ($i = 0; $i -lt $all.Count; $i++) {
         if ($keyword -and -not (Test-WinstListItemKeyword -Item $all[$i] -Keyword $keyword)) { continue }
-        $visible.Add($all[$i])
-        $indexes.Add($i)
-    }
-    return @{ Visible = @($visible.ToArray()); Indexes = @($indexes.ToArray()) }
+        $i
+    })
+    return @{ Visible = @($all[$indexes]); Indexes = $indexes }
 }

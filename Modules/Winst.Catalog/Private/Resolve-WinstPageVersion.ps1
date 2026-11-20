@@ -3,11 +3,11 @@
 function Resolve-WinstPageVersion {
     <#
     .SYNOPSIS
-        从页面数据字段（versionKey）或 versionFrom 指定的位置识别版本，最后回退条目里的 version。
+        从页面字段或 versionFrom 指定的位置识别版本，未声明规则时版本为空。
     .OUTPUTS
         @{ Error; Version }
     #>
-    param($Entry, $Source, [string]$Html, [string]$DownloadUrl, [string]$VersionFrom, [string]$PageUrl, [hashtable]$Context)
+    param($Source, [string]$Html, [string]$DownloadUrl, [string]$VersionFrom, [string]$PageUrl, [hashtable]$Context)
 
     if (@('header', 'json') -contains $VersionFrom) {
         return @{ Error = ''; Version = (Resolve-WinstExternalVersion -Context $Context -Source $Source -VersionFrom $VersionFrom) }
@@ -27,9 +27,8 @@ function Resolve-WinstPageVersion {
     }
 
     if ($VersionFrom -eq 'package') {
-        # 版本号等主包下载后从文件信息取：页面 / 地址里不找版本，
-        # 清单 version 仍可写（用于展示与配套文件 {version} 展开的兜底）
-        return @{ Error = ''; Version = (Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')) }
+        # 主包下载后从包内读取版本。
+        return @{ Error = ''; Version = '' }
     }
 
     $versionSourceText = $DownloadUrl
@@ -38,7 +37,7 @@ function Resolve-WinstPageVersion {
 
     $found = Get-VersionFromSourceText -Source $Source -Text $versionSourceText -Where $versionSourceWhere
     if ($found.Missing) {
-        return @{ Error = ''; Version = (Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')) }
+        return @{ Error = ''; Version = '' }
     }
     if (-not $found.Ok) {
         return @{ Error = ('无法从下载页 {0} 上识别出版本号（{1}）；可能是页面结构变更，需要更新软件源' -f $PageUrl, $found.Error); Version = '' }

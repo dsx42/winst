@@ -14,7 +14,6 @@ function ConvertTo-WinstFileVersionText {
     #>
     param([string]$Text)
 
-    if ($null -eq $Text) { return '' }
     $value = ([string]$Text).Trim()
     if (-not $value) { return '' }
     if ($value -match '^[vV]?\d+(\s*[,;]\s*\d+)+$') {

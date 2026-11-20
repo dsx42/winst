@@ -9,7 +9,6 @@ function Get-MatchRuleText {
     #>
     param([string]$Rule, [string]$Version = '', [string]$Tag = '')
 
-    if ($null -eq $Rule) { return '' }
     $text = [string]$Rule
     $escape = Test-RegexRuleText -Rule $text
     return [regex]::Replace($text, '\{(?:version(?:Major|Minor)?|tag)\}', [System.Text.RegularExpressions.MatchEvaluator]{

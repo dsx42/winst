@@ -109,11 +109,11 @@ $env:CI='1'; cmd /c build.cmd
 
 - 新增软件源条目时，尽量探索并实际验证官方检查更新 API 或官方版本元数据（JSON / XML / 文本）；优先使用能正确识别目标平台、架构及正式版本的官方接口，未确认可用接口时再采用官方下载页。
 
-字段自检（排除 `appliedEnv`、`remoteFresh`、`fileMeta`、`manifestOrigin` 等 winst 自写字段）：
+用下列命令查找字段候选，再核对清单解析器的读取点，排除 UI 键和 `appliedEnv`、`remoteFresh`、`fileMeta`、`manifestOrigin` 等内部字段。
 
 ```powershell
-Get-ChildItem Modules -Recurse -Filter *.ps1 | Select-String -Pattern "-Key\s+'([^']+)'" |
-    ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique
+Get-ChildItem Modules -Recurse -Filter *.ps1 | Select-String -AllMatches -Pattern "-Key\s+'([^']+)'" |
+    ForEach-Object { foreach ($match in $_.Matches) { $match.Groups[1].Value } } | Sort-Object -Unique
 ```
 
 ## 发布
@@ -123,7 +123,7 @@ Get-ChildItem Modules -Recurse -Filter *.ps1 | Select-String -Pattern "-Key\s+'(
 - `dist\winst\` 可直接跑，不必解压；仓库根有 `manifest.json` 时会复制进去做本地源测试，**不进 zip**。
 - 正式目录在独立仓库 `dsx42/winst-manifest`（无 release），经 `raw.githubusercontent.com/dsx42/winst-manifest/main/manifest.json` 分发；改那边才是发布，`_manifestVersion` 一起改。本仓库的 `manifest.json` 只是本地副本。
 - 内置源名 `dsx42/winst-manifest`，`Ensure-OfficialManifest` 负责补首位 / 恢复地址 / 挪回首位。
-- `install.ps1` 经 `irm | iex` 执行：不用 `param()`、不用 `$PSScriptRoot`、不用 `exit`、不依赖本地文件；安装逻辑在 `Install-WinstSelf`，用 `Start-Process -ArgumentList` 传路径必须自己加引号。
+- `install.ps1` 经 `irm | iex` 执行：不用 `param()`、不用 `$PSScriptRoot`、不用 `exit`、不依赖本地文件；安装逻辑在 `Install-WinstSelf`，引导脚本在 `ProcessStartInfo.Arguments` 中为入口和解压目录的路径分别加双引号。
 
 ## 外部进程
 

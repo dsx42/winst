@@ -18,9 +18,8 @@ function Get-WinstFileCompareCriteria {
     param([string]$Text)
 
     $defaults = @('lastmodified', 'size')
-    $result = @{ Criteria = @($defaults); Invalid = @(); Raw = ''; Text = 'auto'; IsDefault = $true }
-    if ($null -ne $Text) { $result.Raw = [string]$Text }
-    $raw = ([string]$result.Raw).Trim()
+    $result = @{ Criteria = @($defaults); Invalid = @(); Raw = $Text; Text = 'auto'; IsDefault = $true }
+    $raw = $Text.Trim()
     if (-not $raw -or $raw -ieq 'auto') { return $result }
 
     $criteria = @()

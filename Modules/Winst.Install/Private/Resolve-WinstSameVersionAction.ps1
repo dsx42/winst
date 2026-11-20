@@ -35,7 +35,7 @@ function Resolve-WinstSameVersionAction {
                 Write-Host ('  {0} {1}：主包无变化，只更新 {2} 个附加文件（不重装）' -f $DisplayName, $Detected, $CompanionDownloadCount) -ForegroundColor Gray
             }
         }
-        return @{ Return = $false; Result = $null; Defer = $false; CompanionOnly = $true; Detected = $Detected }
+        return @{ Return = $false; CompanionOnly = $true }
     }
     return (Complete-WinstInstallSkip -Result $Result -Version $Detected `
         -Message ('{0} 已经是 {1}，无需重复安装' -f $DisplayName, $Detected))

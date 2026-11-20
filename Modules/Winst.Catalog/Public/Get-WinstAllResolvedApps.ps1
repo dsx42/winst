@@ -19,11 +19,10 @@ function Get-WinstAllResolvedApps {
     $cachedApps = Get-WinstState -Name WinstAllAppsCache
     if ($null -ne $cachedApps) { return $cachedApps }
 
-    $all = New-Object 'System.Collections.Generic.List[object]'
     $options = Get-WinstState -Name WinstOptions
     $allowRefresh = -not ($options -and ($options.Offline -or $options.DryRun))
 
-    foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
+    $snapshot = @(foreach ($source in @(Get-ManifestSourceList -Context $Context)) {
         $name = [string]$source['name']
         if (-not $name) { continue }
 
@@ -38,10 +37,8 @@ function Get-WinstAllResolvedApps {
                 $apps = @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $name)
             }
         }
-        foreach ($app in $apps) { $all.Add(@{ Source = $name; App = $app }) }
-    }
-
-    $snapshot = @($all.ToArray())
+        foreach ($app in $apps) { @{ Source = $name; App = $app } }
+    })
     # 刷新过程中的 Update-ManifestSource 会把缓存置空（Write-ManifestMeta -> Reset-WinstCatalogCache）：
     # 这里只在还没有缓存时写回，避免把刷新前的旧快照盖到刷新后的状态上。
     # 空结果同样写回：Get-WinstState 用 -NoEnumerate 输出，$null 只表示「没缓存」。

@@ -28,7 +28,6 @@ function Get-GitHubLatestTag {
     # ② HEAD 拿不到最终地址时（部分网络 / 代理环境下 IWR 不暴露跳转目标）退回 GET：
     #    releases/latest 会跳到「最新正式发布」的页面，页面里的 og:url 就是它的 tag。
     #    预发布不会被 /releases/latest 命中（这正是这里要用的语义）。
-    $page = ''
     try { $page = Invoke-WinstHttpGet -Uri $url -Context $Context } catch { return '' }
     if (-not $page) { return '' }
 

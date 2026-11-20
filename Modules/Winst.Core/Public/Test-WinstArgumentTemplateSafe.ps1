@@ -7,7 +7,6 @@ function Test-WinstArgumentTemplateSafe {
     #>
     param([string]$Value)
 
-    if ($null -eq $Value) { return $true }
     $text = [string]$Value
     if ($text -match '[\x00-\x1F]') { return $false }
     return (-not (Get-WinstCommandLineQuoteState -Text $text))

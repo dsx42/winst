@@ -14,7 +14,8 @@ function Assert-WinstSelfPackage {
     }
     $stagedModules = Join-WinstPath $StageDir 'Modules'
     if (-not (Test-WinstFileSystemPath -Path $stagedModules -PathType Container)) { throw 'winst 安装包里没有 Modules 目录' }
-    $moduleDirs = @(Get-WinstChildItem -Path $stagedModules -ErrorAction Stop | Where-Object { $_.PSIsContainer })
+    $moduleItems = @(Get-WinstChildItem -Path $stagedModules -ErrorAction Stop)
+    $moduleDirs = @($moduleItems | Where-Object { $_.PSIsContainer })
     if ($moduleDirs.Count -eq 0) { throw 'winst 安装包没有模块目录' }
     $sharedLoader = Join-WinstPath $stagedModules 'Import-WinstFunctionFiles.ps1'
     $hasSharedLoader = Test-WinstFileSystemPath -Path $sharedLoader -PathType Leaf
@@ -30,8 +31,19 @@ function Assert-WinstSelfPackage {
         }
         $null = Test-ModuleManifest -Path $manifestPath -ErrorAction Stop
     }
-    $scripts = @((Join-WinstPath $StageDir 'winst.ps1')) + @(Get-WinstChildItem -Path $stagedModules -Recurse -File -ErrorAction Stop |
-        Where-Object { [IO.Path]::GetExtension($_.Name) -in @('.ps1', '.psm1', '.psd1') } | ForEach-Object { $_.FullName })
+    $scripts = @((Join-WinstPath $StageDir 'winst.ps1'))
+    $singleBundle = $moduleItems.Count -eq 1 -and $moduleDirs[0].Name -eq 'Winst'
+    if ($singleBundle) {
+        # 已确认同名清单和模块存在，额外条目可能是本地包的脚本依赖。
+        $bundleItems = @(Get-WinstChildItem -Path $moduleDirs[0].FullName -ErrorAction Stop)
+        $singleBundle = $bundleItems.Count -eq 2 -and -not ($bundleItems | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint })
+    }
+    if ($singleBundle) {
+        $scripts += $manifestPath, $modulePath
+    } else {
+        $scripts += @(Get-WinstChildItem -Path $stagedModules -Recurse -File -ErrorAction Stop |
+            Where-Object { [IO.Path]::GetExtension($_.Name) -in @('.ps1', '.psm1', '.psd1') } | ForEach-Object { $_.FullName })
+    }
     foreach ($scriptFile in $scripts) {
         $parseErrors = $null
         $null = [Management.Automation.Language.Parser]::ParseFile($scriptFile, [ref]$null, [ref]$parseErrors)

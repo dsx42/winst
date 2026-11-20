@@ -47,7 +47,7 @@ function Set-WinstSelfTree {
                     }
                 }
                 Invoke-WinstFileStep -Name '检查 winst 运行树' -Action { Assert-WinstSelfPackage -StageDir $stage }
-                $delivery = Move-WinstStagedInstall -StageDir $stage -InstallDir $InstallDir -Id 'winst' -Clean -KeepTopLevel -Keep @('lists/', '*.list')
+                $delivery = Move-WinstStagedInstall -StageDir $stage -InstallDir $InstallDir -Id 'winst' -Clean -Keep @('lists/', '*.list')
             } catch {
                 $delivery = @{ Ok = $false; Error = $_.Exception.Message }
             }

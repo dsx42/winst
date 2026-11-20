@@ -13,7 +13,6 @@ function Test-WinstArgumentSafe {
     #>
     param([string]$Value)
 
-    if ($null -eq $Value) { return $true }
     $text = [string]$Value
     if ($text -match '"') { return $false }
     if ($text -match '[\x00-\x1F]') { return $false }

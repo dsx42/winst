@@ -51,7 +51,6 @@ function Test-WinstFileIntegrity {
     $algorithm = $expected.Algorithm
     $result.Algorithm = $algorithm
 
-    $actual = ''
     $indexHash = ''
     try {
         $actual = (Get-WinstFileHash -Path $FilePath -Algorithm $algorithm -IndexHash ([ref]$indexHash))

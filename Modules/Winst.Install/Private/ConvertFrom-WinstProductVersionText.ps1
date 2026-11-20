@@ -40,10 +40,9 @@ function ConvertFrom-WinstProductVersionText {
 
     if (-not $Text) { return '' }
 
-    $tokens = $null
     $parseErrors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseInput(
-        $Text, 'winst', [ref]$tokens, [ref]$parseErrors)
+        $Text, 'winst', [ref]$null, [ref]$parseErrors)
 
     if ($parseErrors -and $parseErrors.Count -gt 0) { return '' }
 

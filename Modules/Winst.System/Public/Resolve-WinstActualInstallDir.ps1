@@ -19,7 +19,6 @@ function Resolve-WinstActualInstallDir {
     if ((Get-EntryString -Entry $detect -Key 'method').Trim().ToLowerInvariant() -eq 'appx') {
         $package = Get-WinstAppxPackageBest -NameRule (Get-EntryString -Entry $detect -Key 'name')
         if ($package) {
-            $location = ''
             try { $location = ([string]$package.InstallLocation).Trim() } catch { $location = '' }
             if ($location) {
                 $result.Dir = $location

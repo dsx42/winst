@@ -11,11 +11,10 @@ function ConvertTo-WinstCacheIndexEntry {
 
     $version = Get-EntryString -Entry $Entry -Key 'version'
     $downloadedAt = Get-EntryString -Entry $Entry -Key 'downloadedAt'
-    $files = New-Object 'System.Collections.Generic.List[string]'
-    foreach ($f in @(Get-EntryArray -Entry $Entry -Key 'files')) {
+    [string[]]$files = @(foreach ($f in @(Get-EntryArray -Entry $Entry -Key 'files')) {
         $text = [string]$f
-        if ($text.Trim()) { $files.Add($text) }
-    }
+        if ($text.Trim()) { $text }
+    })
     # 每个包文件的 sha256
     $hashes = New-WinstOrdinalDictionary -IgnoreCase
     $hashObj = Get-EntryValue -Entry $Entry -Key 'hashes' -Default $null
@@ -48,7 +47,7 @@ function ConvertTo-WinstCacheIndexEntry {
 
     return [ordered]@{
         version        = $version
-        files          = $files.ToArray()
+        files          = $files
         hashes         = $hashes
         manifestHashes = $manifestHashes
         fileMeta       = $fileMeta

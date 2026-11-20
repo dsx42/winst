@@ -16,10 +16,10 @@ function New-WinstDevToolsSession {
         变量；ProcessStartInfo 原样继承环境，没有这个问题。
         **stdout / stderr 一律异步抽干**：不重定向的话，Edge 的 `DevTools listening on ws://…` 行与新 profile 首次
         运行的导入器扫描报错（QQBrowser user data path not found 等）会直接打进 winst 的控制台；而重定向后不读走，
-        几 KB 的管道缓冲写满会让浏览器卡住。所以只保留文本（失败时截尾部拼进原因），不再落临时文件。
+        管道缓冲写满会让浏览器卡住。失败时将已捕获的 stderr 尾部附在错误信息中。
         默认把下载设为 `deny`：只让浏览器上报下载地址、不真下文件。
     .OUTPUTS
-        @{ Ok; Error; Socket; Token; TokenSource; SessionId; TargetId; Process; ProfileDir; Engine; Downloads; Requests }
+        @{ Ok; Error; Socket; Token; TokenSource; SessionId; Process; ProfileDir; Engine; Downloads; Requests }
     #>
     param(
         [string]$ProxyUrl = '',
@@ -37,7 +37,6 @@ function New-WinstDevToolsSession {
         Pending     = $null
         NextId      = 1
         SessionId   = ''
-        TargetId    = ''
         Process     = $null
         ProfileDir  = ''
         Engine      = ''
@@ -69,10 +68,6 @@ function New-WinstDevToolsSession {
     $result.ProfileDir = $profileDir
     try { $null = New-Item -ItemType Directory -Path $profileDir -Force -ErrorAction Stop } catch { }
 
-    # 浏览器的 stdout / stderr 必须有人读走（见上方说明），启动后立刻异步抽干；不落临时文件，
-    # 失败时从 $cleanup 里把 stderr 尾部拼进错误原因
-    $stderrTask = $null
-
     $argList = @(
         '--headless=new'
         '--disable-gpu'
@@ -89,7 +84,6 @@ function New-WinstDevToolsSession {
     )
     if ($ProxyUrl) { $argList += ('--proxy-server=' + (Format-WinstCommandArgument -Value ([string]$ProxyUrl))) }
 
-    $process = $null
     try {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $exe
@@ -170,7 +164,6 @@ function New-WinstDevToolsSession {
     $result.Token = $source.Token
     $source.CancelAfter((Get-WinstBrowserRemainingMs -Session $result -LimitMs ([int]::MaxValue) -Cleanup))
 
-    $connected = $false
     try { $connected = $socket.ConnectAsync([Uri]$wsUrl, $source.Token).Wait((Get-WinstBrowserRemainingMs -Session $result -LimitMs 15000)) } catch { $connected = $false }
     if (-not $connected -or $socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
         $result.Error = '连接无头浏览器的 DevTools 失败'
@@ -180,8 +173,7 @@ function New-WinstDevToolsSession {
 
     try {
         $created = Invoke-WinstDevToolsCommand -Session $result -Method 'Target.createTarget' -Params @{ url = 'about:blank' } -BrowserLevel
-        $result.TargetId = [string]$created.result.targetId
-        $attached = Invoke-WinstDevToolsCommand -Session $result -Method 'Target.attachToTarget' -Params @{ targetId = $result.TargetId; flatten = $true } -BrowserLevel
+        $attached = Invoke-WinstDevToolsCommand -Session $result -Method 'Target.attachToTarget' -Params @{ targetId = [string]$created.result.targetId; flatten = $true } -BrowserLevel
         $result.SessionId = [string]$attached.result.sessionId
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Page.enable'
         $null = Invoke-WinstDevToolsCommand -Session $result -Method 'Network.enable'

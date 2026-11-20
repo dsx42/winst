@@ -3,10 +3,10 @@
 function Get-WinstCachedOverviewReady {
     <#
     .SYNOPSIS
-        已下载包页面的公共前置：按索引确定展示项 → 按需刷新版本 → 重建总览。
+        已下载包页面的公共前置：按实际安装包目录确定展示项 → 按需刷新版本 → 重建总览。
     .DESCRIPTION
         菜单页（Get-WinstCachedListItems）与 CLI（winst list --cached）共用同一段准备逻辑：
-        先把软件源里所有软件都解析一遍是浪费，因此只刷新索引里真正要展示的那些 id；
+        只刷新安装包目录里有文件的 id，随后读取缓存索引补齐版本信息；
         没有已下载包时零解析。
 
         只准备数据，不打印页面：错误文案、空列表提示与「按回车返回」由调用方决定。

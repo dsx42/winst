@@ -5,9 +5,8 @@ function Get-WinstUpdateEntrySnapshot {
     .SYNOPSIS
         取一条软件的最新版本 / 来源 / 版本号来源 / 远端新鲜度 / 安装来源与版本比较结果。
     .OUTPUTS
-        @{ Latest; LatestSource; VersionFromPackage; CachedPackageVersion; RemoteFresh; LedgerVersion; HasUsableSource;
+        @{ Latest; LatestSource; VersionFromPackage; CachedPackageVersion; RemoteFresh; HasUsableSource;
            Comparable; Cmp; OriginName; OriginEntry; OriginVersion; OriginUsable; OriginNewer }
-        LedgerVersion = 安装台账里记着的版本（系统安装记录没覆盖到该软件时，用它判断「没有更新可做」）。
     #>
     param([hashtable]$Context, $Row, $Ledger, [string]$InstalledVersion)
 
@@ -19,8 +18,7 @@ function Get-WinstUpdateEntrySnapshot {
         $latestSource = [string]$bestEntry['Source']
     }
 
-    # 版本号取自主包文件信息的条目：软件源里其实没有版本号，缓存里
-    # 那份也不算数（要重新取包才知道当前是哪一版）→ 不拿它当比较基准，按「软件源里没有可用的版本信息」处理
+    # 包内读版的来源没有明确的远端版本，需结合主包新鲜度判断缓存版本能否用于比较。
     $chosen = Get-WinstRowBestPlanEntry -Row $Row -Best $bestEntry
     $versionFromPackageRow = Test-WinstRowVersionFromPackage -Row $Row -Chosen $chosen
     $cachedPackageVersion = ''
@@ -75,12 +73,9 @@ function Get-WinstUpdateEntrySnapshot {
     }
     if ($comparable -and $cmp -le 0 -and $originNewer) { $cmp = 1 }
 
-    $ledgerVersion = Get-EntryString -Entry $Ledger -Key 'version'
-
     return @{
         Latest = $latest; LatestSource = $latestSource; VersionFromPackage = $versionFromPackageRow
         CachedPackageVersion = $cachedPackageVersion; RemoteFresh = $remoteFreshState
-        LedgerVersion = $ledgerVersion
         HasUsableSource = $hasUsableSource; Comparable = $comparable; Cmp = $cmp
         OriginName = $originName; OriginEntry = $originEntry; OriginVersion = $originVersion
         OriginUsable = $originUsable; OriginNewer = $originNewer

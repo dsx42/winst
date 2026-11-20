@@ -22,7 +22,6 @@ function Remove-WinstCachedPackage {
     $result = @{ Ok = $false; Message = ''; Error = ''; FailureKind = 'Parameter'; Path = ''; FileCount = 0; Files = @(); DryRun = $false }
 
     if (-not $Context.PkgDir) { $result.Error = '没有可用的安装包位置。'; return $result }
-    if (-not $Id) { $result.Error = '缺少软件 id。'; return $result }
 
     # id 直接拼成 <pkgDir>\<id> 并整目录删除：`winst clean ..\资料` 这类输入必须在这里挡住，
     # 否则会跳出安装包位置删掉任意目录（Clear-WinstInstallDir 的黑名单挡不住任意父目录）
@@ -43,13 +42,13 @@ function Remove-WinstCachedPackage {
         $result.FailureKind = 'Execution'
         Assert-WinstSafeWritePath -Path $dir -Directory
 
-        $fileList = New-Object 'System.Collections.Generic.List[string]'
-        if (Test-Path -LiteralPath $dir -PathType Container) {
-            foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction Stop)) { $fileList.Add([string]$file.Name) }
-        }
-        $files = $fileList.ToArray()
+        $files = @(
+            if (Test-Path -LiteralPath $dir -PathType Container) {
+                foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -ErrorAction Stop)) { [string]$file.Name }
+            }
+        )
         $result.FileCount = $files.Count
-        $result.Files = @($files)
+        $result.Files = $files
         $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
         if (-not $cacheRead.CanSave) { $result.Error = $cacheRead.Error; return $result }
         if ($files.Count -eq 0 -and -not $cacheRead.Index.Contains($Id)) {

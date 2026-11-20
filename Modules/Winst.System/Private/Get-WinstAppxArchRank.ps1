@@ -7,8 +7,7 @@ function Get-WinstAppxArchRank {
     #>
     param([string]$Architecture)
 
-    $text = ''
-    if ($null -ne $Architecture) { $text = ([string]$Architecture).Trim().ToUpperInvariant() }
+    $text = $Architecture.Trim().ToUpperInvariant()
     switch ($text) {
         'X64'     { return 3 }
         'NEUTRAL' { return 3 }

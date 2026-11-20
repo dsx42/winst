@@ -26,7 +26,6 @@ function Remove-WinstAppxPackage {
     }
 
     foreach ($package in $packages) {
-        $fullName = ''
         try { $fullName = [string]$package.PackageFullName } catch { $fullName = '' }
         if (-not $result.PackageFullName) { $result.PackageFullName = $fullName }
         if (-not $Quiet) { Write-Host ('    正在移除应用包: {0} …' -f $fullName) -ForegroundColor Gray }

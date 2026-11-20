@@ -5,7 +5,7 @@ function Get-WinstJsonSourceSpec {
     .SYNOPSIS
         校验 json 源的接口地址 / 版本规则 / files[] 声明，返回取数所需的规格。
     .OUTPUTS
-        @{ Error; Source; ApiUrl; VersionKind; VersionBetween; Declared; MainLocator; FileRule }
+        @{ Error; Source; ApiUrl; Selection; Follow; FollowSelection; Declared; MainLocator; FileRule; HashFileRule }
     #>
     param($Entry)
 
@@ -89,7 +89,6 @@ function Get-WinstJsonSourceSpec {
     return @{
         Error = ''; Source = $source; ApiUrl = $apiUrl
         Selection = $selection; Follow = $follow; FollowSelection = $followSelection
-        VersionKind = [string]$versionRule.VersionKind; VersionBetween = @($versionRule.VersionBetween)
         Declared = $declared; MainLocator = $mainLocator; FileRule = $fileRule; HashFileRule = $hashFileRule
     }
 }

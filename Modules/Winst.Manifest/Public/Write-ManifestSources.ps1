@@ -13,15 +13,14 @@ function Write-ManifestSources {
     )
 
     $null = Read-ManifestSources -PkgDir $PkgDir
-    $items = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($source in @($Sources)) {
+    $items = @(foreach ($source in @($Sources)) {
         $repo = Get-EntryString -Entry $source -Key 'repo'
         if (-not $repo) { $repo = Get-EntryString -Entry $source -Key 'name' }
         if (-not $repo) { continue }
-        $items.Add([ordered]@{ repo = $repo; url = (Get-EntryString -Entry $source -Key 'url') })
-    }
+        [ordered]@{ repo = $repo; url = (Get-EntryString -Entry $source -Key 'url') }
+    })
 
-    $obj = [ordered]@{ _version = 1; sources = @($items.ToArray()) }
+    $obj = [ordered]@{ _version = 1; sources = $items }
     Write-FileAtomic -Path (Get-ManifestSourcesPath -PkgDir $PkgDir) -Content (ConvertTo-WinstJson -InputObject $obj -Depth 6)
 
     # 软件源增删 → 软件清单汇总缓存（搜索 / 依赖索引）必须重建

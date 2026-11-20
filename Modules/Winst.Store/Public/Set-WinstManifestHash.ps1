@@ -12,10 +12,8 @@ function Set-WinstManifestHash {
     if ($null -eq $Container -or ($Container -isnot [System.Collections.IDictionary])) { return $Container }
     if (-not $FileName) { return $Container }
 
-    $text = ''
-    if ($null -ne $Hash) { $text = ([string]$Hash).Trim() }
-    $algorithmKey = ''
-    if ($null -ne $Algorithm) { $algorithmKey = ([string]$Algorithm).Trim().ToLowerInvariant() }
+    $text = $Hash.Trim()
+    $algorithmKey = $Algorithm.Trim().ToLowerInvariant()
     if (-not $text -or -not $algorithmKey) { return $Container }
 
     $key = Get-WinstFileMapKey -Map $Container -Name $FileName

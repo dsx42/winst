@@ -12,14 +12,12 @@ function Invoke-ManifestAddSource {
         失败后直接回车即放弃。
 
     .OUTPUTS
-        @{ Ok = <bool>; Cancelled = <bool>; Message }
+        @{ Cancelled = <bool> }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [string]$RepoOrUrl = ''
     )
-
-    $result = @{ Ok = $false; Cancelled = $false; Message = '' }
 
     Write-Section '新建软件源'
     Write-Host '  软件源只支持 GitHub 仓库，名称自动取「用户名/仓库」，无需填写。' -ForegroundColor DarkGray
@@ -36,21 +34,17 @@ function Invoke-ManifestAddSource {
     while ($true) {
         if (-not $address) {
             Write-Host '  已取消。' -ForegroundColor DarkGray
-            $result.Cancelled = $true
-            return $result
+            return @{ Cancelled = $true }
         }
 
         $added = Add-RemoteManifest -Context $Context -RepoOrUrl $address
         Write-Host ''
         if ($added.Success) {
             Write-Host ('  {0}' -f $added.Message) -ForegroundColor Green
-            $result.Ok = $true
-            $result.Message = [string]$added.Message
-            return $result
+            return @{ Cancelled = $false }
         }
 
-        $result.Message = [string]$added.Message
-        Write-Host ('  {0}' -f $result.Message) -ForegroundColor Yellow
+        Write-Host ('  {0}' -f $added.Message) -ForegroundColor Yellow
         Write-Host '  请重新输入（直接回车放弃）。' -ForegroundColor DarkGray
 
         $address = Read-ManifestSourceAddress -Prompt '  软件源地址（直接回车放弃）'

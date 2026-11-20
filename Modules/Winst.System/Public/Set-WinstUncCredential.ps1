@@ -31,13 +31,11 @@ function Set-WinstUncCredential {
 
     $result = @{ Ok = $false; Error = ''; Warning = '' }
 
-    $cmdkey = ''
     try { $cmdkey = Join-WinstPath $env:SystemRoot 'System32\cmdkey.exe' } catch { $cmdkey = '' }
     if (-not $cmdkey -or -not (Test-Path -LiteralPath $cmdkey -PathType Leaf)) {
         $result.Error = '找不到系统命令 cmdkey.exe，无法保存网络共享凭据'
         return $result
     }
-    $netExe = ''
     try { $netExe = Join-WinstPath $env:SystemRoot 'System32\net.exe' } catch { $netExe = '' }
     if (-not $netExe -or -not (Test-Path -LiteralPath $netExe -PathType Leaf)) {
         $result.Error = '找不到系统命令 net.exe，无法验证网络共享凭据'

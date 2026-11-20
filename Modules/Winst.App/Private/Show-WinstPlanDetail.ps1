@@ -9,8 +9,7 @@ function Show-WinstPlanDetail {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
         [string]$SourceName = '',
-        [int]$Index = 0,
-        [int]$Total = 0, $StateRead, $Ledger
+        $StateRead, $Ledger
     )
 
     $shortcutDirs = Get-WinstPlanShortcutDirectories
@@ -18,7 +17,7 @@ function Show-WinstPlanDetail {
     $installedVersion = Get-EntryString -Entry $Ledger -Key 'version'
     $installedDir = Get-EntryString -Entry $Ledger -Key 'installDir'
 
-    Show-ResolvedAppPlan -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
+    Show-ResolvedAppPlan -Plan $Plan -SourceName $SourceName `
         -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
         @shortcutDirs `
         -InstalledVersion $installedVersion -InstalledDir $installedDir -Context $Context -State $StateRead.State -StateRead $StateRead

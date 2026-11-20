@@ -14,17 +14,15 @@ function New-WinstCacheIndexEntryFromDir {
     $files = @(Get-ChildItem -LiteralPath $Dir -File -ErrorAction SilentlyContinue)
     if ($files.Count -eq 0) { return $null }
 
-    $names = New-Object 'System.Collections.Generic.List[string]'
     $latest = $null
     foreach ($file in $files) {
-        $names.Add([string]$file.Name)
         if ($null -eq $latest -or $file.LastWriteTime -gt $latest) { $latest = $file.LastWriteTime }
     }
     $stamp = ''
     if ($latest) { $stamp = $latest.ToString('s') }
     return [ordered]@{
         version        = ''
-        files          = @($names.ToArray())
+        files          = @($files.Name)
         hashes         = (New-WinstOrdinalDictionary)   # 重建时不知道校验码，首次用到时再算一次并写回
         manifestHashes = (New-WinstOrdinalDictionary)
         fileMeta       = (New-WinstOrdinalDictionary)      # 重建时也不知道记账，首次用到时再建立基线

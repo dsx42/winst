@@ -34,7 +34,6 @@ function Resolve-WinstUncInput {
     }
 
     $text = ([string]$Value).Trim()
-    if (-not $text) { $result.Error = '路径不能为空'; return $result }
     # 用户常从资源管理器复制到带引号的路径
     if ($text.Length -ge 2 -and $text.StartsWith('"') -and $text.EndsWith('"')) {
         $text = $text.Substring(1, $text.Length - 2).Trim()
@@ -49,7 +48,6 @@ function Resolve-WinstUncInput {
     }
     if ($text -match '^([A-Za-z]):') {
         $letter = $Matches[1].ToUpperInvariant()
-        $driveType = 'NoRootDirectory'
         try { $driveType = (New-Object IO.DriveInfo($letter)).DriveType.ToString() } catch { $driveType = 'NoRootDirectory' }
 
         if ($driveType -eq 'Fixed' -or $driveType -eq 'Removable' -or $driveType -eq 'CDRom' -or $driveType -eq 'Ram') {

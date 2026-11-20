@@ -23,7 +23,6 @@ function Get-WinstInstalledDirList {
         [Parameter(Mandatory = $true)][string]$InstallRoot
     )
 
-    if (-not $InstallRoot) { return @() }
     if (-not (Test-Path -LiteralPath $InstallRoot -PathType Container)) { return @() }
 
     $names = @()

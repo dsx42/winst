@@ -7,7 +7,7 @@ function ConvertTo-HtmlText {
     #>
     param([string]$Html)
 
-    if ($null -eq $Html -or -not $Html) { return '' }
+    if (-not $Html) { return '' }
     $text = $Html -replace '(?is)<(script|style)\b.*?</\1>', ' '
     $text = $text -replace '(?s)<[^>]*>', ' '
     $text = [System.Net.WebUtility]::HtmlDecode($text)

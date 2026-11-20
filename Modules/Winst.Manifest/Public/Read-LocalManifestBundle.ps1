@@ -28,7 +28,6 @@ function Read-LocalManifestBundle {
     foreach ($item in $files) {
         $filePath = [string]$item
         if (-not $filePath) { continue }
-        $fileName = ''
         try { $fileName = Split-Path -Leaf $filePath } catch { $fileName = $filePath }
 
         # 按文件缓存解析结果：本地清单在一次会话里会被反复汇总（搜索 / 依赖索引 / 刷新都会读）

@@ -200,10 +200,8 @@ function Invoke-WinstUpdateEntry {
                     $entryResult.Latest = [string]$snap.CachedPackageVersion
                     $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
                     $entryResult.RemoteFresh = [string]$snap.RemoteFresh
-                    $shownVersion = $installedVersion
-                    $basisNote = '远端无新包，与已下载的安装包一致'
                     if (-not $Quiet) {
-                        Write-Host ('  {0}: 已是最新版本（{1}；{2}）。' -f $displayName, $shownVersion, $basisNote) -ForegroundColor Gray
+                        Write-Host ('  {0}: 已是最新版本（{1}；远端无新包，与已下载的安装包一致）。' -f $displayName, $installedVersion) -ForegroundColor Gray
                     }
                     return $entryResult
                 }

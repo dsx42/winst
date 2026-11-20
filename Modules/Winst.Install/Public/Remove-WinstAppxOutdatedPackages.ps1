@@ -34,12 +34,9 @@ function Remove-WinstAppxOutdatedPackages {
     if (-not (Get-Command Remove-AppxPackage -ErrorAction SilentlyContinue)) { return $result }
 
     foreach ($package in $packages) {
-        $pkgVersion = ''
         try { $pkgVersion = [string]$package.Version } catch { $pkgVersion = '' }
-        $cmp = 0
         try { $cmp = Compare-WinstVersion -A $pkgVersion -B $detectedVersion } catch { $cmp = 0 }
         if ($cmp -ge 0) { $result.Kept++; continue }   # 版本相同 / 更高 → 本次安装的（或更高的版本前缀）→ 保留
-        $fullName = ''
         try { $fullName = [string]$package.PackageFullName } catch { $fullName = '' }
         if (-not $Quiet) { Write-Host ('    正在清理旧版本应用包: {0} …' -f $fullName) -ForegroundColor Gray }
         try {

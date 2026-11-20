@@ -19,16 +19,15 @@ function Get-WinstPackageDirectoryMap {
     } else { Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue }
     foreach ($dir in $dirs) {
         if (Test-WinstReservedPackageId -Id $dir.Name) { continue }
-        $names = New-Object 'System.Collections.Generic.List[string]'
         $size = [long]0
-        foreach ($file in @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)) {
-            $names.Add([string]$file.Name)
+        $names = @(foreach ($file in @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)) {
+            [string]$file.Name
             $size += [long]$file.Length
-        }
+        })
         if ($names.Count -eq 0) { continue }
         $map[[string]$dir.Name] = [ordered]@{
             Path      = [string]$dir.FullName
-            Files     = @($names.ToArray())
+            Files     = $names
             SizeBytes = $size
             SizeText  = (Format-WinstSizeText -Bytes $size)
         }

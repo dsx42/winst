@@ -7,8 +7,7 @@ function Show-ResolvedAppPlan {
     .DESCRIPTION
         路径按本机设置展开为实际值，便于普通用户直接阅读；%VAR% 形式的引用按原样保留
         （含义是「跟随该环境变量的值」，切换变量即可整体切换版本）。
-        软件源里配置了依赖（dependencies）时，在「来源」之后列出依赖的软件与各自状态；
-        `-Context` 缺省（$null）时不展示依赖。
+        软件源里配置了依赖（dependencies）时，在「来源」之后列出依赖的软件与各自状态。
         本函数只做编排：视图变量由 New-WinstPlanViewState 计算，各阶段由 Write-WinstPlan*Stage 渲染。
     #>
     param(
@@ -22,7 +21,7 @@ function Show-ResolvedAppPlan {
         [string]$StartMenuDir = '',
         [string]$InstalledVersion = '',
         [string]$InstalledDir = '',
-        [hashtable]$Context = $null, $State = $null, $CacheIndex = $null, $StateRead = $null
+        [Parameter(Mandatory = $true)][hashtable]$Context, $State = $null, $CacheIndex = $null, $StateRead = $null
     )
 
     $view = New-WinstPlanViewState -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
@@ -39,13 +38,11 @@ function Show-ResolvedAppPlan {
         return
     }
 
-    if ($Context) {
-        $id = Get-EntryString -Entry $Plan -Key 'id'
-        if ($null -eq $State) { $State = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
-        $ledger = Get-WinstInstalledApp -State $State -Id $id
-        $lines = @(Get-WinstCompanionVersionLines -Context $Context -Id $id -Plan $Plan -Ledger $ledger -CacheIndex $CacheIndex)
-        Write-WinstCompanionVersions -Item @{ CompanionVersionLines = $lines }
-    }
+    $id = Get-EntryString -Entry $Plan -Key 'id'
+    if ($null -eq $State) { $State = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
+    $ledger = Get-WinstInstalledApp -State $State -Id $id
+    $lines = @(Get-WinstCompanionVersionLines -Context $Context -Id $id -Plan $Plan -Ledger $ledger -CacheIndex $CacheIndex)
+    Write-WinstCompanionVersions -Item @{ CompanionVersionLines = $lines }
 
     Write-WinstPlanDownloadStage -Plan $Plan -View $view
 

@@ -7,8 +7,7 @@ function Get-WinstGithubTagVersion {
     #>
     param([string]$Tag, [string]$ReleaseTagPrefix = '')
 
-    $text = ''
-    if ($null -ne $Tag) { $text = ([string]$Tag).Trim() }
+    $text = $Tag.Trim()
     if (-not $text) { return '' }
     if ($ReleaseTagPrefix -and $text.StartsWith($ReleaseTagPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         $text = $text.Substring($ReleaseTagPrefix.Length)

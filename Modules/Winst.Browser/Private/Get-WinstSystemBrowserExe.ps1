@@ -13,9 +13,7 @@ function Get-WinstSystemBrowserExe {
         口径冲突——真找不到 Edge 时按失败明确报错，不做静默降级。
     #>
     $candidates = @()
-    $pf86 = ''
     try { $pf86 = [string]${env:ProgramFiles(x86)} } catch { $pf86 = '' }
-    $pf = ''
     try { $pf = [string]$env:ProgramFiles } catch { $pf = '' }
     if ($pf86) { $candidates += (Join-WinstPath $pf86 'Microsoft\Edge\Application\msedge.exe') }
     if ($pf) { $candidates += (Join-WinstPath $pf 'Microsoft\Edge\Application\msedge.exe') }

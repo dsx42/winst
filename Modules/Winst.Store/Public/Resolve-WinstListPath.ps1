@@ -15,8 +15,7 @@ function Resolve-WinstListPath {
         [string]$Text
     )
 
-    $raw = ''
-    if ($null -ne $Text) { $raw = ([string]$Text).Trim().Trim('"') }
+    $raw = $Text.Trim().Trim('"')
     if (-not $raw) { return @{ Ok = $false; Error = '文件名为空。'; Path = '' } }
 
     $listsDir = Get-WinstListsDir -Context $Context

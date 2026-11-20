@@ -35,7 +35,6 @@ function Get-WinstConfig {
             # 不静默退回默认值——用户手写的配置失效却查不到原因，比报错更难排查。
             # 同一份坏文件只留一份 .bak（与 Read-WinstState 的备份口径一致），避免每次读都生成新文件。
             $backupPath = $configPath + '.bak'
-            $backupOk = $false
             try {
                 $needCopy = -not (Test-Path -LiteralPath $backupPath -PathType Leaf)
                 if (-not $needCopy) {

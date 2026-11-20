@@ -9,8 +9,7 @@ function Test-WinstListFileName {
     #>
     param([string]$Text)
 
-    $name = ''
-    if ($null -ne $Text) { $name = ([string]$Text).Trim().Trim('"') }
+    $name = $Text.Trim().Trim('"')
     if (-not $name) { return @{ Ok = $false; Error = '文件名为空。'; Name = '' } }
     if ($name -match '[\\/:*?"<>|]') {
         return @{ Ok = $false; Error = '文件名不能包含这些字符: \ / : * ? " < > |'; Name = '' }

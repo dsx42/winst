@@ -26,7 +26,6 @@ function Get-WinstAppxPackagesMatching {
 
     # 短 TTL 快照：不带 -Name 过滤的 Get-AppxPackage 是秒级枚举，而检测 / 清理 / 安装后各调一次。
     # 写入侧（Add-AppxPackage / Remove-WinstAppxPackage）立即失效
-    $packages = @()
     try {
         if (-not (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue)) {
             if ($null -ne $Status) { $Status.Error = '当前系统无法查询应用包记录' }
@@ -65,7 +64,6 @@ function Get-WinstAppxPackagesMatching {
     if ($env:WINDIR) { $systemApps = (Join-WinstPath $env:WINDIR 'SystemApps').TrimEnd('\') }
     $notInbox = New-Object 'System.Collections.Generic.List[object]'
     foreach ($package in $matched) {
-        $location = ''
         try { $location = ([string]$package.InstallLocation).Trim() } catch { $location = '' }
         $isInbox = $false
         if ($systemApps -and $location) {

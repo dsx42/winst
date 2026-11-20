@@ -42,7 +42,6 @@ function Get-WinstRemoteFileProbe {
     $state = 'unknown'
     $detail = ''
     foreach ($currentProxy in $attempts) {
-        $attemptState = 'unknown'
         $attemptDetail = ''
         $head = $null
         try {
@@ -57,7 +56,6 @@ function Get-WinstRemoteFileProbe {
             }
         } catch {
             $statusCode = 0
-            $response = $null
             try { $response = $_.Exception.Response } catch { $response = $null }
             if ($null -ne $response) {
                 try { $statusCode = [int]$response.StatusCode } catch { $statusCode = 0 }

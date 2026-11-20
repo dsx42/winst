@@ -11,8 +11,7 @@ function Get-WinstManifestHash {
     param($Entry, [string]$FileName, [string]$Algorithm)
 
     if ($null -eq $Entry -or -not $FileName) { return '' }
-    $algorithmKey = ''
-    if ($null -ne $Algorithm) { $algorithmKey = ([string]$Algorithm).Trim() }
+    $algorithmKey = $Algorithm.Trim()
     if (-not $algorithmKey) { return '' }
 
     $map = Get-EntryValue -Entry $Entry -Key 'manifestHashes' -Default $null

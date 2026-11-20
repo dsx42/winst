@@ -14,7 +14,6 @@ function Test-WinstLocalManifestHasId {
         [hashtable]$Lookup = @{}
     )
 
-    if (-not $Id) { return $false }
     $pkgDir = ''
     if ($Context) { $pkgDir = [string]$Context['PkgDir'] }
     if (-not $Lookup.ContainsKey('Files')) {

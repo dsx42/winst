@@ -38,7 +38,6 @@ function Receive-WinstDevToolsMessage {
 
         $task = $pending.Task
         $pending.Task = $null
-        $received = $null
         try {
             $received = $task.Result
         } catch {

@@ -7,7 +7,7 @@ function Stop-WinstBrowserProfileProcesses {
     #>
     param([string]$ProfileDir, [datetime]$Deadline = [datetime]::MaxValue)
 
-    if (-not $ProfileDir) { return 0 }
+    if (-not $ProfileDir) { return }
     $leaf = Split-Path -Leaf $ProfileDir
     if ($leaf -notlike 'winst-browser-*' -and $leaf -notlike 'winst-cdp-*') { throw '拒绝清理非 winst 浏览器目录' }
     $query = {
@@ -26,5 +26,4 @@ function Stop-WinstBrowserProfileProcesses {
     }
     $survivors = @(& $query)
     if ($survivors.Count -gt 0) { throw ('浏览器进程仍占用临时目录 {0}，目录已保留：{1}' -f $ProfileDir, ($errors -join '；')) }
-    return $targets.Count
 }

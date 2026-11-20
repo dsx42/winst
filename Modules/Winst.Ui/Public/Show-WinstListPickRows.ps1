@@ -25,8 +25,7 @@ function Show-WinstListPickRows {
     $all = @($Rows)
     if (-not $Selected) { $Selected = New-WinstOrdinalDictionary }
 
-    $filterText = ''
-    if ($null -ne $Filter) { $filterText = ([string]$Filter).Trim() }
+    $filterText = $Filter.Trim()
     if (Test-WinstInputRedirected) { return @{ Action = 'cancel'; Ids = @(); Filter = $filterText } }
 
     while ($true) {

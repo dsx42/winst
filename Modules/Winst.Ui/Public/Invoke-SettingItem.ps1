@@ -35,7 +35,6 @@ function Invoke-SettingItem {
     $value = ([string]$raw).Trim()
     if ($Key -eq 'proxy' -and $value -eq '-') { $value = '' }
     if ($Validator -and $value) {
-        $ok = $false
         try { $ok = [bool](& $Validator $value) } catch { $ok = $false }
         if (-not $ok) {
             Write-Host '  输入无效，未做修改。' -ForegroundColor Yellow

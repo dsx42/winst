@@ -14,7 +14,6 @@ function Get-WinstPackageFileVersion {
     if (-not $PkgDir -or -not $name) { return '' }
     $path = Join-WinstPath $PkgDir $name
 
-    $raw = ''
     try {
         $file = Get-Item -LiteralPath $path -Force -ErrorAction Stop
         $raw = Get-WinstFileResourceVersion -VersionInfo $file.VersionInfo

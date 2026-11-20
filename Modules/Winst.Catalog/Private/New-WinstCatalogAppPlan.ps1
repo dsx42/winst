@@ -3,7 +3,7 @@
 function New-WinstCatalogAppPlan {
     <#
     .SYNOPSIS
-        校验一个清单条目，解析来源并生成解析锁记录；也可传入已有来源结果。
+        校验一个清单条目，解析来源并生成解析锁记录。
     .DESCRIPTION
         覆盖七个阶段：① 下载 ② 解压/安装 ③ 复制/移动 ④ 设置环境变量
         ⑤ 执行预定义命令 ⑥ 检测版本号 ⑦ 卸载操作。{version} 展开为具体版本，
@@ -13,7 +13,6 @@ function New-WinstCatalogAppPlan {
     param(
         [string]$ManifestOrigin,
         $Entry,
-        $Resolve,
         [string]$PkgDir = '',
         $Context = $null
     )
@@ -30,11 +29,9 @@ function New-WinstCatalogAppPlan {
         return (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $failure).Plan
     }
 
-    if (-not $PSBoundParameters.ContainsKey('Resolve')) {
-        $Resolve = Resolve-WinstNormalizedAppSource -Context $Context -Entry $Entry
-    }
+    $resolve = Resolve-WinstNormalizedAppSource -Context $Context -Entry $Entry
 
-    $base = New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $Resolve
+    $base = New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $resolve
     $plan = $base.Plan
     if ($base.Error) { return $plan }
 

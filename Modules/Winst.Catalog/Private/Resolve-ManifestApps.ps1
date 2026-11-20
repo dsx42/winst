@@ -29,7 +29,6 @@ function Resolve-ManifestApps {
         $displayName = Get-EntryString -Entry $entry -Key 'name'
         if (-not $displayName) { $displayName = $id }
 
-        $plan = $null
         try {
             $plan = New-WinstCatalogAppPlan -ManifestOrigin $ManifestOrigin -Entry $entry -PkgDir $Context.PkgDir -Context $Context
         } catch {

@@ -105,7 +105,6 @@ function Read-WinstCacheIndex {
                     # 单条记录读坏只影响这一条：记忆里没有它时按目录内的文件重建一条（版本记空串，
                     # 安装 / 下载时自动核对并回写）；这里**不置 Changed**——原文件里那条记录可能本来是好的，
                     # 整份回写会把它一并抹掉，留着原文等下次真正需要写盘时再说
-                    $entry = $null
                     try {
                         $entry = ConvertTo-WinstCacheIndexEntry -Entry $prop.Value
                     } catch {
@@ -190,6 +189,6 @@ function Read-WinstCacheIndex {
     foreach ($id in @($result.Index.Keys)) {
         $cacheCopy.Index[$id] = Copy-WinstObjectShallow -InputObject $result.Index[$id]
     }
-    $cache[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy; Raw = '' }
+    $cache[$cacheKey] = @{ Stamp = $indexFileStamp; Value = $cacheCopy }
     return $result
 }

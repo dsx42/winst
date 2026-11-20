@@ -37,7 +37,6 @@ function Get-WinstRunningAppProcess {
     # （如 Chrome 的 MsiExec 型注册表记录没有 InstallLocation），目录匹配无从下手时按进程名兜底
     $declaredNames = @()
     foreach ($declared in @(Get-EntryArray -Entry $Plan -Key 'processes')) {
-        $base = ''
         try { $base = [IO.Path]::GetFileNameWithoutExtension(([string]$declared).Trim()) } catch { $base = ([string]$declared).Trim() }
         if ($base) { $declaredNames += $base.ToLowerInvariant() }
     }

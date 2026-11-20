@@ -44,7 +44,7 @@ function Read-WinstIndexSelection {
         if ($resolved.Ok) {
             foreach ($n in @($resolved.Numbers)) { $indexes += ([int]$n - 1) }
         } elseif ($resolved.Bad) {
-            Write-Host (Get-WinstSelectionErrorText -Resolved $resolved -Count $Count -RangeText $rangeText -Suffix '（b = 返回）') -ForegroundColor Yellow
+            Write-Host (Get-WinstSelectionErrorText -Resolved $resolved -Count $Count -Suffix '（b = 返回）') -ForegroundColor Yellow
             continue
         }
         if ($indexes.Count -eq 0) {

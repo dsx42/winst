@@ -6,9 +6,9 @@ function Copy-WinstBundleItem {
         校验来源与目标路径后复制一个套件文件或目录，目标参数表示最终位置。
     #>
     param([Parameter(Mandatory = $true)][string]$Source, [Parameter(Mandatory = $true)][string]$Destination,
-        [switch]$SourceChecked, [switch]$CountFiles)
+        [switch]$CountFiles)
 
-    if (-not $SourceChecked) { Assert-WinstTreeWithoutReparsePoint -Path $Source }
+    Assert-WinstTreeWithoutReparsePoint -Path $Source
     $sourceItem = Get-Item -LiteralPath $Source -Force -ErrorAction Stop
     Assert-WinstSafeWritePath -Path $Destination -Directory:$sourceItem.PSIsContainer
     if (Test-Path -LiteralPath $Destination) { Assert-WinstTreeWithoutReparsePoint -Path $Destination }

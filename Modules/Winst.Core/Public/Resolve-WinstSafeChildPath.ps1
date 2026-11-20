@@ -13,8 +13,9 @@ function Resolve-WinstSafeChildPath {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Child,
-        [string]$Label = '路径'
+        [string]$Label = '路径',
+        [int]$MaxSegmentLength = 100
     )
 
-    Split-WinstSafeChildSegments -Root $Root -Child $Child -Label $Label
+    Split-WinstSafeChildSegments -Root $Root -Child $Child -Label $Label -MaxSegmentLength $MaxSegmentLength
 }

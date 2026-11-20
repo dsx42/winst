@@ -72,7 +72,6 @@ function Get-WinstRemoteManifest {
         try {
             $content = Invoke-WinstHttpGet -Uri $targetUrl -Context $Context -NoCache
         } catch {
-            $statusCode = 0
             try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = 0 }
             if ($statusCode -eq 404 -or $statusCode -eq 410) {
                 $out.Message = ('清单文件不存在（HTTP {0}）: {1}；请确认仓库根目录有 manifest.json，或改用仓库内清单文件的完整地址' -f $statusCode, $targetUrl)
@@ -86,7 +85,6 @@ function Get-WinstRemoteManifest {
         $writeCache = $true
     }
 
-    $obj = $null
     try {
         $obj = ConvertFrom-Json -InputObject $content -ErrorAction Stop
         $entries = @(Get-ManifestEntries -Manifest $obj)

@@ -19,8 +19,7 @@ function Get-HashFromChecksumFile {
     param([string]$Text, [string]$FileName, [string]$Rule)
 
     $result = @{ Ok = $false; Hash = ''; Error = '' }
-    $ruleText = ''
-    if ($null -ne $Rule) { $ruleText = ([string]$Rule).Trim() }
+    $ruleText = $Rule.Trim()
     if (-not $ruleText) { $ruleText = 'sha256sums' }
 
     # 预置处理器：校验内容里文件名与摘要相邻（GitHub 资产列表页、镜像站的 ISO 列表等），
@@ -53,7 +52,7 @@ function Get-HashFromChecksumFile {
     $needsFileName = [bool]$hashRule.NeedsFileName
 
     $target = ''
-    if ($needsFileName -and $null -ne $FileName) { $target = ([string]$FileName).Trim() }
+    if ($needsFileName) { $target = $FileName.Trim() }
     # 需要按文件名匹配：<摘要> <文件名>；纯摘要文件（sha512 这类）：整行就是一段摘要
     $pattern = '^\s*(?<h>[0-9a-fA-F]{' + $length + '})\s+(\*?(?<f>.+?))\s*$'
 

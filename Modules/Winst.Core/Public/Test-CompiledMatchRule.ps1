@@ -8,7 +8,7 @@ function Test-CompiledMatchRule {
     param($Rule, [string]$Text)
 
     if ($null -eq $Rule -or -not $Rule.Ok) { return $false }
-    if ($null -eq $Text -or -not ([string]$Text)) { return $false }
+    if (-not $Text) { return $false }
     try {
         if ($Rule -is [Collections.IDictionary]) {
             $regex = $Rule['Regex']

@@ -19,11 +19,9 @@ function Test-WinstBotChallengeResponse {
     param($Response)
 
     if ($null -eq $Response) { return $false }
-    $headers = $null
     try { $headers = $Response.Headers } catch { return $false }
     if ($null -eq $headers) { return $false }
 
-    $mitigated = ''
     try { $mitigated = [string]$headers['Cf-Mitigated'] } catch { $mitigated = '' }
     if ($mitigated -and $mitigated.Trim() -eq 'challenge') { return $true }
     return $false

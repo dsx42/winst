@@ -13,9 +13,8 @@ function Read-WinstInstanceLockInfo {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     $info = @{ Pid = 0; StartedAt = ''; Path = '' }
-    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $info }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $info }
 
-    $text = ''
     try {
         $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
         try {

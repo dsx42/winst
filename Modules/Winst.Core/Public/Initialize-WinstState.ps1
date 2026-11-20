@@ -17,10 +17,10 @@
     而状态查询返回 $null。提前初始化就让「始终存在」成为默认。
 
     调用方：
-        winst.ps1，紧接着 Winst.Core 导入之后。
+        winst.ps1，导入全部模块之后。
 
     幂等：
-        重复执行只补缺失的项与需要重建的非空缓存，因此同一会话内入口跑两次也不会丢掉进程内缓存。
+        重复执行保留已有数据，补齐缺失项，并重建值为空且需要初值的项。
 #>
 
 function Initialize-WinstState {
@@ -29,7 +29,7 @@ function Initialize-WinstState {
         创建跨模块状态项及其初值。
 
     .DESCRIPTION
-        只设置从未设置过的项。已经持有数据（本会话早前填过的缓存）的值不动。
+        补齐缺失的状态项。缓存字典及要求非空的状态项在值为 $null 时也会重新初始化。
 
     .OUTPUTS
         [int] 本次初始化的项数
@@ -112,16 +112,8 @@ function Set-WinstScriptLocation {
         记录当前运行的脚本路径和目录。
 
     .DESCRIPTION
-        有两处调用依赖它，且都不可缺：
-
-        - Winst.Manifest / Get-LocalManifestFiles 会在脚本同目录找 manifest.json
-          与 manifests\*.json。WinstScriptDir 为空时本地清单不会被发现，
-          「local」源会直接从源列表里消失。
-
-        - Winst.Install / Get-WinstSelfPackageSource 与
-          Invoke-WinstPackageDownloadLoop 用 WinstScriptPath 把当前运行的脚本
-          当作 winst 自身的离线安装包。为空时离线自安装会报「没有可用的安装包」，
-          而不是退回当前运行的副本。
+        脚本目录用于查找本地清单与列表文件。脚本路径供离线自安装、
+        自身位置检查与实例锁记录使用。
 
         这里不能用 $PSCommandPath / $MyInvocation：在模块内部这两个自动变量
         指向模块文件而不是 winst.ps1，因此由调用方显式传入。

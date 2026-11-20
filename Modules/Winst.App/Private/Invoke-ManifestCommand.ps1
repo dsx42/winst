@@ -70,7 +70,7 @@ function Invoke-ManifestCommand {
     if ($options -and $options.Offline) {
         Write-Host ''
         Write-Host '  离线模式（--offline）下不能刷新软件源，请移除 --offline 后重试。' -ForegroundColor Yellow
-        Write-Host '  （本地清单在安装时会被直接读取，不需要刷新即可离线使用。）' -ForegroundColor DarkGray
+        Write-Host '  离线安装需要已有的解析结果和安装包。本地清单也须先移除 --offline 并刷新一次。' -ForegroundColor DarkGray
         return 1
     }
 

@@ -29,12 +29,11 @@ function Get-WinstPublicFunctionName {
 
     $names = New-Object 'System.Collections.Generic.List[string]'
     foreach ($file in $Files) {
-        $tokens = $null
         $parseErrors = $null
 
         $ast = [System.Management.Automation.Language.Parser]::ParseFile(
             $file.FullName,
-            [ref]$tokens,
+            [ref]$null,
             [ref]$parseErrors
         )
 
@@ -74,6 +73,4 @@ if ($publicFunctions.Count -eq 0) {
     throw ('模块 {0} 没有导出任何函数；Public 目录是空的。' -f $ModuleDirectory)
 }
 
-$unique = @($publicFunctions | Select-Object -Unique)
-
-Export-ModuleMember -Function $unique
+Export-ModuleMember -Function $publicFunctions

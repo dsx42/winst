@@ -51,7 +51,6 @@ function Invoke-WinstUninstallRegistryPayload {
     # 官方卸载器留下的目录默认保留，交互确认后才删除。
     $dir = [string]$Targets['InstallDir']
     if ($dir -and (Test-Path -LiteralPath $dir -PathType Container)) {
-        $verified = $false
         try {
             $verified = ($recordDir -and (([IO.Path]::GetFullPath($recordDir)).TrimEnd('\') -ieq ([IO.Path]::GetFullPath($dir)).TrimEnd('\')))
             if ($verified) { Assert-WinstSafeWritePath -Path $dir -Directory }

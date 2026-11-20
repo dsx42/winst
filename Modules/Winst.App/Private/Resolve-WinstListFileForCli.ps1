@@ -8,10 +8,10 @@ function Resolve-WinstListFileForCli {
         `winst bundle install` / `winst bundle pack` 开头是同一段三步：解析参数 → 校验文件存在 →
         打印错误并返回 1。两处逐字相同，收敛到这里。
 
-        返回 @{ Ok; Path; Name }，调用方只需 `if (-not $target.Ok) { return 1 }`。
+        返回 @{ Ok; Path }，调用方只需 `if (-not $target.Ok) { return 1 }`。
         「解析失败」与「文件不存在」两种提示都在这里出，避免两边措辞漂移。
     .OUTPUTS
-        @{ Ok; Path; Name }
+        @{ Ok; Path }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -22,13 +22,13 @@ function Resolve-WinstListFileForCli {
     if (-not $target.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $target.Error) -ForegroundColor Red
-        return @{ Ok = $false; Path = ''; Name = '' }
+        return @{ Ok = $false; Path = '' }
     }
     if (-not (Test-Path -LiteralPath ([string]$target.Path) -PathType Leaf)) {
         Write-Host ''
         Write-Host ('  找不到安装清单: {0}' -f [string]$target.Path) -ForegroundColor Red
         $null = Write-WinstListFileTable -Context $Context
-        return @{ Ok = $false; Path = ''; Name = '' }
+        return @{ Ok = $false; Path = '' }
     }
     return $target
 }

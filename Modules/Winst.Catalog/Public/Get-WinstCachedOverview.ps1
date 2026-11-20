@@ -5,11 +5,8 @@ function Get-WinstCachedOverview {
     .SYNOPSIS
         读取已下载的安装包，产出「已下载包」视图（菜单与 CLI `winst list --cached` 共用）。
     .DESCRIPTION
-        数据来源三处，各读一次（不额外联网）：缓存索引 `<pkgDir>\winst.json`（`Read-WinstCacheIndex`，
-        缺失 / 损坏时按各 id 目录内文件重建、目录已不存在的条目自动剔除）、安装记录 `state.json`、
-        软件清单（`Get-WinstSearchCatalog`，取自已刷新的软件清单）。
-        列表以**磁盘上真实存在包文件**的 id 为准：索引里的 id 与 <pkgDir> 下的目录都会纳入
-        （目录存在但索引里没记录时，缓存版本显示「未知」，不做猜测）。
+        以安装包位置下实际含文件的 id 目录生成列表，读取缓存索引中的包版本，
+        并合并安装台账与软件清单信息。读取时对索引的校对只作用于内存。
     .OUTPUTS
         @{ Ok; Error; Warning; Items; RowById; CacheIndex }
     #>

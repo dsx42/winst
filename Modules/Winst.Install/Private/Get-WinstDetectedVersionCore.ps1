@@ -86,7 +86,6 @@ function Get-WinstDetectedVersionCore {
             $recordKey = [string]$item['RecordKey']
             $keep = $false
             if ($recordKey) {
-                $props = $null
                 try { $props = Read-WinstUninstallRegistryEntry -KeyPath $recordKey } catch {
                     $result.Ok = $false
                     $result.QuerySucceeded = $false

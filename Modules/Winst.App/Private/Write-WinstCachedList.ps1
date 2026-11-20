@@ -3,7 +3,7 @@
 function Write-WinstCachedList {
     <#
     .SYNOPSIS
-        `winst list --cached`：列出已下载的安装包（先按索引确定展示项，再按需刷新版本）。
+        `winst list --cached`：列出已下载的安装包（先按实际安装包目录确定展示项，再按需刷新版本）。
     .OUTPUTS
         [int] 退出码
     #>

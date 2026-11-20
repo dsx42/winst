@@ -25,8 +25,7 @@ function Get-VersionBetween {
         return $result
     }
 
-    $value = ''
-    if ($null -ne $Text) { $value = [string]$Text }
+    $value = $Text
 
     $start = $value.IndexOf($before, [StringComparison]::Ordinal)
     if ($start -lt 0) { return $result }

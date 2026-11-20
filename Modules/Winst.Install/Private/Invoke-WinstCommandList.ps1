@@ -74,7 +74,6 @@ function Invoke-WinstCommandList {
                 try { $null = $p.WaitForExit(5000) } catch { }
                 return @{ Ok = $false; Error = ('{0}超时（{1} 秒）：{2} {3}' -f $Label, $timeoutSec, $exePath, $argsText) }
             }
-            $exitCode = $null
             try { $exitCode = $p.ExitCode } catch { $exitCode = $null }
             if ($null -eq $exitCode) {
                 return @{ Ok = $false; Error = ('无法读取{0}的退出码，无法确认执行成功：{1}' -f $Label, $exePath) }

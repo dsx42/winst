@@ -20,9 +20,8 @@ function Invoke-WinstListPage {
     )
 
     $all = @($Items)
-    if ($all.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = ([string]$Filter).Trim() } }
-    $filterText = ''
-    if ($null -ne $Filter) { $filterText = ([string]$Filter).Trim() }
+    $filterText = $Filter.Trim()
+    if ($all.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = $filterText } }
 
     while ($true) {
         $visible = $all

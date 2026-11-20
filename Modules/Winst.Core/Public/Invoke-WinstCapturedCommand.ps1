@@ -40,7 +40,6 @@ function Invoke-WinstCapturedCommand {
     $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
     $psi.StandardErrorEncoding = [Text.Encoding]::UTF8
 
-    $p = $null
     try {
         $p = [Diagnostics.Process]::Start($psi)
     } catch {
@@ -85,7 +84,7 @@ function Invoke-WinstCapturedCommand {
             $result.Ok = $false
             $result.Error = ('读取命令输出失败：{0}' -f $_.Exception.GetBaseException().Message)
         }
-        try { if ($errTask.Wait(2000)) { $result.ErrText = [string]$errTask.Result } } catch { $result.ErrText = '' }
+        try { if ($errTask.Wait(2000)) { $result.ErrText = [string]$errTask.Result } } catch { }
     } finally {
         try { $p.Dispose() } catch { }
     }

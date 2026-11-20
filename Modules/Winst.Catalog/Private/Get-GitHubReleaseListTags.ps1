@@ -5,32 +5,23 @@ function Get-GitHubReleaseListTags {
     .SYNOPSIS
         读取 GitHub 仓库 releases 列表页里的发布（tag / 标题 / 正文 / 是否预发布），走网页、不消耗 API 配额。
     .DESCRIPTION
-        列表页是发布信息的**完整来源**：每条发布都带 tag 链接、标题、正文（`markdown-body`）与
-        `Pre-release` 标记。`releases.atom` 只给最近约 10 条，而且与真实列表可能完全脱节
-        （adoptium 的 temurin21/temurin25 feed 里是 2023 年的 nightly beta，近期正式版一条都没有），
-        因此统一以列表页为准。
-        每页 10 条，按页面顺序取。**页内顺序是 GitHub 的展示顺序，不代表版本高低**
-        （temurin21 页面上 `21.0.9+10` 排在 `21.0.13+9` 前面），调用方需要自己按版本排序。
+        最多读取两页，保留页面顺序和预发布标记。调用方按需筛选并比较版本。
     .OUTPUTS
         @( @{ Tag; Title; Body; UpdatedAt; Prerelease } )；任一页读取失败抛出错误，不返回不完整结果
         UpdatedAt 由页面上的 relative-time 绝对时间换算成 ISO 8601（取不到时为空串）
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Repo,
-        [int]$Pages = 2
+        [Parameter(Mandatory = $true)][string]$Repo
     )
 
     $items = @()
-    if (-not $Repo) { return $items }
-    if ($Pages -lt 1) { $Pages = 1 }
 
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
 
-    for ($page = 1; $page -le $Pages; $page++) {
+    for ($page = 1; $page -le 2; $page++) {
         $url = 'https://github.com/{0}/releases' -f $Repo
         if ($page -gt 1) { $url = '{0}?page={1}' -f $url, $page }
-        $html = ''
         try {
             $html = Invoke-WinstHttpGet -Uri $url -Context $Context
         } catch {

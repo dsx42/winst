@@ -15,12 +15,6 @@ function Resolve-WinstGithubVersion {
 
     $versionFrom = (Get-EntryString -Entry $Source -Key 'versionFrom').Trim().ToLowerInvariant()
     if (-not $versionFrom) { $versionFrom = 'tag' }
-    if (@('tag', 'file', 'package', 'releaseTitle', 'releaseBody') -notcontains $versionFrom) {
-        return @{
-            Error = ('github 源的 versionFrom 只能写 tag（默认，用发布 tag 当版本号）、file（从下载文件名识别版本）、package（版本号等主包下载后从文件信息取）、releaseTitle（版本号取自发布标题）或 releaseBody（版本号取自发布正文）: {0}' -f $versionFrom)
-            Version = ''; ResultVersion = ''; VersionFrom = ''; VersionKind = ''; VersionBetween = @()
-        }
-    }
     $versionKind = (Get-EntryString -Entry $Source -Key 'versionKind').Trim()
     $versionBetween = @(Get-EntryArray -Entry $Source -Key 'versionBetween')
     $resultVersion = $Version
@@ -33,12 +27,6 @@ function Resolve-WinstGithubVersion {
             }
         }
     } elseif ($versionFrom -eq 'package') {
-        if ($versionKind -or $versionBetween.Count -gt 0) {
-            return @{
-                Error = '软件源里声明了 versionFrom: package（版本号等主包下载后从文件信息取），不要再写 versionKind / versionBetween——那两个是从下载文件名识别版本的写法'
-                Version = ''; ResultVersion = ''; VersionFrom = ''; VersionKind = ''; VersionBetween = @()
-            }
-        }
         # 版本号不在发布元数据里：置空等取包（{version} / {tag} 占位符仍按发布 tag 展开，见上）
         $resultVersion = ''
     } elseif ($versionFrom -eq 'releaseTitle' -or $versionFrom -eq 'releaseBody') {
@@ -87,11 +75,6 @@ function Resolve-WinstGithubVersion {
         }
         $resultVersion = [string]$metaVersion
         $Version = [string]$metaVersion   # 供逐文件的 {version} 展开与文件记账使用（与 tag 版本解耦）
-    } elseif ($versionKind -or $versionBetween.Count -gt 0) {
-        return @{
-            Error = '软件源里写了 versionKind / versionBetween（从下载文件名识别版本），但没有声明 versionFrom: file；github 源默认用发布 tag 当版本号——若确实要取文件名里的版本，请补上 versionFrom: file'
-            Version = ''; ResultVersion = ''; VersionFrom = ''; VersionKind = ''; VersionBetween = @()
-        }
     }
 
     return @{

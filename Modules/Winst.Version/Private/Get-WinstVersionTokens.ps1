@@ -7,29 +7,8 @@ function Get-WinstVersionTokens {
     #>
     param([string]$Value)
 
-    $tokens = New-Object 'System.Collections.Generic.List[string]'
-    # StringBuilder：字符串 `+=` 每次都新建实例（O(n²)），而版本比较在排序里会被调用 O(n log n) 次
-    $current = New-Object 'System.Text.StringBuilder'
-    $currentKind = ''
-    foreach ($ch in ([string]$Value).ToCharArray()) {
-        $kind = 'sep'
-        if ([char]::IsDigit($ch)) { $kind = 'digit' }
-        elseif ([char]::IsLetter($ch)) { $kind = 'letter' }
-        if ($kind -eq 'sep') {
-            if ($current.Length -gt 0) {
-                $tokens.Add($current.ToString())
-                $null = $current.Clear()
-                $currentKind = ''
-            }
-            continue
-        }
-        if ($current.Length -gt 0 -and $kind -ne $currentKind) {
-            $tokens.Add($current.ToString())
-            $null = $current.Clear()
-        }
-        $null = $current.Append($ch)
-        $currentKind = $kind
+    $found = Select-String -InputObject ([string]$Value) -Pattern '\p{Nd}+|\p{L}+' -AllMatches -CaseSensitive
+    if ($found) {
+        foreach ($match in $found.Matches) { $match.Value }
     }
-    if ($current.Length -gt 0) { $tokens.Add($current.ToString()) }
-    return $tokens.ToArray()
 }

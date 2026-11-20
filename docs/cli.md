@@ -102,7 +102,7 @@ winst download <id>...
 - 版本相同 → 提示已是最新，不重装、不修改主程序文件；仍可能校对安装台账、登记外部安装或同步安装目录，有配套文件变化时更新这些文件
 - 已装版本更高 → 拒绝降级，需 `--force`
 - `--force`：强制安装 / 降级；`--overwrite`：绿色版重装时改用覆盖模式（不删旧目录）
-- `--keep a,b`：临时指定清理模式下要保留的路径通配
+- `--keep a,b`：临时指定清理模式下相对安装根目录的保留规则。例如 `--keep settings.ini,config/*.json` 保留根目录的 `settings.ini` 和 `config` 直属的 JSON 文件
 - `--kill`：检测到目标程序在运行时直接结束进程
 - `--files-only`：只替换文件，不写环境变量 / PATH；首次安装也不补这些系统项。已存在的快捷方式仍会校验并修正
 - `--system-items`：完整处理系统项，覆盖 `updateFilesOnly` 配置；与 `--files-only` 同用时以 `--files-only` 为准（环境变量 / PATH 仍跳过）
@@ -118,11 +118,11 @@ winst download <id>...
 ### list
 
 ```bat
-winst list                :: 等价 --installed
+winst list
 winst list --cached
 ```
 
-`--installed` 与 `--cached` 不能同时使用。
+`list` 默认使用 `--installed`。`--installed` 与 `--cached` 不能同时使用。
 
 `--installed` 的每条记录里，若本机与记录版本并存着更低版本（见 `docs\data-files.md` 的 `oldVersions`），会多出一行「还并存旧版本 x」。清理入口只在菜单「已装软件」的详情页（`o)`），命令行不提供。
 
@@ -154,9 +154,11 @@ winst uninstall <id>... [--force] [--kill] [--yes]
 ### clean
 
 ```bat
-winst clean          :: 清理各软件的旧版本安装包
-winst clean <id> [<id>...]   :: 删除所选软件的全部已下载安装包
+winst clean
+winst clean <id> [<id>...]
 ```
+
+不带 id 时清理各软件的旧版本安装包，指定 id 时删除所选软件的全部已下载安装包。
 
 `clean` 的非法 id 或缓存不存在返回 `1`，实际删除失败返回 `3`。保留目录名 `manifests` 及大小写变体不能清理。
 
@@ -171,13 +173,13 @@ winst repair
 ### manifest
 
 ```bat
-winst manifest add <仓库|地址>    :: 支持 用户名/仓库、仓库页地址、清单 raw 地址
+winst manifest add <仓库|地址>
 winst manifest list
 winst manifest update [<名称>...|--all]
 winst manifest remove <名称>
 ```
 
-只支持 GitHub 仓库源；添加时会实际拉取并校验清单。内置源 `dsx42/winst-manifest` 与本地源 `local` 不能被添加或删除。`update` 可指定多个名称，不带名称或带 `--all` 时刷新全部源；名称不能与 `--all` 同用，更新不能与 `--offline` 同用。删除预览与执行使用相同校验，不存在源和保留源均拒绝。
+只支持 GitHub 仓库源。`add` 接受 `用户名/仓库`、仓库页地址或清单 raw 地址，添加时会实际拉取并校验清单。内置源 `dsx42/winst-manifest` 与本地源 `local` 不能被添加或删除。`update` 可指定多个名称，不带名称或带 `--all` 时刷新全部源；名称不能与 `--all` 同用，更新不能与 `--offline` 同用。删除预览与执行使用相同校验，不存在源和保留源均拒绝。
 
 ### bundle
 

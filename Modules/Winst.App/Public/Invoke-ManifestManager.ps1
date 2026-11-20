@@ -25,7 +25,6 @@ function Invoke-ManifestManager {
         Clear-ScreenSafe
         $sources = @(Show-ManifestMenu -Context $Context)
 
-        $answer = $null
         try { $answer = Read-Host '  请输入' } catch { $answer = $null }
         $text = ''
         if ($null -ne $answer) { $text = ([string]$answer).Trim() }
@@ -64,7 +63,6 @@ function Invoke-ManifestManager {
                 Clear-ScreenSafe
                 $actions = Show-ManifestSourceDetail -Context $Context -Source $source
 
-                $sub = $null
                 try { $sub = Read-Host '  请输入' } catch { $sub = $null }
                 $subText = ''
                 if ($null -ne $sub) { $subText = ([string]$sub).Trim() }

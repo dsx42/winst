@@ -9,7 +9,7 @@ function Set-WinstCacheIndexEntry {
         软件源声明的不是 sha256 时（如 Maven 只用 .sha512），下次命中判定可直接比对这份摘要，
         不必为判断缓存是否可用而重算整包哈希。
         FileMeta 记录每个文件的实际地址 / 本次版本 / 校验器基线 / 大小与时间，
-        供 8.4 的文件级新鲜度判定（files[].refresh）使用。
+        供文件级新鲜度判定（files[].refresh）使用。
         未指定 DownloadedAt 时取当前文件记账中最新的下载时间；文件无下载时间则沿用已有条目，
         不因缓存检查、安装或套件复制而记录一次下载。
     #>

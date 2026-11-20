@@ -20,12 +20,12 @@ function Get-WinstFileRefreshMode {
         $result.Raw = $raw
         $normalized = $raw.ToLowerInvariant().Replace('-', '').Replace('_', '').Replace(' ', '')
         switch ($normalized) {
-            'auto' { $result.Mode = 'auto' }
+            'auto' { }
             'always' { $result.Mode = 'always' }
             'ifmissing' { $result.Mode = 'ifMissing' }
             'check' { $result.Mode = 'check' }
             'ttl' { $result.Mode = 'ttl' }
-            default { $result.Mode = 'auto'; $result.Invalid = $true }
+            default { $result.Invalid = $true }
         }
     }
 

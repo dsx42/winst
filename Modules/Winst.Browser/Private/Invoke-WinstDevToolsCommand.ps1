@@ -8,15 +8,15 @@ function Invoke-WinstDevToolsCommand {
         `-BrowserLevel` 用于浏览器级命令（如 Target.createTarget / Browser.setDownloadBehavior），
         这类命令不带 sessionId；其余命令发给当前页面会话（Target.attachToTarget 的 sessionId）。
     #>
-    param($Session, [string]$Method, $Params = $null, [switch]$BrowserLevel, [int]$TimeoutMs = 20000)
+    param($Session, [string]$Method, $Params = $null, [switch]$BrowserLevel)
 
-    $deadline = [DateTime]::UtcNow.AddMilliseconds((Get-WinstBrowserRemainingMs -Session $Session -LimitMs $TimeoutMs))
+    $deadline = [DateTime]::UtcNow.AddMilliseconds((Get-WinstBrowserRemainingMs -Session $Session))
     $id = [int]$Session.NextId
     $Session.NextId = $id + 1
     $message = @{ id = $id; method = $Method }
     if ($Params) { $message['params'] = $Params }
     if (-not $BrowserLevel) { $message['sessionId'] = [string]$Session.SessionId }
-    Send-WinstDevToolsMessage -Session $Session -Message $message -TimeoutMs (Get-WinstBrowserRemainingMs -Session $Session -Deadline $deadline -LimitMs $TimeoutMs)
+    Send-WinstDevToolsMessage -Session $Session -Message $message -TimeoutMs (Get-WinstBrowserRemainingMs -Session $Session -Deadline $deadline)
     while ($true) {
         $remaining = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -le 0) { throw ('等待无头浏览器回应 {0} 超时' -f $Method) }
@@ -27,7 +27,6 @@ function Invoke-WinstDevToolsCommand {
         # 先用一次正则确认「这条是不是自己那条命令的响应」（响应一定以 {"id":N 开头），是才做 JSON 解析；
         # 其余消息当事件便宜地过一遍——把每条事件都 ConvertFrom-Json 会读不过来，反过来拖住渲染进程
         if ($raw -match ('^\s*\{\s*"id"\s*:\s*' + $id + '\s*[,}]')) {
-            $object = $null
             try { $object = $raw | ConvertFrom-Json } catch { continue }
             if ($null -eq $object) { continue }
 

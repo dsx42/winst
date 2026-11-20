@@ -36,7 +36,6 @@ function Read-WinstSharePathInput {
     $result = @{ Ok = $false; Cancelled = $false; Path = ''; Error = '' }
 
     # ---------------------------------------------------------------- ① 路径
-    $raw = $null
     try { $raw = Read-Host $Prompt } catch { $result.Cancelled = $true; return $result }
     if ($null -eq $raw -or -not ([string]$raw).Trim()) {
         $result.Cancelled = $true
@@ -64,7 +63,6 @@ function Read-WinstSharePathInput {
 
     # -------------------------------------------------- ②③ 账号 / 密码（可重试）
     while ($true) {
-        $user = ''
         try { $user = Read-Host '  账号（直接回车＝不需要认证）' } catch { $result.Cancelled = $true; return $result }
         $user = ([string]$user).Trim()
         if ($user -and $user -match '[\x00-\x1F]') {
@@ -78,7 +76,6 @@ function Read-WinstSharePathInput {
                 $result.Error = '当前输入被重定向，无法安全地输入密码。请在交互式终端里重新运行 winst（设置 → 安装包位置）。'
                 return $result
             }
-            $secure = $null
             try { $secure = Read-Host ('  {0} 的密码（直接回车＝重新输入账号）' -f $user) -AsSecureString } catch {
                 $result.Cancelled = $true
                 return $result

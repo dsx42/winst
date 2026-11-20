@@ -49,7 +49,6 @@ function Set-WinstFileHashDecision {
         $Plan['Reason'] = '使用前校验本地安装包'
         return
     }
-    $actual = ''
     try { $actual = (Get-WinstFileHash -Path $Target -Algorithm $wantedAlgorithm) } catch { $actual = '' }
     if (-not $actual) {
         # 同样显式表态：读不出校验值 = 无法确认缓存可信，必须重新下载

@@ -23,8 +23,6 @@ function Test-WinstPathUnderRoot {
     )
 
     if (-not $Path -or -not $Root) { return $false }
-    $fullPath = ''
-    $fullRoot = ''
     try {
         $fullPath = [IO.Path]::GetFullPath((ConvertTo-WinstPlainDevicePath -Path ([string]$Path)))
         $fullRoot = [IO.Path]::GetFullPath((ConvertTo-WinstPlainDevicePath -Path ([string]$Root)))

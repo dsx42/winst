@@ -8,7 +8,7 @@ function Resolve-WinstInstallDecision {
         版本一致 → 跳过或「仅配套文件更新」；本机更新 → 不自动降级；软件源没有版本号 → 要用户确认；
         版本号取自主包文件信息时 → 推迟到取包后再判（Defer）。命中的分支会把结论写进 $Result 并置 Return。
     .OUTPUTS
-        @{ Return; Result; Defer; CompanionOnly; Detected }
+        立即返回时含 Return、Result，继续安装时含 Return、Defer、CompanionOnly、Detected。
     #>
     param(
         [hashtable]$Context,
@@ -37,11 +37,10 @@ function Resolve-WinstInstallDecision {
     )
 
     $deferVersionDecision = $false
-    $companionOnlyUpdate = $false
     $detected = ''
 
     if ($IsDownloadType) {
-        return @{ Return = $false; Result = $null; Defer = $false; CompanionOnly = $false; Detected = '' }
+        return @{ Return = $false; Defer = $false; CompanionOnly = $false; Detected = '' }
     }
 
     $detect = Get-WinstDetectedVersion -Context $Context -Plan $Plan -InstallDir $InstallDir
@@ -56,7 +55,7 @@ function Resolve-WinstInstallDecision {
     if (@('registry', 'appx') -contains $detectMethod -and -not [bool]$detect.QuerySucceeded) {
         $Result.Error = [string]$detect.Note
         if (-not $Result.Error) { $Result.Error = '无法完成系统安装记录查询，请排除查询错误后重试' }
-        return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = '' }
+        return @{ Return = $true; Result = $Result }
     }
 
     if ($detected -and $detected -ine 'unknown') {
@@ -106,18 +105,14 @@ function Resolve-WinstInstallDecision {
                     if (-not $reason) { $reason = [string]$PrimaryFilePlan['Reason'] }
                     $Result.Error = ('主包 {0} 无法复用，已停止配套文件更新：{1}' -f $PrimaryFilePlan['Name'], $reason)
                     $Result.Network = [bool]$PrimaryFilePlan['ValidationNetwork']
-                    return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = $detected }
+                    return @{ Return = $true; Result = $Result }
                 }
             }
             $same = Resolve-WinstSameVersionAction -Install $Install -InstallDir $InstallDir -DisplayName $DisplayName `
                 -Detected $detected -CompanionDownloadCount $CompanionDownloadCount -HasCompanionUpdate:$CompanionsOnly `
                 -Ledger $Ledger -Result $Result -DryRun:$DryRun -Quiet:$Quiet
-            if ($same.CompanionOnly) {
-                return @{ Return = $false; Result = $null; Defer = $false; CompanionOnly = $true; Detected = $detected }
-            }
-            if ($same.Return) {
-                return @{ Return = $true; Result = $same.Result; Defer = $false; CompanionOnly = $false; Detected = $detected }
-            }
+            if ($same.Return) { return $same }
+            return @{ Return = $false; Defer = $false; CompanionOnly = $true; Detected = $detected }
         }
 
         if (-not $deferVersionDecision -and $hasTarget -and $cmp -lt 0) {
@@ -136,8 +131,8 @@ function Resolve-WinstInstallDecision {
         $Result.Ok = $true
         $Result.Skipped = $true
         $Result.Message = ('检测到 {0} 已经安装，但无法识别版本{1}' -f $DisplayName, (Get-WinstForceHint -Kind 'continue'))
-        return @{ Return = $true; Result = $Result; Defer = $false; CompanionOnly = $false; Detected = $detected }
+        return @{ Return = $true; Result = $Result }
     }
 
-    return @{ Return = $false; Result = $null; Defer = $deferVersionDecision; CompanionOnly = $companionOnlyUpdate; Detected = $detected }
+    return @{ Return = $false; Defer = $deferVersionDecision; CompanionOnly = $false; Detected = $detected }
 }

@@ -12,11 +12,8 @@ function Send-WinstSettingChange {
 public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint Msg, System.UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);
 '@ -ErrorAction Stop
             $null = Set-WinstState -Name WinstSettingChangeReady -Value ($true)
-        } catch {
-            $null = Set-WinstState -Name WinstSettingChangeReady -Value ($false)
-        }
+        } catch { return }
     }
-    if (-not (Get-WinstState -Name WinstSettingChangeReady)) { return }
     try {
         $lpdwResult = [UIntPtr]::Zero
         $null = [WinstNative.Methods]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$lpdwResult)

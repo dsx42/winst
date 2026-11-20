@@ -8,22 +8,21 @@ function Invoke-ManifestRemoveSource {
         供「管理软件源」的详情页使用。内置源与本地清单在这里就被挡住，不会走到删除。
         `--dry-run` 只打印将要删除什么；`--yes` 跳过确认。
     .OUTPUTS
-        @{ Removed = <bool>; Cancelled = <bool>; Message }
+        @{ Removed = <bool>; Cancelled = <bool> }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Source
     )
 
-    $result = @{ Removed = $false; Cancelled = $false; Message = '' }
+    $result = @{ Removed = $false; Cancelled = $false }
 
     $name = [string]$Source['name']
     $isLocal = Get-EntryBool -Entry $Source -Key 'isLocal'
     $isBuiltin = Get-EntryBool -Entry $Source -Key 'isBuiltin'
 
     if ($isLocal -or $isBuiltin) {
-        $result.Message = ('软件源 "{0}" 不能在这里删除（内置源 / 本地清单）。' -f $name)
-        Write-Host ('  {0}' -f $result.Message) -ForegroundColor Yellow
+        Write-Host ('  软件源 "{0}" 不能在这里删除（内置源 / 本地清单）。' -f $name) -ForegroundColor Yellow
         return $result
     }
 
@@ -35,7 +34,6 @@ function Invoke-ManifestRemoveSource {
 
     if ($dryRun) {
         Write-Host '  （预览）--dry-run 不落盘。' -ForegroundColor DarkYellow
-        $result.Message = '（预览）未删除'
         return $result
     }
 
@@ -49,13 +47,12 @@ function Invoke-ManifestRemoveSource {
     }
 
     $r = Remove-RemoteManifest -Context $Context -Name $name
-    $result.Message = [string]$r.Message
     Write-Host ''
     if ($r.Success) {
         $result.Removed = $true
-        Write-Host ('  {0}' -f $result.Message) -ForegroundColor Green
+        Write-Host ('  {0}' -f $r.Message) -ForegroundColor Green
     } else {
-        Write-Host ('  {0}' -f $result.Message) -ForegroundColor Yellow
+        Write-Host ('  {0}' -f $r.Message) -ForegroundColor Yellow
     }
     return $result
 }

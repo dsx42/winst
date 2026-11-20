@@ -126,9 +126,8 @@ function Invoke-WinstInstallTarget {
             }
 
             # —— 依赖：先解析传递依赖里需要动作的部分，统一提示一次、随本体一并确认 ——
-            $deps = Get-WinstInstallTargetDependencies -Context $Context -Plan $plan -PlanId $planId -State $stateRead.State `
-                -SkipDependencies:$SkipDependencies -IsDownloadPlan:$isDownloadPlan
-            $depSteps = @($deps.Steps)
+            $depSteps = @(Get-WinstInstallTargetDependencies -Context $Context -Plan $plan -PlanId $planId -State $stateRead.State `
+                -SkipDependencies:$SkipDependencies -IsDownloadPlan:$isDownloadPlan)
 
             # 版本相同但配套文件有变化 → 先提示「附加文件有更新」，确认后只更新这些文件
             $companionInfo = $null

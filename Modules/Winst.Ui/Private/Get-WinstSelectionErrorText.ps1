@@ -8,12 +8,10 @@ function Get-WinstSelectionErrorText {
     param(
         [Parameter(Mandatory = $true)]$Resolved,
         [Parameter(Mandatory = $true)][int]$Count,
-        [string]$RangeText = '',
         [string]$Suffix = '（回车 = 取消）'
     )
 
-    $range = $RangeText
-    if (-not $range) { $range = '1 - {0}' -f $Count }
+    $range = '1 - {0}' -f $Count
     if ($Resolved.OutOfRange) {
         return ('  没有这个编号（可选 {0}），请重新输入。' -f $range)
     }

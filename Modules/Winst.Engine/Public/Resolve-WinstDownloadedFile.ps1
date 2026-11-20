@@ -3,19 +3,16 @@
 function Resolve-WinstDownloadedFile {
     <#
     .SYNOPSIS
-        把引擎改名过的下载产物归位成期望文件名（只在**本次新出现**的文件里认领）。
+        从本次下载的独立目录中取得期望文件，必要时将唯一的下载产物改名。
     .DESCRIPTION
-        引擎在目标名被占用时会把输出写成「名称 (1).zip」——下载其实成功了，但 winst 按期望名找不到
-        文件。安装流程使用本次下载的独立目录。传入下载前的文件名时，只认本次
-        新出现、且不是 `.fdownloading` 的文件：恰好一个 → 改名成期望名并返回它；没有 / 多个 → 不猜，
-        交给调用方报错（多个时列出文件名）。期望名本来就在（正常下载）时直接返回它。
+        优先使用期望文件名。未找到时，排除 .fdownloading 临时文件，将唯一的候选文件改为期望名。
+        候选为空或有多个时返回错误，多个候选的错误包含文件名。
     .OUTPUTS
         @{ Path; Note; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Dir,
-        [Parameter(Mandatory = $true)][string]$Name,
-        $BeforeFiles = $null
+        [Parameter(Mandatory = $true)][string]$Name
     )
 
     $result = @{ Path = ''; Note = ''; Error = '' }
@@ -25,17 +22,8 @@ function Resolve-WinstDownloadedFile {
         return $result
     }
 
-    $before = $null
-    if ($BeforeFiles) {
-        $before = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-        foreach ($item in $BeforeFiles) { [void]$before.Add([string]$item) }
-    }
-    $candidates = @()
-    foreach ($file in @(Get-ChildItem -LiteralPath $Dir -File -Force -ErrorAction SilentlyContinue)) {
-        if ($before -and $before.Contains($file.Name)) { continue }
-        if ($file.Name -like '*.fdownloading') { continue }
-        $candidates += $file
-    }
+    $candidates = @(Get-ChildItem -LiteralPath $Dir -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike '*.fdownloading' })
 
     if ($candidates.Count -eq 0) {
         $result.Error = '本次下载没有产生新文件'

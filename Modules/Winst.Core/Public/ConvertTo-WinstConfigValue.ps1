@@ -10,8 +10,7 @@ function ConvertTo-WinstConfigValue {
     param($Current, [string]$Text)
 
     $result = @{ Ok = $false; Value = $null; Error = '' }
-    $value = ''
-    if ($null -ne $Text) { $value = ([string]$Text).Trim() }
+    $value = $Text.Trim()
     if (-not $value) {
         $result.Error = '不能为空'
         return $result

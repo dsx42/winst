@@ -7,6 +7,5 @@ function Test-RegexRuleText {
     #>
     param([string]$Rule)
 
-    if ($null -eq $Rule) { return $false }
     return (([string]$Rule).TrimStart() -match '^(?i)re:')
 }

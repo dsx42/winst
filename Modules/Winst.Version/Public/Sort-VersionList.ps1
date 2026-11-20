@@ -13,8 +13,7 @@ function Sort-VersionList {
         [string]$SortMode = 'semver'
     )
 
-    $mode = ''
-    if ($null -ne $SortMode) { $mode = ([string]$SortMode).Trim().ToLowerInvariant() }
+    $mode = $SortMode.Trim().ToLowerInvariant()
 
     $items = New-Object 'System.Collections.Generic.List[string]'
     foreach ($item in $Versions) {

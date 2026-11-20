@@ -62,7 +62,7 @@ function Invoke-WinstOldVersionCleanup {
 
         # 同一个版本常有两层记录（外层引导包 + 内层 MSI），外层卸载器可能已被磁盘清理删掉：
         # 按「登记的键 → 其它可用的键」逐个尝试，不会连带卸掉同名的其它版本
-        $run = Invoke-WinstOldVersionRemoval -Context $Context -Id $id -Version $version -RecordKey $recordKey -Quiet
+        $run = Invoke-WinstOldVersionRemoval -Context $Context -Id $id -Version $version -RecordKey $recordKey
 
         if ($run.Cancelled) {
             $result.Cancelled = $true

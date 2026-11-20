@@ -15,8 +15,7 @@ function Get-SourceFileVersion {
     #>
     param($Item, [string]$Version)
 
-    $result = @{ Ok = $true; Version = ''; Error = '' }
-    if ($null -ne $Version) { $result.Version = [string]$Version }
+    $result = @{ Ok = $true; Version = $Version; Error = '' }
     if ($null -eq $Item) { return $result }
 
     $spec = Get-EntryValue -Entry $Item -Key 'versionRewrite' -Default $null

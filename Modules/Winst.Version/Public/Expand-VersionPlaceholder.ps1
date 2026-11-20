@@ -9,12 +9,10 @@ function Expand-VersionPlaceholder {
     #>
     param([string]$Text, [string]$Version)
 
-    if ($null -eq $Text) { return '' }
     $text = [string]$Text
     if (-not [regex]::IsMatch($text, '\{version(Major|Minor)?\}')) { return $text }
 
-    $versionText = ''
-    if ($null -ne $Version) { $versionText = [string]$Version }
+    $versionText = $Version
     if (-not $versionText) { throw '模板使用了版本占位符，但当前版本未知，无法展开' }
     $majorText = ($versionText -split '\.')[0]
     $minorText = ''

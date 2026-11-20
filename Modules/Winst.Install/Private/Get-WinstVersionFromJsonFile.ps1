@@ -24,7 +24,6 @@ function Get-WinstVersionFromJsonFile {
     $Result.Found = $true
 
     foreach ($file in @($probe.Files)) {
-        $obj = $null
         try { $obj = (Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue) | ConvertFrom-Json } catch { $obj = $null }
         if ($null -eq $obj) { continue }
         $found = Get-JsonNodeValue -Node $obj -Key $jsonKey

@@ -35,14 +35,11 @@ function Resolve-MagnetSource {
     if (-not $versionRule.Ok) { $result.Error = $versionRule.Error; return $result }
     $displayName = Get-MagnetDisplayName -Uri $primaryUrl
     $found = Get-VersionFromSourceText -Source $source -Text $displayName -Where '磁力链接的文件名（dn）'
-    if ($found.Missing) {
-        $result.Version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
-    } elseif (-not $found.Ok) {
+    if (-not $found.Missing -and -not $found.Ok) {
         $result.Error = [string]$found.Error
         return $result
-    } else {
-        $result.Version = [string]$found.Version
     }
+    $result.Version = [string]$found.Version
 
     $files = @()
     $index = 0

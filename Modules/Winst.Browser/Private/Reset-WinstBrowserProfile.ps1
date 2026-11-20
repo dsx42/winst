@@ -9,7 +9,7 @@ function Reset-WinstBrowserProfile {
     $dir = (Get-WinstState -Name WinstBrowserProfileDir)
     $null = Set-WinstState -Name WinstBrowserProfileDir -Value ('')
     if ($dir -and (Test-Path -LiteralPath $dir)) {
-        $null = Stop-WinstBrowserProfileProcesses -ProfileDir $dir -Deadline $Deadline
+        Stop-WinstBrowserProfileProcesses -ProfileDir $dir -Deadline $Deadline
         Clear-WinstInstallDir -Dir $dir
     }
 }

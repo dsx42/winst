@@ -8,16 +8,15 @@ function Invoke-ManifestRefreshAll {
         供「管理软件源」的 a 键使用。离线模式下直接说明原因并返回，不做任何联网尝试。
 
     .OUTPUTS
-        @{ Aborted = <bool>; Failed = <int>; Total = <int> }
+        @{ Failed = <int>; Network = <bool> }
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Context, [object[]]$Sources)
 
-    $result = @{ Aborted = $false; Failed = 0; Total = 0; Network = $false }
+    $result = @{ Failed = 0; Network = $false }
 
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
         Write-Host '  当前为离线模式（--offline），刷新软件源需要联网。' -ForegroundColor Yellow
-        Write-Host '  请移除 --offline 后重试（本地清单的读取不受影响，安装时仍可直接使用）。' -ForegroundColor DarkGray
-        $result.Aborted = $true
+        Write-Host '  离线安装需要已有的解析结果和安装包。本地清单也须先移除 --offline 并刷新一次。' -ForegroundColor DarkGray
         return $result
     }
 
@@ -28,7 +27,6 @@ function Invoke-ManifestRefreshAll {
     }
     if ($sources.Count -eq 0) {
         Write-Host '  当前没有软件源。' -ForegroundColor Yellow
-        $result.Aborted = $true
         return $result
     }
 
@@ -40,7 +38,6 @@ function Invoke-ManifestRefreshAll {
         if (-not $one.Ok) { $failed++; if ($one.Network) { $result.Network = $true } }
     }
 
-    $result.Total = $sources.Count
     $result.Failed = $failed
     Write-Host ''
     Write-Host ('  汇总: 成功 {0} / 失败 {1}' -f ($sources.Count - $failed), $failed) -ForegroundColor Gray

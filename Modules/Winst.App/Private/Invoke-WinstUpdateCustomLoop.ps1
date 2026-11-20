@@ -5,16 +5,15 @@ function Invoke-WinstUpdateCustomLoop {
     .SYNOPSIS
         逐条「单独选更新方式与来源」：选择方式或来源时回车 / b，即按默认方式与来源更新。
     .OUTPUTS
-        @{ Ok; Error; Executed; Updated; Skipped; Failed }
+        @{ Executed; Updated; Failed }
     #>
     param([hashtable]$Context, [string[]]$Targets, $Items = $null)
 
-    $result = @{ Ok = $false; Error = ''; Executed = $false; Updated = 0; Skipped = 0; Failed = 0 }
+    $result = @{ Executed = $false; Updated = 0; Failed = 0 }
 
     if ($null -eq $Items) {
         $overview = Get-WinstInstalledOverview -Context $Context
         if (-not $overview.Ok) {
-            $result.Error = [string]$overview.Error
             Write-Host ''
             Write-Host ('  {0}' -f $overview.Error) -ForegroundColor Red
             return $result
@@ -37,7 +36,7 @@ function Invoke-WinstUpdateCustomLoop {
             continue
         }
 
-        $customResult = @{ Cancelled = $true; Ok = $false; Updated = 0; Skipped = 0; Failed = 0 }
+        $customResult = @{ Cancelled = $true }
         if ($item['Row']) {
             # 复用「已装软件 → c」的完整流程（选方式 → 选来源 → 同版本 / 低版本按强制处理 → 确认执行）
             $customResult = Invoke-WinstUpdateCustom -Context $Context -Item $item
@@ -54,10 +53,8 @@ function Invoke-WinstUpdateCustomLoop {
 
         $result.Updated += [int]$customResult.Updated
         $result.Executed = $true
-        $result.Skipped += [int]$customResult.Skipped
         $result.Failed += [int]$customResult.Failed
     }
 
-    $result.Ok = ($result.Failed -eq 0)
     return $result
 }

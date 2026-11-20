@@ -9,7 +9,7 @@ function Get-VersionFromSourceText {
           ① 只写 versionBetween —— 取「两个标记之间」的内容即版本；
           ② 只写 versionKind    —— 按识别器（semver / date / digits）从文本里提取；
           ③ 两者都写           —— **先按标记截取、再按识别器提取**（页面片段里包着版本号时最稳）；
-        都没写时返回 Missing（调用方自行回退到条目 version / 包内文件信息）。
+        都没写时返回 Missing，由调用方处理未声明识别规则的情况。
     .PARAMETER Where
         出错文案里的来源位置（如「版本页」「页面内容」「下载地址」），便于看出是哪一份文本识别失败。
 
@@ -23,8 +23,7 @@ function Get-VersionFromSourceText {
     $versionBetween = @(Get-EntryArray -Entry $Source -Key 'versionBetween')
     if (-not $versionKind -and $versionBetween.Count -eq 0) { $result.Missing = $true; return $result }
 
-    $value = ''
-    if ($null -ne $Text) { $value = [string]$Text }
+    $value = $Text
 
     if ($versionBetween.Count -gt 0) {
         $between = Get-VersionBetween -Spec $versionBetween -Text $value

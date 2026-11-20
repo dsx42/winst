@@ -6,10 +6,6 @@ function Get-WinstGithubTag {
         ① 取发布 tag：声明 releaseTag 前缀时取该前缀里版本最高的发布，否则用「最新正式发布」，
         再退回发布列表里版本最高的一条。
     .DESCRIPTION
-        发布列表统一取自 `releases` 列表页（`Get-GitHubReleaseListTags`）：它给出全部近期发布，
-        含标题 / 正文 / 时间 / 预发布标记，而 `releases.atom` 只含最近约 10 条且与真实列表可能
-        完全脱节（adoptium 的 temurin 仓库 feed 里是上一年的 nightly beta）。
-
         - 声明了 `releaseTag` 前缀：在该前缀的发布里按版本号取最高（含预发布，由前缀自行约定）
         - 未声明：优先 `releases/latest`（GitHub 认定的最新**正式**发布，不会命中预发布）；
           取不到时退回列表里版本最高的**非预发布**条目；列表里一条正式发布都没有时，
@@ -20,7 +16,6 @@ function Get-WinstGithubTag {
     param([hashtable]$Context, [string]$Repo, [string]$ReleaseTagPrefix = '')
 
     $chosenTag = ''
-    $releases = @()
     $notes = @()
 
     if (-not $ReleaseTagPrefix) {

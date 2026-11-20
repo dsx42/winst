@@ -5,9 +5,8 @@ function Read-WinstJsonFileCached {
     .SYNOPSIS
         读取并解析 JSON 文件，结果按 (路径, 时间戳, 长度) 在进程内缓存。
     .DESCRIPTION
-        清单 / 解析锁 / 缓存索引 / 状态文件在一次操作里会被反复读（按 id 查、按源查、每条新鲜度提示各读一次），
-        每次都 Get-Content + ConvertFrom-Json 是主要开销。这里只缓存**解析结果**，每次返回新的包装哈希表；
-        但 Value 是缓存里的同一个对象，调用方**不得就地修改**，需要改时先复制（Copy-WinstObjectShallow）。
+        配置、清单和清单元数据可用 ParsedOnly 复用解析结果。每次返回新的包装哈希表，
+        Value 与缓存共享，调用方修改前须复制相应数据。
         修改文件会让时间戳变化、缓存自动失效。
     .OUTPUTS
         @{ Ok; Value; Raw; Empty; Error }
@@ -29,7 +28,6 @@ function Read-WinstJsonFileCached {
         return $result
     }
 
-    $raw = ''
     try {
         $raw = (New-Object Text.UTF8Encoding($false, $true)).GetString([IO.File]::ReadAllBytes($Path))
         if ($raw.StartsWith([string][char]0xFEFF, [StringComparison]::Ordinal)) { $raw = $raw.Substring(1) }

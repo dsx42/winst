@@ -5,7 +5,7 @@ function Get-WinstInstallTargetDependencies {
     .SYNOPSIS
         解析传递依赖里需要动作的部分（未安装 / 可更新），并打印缺失与汇总提示。
     .OUTPUTS
-        @{ Steps }
+        需要安装或更新的依赖步骤，每项包含 Id、Name、Row 和 ActionText。
     #>
     param([hashtable]$Context, $Plan, [string]$PlanId, $State, [switch]$SkipDependencies, [switch]$IsDownloadPlan)
 
@@ -74,5 +74,5 @@ function Get-WinstInstallTargetDependencies {
         }
         Write-Host ('    依赖: 将一并处理 {0}' -f ($depParts -join '、')) -ForegroundColor DarkYellow
     }
-    return @{ Steps = @($depSteps) }
+    return $depSteps
 }

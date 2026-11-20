@@ -81,24 +81,21 @@ function Get-FunctionNameFromText {
     #>
     param([string]$Path, [string]$Text)
 
-    $tokens = $null
     $parseErrors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, $Path, [ref]$tokens, [ref]$parseErrors)
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, $Path, [ref]$null, [ref]$parseErrors)
 
     if ($parseErrors -and $parseErrors.Count -gt 0) {
         throw ('{0}: 语法错误：{1}（第 {2} 行）' -f $Path, $parseErrors[0].Message, $parseErrors[0].Extent.StartLineNumber)
     }
 
-    $names = New-Object 'System.Collections.Generic.List[string]'
     $definitions = $ast.FindAll({
             param($node)
             $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
         }, $true)
 
     foreach ($definition in $definitions) {
-        $names.Add($definition.Name)
+        $definition.Name
     }
-    return $names
 }
 
 function Get-SourceScriptFile {
@@ -128,7 +125,7 @@ function Get-SourceScriptFile {
     $strictUtf8 = New-Object Text.UTF8Encoding($false, $true)
 
     $scriptFiles = @(Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction Stop |
-            Where-Object { @('.ps1', '.psm1', '.psd1') -contains $_.Extension.ToLowerInvariant() })
+            Where-Object { @('.ps1', '.psm1', '.psd1') -contains $_.Extension })
     $scriptFiles += @(Get-Item -LiteralPath $AdditionalFile -ErrorAction Stop)
 
     foreach ($file in @($scriptFiles | Sort-Object -Property FullName)) {
@@ -191,7 +188,7 @@ function New-BundleText {
         把各模块拼成单一 .psm1 的文本。
 
     .OUTPUTS
-        @{ Text; PublicNames; LineMap }
+        @{ Text; PublicCount; LineMap }
     #>
     param(
         [Parameter(Mandatory = $true)]$Modules,
@@ -271,25 +268,20 @@ function New-BundleText {
         throw ('函数重名，无法合并成单一模块：' + [Environment]::NewLine + (($duplicates | ForEach-Object { '    ' + $_ }) -join [Environment]::NewLine))
     }
 
-    $unique = $publicNames.ToArray()
-    if ($unique.Count -eq 0) {
+    if ($publicNames.Count -eq 0) {
         throw '没有可导出的函数：所有模块的 Public\ 都是空的'
     }
 
     [void]$builder.Append("`r`n")
-    $line++
     [void]$builder.Append('Export-ModuleMember -Function @(' + "`r`n")
-    $line++
-    foreach ($name in $unique) {
+    foreach ($name in $publicNames) {
         [void]$builder.Append(("    '{0}'" -f $name) + "`r`n")
-        $line++
     }
     [void]$builder.Append(')' + "`r`n")
-    $line++
 
     return @{
         Text        = $builder.ToString()
-        PublicNames = $unique
+        PublicCount = $publicNames.Count
         LineMap     = $lineMap
     }
 }
@@ -339,8 +331,7 @@ function New-BundleManifestText {
     VariablesToExport    = @()
     AliasesToExport      = @()
 
-    # 依赖顺序已经体现在合并后的 .psm1 里，不需要 RequiredModules。
-    # 刻意不用：那会让 Import-Module 去 PSModulePath 找模块，破坏「解压到任意目录即可运行」。
+    # 所有开发模块都已按目录名合并到同一个 .psm1，导入时无需按名称查找依赖模块。
     PrivateData = @{
         PSData = @{
             Tags = @('winst', 'powershell51')
@@ -426,18 +417,16 @@ try {
     # --------------------------------------------------------- 2. 合并模块
     $bundle = New-BundleText -Modules $modules -Version $version
 
-    $tokens = $null
     $parseErrors = $null
     $null = [System.Management.Automation.Language.Parser]::ParseInput(
-        $bundle.Text, 'Winst.psm1', [ref]$tokens, [ref]$parseErrors)
-    $tokens = $null
+        $bundle.Text, 'Winst.psm1', [ref]$null, [ref]$parseErrors)
     if ($parseErrors -and $parseErrors.Count -gt 0) {
         $first = $parseErrors[0]
         $origin = Resolve-BundleOrigin -LineMap $bundle.LineMap -Line $first.Extent.StartLineNumber
         throw ('合并后的 Winst.psm1 有语法错误：第 {0} 行 {1} {2}' -f $first.Extent.StartLineNumber, $first.Message, $origin)
     }
 
-    Write-Host ('  合并结果   : {0} 个导出函数，{1:N0} 字节' -f $bundle.PublicNames.Count, $bundle.Text.Length) -ForegroundColor Gray
+    Write-Host ('  合并结果   : {0} 个导出函数，{1:N0} 个 UTF-16 代码单元' -f $bundle.PublicCount, $bundle.Text.Length) -ForegroundColor Gray
 
     # ------------------------------------------------------ manifest 版本
     $manifestPath = Join-Path $repo 'manifest.json'
@@ -495,7 +484,7 @@ try {
 
     # 生成的两个文件用「源码里最新的修改时间」做时间戳：
     # 源码没变时重复构建得到同一个 zip，便于核对 sha512。
-    $stamp = (Get-Item -LiteralPath (Join-Path $repo 'winst.ps1')).LastWriteTime
+    $stamp = $sourceFiles[0].LastWriteTime
     foreach ($file in $sourceFiles) {
         if ($file.LastWriteTime -gt $stamp) { $stamp = $file.LastWriteTime }
     }
@@ -603,7 +592,7 @@ if (Test-Path -LiteralPath (Join-Path $releaseDir 'manifest.json') -PathType Lea
 Write-Host ('  压缩包     : {0}' -f $zipPath) -ForegroundColor Green
 Write-Host ('  压缩包大小 : {0:N0} 字节' -f (Get-Item -LiteralPath $zipPath).Length) -ForegroundColor Gray
 Write-Host ('  条目       : {0}' -f $entries.Count) -ForegroundColor Gray
-Write-Host ('  导出函数   : {0}' -f $bundle.PublicNames.Count) -ForegroundColor Gray
+Write-Host ('  导出函数   : {0}' -f $bundle.PublicCount) -ForegroundColor Gray
 Write-Host ('  sha512     : {0}' -f $hash) -ForegroundColor DarkGray
 Write-Host ('  校验文件   : {0}' -f $sidecar) -ForegroundColor Gray
 Write-Host ''

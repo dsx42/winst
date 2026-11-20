@@ -37,7 +37,6 @@ function Update-WinstStaleSources {
 
     $persistUnavailable = Get-WinstState -Name WinstManifestPersistUnavailable
 
-    $ttl = 24
     try { $ttl = [int](Get-ConfigValue -Config $Context.Config -Key 'manifestTTLHours') } catch { $ttl = 24 }
 
     # 先挑出要动作的源与每个源要解析的软件：

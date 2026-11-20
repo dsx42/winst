@@ -26,7 +26,6 @@ function Invoke-WinstPostInstallCopy {
         $fromPath = [string]$fromResolved.Path
         $toPath = [string]$toResolved.Path
 
-        $hits = @()
         try { $hits = @(Get-Item -Path $fromPath -Force -ErrorAction SilentlyContinue) } catch { $hits = @() }
         if ($hits.Count -eq 0) {
             return @{ Ok = $false; Error = ('要{0}的文件不存在：{1}' -f $(if (Get-EntryBool -Entry $rule -Key 'move') { '改名' } else { '复制' }), $fromPath) }

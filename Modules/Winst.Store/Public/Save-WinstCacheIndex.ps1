@@ -53,7 +53,7 @@ function Save-WinstCacheIndex {
             foreach ($id in $selected.Keys) {
                 if (-not $allowed.Contains($id)) { throw ('索引修改超出指定条目：{0}' -f $id) }
             }
-            $changed = $read.Changed -or $read.Rebuilt -or $null -eq $stored
+            $changed = $read.Changed -or $null -eq $stored
             foreach ($id in $allowed.Keys) {
                 $prior = $null
                 if ($null -ne $stored) { $prior = $stored.PSObject.Properties[$id] }

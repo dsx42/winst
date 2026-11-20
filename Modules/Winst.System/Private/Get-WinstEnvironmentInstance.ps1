@@ -21,7 +21,6 @@ function Get-WinstEnvironmentInstance {
     # 短 TTL 快照：每条环境变量 / PATH 项的读写都会问一次「这个变量现在是什么值」，
     # 一次安装约 2N 次调用，而 Win32_Environment 全量枚举每次都是几百毫秒级。
     # 写入侧（Set / Remove-WinstEnvironmentVariableEx）立即失效，TTL 只兜底外部修改。
-    $instances = @()
     try {
         $cacheValid = $false
         if ((Get-WinstState -Name WinstEnvironmentCache)) {

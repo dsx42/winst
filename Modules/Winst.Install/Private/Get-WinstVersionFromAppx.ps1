@@ -29,15 +29,12 @@ function Get-WinstVersionFromAppx {
     if (-not $package) { return }
 
     $Result.Found = $true
-    $fullName = ''
     try { $fullName = [string]$package.PackageFullName } catch { $fullName = '' }
-    $location = ''
     try { $location = ([string]$package.InstallLocation).Trim() } catch { $location = '' }
     if ($location) { $Result['Location'] = $location }
 
     $detail = ('应用包: {0}' -f $fullName)
     if ($location) { $detail = ('应用包: {0}（位置: {1}）' -f $fullName, $location) }
-    $raw = ''
     try { $raw = [string]$package.Version } catch { $raw = '' }
     Set-WinstDetectedVersionFromRaw -Result $Result -Raw $raw -Kind $Kind -Between $Between -Detail $detail
 }

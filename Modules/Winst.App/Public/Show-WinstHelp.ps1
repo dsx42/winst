@@ -7,8 +7,7 @@ function Show-WinstHelp {
     #>
     param([string]$Command = '')
 
-    $name = ''
-    if ($null -ne $Command) { $name = ([string]$Command).Trim().ToLowerInvariant() }
+    $name = $Command.Trim().ToLowerInvariant()
 
     if ($name) {
         Write-Host ''

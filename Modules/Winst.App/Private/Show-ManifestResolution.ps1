@@ -10,16 +10,13 @@ function Show-ManifestResolution {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Name,
-        $Apps = $null,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Apps,
         [switch]$Preview
     )
 
-    if ($null -eq $Apps) { $Apps = @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $Name) }
-    $apps = @($Apps)
-
     Write-Section ('软件清单 · {0}' -f $Name)
 
-    if ($apps.Count -eq 0) {
+    if ($Apps.Count -eq 0) {
         Write-Host '  还没读取过这个软件源的软件清单，请先刷新软件源。' -ForegroundColor DarkGray
         return
     }
@@ -35,10 +32,10 @@ function Show-ManifestResolution {
     $succeeded = 0
     $failed = 0
     $index = 0
-    foreach ($app in $apps) {
+    foreach ($app in $Apps) {
         $index++
         if (Get-EntryBool -Entry $app -Key 'ok') { $succeeded++ } else { $failed++ }
-        Show-ResolvedAppPlan -Plan $app -Index $index -Total $apps.Count -SourceName $Name `
+        Show-ResolvedAppPlan -Plan $app -Index $index -Total $Apps.Count -SourceName $Name `
             -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
             @shortcutDirs -Context $Context -State $stateRead.State -StateRead $stateRead -CacheIndex $cacheIndex
     }
@@ -47,11 +44,11 @@ function Show-ManifestResolution {
     Write-Host ('  ' + ('─' * 66)) -ForegroundColor DarkGray
     $summaryColor = 'Green'
     if ($failed -gt 0) { $summaryColor = 'Red' }
-    Write-Host ('  汇总: 共 {0} 个软件，可用 {1} 个，有误 {2} 个' -f $apps.Count, $succeeded, $failed) -ForegroundColor $summaryColor
+    Write-Host ('  汇总: 共 {0} 个软件，可用 {1} 个，有误 {2} 个' -f $Apps.Count, $succeeded, $failed) -ForegroundColor $summaryColor
 
     if ($failed -gt 0) {
         Write-Host '  以下软件没能读取到可用版本:' -ForegroundColor Red
-        foreach ($app in $apps) {
+        foreach ($app in $Apps) {
             if (Get-EntryBool -Entry $app -Key 'ok') { continue }
             Write-Host ('    - {0}（{1}）: {2}' -f `
                 (Get-EntryString -Entry $app -Key 'name'), `

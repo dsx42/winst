@@ -10,7 +10,6 @@ function Remove-WinstObsoletePackages {
     if (-not $DownloadedAny -or $Offline) { return }
     $keepNames = @()
     foreach ($filePlan in @($Plans)) { if ($filePlan['Name']) { $keepNames += [string]$filePlan['Name'] } }
-    $prune = $true
     try { $prune = [bool](Get-ConfigValue -Config $Context.Config -Key 'pruneOldPackages') } catch { $prune = $true }
     if (-not $prune) { return }
     $cleanup = Remove-WinstOldPackages -Context $Context -Id $Id -KeepFiles $keepNames

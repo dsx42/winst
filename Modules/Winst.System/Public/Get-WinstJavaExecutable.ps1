@@ -12,7 +12,6 @@ function Get-WinstJavaExecutable {
     param([hashtable]$Context = $null)
 
     $candidates = @()
-    $javaHome = ''
     try { $javaHome = [string]$env:JAVA_HOME } catch { $javaHome = '' }
     if ($javaHome) { $candidates += (Join-WinstPath $javaHome 'bin\java.exe') }
     if ($Context) {
@@ -28,10 +27,8 @@ function Get-WinstJavaExecutable {
         } catch { }
     }
 
-    $command = $null
     try { $command = Get-Command 'java.exe' -ErrorAction SilentlyContinue } catch { $command = $null }
     if ($command) {
-        $source = ''
         try { $source = [string]$command.Source } catch { $source = '' }
         if (-not $source) {
             try { $source = [string]$command.Path } catch { $source = '' }

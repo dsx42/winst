@@ -40,7 +40,6 @@ function Get-WinstBrowserPageHtml {
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
     $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
     # 提权与否决定先走哪条通道（见上方说明）：提权进程里 --dump-dom 的 stdout 是空的，先试它只会白等一轮
-    $isElevated = $false
     try {
         $isElevated = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole(
             [Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -80,7 +79,7 @@ function Get-WinstBrowserPageHtml {
             try {
                 $profileDir = Get-WinstBrowserProfileDir
                 # 上一次抓取（或上一次刷新）残留的实例会占着这个 profile，先清掉（见上方说明）
-                $null = Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir -Deadline $deadline
+                Stop-WinstBrowserProfileProcesses -ProfileDir $profileDir -Deadline $deadline
 
                 # 逐项按 Windows argv 规则加引号（Format-WinstCommandArgument）：profile 目录来自
                 # %TEMP%，用户名带空格时（C:\Users\John Smith\...）不加引号会被空格截断，

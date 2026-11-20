@@ -31,17 +31,15 @@ function Merge-WinstKeywordSearch {
     $result.Keywords = @($parts)
     $result.Merged = $true
     $ids = New-WinstOrdinalDictionary
-    $merged = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($one in $parts) {
+    $result.Items = @(foreach ($one in $parts) {
         $found = @(& $Match $one)
         if ($found.Count -gt 0) { $result.HitKeywords += $one }
         foreach ($item in $found) {
             $idText = [string]$item['Id']
             if (-not $idText -or $ids.Contains($idText)) { continue }
             $ids[$idText] = $true
-            $merged.Add($item)
+            $item
         }
-    }
-    $result.Items = $merged.ToArray()
+    })
     return $result
 }

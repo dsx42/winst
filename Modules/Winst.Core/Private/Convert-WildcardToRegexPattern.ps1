@@ -10,8 +10,7 @@ function Convert-WildcardToRegexPattern {
     #>
     param([string]$Wildcard)
 
-    $text = ''
-    if ($null -ne $Wildcard) { $text = [string]$Wildcard }
+    $text = $Wildcard
 
     $sb = New-Object System.Text.StringBuilder
     $null = $sb.Append('^')

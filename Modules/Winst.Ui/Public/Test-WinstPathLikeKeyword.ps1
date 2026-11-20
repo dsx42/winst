@@ -14,8 +14,7 @@ function Test-WinstPathLikeKeyword {
     #>
     param([string]$Text)
 
-    $value = ''
-    if ($null -ne $Text) { $value = ([string]$Text).Trim() }
+    $value = $Text.Trim()
     if (-not $value) { return $false }
 
     if ($value -match '^[A-Za-z]:[\\/]') { return $true }        # C:\…  /  D:/…

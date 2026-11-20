@@ -21,7 +21,6 @@ function Get-WinstShortcutPaths {
     $fileName = ConvertTo-ShortcutName -Name $displayName
 
     if ($desktopOn) {
-        $desktopDir = ''
         try { $desktopDir = [Environment]::GetFolderPath('Desktop') } catch { $desktopDir = '' }
         if ($desktopDir) { $paths += (Join-WinstPath $desktopDir $fileName) }
     }

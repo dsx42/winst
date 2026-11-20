@@ -27,7 +27,6 @@ function Get-WinstDependencyLines {
     )
 
     $lines = New-Object 'System.Collections.Generic.List[object]'
-    if (-not $Id) { return @() }
     if (([string]$Type).Trim().ToLowerInvariant() -eq 'download') { return @() }
 
     $index = Get-WinstDependencyIndex -Context $Context
