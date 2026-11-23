@@ -3,11 +3,11 @@
 function Copy-WinstBundleSupportFiles {
     <#
     .SYNOPSIS
-        ⑧ 复制软件源清单数据 / 脚本与模块 / 清单文件，写入套件索引并生成 winst.cmd。
+        ⑧ 复制软件源清单数据 / 脚本与模块 / 生成安装清单与 winst.cmd。
     .OUTPUTS
-        @{ Ok; Error; ManifestCopied; ListFileCount }
+        @{ Ok; Error; ManifestCopied }
     #>
-    param([hashtable]$Context, [string]$TargetDir, [string]$KitAppsDir, $KitIndex, [string]$ListPath, [switch]$DryRun)
+    param([hashtable]$Context, [string]$TargetDir, [string]$KitAppsDir, [string]$ListTarget, [string[]]$CommentLines, $Plan, [switch]$DryRun)
 
     $manifestCopied = 0
     $srcManifestDir = Get-ManifestRootDir -PkgDir $Context.PkgDir
@@ -21,8 +21,7 @@ function Copy-WinstBundleSupportFiles {
                 $manifestCopied = Copy-WinstBundleItem -Source $srcManifestDir -Destination (Join-WinstPath $KitAppsDir 'manifests') -CountFiles
             } catch {
                 $errorText = '复制软件源清单数据失败: {0}' -f $_.Exception.Message
-                Write-Host ('  ' + $errorText) -ForegroundColor Red
-                return @{ Ok = $false; Error = $errorText; ManifestCopied = 0; ListFileCount = 0 }
+                return @{ Ok = $false; Error = $errorText; ManifestCopied = 0 }
             }
         } else {
             Write-Host ('  将复制软件源清单数据: {0}  ->  {1}' -f $srcManifestDir, (Join-WinstPath $KitAppsDir 'manifests')) -ForegroundColor Gray
@@ -36,7 +35,7 @@ function Copy-WinstBundleSupportFiles {
     if (-not $scriptDir -or -not (Test-Path -LiteralPath $mainScript -PathType Leaf) -or
         -not (Test-Path -LiteralPath $modulesDir -PathType Container) -or
         -not (Test-Path -LiteralPath $licensePath -PathType Leaf)) {
-        return @{ Ok = $false; Error = '当前 winst 的脚本、Modules 或 LICENSE 不完整，无法制作套件。'; ManifestCopied = $manifestCopied; ListFileCount = 0 }
+        return @{ Ok = $false; Error = '当前 winst 的脚本、Modules 或 LICENSE 不完整，无法制作套件。'; ManifestCopied = $manifestCopied }
     }
     if (-not $DryRun) {
         try {
@@ -66,52 +65,21 @@ function Copy-WinstBundleSupportFiles {
             }
         } catch {
             $errorText = '复制脚本 / 模块 / 本地清单失败: {0}' -f $_.Exception.Message
-            Write-Host ('  ' + $errorText) -ForegroundColor Red
-            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied; ListFileCount = 0 }
+            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied }
         }
     } else {
         Write-Host ('  将复制脚本、模块与本地清单: {0}  ->  {1}' -f $scriptDir, $TargetDir) -ForegroundColor Gray
     }
 
-    # 清单文件：只复制本次选中的那一份（U 盘上的 winst 打开就是同一份清单，其它清单不带过去）
-    $listFileCount = 0
-    $dstListsDir = Join-WinstPath $TargetDir 'lists'
-    $listFileName = Split-Path -Leaf $ListPath
-    if ($listFileName -and (Test-Path -LiteralPath $ListPath -PathType Leaf)) {
-        if (-not $DryRun) {
-            try {
-                Assert-WinstSafeWritePath -Path $dstListsDir -Directory
-                if (-not (Test-Path -LiteralPath $dstListsDir -PathType Container)) {
-                    $null = New-Item -ItemType Directory -Path $dstListsDir -Force -ErrorAction Stop
-                }
-                Copy-WinstBundleItem -Source $ListPath -Destination (Join-WinstPath $dstListsDir $listFileName)
-                $listFileCount = 1
-            } catch {
-                $errorText = '复制清单文件失败: {0}' -f $_.Exception.Message
-                Write-Host ('  ' + $errorText) -ForegroundColor Red
-                return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied; ListFileCount = 0 }
-            }
-        } else {
-            Write-Host ('  将复制清单文件: {0} -> {1}' -f $listFileName, $dstListsDir) -ForegroundColor Gray
-            $listFileCount = 1
-        }
-    }
-
-    # 套件索引（只含本次相关条目；已有条目不删除）
-    if (-not $DryRun) {
-        try {
-            Save-WinstCacheIndex -PkgDir $KitAppsDir -UpdateIds @($KitIndex.Keys) -Update {
-                param($index)
-                foreach ($id in @($KitIndex.Keys)) { $index[$id] = $KitIndex[$id] }
-            }
-        }
-        catch {
-            $errorText = '写入套件索引失败: {0}' -f $_.Exception.Message
-            Write-Host ('  ' + $errorText) -ForegroundColor Red
-            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied; ListFileCount = $listFileCount }
-        }
-    } else {
-        Write-Host ('  将写入套件索引: {0}' -f (Get-WinstCacheIndexPath -PkgDir $KitAppsDir)) -ForegroundColor Gray
+    try {
+        Assert-WinstSafeWritePath -Path (Split-Path -Parent $ListTarget) -Directory
+        $pins = New-WinstOrdinalDictionary
+        foreach ($item in $Plan) { $pins[$item['Id']] = [string]$item['PinnedVersion'] }
+        $saved = Save-WinstList -Path $ListTarget -Ids @($pins.Keys) -VersionById $pins -CommentLines $CommentLines -DryRun:$DryRun
+        if (-not $saved.Ok) { throw $saved.Error }
+        if ($DryRun) { Write-Host ('  将生成安装清单: {0}' -f $ListTarget) -ForegroundColor Gray }
+    } catch {
+        return @{ Ok = $false; Error = ('生成套件安装清单失败: {0}' -f $_.Exception.Message); ManifestCopied = $manifestCopied }
     }
 
     # winst.cmd 双击启动器
@@ -127,10 +95,9 @@ function Copy-WinstBundleSupportFiles {
             Write-FileAtomic -Path (Join-WinstPath $TargetDir 'winst.cmd') -Content $cmdContent
         } catch {
             $errorText = '写入启动器失败: {0}' -f $_.Exception.Message
-            Write-Host ('  ' + $errorText) -ForegroundColor Red
-            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied; ListFileCount = $listFileCount }
+            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied }
         }
     }
 
-    return @{ Ok = $true; Error = ''; ManifestCopied = $manifestCopied; ListFileCount = $listFileCount }
+    return @{ Ok = $true; Error = ''; ManifestCopied = $manifestCopied }
 }

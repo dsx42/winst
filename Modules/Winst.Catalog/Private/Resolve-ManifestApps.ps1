@@ -30,7 +30,7 @@ function Resolve-ManifestApps {
         if (-not $displayName) { $displayName = $id }
 
         try {
-            $plan = New-WinstCatalogAppPlan -ManifestOrigin $ManifestOrigin -Entry $entry -PkgDir $Context.PkgDir -Context $Context
+            $plan = New-WinstCatalogAppPlan -ManifestOrigin $ManifestOrigin -Entry $entry -Context $Context
         } catch {
             $reason = $_.Exception.Message
             $plan = (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry @{ id = $id; name = $displayName
@@ -50,13 +50,13 @@ function Resolve-ManifestApps {
         $lineColor = 'DarkGray'
         if (-not $plan['ok']) { $lineColor = 'Red' }
         elseif ($versionUnknown) { $lineColor = 'DarkYellow' }
-        # 无法获取最新版本号的条目：解析时已用 HEAD 比对过
-        # 远端与缓存记账（结论在解析锁 remoteFresh 里）——远端有新包时版本槽直接写「新版本」（整行标黄，
-        # 不单列行尾提示）；远端无新包时版本槽就是缓存里那份包的版本（解析时从包内文件信息 / 缓存索引取得）
         $versionSlotText = ('版本 {0}' -f $versionText)
         if ([string]$plan['remoteFresh'] -ieq 'changed') {
-            $versionSlotText = '新版本'
+            $versionSlotText = '远端文件已变化，版本待确认'
             if ($lineColor -eq 'DarkGray') { $lineColor = 'Yellow' }
+        } elseif ([string]$plan['remoteFresh'] -ieq 'unknown') {
+            $versionSlotText = '远端文件变化情况未知，版本待确认'
+            if ($lineColor -eq 'DarkGray') { $lineColor = 'DarkYellow' }
         }
         Write-Host ('    [{0}/{1}] {2}  {3}  {4}' -f $index, $Entries.Count, $displayName, $versionSlotText, $mark) -NoNewline -ForegroundColor $lineColor
         Write-Host ''

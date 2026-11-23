@@ -5,7 +5,7 @@ function Write-WinstPlanHeader {
     .SYNOPSIS
         软件清单头部：标题 / 类型 / 版本 / 说明 / 已装版本 / 来源 / 依赖。
     #>
-    param($Plan, [hashtable]$View, [Parameter(Mandatory = $true)][hashtable]$Context, $StateRead = $null)
+    param($Plan, [hashtable]$View, [Parameter(Mandatory = $true)][hashtable]$Context, $StateRead = $null, [switch]$IsUpgrade)
 
     Write-Host ''
     Write-Host ('  ' + ('─' * 66)) -ForegroundColor DarkGray
@@ -30,7 +30,7 @@ function Write-WinstPlanHeader {
         if ($View.VersionNeedsConfirm -and $View.Version) {
             # 远端有新包 / 没比出结论：目标版本要等重新取包才知道，别把缓存里那份写成「将更新到」
             Write-Host ('    ↑ 本机已安装 {0}，将重新取包核对版本（缓存里的包是 {1}，取自包内文件信息）' -f $View.InstalledVersion, $View.Version) -ForegroundColor DarkYellow
-        } elseif ($View.Version -and (Compare-WinstVersion -A $View.Version -B $View.InstalledVersion) -gt 0) {
+        } elseif ($IsUpgrade) {
             Write-Host ('    ↑ 本机已安装 {0}，将更新到 {1}' -f $View.InstalledVersion, $View.VersionText) -ForegroundColor Green
         } else {
             Write-Host ('    本机已安装: {0}' -f $View.InstalledVersion) -ForegroundColor DarkGray

@@ -31,7 +31,7 @@ function Invoke-WinstUpdateSelection {
         # 运行中的软件仍会问一次（不擅自结束用户正在用的程序）。
         Write-Host ''
         Write-Host ('  将更新上面全部 {0} 个软件。' -f $updatableIds.Count) -ForegroundColor Gray
-        $done = Invoke-WinstUpdateTargets -Context $Context -Ids @($updatableIds) -AutoPickSource -Yes
+        $done = Invoke-WinstUpdateTargets -Context $Context -Ids @($updatableIds) -Yes
         $result.Executed = $true
         $result.Updated = [int]$done.Updated
         $result.Failed = [int]$done.Failed
@@ -50,7 +50,7 @@ function Invoke-WinstUpdateSelection {
         Write-Host ('    {0}) {1}' -f ([int]$index + 1), $entryTexts[[int]$index]) -ForegroundColor White
     }
     Write-Host ('  更新方式: {0}' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor DarkGray
-    Write-Host '  来源: 优先用安装时用的那个软件源（不可用时按默认优先级取有更新版本的来源）。' -ForegroundColor DarkGray
+    Write-Host '  来源: 安装来源有已确认的更新时优先使用，否则可切换到已确认有更新的软件源。' -ForegroundColor DarkGray
 
     $custom = $false
     while ($true) {
@@ -71,7 +71,7 @@ function Invoke-WinstUpdateSelection {
     }
 
     if (-not $custom) {
-        $done = Invoke-WinstUpdateTargets -Context $Context -Ids @($targets) -AutoPickSource -Yes
+        $done = Invoke-WinstUpdateTargets -Context $Context -Ids @($targets) -Yes
         $result.Executed = $true
         $result.Updated = [int]$done.Updated
         $result.Failed = [int]$done.Failed

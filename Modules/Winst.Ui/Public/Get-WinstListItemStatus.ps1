@@ -15,7 +15,7 @@ function Get-WinstListItemStatus {
     if ([bool]$Item['Installed']) {
         $text = ('已安装 {0}' -f [string]$Item['InstalledVersionText'])
         if ([string]$Item['UpdateState'] -eq 'update') {
-            return @{ Text = ('{0}    ↑ 可更新到 {1}（来自 {2}）' -f $text, [string]$Item['BestVersion'], [string]$Item['BestSource']); Color = 'Green' }
+            return @{ Text = ('{0}    {1}' -f $text, [string]$Item['InstalledUpdateHint']); Color = 'Green' }
         }
         if ([bool]$Item['InstalledDirMissing']) {
             return @{ Text = ($text + '   [安装目录不存在]'); Color = 'Yellow' }

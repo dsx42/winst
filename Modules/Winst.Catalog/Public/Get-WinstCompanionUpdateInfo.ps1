@@ -5,9 +5,9 @@ function Get-WinstCompanionUpdateInfo {
     .SYNOPSIS
         判断「主包命中缓存、只有配套文件有变化」，供更新前的提示与确认使用。
     .OUTPUTS
-        @{ Checked; CompanionsOnly; ChangedCount; Names; RequiresLanding; Error; PrimaryCacheError }
+        @{ CompanionsOnly; ChangedCount; Names; Error; PrimaryCacheError; PrimaryCacheNetwork }
     .DESCRIPTION
-        内部走与安装流程同一套逐文件判定（Get-WinstPackageFilePlans -CheckValidators），因此
+        内部走与安装流程同一套逐文件判定（Get-WinstPackageFilePlans），因此
         校验器请求共用进程内 TTL 缓存、不会重复联网；`--offline` / `--dry-run` 下不发任何请求
         （校验器类判定退化为按名命中，但「地址 / 文件名变了」「摘要不一致」仍按本地判定照常报告）。
         只对有配套文件（`files[]` 第二条起）且不是 download 类型的条目做判定；installer 条目也判定。
@@ -16,13 +16,10 @@ function Get-WinstCompanionUpdateInfo {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        $FilePlans = $null,
-        [switch]$Prepare,
-        [switch]$ConfirmMainBeforeUse
+        $FilePlans = $null
     )
 
-    $result = @{ Checked = $false; CompanionsOnly = $false; ChangedCount = 0; Names = @(); RequiresLanding = $false; Error = ''; PrimaryCacheError = ''; Plan = $Plan; FilePlans = @() }
-    if ($null -eq $Plan) { return $result }
+    $result = @{ CompanionsOnly = $false; ChangedCount = 0; Names = @(); Error = ''; PrimaryCacheError = ''; PrimaryCacheNetwork = $false }
     $type = (Get-EntryString -Entry $Plan -Key 'type').Trim().ToLowerInvariant()
     if ($type -eq 'download') { return $result }
 
@@ -32,40 +29,25 @@ function Get-WinstCompanionUpdateInfo {
     $id = Get-EntryString -Entry $Plan -Key 'id'
     if (-not $id) { return $result }
 
-    if ($Prepare) {
-        $result.Stamps = New-WinstOrdinalDictionary
-        $result.Landings = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($path in @((Get-WinstStatePath -InstallRoot $Context.InstallRoot), (Get-WinstCacheIndexPath -PkgDir $Context.PkgDir))) {
-            $result.Stamps[$path] = Get-WinstFileStamp -Path $path
-        }
-    }
     if ($null -ne $FilePlans) { $plans = @($FilePlans) }
     else { try {
         $indexRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($id)
         if ($indexRead.Error) { $result.Error = [string]$indexRead.Error; return $result }
         # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）时主包沿用缓存，
         # 主包要重取（远端有新包 / 没比出结论）就不是「仅配套文件更新」
-        $companionFreshMain = [bool](Get-EntryBool -Entry $Plan -Key 'versionFromPackage')
-        if ($companionFreshMain -and ([string](Get-EntryString -Entry $Plan -Key 'remoteFresh')) -ieq 'unchanged') {
-            # unchanged（远端无新包）：缓存里那份就是软件源当前这一份，主包沿用缓存
-            $companionFreshMain = $false
+        $packageVersion = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
+        $unchangedMainHash = ''
+        if ($packageVersion -and (Get-EntryString -Entry $Plan -Key 'remoteFresh') -ieq 'unchanged') {
+            $unchangedMainHash = Get-EntryString -Entry $Plan -Key 'remoteFreshHash'
         }
-        $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $indexRead.Index -Id $id -Files $files -CheckValidators `
-            -FreshMain:$companionFreshMain -ConfirmMainBeforeUse:($Prepare -or $ConfirmMainBeforeUse))
+        $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $indexRead.Index -Id $id -ManifestOrigin (Get-EntryString -Entry $Plan -Key 'manifestOrigin') -Files $files `
+            -FreshMain:$packageVersion -UnchangedMainHash $unchangedMainHash)
     } catch {
         $result.Error = $_.Exception.Message
         return $result
     } }
     if ($plans.Count -lt 2) { return $result }
     if ($plans.Count -ne $files.Count) { $result.Error = '附件下载计划与文件定义数量不一致'; return $result }
-    if ($Prepare) {
-        foreach ($filePlan in $plans) {
-            $target = [string]$filePlan['Target']
-            if ($target) { $result.Stamps[$target] = Get-WinstFileStamp -Path $target }
-        }
-    }
-    $result.FilePlans = $plans
-    $result.Checked = $true
     $mainNeedsDownload = [bool]$plans[0]['NeedDownload']
 
     $ledgerRead = Read-WinstState -InstallRoot $Context.InstallRoot -Ids @($id)
@@ -73,6 +55,7 @@ function Get-WinstCompanionUpdateInfo {
     $ledger = Get-WinstInstalledApp -State $ledgerRead.State -Id $id
     $installDir = Get-EntryString -Entry $ledger -Key 'installDir'
     $previousRules = Get-EntryValue -Entry $ledger -Key 'appliedFileRules' -Default $null
+    $installedFiles = Get-EntryValue -Entry $ledger -Key 'appliedFileVersions'
     for ($i = 1; $i -lt $plans.Count; $i++) {
         $name = Get-EntryString -Entry $plans[$i] -Key 'Name'
         if (-not $name -or -not (Test-WinstSafePathSegment -Name $name -MaxLength 255)) { $result.Error = '附件下载计划缺少合法文件名'; return $result }
@@ -89,13 +72,16 @@ function Get-WinstCompanionUpdateInfo {
             if (Get-EntryBool -Entry $files[$i] -Key 'extract') { $pathType = 'Container' }
             $signature = Get-WinstCompanionLayoutSignature -File $files[$i]
             $exists = Test-Path -LiteralPath $safe.Path -PathType $pathType
-            if ($Prepare) {
-                $result.Landings.Add(@{ Path = $safe.Path; Root = $installDir; Type = $pathType; Exists = $exists })
+            $needsLanding = -not $exists -or (Get-EntryString -Entry $previousRules -Key $name) -cne $signature
+            if (-not $needsLanding -and -not $plans[$i]['NeedDownload']) {
+                $installedHash = Get-EntryString -Entry (Get-EntryValue -Entry $installedFiles -Key $name) -Key 'sha256'
+                $cachedHash = [string]$plans[$i]['IndexHash']
+                if ($installedHash -and -not $cachedHash) {
+                    $cachedHash = Get-WinstPackageFileHash -Path $plans[$i]['Target']
+                }
+                $needsLanding = -not $installedHash -or $installedHash -ine $cachedHash
             }
-            $needsLanding = ((Get-EntryString -Entry $previousRules -Key ([string]$plans[$i]['Name'])) -cne $signature) -or
-                -not $exists
         }
-        if ($needsLanding) { $result.RequiresLanding = $true }
         if ($plans[$i]['NeedDownload'] -or $needsLanding) {
             $result.ChangedCount++
             $result.Names += [string]$plans[$i]['Name']
@@ -103,7 +89,7 @@ function Get-WinstCompanionUpdateInfo {
     }
     if ($result.ChangedCount -gt 0) {
         if (-not $mainNeedsDownload) { $result.CompanionsOnly = $true }
-        elseif ($Prepare) {
+        else {
             $options = Get-WinstState -Name WinstOptions
             $primary = $plans[0]
             if (-not ($options -and $options.DryRun) -and
@@ -111,6 +97,7 @@ function Get-WinstCompanionUpdateInfo {
                 $reason = [string]$primary['ValidationError']
                 if (-not $reason) { $reason = [string]$primary['Hint'] }
                 if (-not $reason) { $reason = [string]$primary['Reason'] }
+                $result.PrimaryCacheNetwork = [bool]$primary['ValidationNetwork']
                 $result.PrimaryCacheError = ('主包 {0} 无法复用，已停止配套文件更新：{1}' -f $primary['Name'], $reason)
             }
         }

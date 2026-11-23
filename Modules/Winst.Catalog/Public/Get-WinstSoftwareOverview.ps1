@@ -9,11 +9,11 @@ function Get-WinstSoftwareOverview {
         安装记录（state.json）、安装包缓存索引（`pkgDir\winst.json`）。
         只列**软件源里的软件**：本机已装但软件源里没有的条目不在本页（请在「已装软件」里查看 / 卸载）。
     .OUTPUTS
-        @{ Ok; Error; Warning; Items; CacheIndex }
+        @{ Ok; Error; Warning; Items }
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Context, [string]$OnlyId = '')
 
-    $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @(); CacheIndex = $null }
+    $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @() }
 
     # 台账：读不到（版本过高）时无法判断「是否已安装」，明确报错而不是把已装软件显示成未安装
     $scope = @{}
@@ -32,10 +32,10 @@ function Get-WinstSoftwareOverview {
         if ($cacheRead.Error -and -not $result.Warning) { $result.Warning = $cacheRead.Error }
         $cacheIndex = $cacheRead.Index
     }
-    $result.CacheIndex = $cacheIndex
 
     $packageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir @scope
 
+    $sourceLookup = @{}
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($row in @(Get-WinstSearchCatalog -Context $Context @scope)) {
         $id = [string]$row['Id']
@@ -55,7 +55,7 @@ function Get-WinstSoftwareOverview {
         }
         if ($cacheIndex.Contains($id)) { $cacheVersion = Get-EntryString -Entry $cacheIndex[$id] -Key 'version' }
 
-        $items.Add((New-WinstSoftwareItem -Context $Context -Id $id -Row $row -Ledger $ledger `
+        $items.Add((New-WinstSoftwareItem -Context $Context -SourceLookup $sourceLookup -Id $id -Row $row -Ledger $ledger `
             -CacheDir $cacheDir -CacheFiles $cacheFiles -CacheSizeBytes $sizeBytes -CacheVersion $cacheVersion -CacheIndex $cacheIndex))
     }
 

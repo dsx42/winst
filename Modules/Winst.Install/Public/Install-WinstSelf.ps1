@@ -48,75 +48,84 @@ function Install-WinstSelf {
 
     $treeArgs = @{ InstallDir = $installDir }
     $isUpdate = [bool]$exists
-    if ($FromPath) {
-        $versionRead = Get-WinstSelfSourceVersion -Path $FromPath
-        if (-not $versionRead.Ok) {
-            $result.Error = [string]$versionRead.Error
-            return $result
-        }
-        $sourceVersion = [string]$versionRead.Version
-
-        if ((Test-Path -LiteralPath $installDir -PathType Container) -and -not $ForceUpdate) {
-            $installedRead = Get-WinstSelfSourceVersion -Path $installDir
-            if (-not $installedRead.Ok -or -not $installedRead.Version) {
-                $result.Error = ('无法识别现存 winst 程序树的版本，未覆盖文件；请核对目录，确需重装时加 --force：{0}' -f $installedRead.Error)
+    $packageLock = $null
+    try {
+        if ($FromPath) {
+            $versionRead = Get-WinstSelfSourceVersion -Path $FromPath
+            if (-not $versionRead.Ok) {
+                $result.Error = [string]$versionRead.Error
                 return $result
             }
-            $installedVersion = [string]$installedRead.Version
-            $comparison = Compare-WinstVersion -A $sourceVersion -B $installedVersion
+            $sourceVersion = [string]$versionRead.Version
 
-            if ($comparison -eq 0 -and $exists) {
-                $result.Ok = $true
-                $result.UpToDate = $true
-                $result.Version = $installedVersion
-                $result.Exe = $launcherPath
-                if (-not $Quiet) {
-                    Write-Host ('    winst 已是最新版本（{0}），无需更新。' -f $installedVersion) -ForegroundColor DarkGray
+            if ((Test-Path -LiteralPath $installDir -PathType Container) -and -not $ForceUpdate) {
+                $installedRead = Get-WinstSelfSourceVersion -Path $installDir
+                if (-not $installedRead.Ok -or -not $installedRead.Version) {
+                    $result.Error = ('无法识别现存 winst 程序树的版本，未覆盖文件；请核对目录，确需重装时加 --force：{0}' -f $installedRead.Error)
+                    return $result
                 }
-                return $result
+                $installedVersion = [string]$installedRead.Version
+                $comparison = Compare-WinstVersion -A $sourceVersion -B $installedVersion
+
+                if ($comparison -eq 0 -and $exists) {
+                    $result.Ok = $true
+                    $result.UpToDate = $true
+                    $result.Version = $installedVersion
+                    $result.Exe = $launcherPath
+                    if (-not $Quiet) {
+                        Write-Host ('    winst 已是最新版本（{0}），无需更新。' -f $installedVersion) -ForegroundColor DarkGray
+                    }
+                    return $result
+                }
+
+                if ($comparison -lt 0) {
+                    $result.Error = ('安装包版本 {0} 低于本机已安装的 {1}；如确需降级，请加 --force' -f $sourceVersion, $installedVersion)
+                    return $result
+                }
             }
 
-            if ($comparison -lt 0) {
-                $result.Error = ('安装包版本 {0} 低于本机已安装的 {1}；如确需降级，请加 --force' -f $sourceVersion, $installedVersion)
-                return $result
+            $plan = New-WinstSelfPlan -Version $sourceVersion
+
+            # 两种形态都接受：已解压目录直接复制，压缩包解压。
+            # 按实际形态传参，调用方已有树时就不必再解压一次。
+            if (Test-Path -LiteralPath $FromPath -PathType Container) {
+                $treeArgs['SourceDir'] = $FromPath
+            } else {
+                $treeArgs['ArchivePath'] = $FromPath
             }
-        }
 
-        $plan = New-WinstSelfPlan -Version $sourceVersion
-
-        # 两种形态都接受：已解压目录直接复制，压缩包解压。
-        # 按实际形态传参，调用方已有树时就不必再解压一次。
-        if (Test-Path -LiteralPath $FromPath -PathType Container) {
-            $treeArgs['SourceDir'] = $FromPath
+            $sourceName = ''
+            $resolved = $true
         } else {
-            $treeArgs['ArchivePath'] = $FromPath
+            if ($exists -and -not $ForceUpdate) {
+                $result.Ok = $true
+                $result.Exe = $launcherPath
+                return $result
+            }
+            if (-not ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline)) {
+                try { $packageLock = Enter-WinstPackageLock -PkgDir $Context.PkgDir -Id $selfId }
+                catch { $result.Error = $_.Exception.Message; return $result }
+            }
+            $package = Get-WinstSelfPackageSource -Context $Context -Quiet:$Quiet -RequireDownload:$isUpdate
+            if (-not $package.Ok) {
+                $result.Error = [string]$package.Error
+                return $result
+            }
+            $treeArgs['ArchivePath'] = [string]$package.ArchivePath
+            $treeArgs['FallbackSourcePath'] = [string]$package.FallbackSourcePath
+            $plan = $package.Plan
+            $sourceVersion = [string]$package.SourceVersion
+            $sourceName = [string]$package.SourceName
+            $resolved = [bool]$package.Resolved
         }
 
-        $sourceName = ''
-        $resolved = $true
-    } else {
-        if ($exists -and -not $ForceUpdate) {
-            $result.Ok = $true
-            $result.Exe = $launcherPath
+        $write = Set-WinstSelfTree @treeArgs
+        if (-not $write.Ok) {
+            $result.Error = [string]$write.Error
             return $result
         }
-        $package = Get-WinstSelfPackageSource -Context $Context -Quiet:$Quiet -RequireDownload:$isUpdate
-        if (-not $package.Ok) {
-            $result.Error = [string]$package.Error
-            return $result
-        }
-        $treeArgs['ArchivePath'] = [string]$package.ArchivePath
-        $treeArgs['FallbackSourcePath'] = [string]$package.FallbackSourcePath
-        $plan = $package.Plan
-        $sourceVersion = [string]$package.SourceVersion
-        $sourceName = [string]$package.SourceName
-        $resolved = [bool]$package.Resolved
-    }
-
-    $write = Set-WinstSelfTree @treeArgs
-    if (-not $write.Ok) {
-        $result.Error = [string]$write.Error
-        return $result
+    } finally {
+        if ($null -ne $packageLock) { $packageLock.Dispose() }
     }
     $ledger = Register-WinstSelfLedger -Context $Context -Plan $plan -InstallDir $installDir `
         -Updated $isUpdate -Resolved $resolved `

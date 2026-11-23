@@ -27,8 +27,7 @@ function Invoke-WinstInstallTarget {
         [switch]$Quiet,
         [switch]$FilesOnly,
         [switch]$ForceSystemItems,
-        [switch]$SkipDependencies,
-        $PreparedCompanions = $null
+        [switch]$SkipDependencies
     )
 
     $result = @{
@@ -77,22 +76,52 @@ function Invoke-WinstInstallTarget {
     $plan = $entry['Plan']
     $result.Source = $sourceName
 
+    $options = Get-WinstState -Name WinstOptions
+    if ($options -and $options.Offline -and -not $DownloadOnly -and (Get-EntryString -Entry $plan -Key 'type') -ne 'download') {
+        try {
+            $cachedVersion = Get-WinstOfflinePackageVersion -Context $Context -Plan $plan
+            $plan = Get-WinstOfflineInstallPlan -Context $Context -Plan $plan -CachedVersion $cachedVersion
+        } catch {
+            $result.Error = $_.Exception.Message
+            return $result
+        }
+    }
     $previousInstallingIds = Get-WinstState -Name WinstInstallingAppIds
     $null = Set-WinstState -Name WinstInstallingAppIds -Value ($previousInstallingIds + @((Get-EntryString -Entry $plan -Key 'id')))
     try {
         # 与两个引擎同一口径：winst 自身缺失时自动安装、软件源里有新版本时自动更新
         if ((Get-EntryString -Entry $plan -Key 'id') -ine 'winst') {
-            $self = Confirm-WinstSelf -Context $Context -Quiet:$Quiet
-            if ($self.Installed -or $self.Updated -or -not $self.Ok) { $PreparedCompanions = $null }
+            $null = Confirm-WinstSelf -Context $Context -Quiet:$Quiet
         }
 
         while ($true) {
             $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
             $planId = Get-EntryString -Entry $plan -Key 'id'
             $ledgerNow = Get-WinstInstalledApp -State $stateRead.State -Id $planId
-            Show-WinstPlanDetail -Context $Context -Plan $plan -SourceName $sourceName -StateRead $stateRead -Ledger $ledgerNow
 
             $isDownloadPlan = (Get-EntryString -Entry $plan -Key 'type') -eq 'download'
+            $downloadMode = [bool]$DownloadOnly -or $isDownloadPlan
+
+            $forceInstall = ([bool]$Force -and -not $isDownloadPlan)
+            $actionText = '安装'
+            if ($downloadMode) { $actionText = '下载' }
+
+            # 本机已装版本 / 软件源版本：决定提示是「安装」还是「更新到 x.y ↑」
+            $installedVersion = Get-EntryString -Entry $ledgerNow -Key 'version'
+            $fromPackage = Get-EntryBool -Entry $plan -Key 'versionFromPackage'
+            if ($fromPackage) {
+                $installLedger = if (-not $downloadMode) { $ledgerNow }
+                $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $entry -InstalledVersion $installedVersion -Ledger $installLedger
+                $planVersion = $snap.Latest
+            } else {
+                $planVersion = Get-EntryString -Entry $plan -Key 'version'
+            }
+            $isUpgrade = $false
+            if (-not $downloadMode -and $installedVersion -and $planVersion) {
+                if ((Compare-WinstVersion -A $planVersion -B $installedVersion) -gt 0) { $isUpgrade = $true }
+            }
+
+            Show-WinstPlanDetail -Context $Context -Plan $plan -SourceName $sourceName -StateRead $stateRead -Ledger $ledgerNow -IsUpgrade:$isUpgrade
             if ($isDownloadPlan) {
                 Write-Host '    这是「仅下载软件包」类型的软件：只下载软件包到安装包位置，不安装到电脑。' -ForegroundColor DarkGray
                 $ignoredOptions = @()
@@ -107,19 +136,6 @@ function Invoke-WinstInstallTarget {
                     }
                 }
             }
-            $downloadMode = [bool]$DownloadOnly -or $isDownloadPlan
-
-            $forceInstall = ([bool]$Force -and -not $isDownloadPlan)
-            $actionText = '安装'
-            if ($downloadMode) { $actionText = '下载' }
-
-            # 本机已装版本 / 软件源版本：决定提示是「安装」还是「更新到 x.y ↑」
-            $planVersion = Get-EntryString -Entry $plan -Key 'version'
-            $installedVersion = Get-EntryString -Entry $ledgerNow -Key 'version'
-            $isUpgrade = $false
-            if (-not $downloadMode -and $installedVersion -and $planVersion) {
-                if ((Compare-WinstVersion -A $planVersion -B $installedVersion) -gt 0) { $isUpgrade = $true }
-            }
 
             if ($FilesOnly) {
                 Write-Host '    仅更新文件：环境变量 / PATH 保持原样；快捷方式只修正不新建' -ForegroundColor DarkYellow
@@ -131,27 +147,24 @@ function Invoke-WinstInstallTarget {
 
             # 版本相同但配套文件有变化 → 先提示「附加文件有更新」，确认后只更新这些文件
             $companionInfo = $null
-            if (-not $downloadMode -and -not $forceInstall -and $installedVersion -and $planVersion -and -not $isUpgrade) {
-                if (Test-WinstPreparedCompanions -Info $PreparedCompanions -Plan $plan) {
-                    $companionInfo = $PreparedCompanions
-                } else {
-                    $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $plan -Prepare:$Yes -ConfirmMainBeforeUse
-                }
+            if (-not $Yes -and -not $downloadMode -and -not $forceInstall -and $installedVersion -and $planVersion -and -not $isUpgrade) {
+                $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $plan
                 if ($companionInfo.CompanionsOnly) {
                     Write-Host ('    附加文件有更新（{0} 个）: {1}' -f $companionInfo.ChangedCount, ($companionInfo.Names -join '、')) -ForegroundColor DarkYellow
                 }
             }
             $companionOnlyPrompt = [bool]($companionInfo -and $companionInfo.CompanionsOnly)
 
-            # 无法获取最新版本号的条目：取包照旧，但确认前把「远端有没有新包」提示给用户参考
-            Write-WinstRemoteFreshnessHint -Context $Context -PkgDir $Context.PkgDir -Id $planId -Plan $plan
+            if ($fromPackage) {
+                $targetText = Get-WinstRemoteFreshTargetText -Fresh $snap.RemoteFresh -FallbackVersion $planVersion
+                Write-Host ('    上次刷新软件源：{0}' -f $targetText) -ForegroundColor DarkGray
+            }
 
             if (-not $Yes) {
                 $confirm = Show-WinstInstallTargetConfirm -Row $Row -ActionText $actionText -PlanVersion $planVersion `
                     -InstalledVersion $installedVersion -IsUpgrade $isUpgrade -CompanionOnlyPrompt $companionOnlyPrompt `
                     -CompanionInfo $companionInfo -FilesOnly:$FilesOnly
                 if ($confirm.Refresh) {
-                    $PreparedCompanions = $null
                     if (Invoke-WinstSoftwareSourceRefresh -Context $Context -Id $planId) {
                         $rowById = Get-WinstCatalogRowMap -Context $Context
                         $freshEntry = $null
@@ -170,7 +183,8 @@ function Invoke-WinstInstallTarget {
                             }
                             return $result
                         }
-                        $plan = $freshEntry['Plan']
+                        $entry = $freshEntry
+                        $plan = $entry['Plan']
                         # 新计划的依赖可能尚未写入解析锁，先补齐再重新展示与确认；缺失项只尝试一次。
                         $dependencyAttempts = New-WinstOrdinalDictionary
                         while (-not $SkipDependencies -and (Get-EntryString -Entry $plan -Key 'type') -ine 'download') {
@@ -229,15 +243,10 @@ function Invoke-WinstInstallTarget {
             }
         }
 
-        # 用户确认、依赖安装和共享包目录都可能改变文件；进入执行阶段时重新建立计划。
-        if (-not $Yes -or $depSteps.Count -gt 0 -or $downloadMode -or ([string]$Context.PkgDir).StartsWith('\\') -or
-            -not (Test-WinstPreparedCompanions -Info $companionInfo -Plan $plan)) {
-            $companionInfo = $null
-        }
         $exec = Invoke-WinstInstallWithRetry -Context $Context -Plan $plan -SourceName $sourceName `
             -ForceInstall $forceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly `
             -KillRunning:$KillRunning -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems `
-            -Yes:$Yes -DownloadMode:$downloadMode -CompanionInfo $companionInfo
+            -Yes:$Yes -CompanionOnly:$companionOnlyPrompt
         $install = $exec.Install
 
         $result.Ok = $install.Ok

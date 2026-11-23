@@ -64,29 +64,35 @@ function Install-WinstEngine {
     if ($nameError) { $result.Error = $nameError; return $result }
     $installDir = Join-WinstPath $Context.InstallRoot $planId
 
-    # ① 下载（引擎引导例外：IWR）+ 缓存索引 + 旧包清理
-    $download = Invoke-WinstEngineDownload -Context $Context -Id $Id -Plan $plan -PlanId $planId -Quiet:$Quiet
-    if (-not $download.Ok) {
-        $result.Error = [string]$download.Error
+    try { $packageLock = Enter-WinstPackageLock -PkgDir $Context.PkgDir -Id $planId }
+    catch { $result.Error = $_.Exception.Message; return $result }
+    try {
+        # ① 下载（引擎引导例外：IWR）+ 缓存索引 + 旧包清理
+        $download = Invoke-WinstEngineDownload -Context $Context -Id $Id -Plan $plan -PlanId $planId -Quiet:$Quiet
+        if (-not $download.Ok) {
+            $result.Error = [string]$download.Error
+            return $result
+        }
+
+        # ② 解压 ③ 复制 / 改名
+        $layout = Expand-WinstEnginePackage -Context $Context -Id $Id -Plan $plan -InstallDir $installDir `
+            -ArchivePath ([string]$download.PrimaryPath) -Quiet:$Quiet
+        if (-not $layout.Ok) {
+            $result.Error = [string]$layout.Error
+            return $result
+        }
+        if ($mainExe) { $result.Exe = Join-WinstPath $installDir $mainExe }
+
+        # ④ 台账只登记引擎专用目录
+        Register-WinstEngineLedger -Context $Context -Plan $plan -PlanId $planId -InstallDir $installDir `
+            -SourceName ([string]$resolved.Source)
+
+        if (-not $Quiet) { Write-Host ('    {0} 已就绪: {1}' -f $Id, $result.Exe) -ForegroundColor DarkGray }
+
+        $result.Ok = $true
+        $result.Installed = $true
         return $result
+    } finally {
+        $packageLock.Dispose()
     }
-
-    # ② 解压 ③ 复制 / 改名
-    $layout = Expand-WinstEnginePackage -Context $Context -Id $Id -Plan $plan -InstallDir $installDir `
-        -ArchivePath ([string]$download.PrimaryPath) -Quiet:$Quiet
-    if (-not $layout.Ok) {
-        $result.Error = [string]$layout.Error
-        return $result
-    }
-    if ($mainExe) { $result.Exe = Join-WinstPath $installDir $mainExe }
-
-    # ④ 台账只登记引擎专用目录
-    Register-WinstEngineLedger -Context $Context -Plan $plan -PlanId $planId -InstallDir $installDir `
-        -SourceName ([string]$resolved.Source)
-
-    if (-not $Quiet) { Write-Host ('    {0} 已就绪: {1}' -f $Id, $result.Exe) -ForegroundColor DarkGray }
-
-    $result.Ok = $true
-    $result.Installed = $true
-    return $result
 }

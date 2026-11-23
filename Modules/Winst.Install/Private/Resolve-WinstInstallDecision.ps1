@@ -24,7 +24,6 @@ function Resolve-WinstInstallDecision {
         [switch]$Force,
         [switch]$DryRun,
         [switch]$Offline,
-        [switch]$VersionFromPackage,
         [switch]$FreshMain,
         [string]$PlanFreshState = '',
         [switch]$VersionFromCachedPackage,
@@ -59,6 +58,14 @@ function Resolve-WinstInstallDecision {
     }
 
     if ($detected -and $detected -ine 'unknown') {
+        if (-not $FreshMain -and -not $PrimaryFilePlan['NeedDownload'] -and ($Offline -or $PlanFreshState -ieq 'unchanged') -and
+                (Get-EntryValue -Entry $Ledger -Key 'companionVersionBaseline')) {
+            if (-not $PrimaryFilePlan['IndexHash']) {
+                $PrimaryFilePlan['IndexHash'] = Get-WinstPackageFileHash -Path $PrimaryFilePlan['Target']
+            }
+            $Version = Get-WinstMainUpdateVersion -Ledger $Ledger -Plan $Plan -SourceName $SourceName -Version $Version `
+                -InstalledVersion $detected -MainHash $PrimaryFilePlan['IndexHash']
+        }
         $hasTarget = [bool]$Version
         $cmp = 0
         if ($hasTarget) { $cmp = Compare-WinstVersion -A $detected -B $Version }
@@ -67,7 +74,7 @@ function Resolve-WinstInstallDecision {
         # 本机已装、又没有 --force 时不在这里下结论：先取包（主包不沿用缓存），取到后按包内文件信息补做一次矩阵。
         # 推迟决策只在「主包确实要重新取」时有意义（远端有新包 / 没比出结论）：取到后按包内版本补做矩阵；
         # unchanged（远端无新包）时缓存版本就是目标版本，直接按矩阵下结论，不重取也不推迟
-        $deferVersionDecision = [bool]($VersionFromPackage -and -not $Force -and $FreshMain)
+        $deferVersionDecision = [bool](-not $Force -and ($FreshMain -or (-not $hasTarget -and (Get-EntryBool -Entry $Plan -Key 'versionFromPackage'))))
         if ($deferVersionDecision -and -not $Quiet) {
             if ($PlanFreshState -ieq 'changed') {
                 Write-Host ('  {0} 本机已安装 {1}；远端有新包（文件比较），将重新下载安装包、取包后核对版本。' -f $DisplayName, $detected) -ForegroundColor DarkYellow
@@ -80,26 +87,21 @@ function Resolve-WinstInstallDecision {
 
         # 版本一致：跳过安装，由用户决定是否强制重装
         if ($hasTarget -and $cmp -eq 0 -and -not $Force -and -not $deferVersionDecision) {
+            $recordDir = $InstallDir
             if ($Type -eq 'installer') {
-                $probedDir = Get-EntryString -Entry $detect -Key 'Location'
-                if (-not $probedDir) { $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir }
-                $Result.InstallDir = $probedDir
+                $recordDir = Get-EntryString -Entry $detect -Key 'Location'
+                if (-not $recordDir) { $recordDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir }
                 if ($Ledger) {
-                    Sync-WinstInstallerDecisionPath -Context $Context -Plan $Plan -InstallDir $InstallDir -Id $Id `
-                        -Result $Result -Ledger $Ledger -Quiet:$Quiet -ProbedDir $probedDir
+                    Sync-WinstInstallerDecisionPath -Context $Context -Plan $Plan -Id $Id -Ledger $Ledger -Quiet:$Quiet -ProbedDir $recordDir
                 }
             }
             if (-not $Ledger) {
-                Register-WinstExternalInstallRecord -Context $Context -Plan $Plan -Type $Type -InstallDir $InstallDir `
-                    -Id $Id -Version $detected -SourceName $SourceName -Result $Result -OldVersions @($detect.OldVersions) -LocationKnown
+                Register-WinstExternalInstallRecord -Context $Context -Plan $Plan -Type $Type -InstallDir $recordDir `
+                    -Id $Id -Version $detected -SourceName $SourceName -OldVersions @($detect.OldVersions) -LocationKnown
             }
             if ($CompanionDownloadCount -gt 0 -and $Ledger -and -not $DryRun) {
-                # 主包通过当前校验才可仅更新配套文件。
-                if ($CompanionsOnly) {
-                    Confirm-WinstCachedFilePlan -Context $Context -FilePlan $PrimaryFilePlan -Offline:$Offline
-                }
                 if ($PrimaryFilePlan['ValidationError'] -or
-                        ($PrimaryFilePlan['NeedDownload'] -and ($CompanionsOnly -or $Offline -or $PrimaryFilePlan['ExpectedHash']))) {
+                        ($PrimaryFilePlan['NeedDownload'] -and ($Offline -or $PrimaryFilePlan['ExpectedHash']))) {
                     $reason = [string]$PrimaryFilePlan['ValidationError']
                     if (-not $reason) { $reason = [string]$PrimaryFilePlan['Hint'] }
                     if (-not $reason) { $reason = [string]$PrimaryFilePlan['Reason'] }

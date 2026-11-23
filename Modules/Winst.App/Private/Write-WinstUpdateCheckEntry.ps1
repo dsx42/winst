@@ -5,7 +5,7 @@ function Write-WinstUpdateCheckEntry {
     .SYNOPSIS
         仅检查：按版本比较结果分档（可更新 / 附加文件有更新 / 已是最新 / 本机更新）并打印报告行。
     #>
-    param([hashtable]$Context, $Row, $Snap, $EntryResult, [string]$InstalledVersion, [string]$DisplayName, [switch]$Quiet)
+    param([hashtable]$Context, $Plan, $Snap, $EntryResult, [string]$InstalledVersion, [string]$DisplayName, [switch]$Quiet)
 
     $latest = [string]$Snap.Latest
     $latestSource = [string]$Snap.LatestSource
@@ -21,9 +21,9 @@ function Write-WinstUpdateCheckEntry {
     } elseif ($Snap.Cmp -eq 0) {
         # 版本相同、但配套文件有变化 → 单列一档「附加文件有更新」：
         # 不算版本升级、不计入「可更新到 x.y」，但要让用户看见并能选择只更新这些文件
-        $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row
-        if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
-        if ($companionInfo -and $companionInfo.CompanionsOnly) {
+        $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Plan
+        if ($companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
+        if ($companionInfo.CompanionsOnly) {
             $EntryResult.Action = 'files'
             $EntryResult.Message = ('附加文件有更新（{0} 个）' -f $companionInfo.ChangedCount)
             $EntryResult.CompanionCount = [int]$companionInfo.ChangedCount

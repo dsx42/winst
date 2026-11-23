@@ -32,7 +32,6 @@ function Invoke-UpdateCheck {
         $check = Invoke-WinstUpdateTargets -Context $Context -All -Check -Quiet -NoRefresh
         if ($check.ExitCode -eq 1 -and @($check.Entries).Count -eq 0) { return }
         if ($refresh.Failed -gt 0 -or $refresh.Network) {
-            $check.RefreshErrors = @($refresh.Errors)
             $check.RefreshFailed = [int]$refresh.Failed
             $check.Network = $check.Network -or $refresh.Network
             $check = Write-WinstUpdateExitCode -Result $check -Check -Quiet
@@ -45,7 +44,7 @@ function Invoke-UpdateCheck {
         }
 
         $view = Write-WinstUpdateCheckList -Context $Context -Check $check
-        if (-not $view.ShouldPrompt) { return }
+        if ($view.UpdatableIds.Count -eq 0) { return }
 
         $pick = Invoke-WinstUpdateSelection -Context $Context -View $view
         if (-not $pick.Executed) { return }

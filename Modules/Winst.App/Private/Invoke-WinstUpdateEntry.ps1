@@ -8,8 +8,8 @@ function Invoke-WinstUpdateEntry {
         单条更新结果，含最终动作及原因。
     #>
     param([hashtable]$Context, [string]$Id, $Ledger, $RowById, [switch]$Check, [switch]$DownloadOnly,
-        [switch]$Force, [switch]$Yes, [switch]$Quiet, [bool]$AutoPick = $false, [switch]$FilesOnly,
-        [switch]$ForceSystemItems, [string]$SourceName = '', [hashtable]$SourceLookup = @{})
+        [switch]$Force, [switch]$Yes, [switch]$Quiet, [switch]$FilesOnly,
+        [switch]$ForceSystemItems, [switch]$AllTargets, [string]$SourceName = '', [hashtable]$SourceLookup = @{})
 
     $installedVersion = Get-EntryString -Entry $ledger -Key 'version'
     $displayName = $Id
@@ -50,7 +50,10 @@ function Invoke-WinstUpdateEntry {
         $origin = Get-EntryString -Entry $ledger -Key 'manifestOrigin'
         if ($origin) {
             foreach ($candidate in @($row['Sources'])) {
-                if ([string]$candidate['Source'] -ieq $origin -and $candidate['Ok']) { $probeEntry = $candidate; break }
+                if ([string]$candidate['Source'] -ieq $origin -and $candidate['Ok'] -and $candidate['Plan']) {
+                    $probeEntry = $candidate
+                    break
+                }
             }
         }
     }
@@ -118,34 +121,22 @@ function Invoke-WinstUpdateEntry {
             Write-Host ('  {0}: 修复安装记录未完成 —— {1}' -f $displayName, [string]$synced.Error) -ForegroundColor DarkYellow
         }
     }
-    $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
     # 检查与执行固定使用同一来源，比较结果和实际安装计划必须对应。
+    $chosen = $probeEntry
     if (-not $SourceName) {
-        $sorted = Sort-WinstRowSources -Lookup $SourceLookup -Context $Context -Row $row -InstalledVersion $installedVersion
-        $chosen = @($sorted['Sources'] | Where-Object { $_['Ok'] -and $_['Plan'] } | Select-Object -First 1)
-        if ($snap.OriginUsable) {
-            $otherHasNewer = [bool]($snap.Comparable -and $snap.Latest -and $snap.LatestSource -ine $snap.OriginName -and $snap.Cmp -gt 0)
-            if ($snap.OriginNewer -or -not $snap.OriginVersion -or -not $otherHasNewer) {
-                $chosen = @($snap.OriginEntry)
-            } else {
-                $chosen = @($row['Sources'] | Where-Object { [string]$_['Source'] -ieq $snap.LatestSource -and $_['Ok'] -and $_['Plan'] } | Select-Object -First 1)
-            }
-        }
-        if ($chosen.Count -gt 0) {
-            if (-not $Quiet -and $snap.OriginName -and [string]$chosen[0]['Source'] -ine $snap.OriginName) {
-                Write-Host ('  提示: 安装来源「{0}」不可用或没有更新，改用软件源「{1}」。' -f $snap.OriginName, [string]$chosen[0]['Source']) -ForegroundColor DarkYellow
+        $chosen = Get-WinstDefaultUpdateSource -Lookup $SourceLookup -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
+        if ($chosen) {
+            if (-not $Quiet -and $origin -and [string]$chosen['Source'] -ine $origin) {
+                Write-Host ('  提示: 安装来源「{0}」不可用或没有已确认的更新，改用软件源「{1}」。' -f $origin, [string]$chosen['Source']) -ForegroundColor DarkYellow
             }
             if (@($row['Sources']).Count -ne 1) {
                 $row = Copy-WinstObjectShallow -InputObject $row
-                $row['Sources'] = @($chosen[0])
-                $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Row $row -Ledger $ledger -InstalledVersion $installedVersion
+                $row['Sources'] = @($chosen)
             }
         }
     }
-    $latest = [string]$snap.Latest
-    $latestSource = [string]$snap.LatestSource
 
-    if (-not $latest -and -not $snap.HasUsableSource) {
+    if (-not $chosen) {
         $entryResult.Action = 'unknown'
         $entryResult.Message = '软件源里没有可用的版本信息（清单有误 / 不可用）'
         $entryResult.ResolutionError = $true
@@ -156,88 +147,36 @@ function Invoke-WinstUpdateEntry {
         return $entryResult
     }
 
-    $companionInfo = $null
-    if (-not $latest) {
-        $unknown = Get-WinstUpdateUnknownText -Snap $snap
-        if ($snap.VersionFromPackage) {
-            # 三条件满足 = 远端无新包 + 已下载安装包有版本号 + 已安装版本不低于包版本
-            # → 检查时判「已是最新」；执行时只有未指定强制重装才跳过。
-            # 先看附加文件：主包没变但附件变了，要单列「附加文件有更新」并允许只更新这些文件。
-            $upToDate = Test-WinstUpdateUpToDateByPackage -Snap $snap -InstalledVersion $installedVersion
-            if ($upToDate.UpToDate -and ($Check -or -not $Force)) {
-                if ($upToDate.Newer) {
-                    $entryResult.Action = 'newer'
-                    $entryResult.Latest = [string]$snap.CachedPackageVersion
-                    $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
-                    $entryResult.Message = '本机版本比已下载的安装包更新，不自动降级'
-                    if (-not $Quiet) { Write-Host ('  {0}: {1}（本机 {2}，安装包 {3}）。' -f $displayName, $entryResult.Message, $installedVersion, $snap.CachedPackageVersion) -ForegroundColor DarkYellow }
-                    return $entryResult
-                }
-                $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $row -Prepare:(-not $Check)
-                if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
-                if ($companionInfo -and $companionInfo.PrimaryCacheError -and -not $DownloadOnly) {
-                    if ($companionInfo.FilePlans[0]['ValidationNetwork']) { $entryResult.Network = $true }
-                    $entryResult.Action = 'failed'
-                    $entryResult.Message = [string]$companionInfo.PrimaryCacheError
-                    if (-not $Quiet) { Write-Host ('  {0}: {1}' -f $displayName, $entryResult.Message) -ForegroundColor Red }
-                    return $entryResult
-                }
-                $companionsChanged = [bool]($companionInfo -and ($companionInfo.CompanionsOnly -or ($DownloadOnly -and $companionInfo.PrimaryCacheError)))
-                if ($companionsChanged) {
-                    if ($Check) {
-                        $entryResult.Action = 'files'
-                        $entryResult.Message = ('附加文件有更新（{0} 个）' -f [int]$companionInfo.ChangedCount)
-                        $entryResult.CompanionCount = [int]$companionInfo.ChangedCount
-                        $entryResult.CompanionNames = @($companionInfo.Names)
-                        $entryResult.Latest = [string]$snap.CachedPackageVersion
-                        $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
-                        $entryResult.RemoteFresh = [string]$snap.RemoteFresh
-                        return $entryResult
-                    }
-                    # 非检查（执行更新）且附件有变化：不在这里返回，交给安装侧走「仅附件更新」
-                } else {
-                    $entryResult.Action = 'latest'
-                    $entryResult.Latest = [string]$snap.CachedPackageVersion
-                    $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
-                    $entryResult.RemoteFresh = [string]$snap.RemoteFresh
-                    if (-not $Quiet) {
-                        Write-Host ('  {0}: 已是最新版本（{1}；远端无新包，与已下载的安装包一致）。' -f $displayName, $installedVersion) -ForegroundColor Gray
-                    }
-                    return $entryResult
-                }
-            }
-        }
-        if ($Check) {
-            $entryResult.Action = 'check'
-            $entryResult.Message = [string]$unknown.Reason
-            if ($snap.VersionFromPackage) {
-                $entryResult.PackageVersion = [string]$snap.CachedPackageVersion
-                $entryResult.RemoteFresh = [string]$snap.RemoteFresh
-                if ($snap.RemoteFresh -ieq 'unchanged' -and $snap.CachedPackageVersion) {
-                    $entryResult.Latest = [string]$snap.CachedPackageVersion
-                }
-            }
-            Write-WinstUpdateCheckUnknownLine -DisplayName $displayName -InstalledVersion $installedVersion -Snap $snap `
-                -Reason ([string]$unknown.Reason) -ActionText ([string]$unknown.Action) -Quiet:$Quiet
+    $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $chosen -InstalledVersion $installedVersion -Ledger $ledger
+    $latest = [string]$snap.Latest
+    $entryResult.Latest = $latest
+    if ($snap.VersionFromPackage) {
+        if ((-not $latest -or -not $snap.Comparable) -and ($Check -or ($AllTargets -and -not $Force -and -not $DownloadOnly))) {
+            $entryResult.Action = 'unknown'
+            $verdict = Get-WinstUpdateVerdict -VersionFromPackage $true -RemoteFresh $snap.RemoteFresh `
+                -BestVersion $latest -CurrentVersion $installedVersion
+            $entryResult.Message = [string]$verdict.Hint
+            if (-not $Quiet) { Write-Host ('  {0}: {1}。' -f $displayName, $entryResult.Message) -ForegroundColor DarkYellow }
             return $entryResult
         }
-        if (-not $Quiet) {
-            Write-Host ('  {0}: 无法比较版本（{1}），{2}。' -f $displayName, [string]$unknown.Reason, [string]$unknown.Action) -ForegroundColor DarkYellow
-        }
+    } elseif (-not $latest -and $Check) {
+        $entryResult.Action = 'check'
+        $entryResult.Message = '软件源里没有可用的版本信息'
+        if (-not $Quiet) { Write-Host ('  {0}: 无法比较版本（{1}），按软件源里的定义更新。' -f $displayName, $entryResult.Message) -ForegroundColor DarkYellow }
+        return $entryResult
     }
-    $entryResult.Latest = $latest
-    $entryResult.LatestSource = $latestSource
+    $entryResult.LatestSource = [string]$snap.LatestSource
 
     if ($Check) {
-        Write-WinstUpdateCheckEntry -Context $Context -Row $row -Snap $snap -EntryResult $entryResult `
+        Write-WinstUpdateCheckEntry -Context $Context -Plan $chosen['Plan'] -Snap $snap -EntryResult $entryResult `
             -InstalledVersion $installedVersion -DisplayName $displayName -Quiet:$Quiet
         return $entryResult
     }
 
     Invoke-WinstUpdateExecuteEntry -Context $Context -Id $Id -Row $row -Ledger $ledger -Snap $snap `
         -EntryResult $entryResult -InstalledVersion $installedVersion -DisplayName $displayName `
-        -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet -AutoPick $AutoPick `
-        -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -CompanionInfo $companionInfo
+        -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
+        -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     return $entryResult
 }

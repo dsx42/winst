@@ -11,15 +11,16 @@ function Get-WinstFilePlan {
     param(
         [hashtable]$Context,
         $File,
+        [string]$ManifestOrigin,
         [int]$FileIndex,
         [string]$Dir,
         $Entry,
         [switch]$Offline,
-        [switch]$DryRun,
         [switch]$CanCheckRemote,
         [switch]$FreshMain,
-        [switch]$ConfirmBeforeUse,
-        [string]$FreshMainReason = ''
+        [switch]$RequireCurrent,
+        [string]$FreshMainReason = '',
+        [string]$UnchangedMainHash
     )
 
     $url = Get-EntryString -Entry $File -Key 'url'
@@ -33,6 +34,7 @@ function Get-WinstFilePlan {
 
     $plan = New-WinstFilePlanEntry -File $File -Url $url -Name $name -FileIndex $FileIndex
 
+    $plan['ManifestOrigin'] = $ManifestOrigin
     if (-not $name -or -not $url) {
         $plan['Reason'] = '下载信息不完整（文件名不合法或地址为空）'
         return $plan
@@ -42,8 +44,6 @@ function Get-WinstFilePlan {
     $plan['Target'] = $target
 
     $refresh = Get-WinstFileRefreshMode -FileDecl $File
-    $plan['Refresh'] = $refresh.Mode
-    $plan['RefreshMaxAgeHours'] = $refresh.MaxAgeHours
     if ($refresh.Invalid) {
         $plan['Notice'] = ('软件源里的 refresh 取值「{0}」无法识别，已按 auto 处理' -f $refresh.Raw)
     }
@@ -57,79 +57,110 @@ function Get-WinstFilePlan {
     }
 
     $meta = Get-WinstFileMeta -Entry $Entry -FileName $name
-    $plan['CachedMeta'] = $meta
-    $plan['MetaUrl'] = [string]$meta.Url
-    $plan['ValidatorETag'] = [string]$meta.ETag
-    $plan['ValidatorLastModified'] = [string]$meta.LastModified
     # 所有复用分支都携带已实测的摘要，避免版本 / refresh 快捷命中后写索引时又读取整个文件。
-    $plan['RecordedHash'] = Get-WinstRecordedHash -Entry $Entry -FileName $name
+    $plan['IndexHash'] = Get-WinstRecordedHash -Entry $Entry -FileName $name
     $plan['ExpectedAlgorithm'] = [string]$meta.ExpectedAlgorithm
     if ($meta.ExpectedAlgorithm -and $meta.ExpectedAlgorithm -ne 'SHA256') {
         $plan['ManifestHash'] = Get-WinstManifestHash -Entry $Entry -FileName $name -Algorithm $meta.ExpectedAlgorithm
     }
 
-    # 离线规划使用已记录摘要，不请求远端；实际消费前另行重算当前文件摘要。
     $declaredHash = (Get-EntryString -Entry $File -Key 'hash').Trim()
     $declaredHashFile = (Get-EntryString -Entry $File -Key 'hashFile').Trim()
+    $hasChecksum = $declaredHash -or $declaredHashFile
+
+    # 包内取版主包及已知跨源的文件须有来源依据；旧离线套件仍按通常的完整性规则读取。
+    $sameOrigin = $meta.ManifestOrigin -and $meta.ManifestOrigin -ceq $ManifestOrigin
+    $verifyOrigin = -not $sameOrigin -and ($meta.ManifestOrigin -or (-not $Offline -and ($FreshMain -or $declaredHash -or ($declaredHashFile -and $CanCheckRemote))))
+    if ($verifyOrigin) {
+        if (-not $hasChecksum) {
+            $plan['Reason'] = '缓存文件缺少当前软件源的来源记录，将重新下载'
+            if ($CanCheckRemote) { Set-WinstFilePlanValidators -Plan $plan -Context $Context -Uri $url -RequireFields }
+            return $plan
+        }
+        # 新来源的摘要须独立取得，旧来源的 HTTP 基线和校验文件指纹都不能作证。
+        $meta = Get-WinstFileMeta -Entry $null -FileName $name
+    }
+
+    if ($Offline) {
+        $offlineDecl = $File
+        if ($Entry -and -not $verifyOrigin) {
+            if ($meta.Url) { $plan['Url'] = $meta.Url }
+            $indexedFiles = @(Get-EntryArray -Entry $Entry -Key 'files')
+            if ($FileIndex -eq 0 -and $indexedFiles.Count -and $indexedFiles[0] -ieq $name) {
+                $plan['CachedVersion'] = Get-EntryString -Entry $Entry -Key 'version'
+            }
+            if ($meta.Exists) {
+                if ($sameOrigin -and $meta.ExpectedHash -and $meta.SourceVersion -cne $plan['FileVersion']) {
+                    if ($meta.ChecksumHashFile) {
+                        $offlineDecl = @{ hashFile = $meta.ChecksumHashFile; hashFrom = $meta.ChecksumHashFrom }
+                    } else { $offlineDecl = @{ hash = $meta.ExpectedHash } }
+                }
+                $plan['FileVersion'] = $meta.SourceVersion
+            }
+        }
+        if (-not $hasChecksum) {
+            $plan['NeedDownload'] = $false
+            $plan['Reason'] = '已缓存（离线模式不做新鲜度确认）'
+            return $plan
+        }
+        $offlineExpected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $offlineDecl -Offline `
+            -CachedMeta $meta -FileUrl ([string]$plan['Url']) -FileVersion ([string]$plan['FileVersion'])
+        if (-not $offlineExpected.Ok) {
+            $plan['Reason'] = '离线缓存缺少可验证的校验信息'
+            $plan['Hint'] = [string]$offlineExpected.Error
+            return $plan
+        }
+        Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $offlineExpected
+        return $plan
+    }
 
     # compare 显式含 checksum：强制重取远端校验文件（不复用索引里的指纹缓存）。
     # 地址固定的 hashFile（不随版本变化）只靠指纹永远判不出远端换了文件，需要清单显式开启这一次请求。
     $compareInfo = Get-WinstFileCompareCriteria -Text ([string]$plan['Compare'])
     $wantChecksum = (@($compareInfo.Criteria) -contains 'checksum')
-    $ignoreCachedHash = [bool]($wantChecksum -and ($declaredHash -or $declaredHashFile))
-    if ($wantChecksum -and -not $ignoreCachedHash) {
+    # 解析锁里的未变结论只适用于当时比对的主包；另一来源可以覆盖同名文件。
+    $reuseVersion = -not $verifyOrigin -and $FileIndex -eq 0 -and $UnchangedMainHash -and -not $refresh.Raw
+    if ($reuseVersion -and -not $hasChecksum -and -not $plan['IndexHash']) {
+        $plan['IndexHash'] = Get-WinstPackageFileHash -Path $target
+    }
+    if ($reuseVersion -and ($plan['IndexHash'] -or -not $hasChecksum)) {
+        $reuseVersion = $UnchangedMainHash -ieq $plan['IndexHash']
+        if (-not $reuseVersion -and -not $hasChecksum) {
+            $plan['Reason'] = '缓存主包与软件源上次确认的文件不同，将重新下载'
+            return $plan
+        }
+    }
+    if ($wantChecksum -and -not $hasChecksum) {
         $plan['Notice'] = ('软件源里的 compare 含 checksum，但这个文件没有声明 hash / hashFile，已按其余判据（{0}）处理' -f [string]$plan['Compare'])
     }
-    if ($Offline -and ($declaredHash -or $declaredHashFile)) {
-        $offlineExpected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline `
-            -CachedMeta $meta -FileUrl $url -FileVersion ([string]$plan['FileVersion'])
-        if (-not $offlineExpected.Ok) {
-            $plan['NeedDownload'] = $true
-            $plan['Reason'] = '离线缓存缺少可验证的校验信息'
-            $plan['Hint'] = [string]$offlineExpected.Error
-            return $plan
-        }
-        Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target `
-            -Expected $offlineExpected
+    # 响应头摘要已随来源解析，直接按摘要及显式比较项判断，允许下载地址变化。
+    if (Get-EntryString -Entry $File -Key 'hashHeader') {
+        if (-not $declaredHash) { throw '响应头摘要尚未解析，不能验证本地包' }
+        $reuseVersion = $true
+    }
+    # 解析锁已经按清单判据确认过这个主包。声明了摘要时仍走完整性校验。
+    if (-not $RequireCurrent -and $reuseVersion -and -not $hasChecksum -and $compareInfo.IsDefault) {
+        $plan['NeedDownload'] = $false
+        $plan['Reason'] = '已缓存且软件源已确认主包未变化'
         return $plan
     }
-
-    if (-not $Offline -and (Get-EntryString -Entry $File -Key 'hashHeader')) {
-        $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File
-        if (-not $expected.Ok -or $expected.Skipped) { throw '响应头摘要尚未解析，不能验证本地包' }
-        Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected -ForceRehash
-        return $plan
-    }
-    $hasCurrentChecksumProvenance = $true
-    if ($declaredHash) {
-        # 版本相同只能在索引明确记录的是“当前字面摘要”时走快捷分支；若上次来自 hashFile，
-        # 必须落到校验分支，更新摘要并清空旧来源记录。
-        $hasCurrentChecksumProvenance = ([string]$meta.ExpectedHash -and
-            ([string]$meta.ExpectedHash -ieq $declaredHash) -and
-            -not [string]$meta.ChecksumHashFile -and -not [string]$meta.ChecksumFingerprint)
-    } elseif ($declaredHashFile) {
-        $currentFingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $name -FileDecl $File -HashFile $declaredHashFile `
-            -FileUrl $url -FileVersion ([string]$plan['FileVersion'])
-        $hasCurrentChecksumProvenance = ([string]$meta.ChecksumFingerprint -and
-            ([string]$meta.ChecksumFingerprint -ieq $currentFingerprint))
-    }
-    if ($hasCurrentChecksumProvenance -and $compareInfo.IsDefault -and -not $ignoreCachedHash) {
+    if (-not $reuseVersion -and $compareInfo.IsDefault) {
         if (Test-WinstFileVersionPriorBranch -Plan $plan -Meta $meta -FileIndex $FileIndex `
                 -FreshMain:$FreshMain -RefreshRaw ([string]$refresh.Raw)) {
-            return $plan
+            if ($plan['NeedDownload'] -or (-not $RequireCurrent -and -not $hasChecksum)) { return $plan }
+            $reuseVersion = $true
         }
     }
-    if (Test-WinstFileAddressBranch -Plan $plan -Meta $meta -Url $url) { return $plan }
-    if (Test-WinstFileFreshMainBranch -Plan $plan -Context $Context -Uri $url -FileIndex $FileIndex `
-            -RefreshRaw ([string]$refresh.Raw) -Offline:$Offline -CanCheckRemote:$CanCheckRemote `
-            -FreshMain:$FreshMain -Reason $FreshMainReason) {
+    if (-not $reuseVersion -and (Test-WinstFileAddressBranch -Plan $plan -Meta $meta -Url $url)) { return $plan }
+    if (-not $RequireCurrent -and -not $reuseVersion -and -not $verifyOrigin -and (Test-WinstFileFreshMainBranch -Plan $plan -Context $Context -Uri $url `
+            -RefreshRaw ([string]$refresh.Raw) -CanCheckRemote:$CanCheckRemote `
+            -FreshMain:$FreshMain -Reason $FreshMainReason)) {
         return $plan
     }
 
     # 只读视图和预览只使用匹配的缓存摘要，不触发校验文件网络请求。
-    $localOnly = [bool]($Offline -or -not $CanCheckRemote)
-    $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline:$localOnly `
-        -CachedMeta $meta -FileUrl $url -FileVersion ([string]$plan['FileVersion']) -IgnoreCachedHash:($ignoreCachedHash -and $CanCheckRemote)
+    $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $File -Offline:(-not $CanCheckRemote) `
+        -CachedMeta $meta -FileUrl $url -FileVersion ([string]$plan['FileVersion']) -IgnoreCachedHash:(($RequireCurrent -or $verifyOrigin -or $wantChecksum) -and $CanCheckRemote)
     if (-not $expected.Ok) {
         # 无法取得声明的校验信息时，缓存不能被视为已验证；交给下载 / 校验阶段明确报错。
         $plan['NeedDownload'] = $true
@@ -140,14 +171,15 @@ function Get-WinstFilePlan {
         return $plan
     }
     if ($expected.Skipped) {
-        # ④ 未声明校验 → 按 files[].refresh 档位判定
+        # 制作完整套件时，必须核对远端，确认不了便重新取包。
+        if ($RequireCurrent -and $refresh.Mode -ne 'always') { $refresh.Mode = 'check' }
         Set-WinstFileRefreshDecision -Criteria $compareInfo.Criteria -Plan $plan -Context $Context -Meta $meta -Refresh $refresh `
-            -Name $name -Target $target -Offline:$Offline -DryRun:$DryRun -CanCheckRemote:$CanCheckRemote
+            -Name $name -Target $target -CanCheckRemote:$CanCheckRemote
         return $plan
     }
 
     # ③ 已声明校验 → 比对校验码
-    Set-WinstFileHashDecision -ConfirmBeforeUse:$ConfirmBeforeUse -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
+    Set-WinstFileHashDecision -Plan $plan -Entry $Entry -Name $name -Target $target -Expected $expected
     if (-not $plan['NeedDownload'] -and $CanCheckRemote -and -not $compareInfo.IsDefault -and
             @($compareInfo.Criteria | Where-Object { $_ -ne 'checksum' }).Count -gt 0) {
         Set-WinstFileValidatorDecision -Criteria $compareInfo.Criteria -Plan $plan -Context $Context -Meta $meta -Refresh $refresh `

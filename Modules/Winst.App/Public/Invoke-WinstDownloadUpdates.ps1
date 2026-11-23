@@ -47,7 +47,7 @@ function Invoke-WinstDownloadUpdates {
             # 与检查更新同一判据：远端无新包时缓存里
             # 那份就是远端当前这份，目标直接写它的版本；远端有新包直说；没比出结论则如实说明
             $sourceText = ''
-            $targetText = Get-WinstRemoteFreshTargetText -Row $item['Row'] -FallbackVersion $targetText
+            $targetText = Get-WinstRemoteFreshTargetText -Fresh (Get-WinstRowRemoteFreshState -Row $item['Row']) -FallbackVersion $targetText
         } elseif (-not $targetText) {
             $targetText = '未知'
         }

@@ -3,18 +3,12 @@
 function Resolve-WinstBundleTarget {
     <#
     .SYNOPSIS
-        ②③ 列出清单里的软件，并确定目标目录（未指定时交互输入，缺省落在数据根的 winst-kit）。
+        确定目标目录（未指定时交互输入，缺省落在数据根的 winst-kit）。
     .OUTPUTS
         [string] 目标目录绝对路径
     #>
-    param([hashtable]$Context, [string]$TargetDir, [string]$ListPath, $Items, $StateRead = $null)
+    param([hashtable]$Context, [string]$TargetDir)
 
-    # —— ② 先列出清单里的软件（确认要打包哪些东西；状态 / 软件源 / 依赖与「查看清单」同一口径） ——
-    Write-Host ''
-    Write-Host ('  安装清单: {0}' -f $ListPath) -ForegroundColor Gray
-    Show-WinstListContent -Context $Context -Items $Items -StateRead $StateRead
-
-    # —— ③ 目标目录 ——
     if (-not $TargetDir) {
         $defaultTarget = Join-WinstPath $Context.DataRoot 'winst-kit'
         Write-Host ''

@@ -14,46 +14,36 @@ function Get-WinstUpdateVerdict {
         [string]$CurrentVersion,
         [bool]$VersionFromPackage = $false,
         [string]$RemoteFresh = '',
-        $Row = $null,
         [switch]$ForPackage,
-        [string]$MissingCurrentState = 'unknown',
         [string]$BestSource = ''
     )
 
-    $freshChanged = '↑ 远端有新包（文件比较），建议重新下载'
-    $freshUnknown = '↑ 无法判断远端是否有新包（文件比较未得出结论）'
     if ($CurrentVersion -ieq 'unknown') { $CurrentVersion = '' }
     if ($BestVersion -ieq 'unknown') { $BestVersion = '' }
 
-    if (-not $ForPackage -and -not $CurrentVersion) {
-        $usable = [bool]$BestVersion
-        if ($null -ne $Row) {
-            $usable = $false
-            foreach ($source in @(Get-EntryArray -Entry $Row -Key 'Sources')) {
-                if ((Get-EntryBool -Entry $source -Key 'Ok') -and (Get-EntryValue -Entry $source -Key 'Plan' -Default $null)) { $usable = $true; break }
-            }
+    if ($VersionFromPackage) {
+        if ($RemoteFresh -ieq 'changed') {
+            if ($ForPackage) { return @{ State = 'update'; Hint = '远端文件已变化，可以更新缓存包'; HasUpdate = $true } }
+            return @{ State = 'unknown'; Hint = '远端文件已变化，软件版本待确认'; HasUpdate = $false }
         }
-        if ($usable) { return @{ State = 'update'; Hint = '↑ 本机版本未知，可按软件源定义更新'; HasUpdate = $true } }
-        return @{ State = $MissingCurrentState; Hint = '本机版本未知'; HasUpdate = $false }
+        if ($RemoteFresh -ine 'unchanged') {
+            return @{ State = 'unknown'; Hint = '无法确认远端文件是否变化，软件版本待确认'; HasUpdate = $false }
+        }
+        if (-not $BestVersion) { return @{ State = 'unknown'; Hint = '无法读取缓存安装包版本'; HasUpdate = $false } }
+        if (-not $ForPackage -and -not $CurrentVersion) { return @{ State = 'unknown'; Hint = '无法读取本机版本'; HasUpdate = $false } }
+        if ($ForPackage -and $CurrentVersion) { return @{ State = 'latest'; Hint = ''; HasUpdate = $false } }
+    }
+    if (-not $ForPackage -and -not $CurrentVersion) {
+        return @{ State = 'update'; Hint = '↑ 本机版本未知，可按软件源定义更新'; HasUpdate = $true }
     }
 
-    if ($VersionFromPackage -and $BestVersion -and $CurrentVersion) {
-        if ($RemoteFresh -ieq 'changed') { return @{ State = 'update'; Hint = $freshChanged; HasUpdate = $true } }
-        if ($RemoteFresh -ine 'unchanged') { return @{ State = 'update'; Hint = $freshUnknown; HasUpdate = $true } }
-        if ($ForPackage) { return @{ State = 'latest'; Hint = ''; HasUpdate = $false } }
-    }
     if (-not $BestVersion) { return @{ State = 'unknown'; Hint = ''; HasUpdate = $false } }
     if (-not $CurrentVersion) { return @{ State = 'cache-unknown'; Hint = ''; HasUpdate = $false } }
 
     $cmp = Compare-WinstVersion -A $BestVersion -B $CurrentVersion
     if ($cmp -gt 0) {
         $hint = ('↑ 可更新到 {0}' -f $BestVersion)
-        if (-not $ForPackage -and -not $VersionFromPackage) {
-            if ($BestSource) { $hint += ('（来自 {0}）' -f $BestSource) }
-            elseif ($null -ne $Row -and -not $PSBoundParameters.ContainsKey('BestSource')) {
-                $hint = Get-WinstUpgradeHint -Row $Row -InstalledVersion $CurrentVersion -WithSource
-            }
-        }
+        if ($BestSource) { $hint += ('（来自 {0}）' -f $BestSource) }
         return @{ State = 'update'; Hint = $hint; HasUpdate = $true }
     }
     if ($cmp -eq 0) { return @{ State = 'latest'; Hint = ''; HasUpdate = $false } }

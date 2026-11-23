@@ -3,156 +3,169 @@
 function Copy-WinstBundlePackages {
     <#
     .SYNOPSIS
-        ⑦ 复制安装包到 <目标>\apps\<id>\，并把摘要 / 文件元数据写进套件索引。
+        复制安装包到 <目标>\apps\<id>\，并登记与副本对应的摘要和来源。
     .OUTPUTS
-        @{ Copied; Skipped; KitIndex; Errors }
+        @{ Copied; Skipped; Errors }
     #>
     param(
+        [hashtable]$Context,
         $CopyItems,
         [string]$KitAppsDir,
         $SourceCacheIndex,
-        # 越界护栏的根：必须在参数里显式传入。若从调用方局部变量隐式取值（PowerShell 动态作用域），
-        # 换调用方 / 改名就会让 -AllowedRoot 变空，只剩受保护目录黑名单。
         [Parameter(Mandatory = $true)][string]$TargetDir,
         [switch]$DryRun
     )
 
-    $kitIndex = New-WinstOrdinalDictionary
-    if (Test-Path -LiteralPath $KitAppsDir -PathType Container) {
-        try { $kitIndex = (Read-WinstCacheIndex -PkgDir $KitAppsDir).Index } catch { $kitIndex = New-WinstOrdinalDictionary }
+    $sourceRoot = [string]$Context.PkgDir
+    if ((Test-WinstPathUnderRoot -Path $KitAppsDir -Root $sourceRoot -AllowEqual) -or
+        (Test-WinstPathUnderRoot -Path $sourceRoot -Root $KitAppsDir -AllowEqual)) {
+        return @{ Copied = 0; Skipped = 0; Errors = @('套件包目录不能与来源目录重叠。') }
     }
+    $lockRoots = @($sourceRoot, $KitAppsDir)
+    [array]::Sort($lockRoots, [StringComparer]::OrdinalIgnoreCase)
 
-    $existingIds = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
-    Assert-WinstDistinctIds -Ids @($kitIndex.Keys)
-    foreach ($key in $kitIndex.Keys) { $existingIds[$key] = $key }
-    $updatedIndex = New-WinstOrdinalDictionary
     $errors = @()
     $copied = 0
     $skipped = 0
-    foreach ($entry in @($CopyItems)) {
-        $item = $entry['Item']
+    foreach ($item in @($CopyItems)) {
         $id = [string]$item['Id']
-        $sourceDir = [string]$item['CacheDir']
-        $sourceFiles = @($item['CacheFiles'])
-        $sourceVersion = [string]$item['CacheVersion']
-
-        # id 会拼成 U 盘上的目录名：拒绝 ../ 与非目录名，避免清单把内容写到套件目录之外
-        if (-not (Test-WinstSafePathSegment -Name $id)) {
-            $errors += ('{0}: id 不合法，无法作为目录名' -f $id)
-            Write-Host ('  失败: {0}' -f $errors[-1]) -ForegroundColor Red
-            continue
-        }
-        $targetIdDir = Join-WinstPath $KitAppsDir $id
-
-        $existingVersion = ''
-        if ($kitIndex.Contains($id)) { $existingVersion = Get-EntryString -Entry $kitIndex[$id] -Key 'version' }
-        $sameVersion = [bool]($existingVersion -and $sourceVersion -and ($existingVersion -ceq $sourceVersion))
-        $changedFiles = @()
+        $locks = @()
         try {
-            Assert-WinstSafeWritePath -Path $targetIdDir -Directory
-            if ($existingIds.ContainsKey($id)) { Assert-WinstDistinctIds -Ids @($existingIds[$id], $id) }
-            $existingIds[$id] = $id
-            if ((Test-WinstPathUnderRoot -Path $targetIdDir -Root $sourceDir -AllowEqual) -or
-                (Test-WinstPathUnderRoot -Path $sourceDir -Root $targetIdDir -AllowEqual)) { throw '套件包目录不能与来源目录重叠。' }
+            if (-not (Test-WinstSafePathSegment -Name $id) -or (Test-WinstReservedPackageId -Id $id)) {
+                throw 'id 不合法，无法作为目录名'
+            }
+            $sourceDir = Join-WinstPath $sourceRoot $id
+            $targetIdDir = Join-WinstPath $KitAppsDir $id
             Assert-WinstSafeWritePath -Path $sourceDir
+            Assert-WinstSafeWritePath -Path $targetIdDir -Directory
+            if (-not $DryRun) {
+                foreach ($root in $lockRoots) {
+                    $locks += Enter-WinstPackageLock -PkgDir $root -Id $id
+                }
+            }
+
+            $sourceEntry = $SourceCacheIndex[$id]
+            if (-not $DryRun) {
+                $sourceRead = Read-WinstCacheIndex -PkgDir $sourceRoot -Ids @($id)
+                if (-not (Test-WinstJsonValueEqual -Left $sourceEntry -Right $sourceRead.Index[$id])) {
+                    throw '来源包在核对后已变更，请重新制作套件。'
+                }
+            }
+            $source = Get-Item -LiteralPath $sourceDir -Force -ErrorAction Stop
+            Assert-WinstDistinctIds -Ids @($source.Name, $id)
+            $sourceFiles = @($item['CacheFiles'])
+            $sourceVersion = [string]$item['CacheVersion']
+            $target = Get-Item -LiteralPath $targetIdDir -Force -ErrorAction SilentlyContinue
+            if ($target -and $target.Name -cne $id) {
+                Assert-WinstDistinctIds -Ids @($target.Name, $id)
+            }
+            $targetEntry = $null
+            if ($target) {
+                $targetRead = Read-WinstCacheIndex -PkgDir $KitAppsDir -Ids @($id)
+                $targetEntry = $targetRead.Index[$id]
+            }
+            $oldVersion = Get-EntryString -Entry $targetEntry -Key 'version'
+            $sameVersion = $oldVersion -and $sourceVersion -and $oldVersion -ceq $sourceVersion
+            $obsolete = @(Get-EntryArray -Entry $targetEntry -Key 'files' | Where-Object { $sourceFiles -notcontains $_ })
+            $replacing = [bool]($target -and (-not $sameVersion -or $obsolete.Count))
+
+            $hashes = New-WinstOrdinalDictionary -IgnoreCase
+            $manifestHashes = New-WinstOrdinalDictionary -IgnoreCase
+            $fileMeta = New-WinstOrdinalDictionary -IgnoreCase
+            $sourceManifestHashes = Get-EntryValue -Entry $sourceEntry -Key 'manifestHashes'
+            $sourceFileMeta = Get-EntryValue -Entry $sourceEntry -Key 'fileMeta'
+            $changed = @()
             foreach ($fileName in $sourceFiles) {
-                if (-not (Test-WinstSafePathSegment -Name ([string]$fileName))) { throw ('缓存文件名不合法：{0}' -f $fileName) }
+                if (-not (Test-WinstSafePathSegment -Name $fileName)) { throw ('缓存文件名不合法：{0}' -f $fileName) }
                 $sourcePath = Join-WinstPath $sourceDir $fileName
                 $targetPath = Join-WinstPath $targetIdDir $fileName
                 Assert-WinstSafeWritePath -Path $sourcePath
                 $sourceFile = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
                 if ($sourceFile.PSIsContainer) { throw ('缓存成员不是文件：{0}' -f $fileName) }
                 Assert-WinstSafeWritePath -Path $targetPath
+
+                $sourceHash = Get-WinstRecordedHash -Entry $sourceEntry -FileName $fileName
                 $identical = $false
-                $targetFile = $null
-                if ($sameVersion) {
-                    try { $targetFile = Get-Item -LiteralPath $targetPath -Force -ErrorAction Stop }
-                    catch [System.Management.Automation.ItemNotFoundException] { }
+                if ($sameVersion -and -not $replacing -and (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+                    $targetHash = Get-WinstRecordedHash -Entry $targetEntry -FileName $fileName
+                    if (-not $sourceHash -or -not $targetHash) {
+                        if (-not $sourceHash) { $sourceHash = Get-WinstFileHash -Path $sourcePath }
+                        if (-not $targetHash) { $targetHash = Get-WinstFileHash -Path $targetPath }
+                        if (-not $sourceHash -or -not $targetHash) { throw ('无法比较套件文件：{0}' -f $fileName) }
+                    }
+                    $identical = $sourceHash -ieq $targetHash
                 }
-                if ($targetFile -and -not $targetFile.PSIsContainer -and $sourceFile.Length -eq $targetFile.Length) {
-                    $sourceHash = Get-WinstFileHash -Path $sourcePath -Algorithm SHA256
-                    $targetHash = Get-WinstFileHash -Path $targetPath -Algorithm SHA256
-                    if (-not $sourceHash -or -not $targetHash) { throw ('无法比较套件文件：{0}' -f $fileName) }
-                    $identical = $sourceHash -ceq $targetHash
+                if (-not $identical) { $changed += $fileName }
+                if ($sourceHash) { $hashes[$fileName] = $sourceHash }
+                if ($sourceManifestHashes -and $sourceManifestHashes.Contains($fileName)) {
+                    $manifestHashes[$fileName] = $sourceManifestHashes[$fileName]
                 }
-                if (-not $identical) { $changedFiles += $fileName }
+                if ($sourceFileMeta -and $sourceFileMeta.Contains($fileName)) {
+                    $fileMeta[$fileName] = $sourceFileMeta[$fileName]
+                }
+            }
+
+            if (-not $DryRun) {
+                $versionFile = ''
+                $versionRule = $null
+                $plan = $item['PlanEntry']['Plan']
+                if ($sourceVersion -and (Get-EntryBool -Entry $plan -Key 'versionFromPackage')) {
+                    $versionFile = (Get-WinstPackageVersionInput -Plan $plan).Name
+                    $versionRule = Get-WinstPackageVersionRule -Plan $plan
+                }
+                if ($changed.Count) {
+                    if ($targetEntry) {
+                        # 文件替换到一半时，索引不能继续证明旧内容。
+                        Save-WinstCacheIndex -PkgDir $KitAppsDir -UpdateIds @($id) -Update {
+                            param($index)
+                            $index.Remove($id)
+                        }
+                    }
+                    if ($replacing) {
+                        Clear-WinstInstallDir -Dir $targetIdDir -AllowedRoot $TargetDir
+                        if (Test-Path -LiteralPath $targetIdDir) { throw ('无法安全清理目标旧目录：{0}' -f $targetIdDir) }
+                    }
+                    if (-not (Test-Path -LiteralPath $targetIdDir -PathType Container)) {
+                        $null = New-Item -ItemType Directory -Path $targetIdDir -Force -ErrorAction Stop
+                    }
+                    foreach ($fileName in $changed) {
+                        Copy-WinstBundleItem -Source (Join-WinstPath $sourceDir $fileName) -Destination (Join-WinstPath $targetIdDir $fileName)
+                    }
+                }
+                Save-WinstCacheIndex -PkgDir $KitAppsDir -UpdateIds @($id) -Update {
+                    param($index)
+                    Set-WinstCacheIndexEntry -Index $index -Id $id -Version $sourceVersion -Files $sourceFiles `
+                        -Hashes $hashes -ManifestHashes $manifestHashes -FileMeta $fileMeta `
+                        -DownloadedAt (Get-EntryString -Entry $sourceEntry -Key 'downloadedAt') `
+                        -BundleSource ([string]$item['PlanEntry']['Source']) `
+                        -VersionFile $versionFile -VersionRule $versionRule
+                }
+            }
+
+            $name = [string]$item['DisplayName']
+            if ($changed.Count) {
+                $copied++
+                if ($replacing) {
+                    if (-not $oldVersion) { $oldVersion = '未知版本' }
+                    $action = '已替换旧目录'
+                    if ($DryRun) { $action = '将替换旧目录' }
+                    Write-Host ('  {0}: {1}（{2} -> {3}，{4} 个文件）' -f $action, $name, $oldVersion, $sourceVersion, $changed.Count) -ForegroundColor Gray
+                } else {
+                    $action = '已复制'
+                    if ($DryRun) { $action = '将复制' }
+                    Write-Host ('  {0}: {1}（{2}，{3} 个文件）-> {4}' -f $action, $name, $sourceVersion, $changed.Count, $targetIdDir) -ForegroundColor Gray
+                }
+            } else {
+                $skipped++
+                Write-Host ('  跳过（目标文件内容相同）: {0} {1}' -f $name, $sourceVersion) -ForegroundColor DarkGray
             }
         } catch {
             $errors += ('{0}: {1}' -f $id, $_.Exception.Message)
             Write-Host ('  失败: {0}' -f $errors[-1]) -ForegroundColor Red
-            continue
+        } finally {
+            foreach ($lock in $locks) { $lock.Dispose() }
         }
-        $skipCopy = $sameVersion -and $changedFiles.Count -eq 0
-        if ($skipCopy) {
-            $skipped++
-            Write-Host ('  跳过（目标文件内容相同）: {0} {1}' -f [string]$item['DisplayName'], $sourceVersion) -ForegroundColor DarkGray
-        }
-
-        $replacing = $false
-        if (-not $sameVersion -and (Test-Path -LiteralPath $targetIdDir -PathType Container)) { $replacing = $true }
-        $oldVersionText = $existingVersion
-        if (-not $oldVersionText) { $oldVersionText = '未知版本' }
-
-        if ($DryRun) {
-            if ($skipCopy) { continue }
-            if ($replacing) {
-                Write-Host ('  将覆盖旧版本: {0}（{1} -> {2}，{3} 个文件）' -f [string]$item['DisplayName'], $oldVersionText, $sourceVersion, $sourceFiles.Count) -ForegroundColor Gray
-            } else {
-                Write-Host ('  将复制: {0}（{1}，{2} 个文件）-> {3}' -f [string]$item['DisplayName'], $sourceVersion, $sourceFiles.Count, $targetIdDir) -ForegroundColor Gray
-            }
-            $copied++
-            continue
-        }
-
-        if (-not $skipCopy) {
-            try {
-                Assert-WinstSafeWritePath -Path $targetIdDir -Directory
-                # 版本不同：先删掉 U 盘上这个软件的旧目录，避免新旧文件混在一起
-                if ($replacing) {
-                    Clear-WinstInstallDir -Dir $targetIdDir -AllowedRoot $TargetDir
-                    if (Test-Path -LiteralPath $targetIdDir) { throw ('无法安全清理目标旧目录：{0}' -f $targetIdDir) }
-                }
-                if (-not (Test-Path -LiteralPath $targetIdDir -PathType Container)) {
-                    $null = New-Item -ItemType Directory -Path $targetIdDir -Force -ErrorAction Stop
-                }
-                foreach ($fileName in $changedFiles) {
-                    Copy-WinstBundleItem -Source (Join-WinstPath $sourceDir $fileName) -Destination (Join-WinstPath $targetIdDir $fileName)
-                }
-                $copied++
-                if ($replacing) {
-                    Write-Host ('  已覆盖旧版本: {0}（{1} -> {2}，{3} 个文件）' -f [string]$item['DisplayName'], $oldVersionText, $sourceVersion, $sourceFiles.Count) -ForegroundColor Green
-                } else {
-                    Write-Host ('  已复制: {0}（{1}，{2} 个文件）' -f [string]$item['DisplayName'], $sourceVersion, $sourceFiles.Count) -ForegroundColor Green
-                }
-            } catch {
-                $errors += ('{0}: {1}' -f $id, $_.Exception.Message)
-                Write-Host ('  失败: {0}' -f $errors[-1]) -ForegroundColor Red
-                continue
-            }
-
-        }
-
-        # 摘要 / 文件元数据：优先取「来源缓存索引」里那份（与刚复制的文件一一对应）；
-        # 未提供来源索引时，仅在文件未复制且版本一致时沿用目标记录。
-        $hashes = New-WinstOrdinalDictionary
-        $manifestHashes = New-WinstOrdinalDictionary
-        $fileMeta = New-WinstOrdinalDictionary
-        if ($SourceCacheIndex -and $SourceCacheIndex.Contains($id)) {
-            $srcHashes = Get-EntryValue -Entry $SourceCacheIndex[$id] -Key 'hashes' -Default $null
-            if ($srcHashes) { $hashes = $srcHashes }
-            # 复制的文件与来源一致，按声明算法记录的摘要同样有效，一并带过去
-            $srcManifestHashes = Get-EntryValue -Entry $SourceCacheIndex[$id] -Key 'manifestHashes' -Default $null
-            if ($srcManifestHashes) { $manifestHashes = $srcManifestHashes }
-            $fileMeta = Copy-WinstFileMeta -FileMeta (Get-EntryValue -Entry $SourceCacheIndex[$id] -Key 'fileMeta' -Default $null)
-        } elseif ($skipCopy -and $kitIndex.Contains($id)) {
-            $oldHashes = Get-EntryValue -Entry $kitIndex[$id] -Key 'hashes' -Default $null
-            if ($oldHashes) { $hashes = $oldHashes }
-            $oldManifestHashes = Get-EntryValue -Entry $kitIndex[$id] -Key 'manifestHashes' -Default $null
-            if ($oldManifestHashes) { $manifestHashes = $oldManifestHashes }
-        }
-        Set-WinstCacheIndexEntry -Index $kitIndex -Id $id -Version $sourceVersion -Files @($sourceFiles) -Hashes $hashes -ManifestHashes $manifestHashes -FileMeta $fileMeta
-        $updatedIndex[$id] = $kitIndex[$id]
     }
 
-    return @{ Copied = $copied; Skipped = $skipped; KitIndex = $updatedIndex; Errors = @($errors) }
+    return @{ Copied = $copied; Skipped = $skipped; Errors = @($errors) }
 }

@@ -67,11 +67,12 @@ function Invoke-WinstBundleInstallRun {
             $note = Get-WinstListItemPinNote -Item $item
             if ($note.Text) { Write-Host ('  提示: {0}' -f [string]$note.Text) -ForegroundColor DarkYellow }
             if ($Presentation -eq 'Menu') {
+                $pinSource = [string]$item['PinSource']
                 if ($PinAutoContinue) {
-                    Write-Host '  已按软件源里的版本继续。' -ForegroundColor DarkGray
-                } elseif (-not (Read-WinstConfirm -Prompt '  按软件源里的版本安装？(Y/n，n = 跳过这一项)' -Default 'y')) {
+                    Write-Host ('  已按{0}版本继续。' -f $pinSource) -ForegroundColor DarkGray
+                } elseif (-not (Read-WinstConfirm -Prompt ('  按{0}版本安装？(Y/n，n = 跳过这一项)' -f $pinSource) -Default 'y')) {
                     $stats['PinSkipped']++
-                    Write-Host '  已跳过：软件源里的版本和清单里写的不一致，这一项没有装。' -ForegroundColor DarkGray
+                    Write-Host '  已按选择跳过这一项。' -ForegroundColor DarkGray
                     continue
                 }
             }

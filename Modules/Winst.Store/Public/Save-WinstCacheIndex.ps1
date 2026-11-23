@@ -16,24 +16,13 @@ function Save-WinstCacheIndex {
 
     $path = Get-WinstCacheIndexPath -PkgDir $PkgDir
     $lockPath = $path + '.lock'
-    Assert-WinstSafeWritePath -Path $lockPath
     if (-not (Test-Path -LiteralPath $PkgDir -PathType Container)) {
+        Assert-WinstSafeWritePath -Path $lockPath
         $null = New-Item -ItemType Directory -Path $PkgDir -Force -ErrorAction Stop
     }
     $stream = $null
-    $timer = [Diagnostics.Stopwatch]::StartNew()
     try {
-        while ($null -eq $stream) {
-            try {
-                Assert-WinstSafeWritePath -Path $lockPath
-                $stream = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read)
-            } catch {
-                $code = $_.Exception.GetBaseException().HResult -band 0xffff
-                if (@(32, 33) -notcontains $code) { throw }
-                if ($timer.ElapsedMilliseconds -ge 10000) { throw ('等待缓存索引写入锁超时：{0}' -f $lockPath) }
-                Start-Sleep -Milliseconds 50
-            }
-        }
+        $stream = Open-WinstCacheLock -Path $lockPath -Description '缓存索引写入锁'
         # 拿锁前的快照不能作为写入基线，即使远端文件戳恰好没有变化。
         $stored = $null
         $read = Read-WinstCacheIndex -PkgDir $PkgDir -StoredValue ([ref]$stored)

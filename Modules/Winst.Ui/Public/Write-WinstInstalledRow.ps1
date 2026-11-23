@@ -11,6 +11,8 @@ function Write-WinstInstalledRow {
     Write-Host ('    版本 {0}' -f [string]$item['Version']) -NoNewline -ForegroundColor Gray
     if ([bool]$item['HasUpdate']) {
         Write-Host ('  {0}' -f [string]$item['UpdateHint']) -NoNewline -ForegroundColor Green
+    } elseif ([string]$item['UpdateHint']) {
+        Write-Host ('  {0}' -f [string]$item['UpdateHint']) -NoNewline -ForegroundColor DarkYellow
     }
     if ([bool]$item['DirMissing']) {
         Write-Host '  [安装目录不存在]' -NoNewline -ForegroundColor Yellow

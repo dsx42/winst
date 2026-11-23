@@ -5,7 +5,7 @@ function Update-WinstPackageCacheIndex {
     .SYNOPSIS
         写回缓存索引：版本 + 文件名 + 每个包文件的校验码与 fileMeta（写回前重读，避免抹掉引擎中途更新）。
     #>
-    param([hashtable]$Context, [string]$Id, $Plans, $PrevEntry, [string]$Version, $DownloadedNames)
+    param([hashtable]$Context, [string]$Id, $Plans, $PrevEntry, [string]$Version, [string]$VersionFile, $VersionRule, $DownloadedNames)
 
     $indexNames = @()
     $indexHashes = New-WinstOrdinalDictionary -IgnoreCase
@@ -19,15 +19,16 @@ function Update-WinstPackageCacheIndex {
         if (-not $name) { continue }
         $wasDownloaded = @($DownloadedNames) -contains $name
         if ($indexNames -notcontains $name) { $indexNames += $name }
-        $hash = Get-WinstIndexHashForPlan -FilePath ([string]$filePlan['Target']) -Plan $filePlan
-        if (-not $hash -and -not $wasDownloaded) { $hash = Get-WinstRecordedHash -Entry $PrevEntry -FileName $name }
-        if ($hash) { $indexHashes[$name] = $hash }
-        $manifestHash = Get-WinstManifestHashFromPlan -Plan $filePlan
-        if (-not $manifestHash.Hash -and -not $wasDownloaded) {
-            $manifestHash.Hash = Get-WinstManifestHash -Entry $PrevEntry -FileName $name -Algorithm $manifestHash.Algorithm
-        }
-        if ($manifestHash.Hash) {
-            $null = Set-WinstManifestHash -Container $indexManifestHashes -FileName $name -Algorithm $manifestHash.Algorithm -Hash $manifestHash.Hash
+        $hash = $filePlan['IndexHash']
+        if (-not $hash) { $hash = Get-WinstPackageFileHash -Path $filePlan['Target'] }
+        if ($hash) { $indexHashes[$name] = $hash.ToLowerInvariant() }
+        $filePlan['IndexHash'] = $hash
+        $algorithm = [string]$filePlan['ExpectedAlgorithm']
+        if ($algorithm -and $algorithm -ne 'SHA256') {
+            $manifestHash = [string]$filePlan['ManifestHash']
+            if ($manifestHash) {
+                $null = Set-WinstManifestHash -Container $indexManifestHashes -FileName $name -Algorithm $algorithm -Hash $manifestHash
+            }
         }
 
         $size = $null
@@ -40,6 +41,14 @@ function Update-WinstPackageCacheIndex {
         $checkedAt = [string]$filePlan['CheckedAt']
         if (-not $checkedAt -and $downloadedAt) { $checkedAt = $downloadedAt }
         $validatorArgs = @{}
+        $origin = [string]$filePlan['ManifestOrigin']
+        if ($origin -and ($wasDownloaded -or $filePlan['ExpectedHash'])) {
+            # 切换来源时重建这条记账，避免将旧来源的 HTTP 基线写到当前来源名下。
+            if ($indexFileMeta.Contains($name) -and $indexFileMeta[$name]['manifestOrigin'] -cne $origin) {
+                $indexFileMeta.Remove($name)
+            }
+            $validatorArgs['ManifestOrigin'] = $origin
+        }
         if ($filePlan['CheckedAt']) {
             $validatorArgs['ETag'] = [string]$filePlan['ValidatorETag']
             $validatorArgs['LastModified'] = [string]$filePlan['ValidatorLastModified']
@@ -48,16 +57,17 @@ function Update-WinstPackageCacheIndex {
             -Url ([string]$filePlan['Url']) -SourceVersion ([string]$filePlan['FileVersion']) -Size $size `
             -DownloadedAt $downloadedAt -LastCheckedAt $checkedAt
         if ([string]$filePlan['ChecksumMetadataAction'] -eq 'replace') {
-            # 包内派生版本可能在下载校验后才确定，来源指纹必须绑定最终写入解析锁的版本。
+            # 指纹只绑定这一文件在下载声明中的版本。
+            $checksumFingerprint = ''
             if ($filePlan['ChecksumHashFile']) {
-                $filePlan['ChecksumFingerprint'] = Get-WinstChecksumDeclarationFingerprint -FileName $name `
+                $checksumFingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $name `
                     -HashFile ([string]$filePlan['ChecksumHashFile']) -HashFrom ([string]$filePlan['ChecksumHashFrom']) `
                     -FileUrl ([string]$filePlan['Url']) -FileVersion ([string]$filePlan['FileVersion'])
             }
             $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
                 -ExpectedHash ([string]$filePlan['ExpectedHash']) -ExpectedAlgorithm ([string]$filePlan['ExpectedAlgorithm']) `
                 -ChecksumHashFile ([string]$filePlan['ChecksumHashFile']) -ChecksumHashFrom ([string]$filePlan['ChecksumHashFrom']) `
-                -ChecksumFingerprint ([string]$filePlan['ChecksumFingerprint'])
+                -ChecksumFingerprint $checksumFingerprint
         }
     }
     # 本次不需要的文件连记账一起清掉
@@ -66,6 +76,9 @@ function Update-WinstPackageCacheIndex {
     }
     Save-WinstCacheIndex -PkgDir $Context.PkgDir -UpdateIds @($Id) -Update {
         param($index)
-        Set-WinstCacheIndexEntry -Index $index -Id $Id -Version $Version -Files $indexNames -Hashes $indexHashes -ManifestHashes $indexManifestHashes -FileMeta $indexFileMeta
+        $bundleSource = Get-EntryString -Entry $index[$Id] -Key 'bundleSource'
+        $mainOrigin = Get-EntryString -Entry $indexFileMeta[$indexNames[0]] -Key 'manifestOrigin'
+        if ($bundleSource -and $mainOrigin) { $bundleSource = $mainOrigin }
+        Set-WinstCacheIndexEntry -Index $index -Id $Id -BundleSource $bundleSource -Version $Version -VersionFile $VersionFile -VersionRule $VersionRule -Files $indexNames -Hashes $indexHashes -ManifestHashes $indexManifestHashes -FileMeta $indexFileMeta
     }
 }

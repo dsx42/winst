@@ -25,21 +25,14 @@ function Invoke-WinstUpgradeAll {
     $index = 0
     foreach ($item in $targets) {
         $index++
-        # 已装软件的条目用 Version / LatestVersion，已下载包的条目用 InstalledVersion / BestVersion，两者都兼容
         $currentText = [string]$item['InstalledVersion']
-        if (-not $currentText) { $currentText = [string]$item['RawVersion'] }
         if (-not $currentText) { $currentText = '未知' }
         $targetText = [string]$item['LatestVersion']
-        if (-not $targetText) { $targetText = [string]$item['BestVersion'] }
+        if (-not $targetText) { $targetText = '未知' }
         $sourceText = [string]$item['LatestSource']
-        if (-not $sourceText) { $sourceText = [string]$item['BestSource'] }
-        # 版本号取自主包文件信息的条目：与检查更新同一判据——看解析锁里的 HEAD 比对结论（remoteFresh）：
-        # 远端无新包时缓存里那份就是远端当前这份，目标版本直接写它；远端有新包直说；
-        # HEAD 没比出结论（unknown）时如实说明、取包后确认版本
-        if (Test-WinstRowVersionFromPackage -Row $item['Row']) {
-            $sourceText = ''
-            $targetText = Get-WinstRemoteFreshTargetText -Row $item['Row'] -FallbackVersion $targetText `
-                -UnchangedSuffix '取已下载的安装包版本'
+        $chosen = $item['Row']['Sources'] | Where-Object { $_['Source'] -ieq $sourceText } | Select-Object -First 1
+        if (Test-WinstRowVersionFromPackage -Row $item['Row'] -Chosen $chosen) {
+            $targetText = ('{0}（远端无新包，取已下载的安装包版本）' -f $targetText)
         }
 
         Write-Host ('    {0}) {1}' -f $index, [string]$item['DisplayName']) -NoNewline -ForegroundColor White
@@ -62,6 +55,6 @@ function Invoke-WinstUpgradeAll {
     # 上面已经列出全部内容并确认过，执行时不逐个询问（每个软件的动作仍会完整打印出来）
     Write-Host ''
     Write-Host '  正在更新（每个软件的动作会逐条打印）…' -ForegroundColor Gray
-    $result = Invoke-WinstUpdateTargets -Context $Context -Ids $ids -AutoPickSource -Yes
+    $result = Invoke-WinstUpdateTargets -Context $Context -Ids $ids -Yes
     return @{ Ok = [bool]$result.Ok; Cancelled = $false; Count = $targets.Count; Result = $result }
 }

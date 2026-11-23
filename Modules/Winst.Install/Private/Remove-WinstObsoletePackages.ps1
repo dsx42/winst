@@ -5,9 +5,9 @@ function Remove-WinstObsoletePackages {
     .SYNOPSIS
         自动清理旧包。
     #>
-    param([hashtable]$Context, [string]$Id, $Plans, [bool]$DownloadedAny, [switch]$Offline)
+    param([hashtable]$Context, [string]$Id, $Plans, [bool]$DownloadedAny)
 
-    if (-not $DownloadedAny -or $Offline) { return }
+    if (-not $DownloadedAny) { return }
     $keepNames = @()
     foreach ($filePlan in @($Plans)) { if ($filePlan['Name']) { $keepNames += [string]$filePlan['Name'] } }
     try { $prune = [bool](Get-ConfigValue -Config $Context.Config -Key 'pruneOldPackages') } catch { $prune = $true }

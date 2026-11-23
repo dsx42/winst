@@ -9,7 +9,7 @@ function Invoke-BundleInstall {
         （已装 x.y / 已有安装包 / 需联网下载 / 软件源里没有）→ 确认后逐个安装。
         安装复用 `Invoke-WinstInstallTarget`（含「已装同版本跳过、强制重装询问、缓存命中不重复下载、
         更新方式取设置」，与「安装软件」完全同一套决策），清单确认过一次后执行时不逐个询问。
-        清单里写了 `id==版本` 而软件源版本不一致时，先提示并让用户选择「按软件源里的版本安装」或「跳过」。
+        清单固定版本与可用版本不一致或可用版本未知时，提示用户选择继续或跳过。离线时核对缓存包。
     #>
     param([hashtable]$Context)
 
@@ -31,12 +31,13 @@ function Invoke-BundleInstall {
         return
     }
 
-    $loaded = Get-WinstListItems -Context $Context -Path ([string]$picked.Path) -RefreshSources
+    $loaded = Get-WinstListItems -Context $Context -Path ([string]$picked.Path) -RefreshSources -BundleInstall
     if (-not $loaded.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $loaded.Error) -ForegroundColor Red
         return
     }
+    $Context = $loaded.Context
     if ($loaded.Warning) { Write-Host ('  提示: {0}' -f $loaded.Warning) -ForegroundColor DarkYellow }
 
     if (-not $loaded.Exists -or @($loaded.Items).Count -eq 0) {

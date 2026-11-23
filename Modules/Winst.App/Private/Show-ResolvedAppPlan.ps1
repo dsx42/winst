@@ -21,6 +21,7 @@ function Show-ResolvedAppPlan {
         [string]$StartMenuDir = '',
         [string]$InstalledVersion = '',
         [string]$InstalledDir = '',
+        [switch]$IsUpgrade,
         [Parameter(Mandatory = $true)][hashtable]$Context, $State = $null, $CacheIndex = $null, $StateRead = $null
     )
 
@@ -28,7 +29,7 @@ function Show-ResolvedAppPlan {
         -InstallRoot $InstallRoot -PkgDir $PkgDir -DesktopDir $DesktopDir -StartMenuDir $StartMenuDir `
         -InstalledVersion $InstalledVersion -InstalledDir $InstalledDir
 
-    Write-WinstPlanHeader -Plan $Plan -View $view -Context $Context -StateRead $StateRead
+    Write-WinstPlanHeader -Plan $Plan -View $view -IsUpgrade:$IsUpgrade -Context $Context -StateRead $StateRead
 
     if (-not $view.Ok) {
         # 清单有误时把备注全部打出来（不过滤技术说明），方便看到配置本身的错

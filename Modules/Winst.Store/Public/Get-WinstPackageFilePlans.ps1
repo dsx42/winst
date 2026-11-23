@@ -7,34 +7,32 @@ function Get-WinstPackageFilePlans {
     .DESCRIPTION
         判定顺序：
           ① 文件不存在 → 需要下载；
-          ② 文件自己有版本（主包恒有；附加文件仅有 files[].versionListUrl 独立取版时）、未显式声明
+          ② 包内读版的主包已确认为远端当前文件且使用默认 refresh / compare 时，复用现存主包并按声明校验。
+             文件自己有版本（主包恒有；附加文件仅有 files[].versionListUrl 独立取版时）、未显式声明
              refresh 且不要求 FreshMain 时，版本相同即复用、不同则重取。
              否则地址与索引记账（fileMeta.url）不一致 → 缓存里是另一份文件，需要下载；
           ③ 已声明校验（hash / hashFile）：索引里记录了该文件的摘要（同算法）时**直接比对校验码**；
-             没有记录则计算一次。实际消费缓存前仍由 Confirm-WinstCachedFilePlan 重算文件摘要。
+             没有记录则计算一次并保存在计划里。
           ④ 未声明校验 → 按 files[].refresh 档位（缺省 auto）与 HEAD 校验器判定；
              比哪些项由 files[].compare 决定（缺省：最后修改时间 + 大小）。
-        本函数供列表、检查与安装规划共用；实际取包时必须另行调用 Confirm-WinstCachedFilePlan。
+        本函数供列表、检查与安装规划共用。
         各分支的细节见 Get-WinstFilePlan 与 Set-WinstFile*Decision 的说明。
         单文件判定由 Get-WinstFilePlan 承担，本函数只负责遍历与汇总。
     .OUTPUTS
-        @( [ordered]@{ Url; Name; Target; Decl; NeedDownload; Reason; Notice; Refresh; RefreshMaxAgeHours; MetaUrl;
-                       ExpectedHash; ExpectedAlgorithm; RecordedHash; IndexHash; ManifestHash; ActualHash;
-                       ValidatorETag; ValidatorLastModified; ValidatorSize; CheckedAt } )
+        按清单顺序返回每个文件的下载决策、缓存路径、摘要和校验器。字段见 New-WinstFilePlanEntry。
     #>
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)]$Index,
         [Parameter(Mandatory = $true)][string]$Id,
         $Files,
+        [string]$ManifestOrigin,
         # 套件完整性检查只消费本地文件与匹配的校验信息。
         [switch]$Offline,
-        [switch]$CheckValidators,
-        # 随后逐包调用 Confirm-WinstCachedFilePlan 时，将缺失的现场摘要推迟到消费校验。
-        [switch]$ConfirmBeforeUse,
         [switch]$FreshMain,
+        [switch]$RequireCurrent,
         [string]$FreshMainReason = '版本号取自主包文件信息（软件源里没有版本号），每次都重新取包',
-        [switch]$ConfirmMainBeforeUse
+        [string]$UnchangedMainHash
     )
 
     if (-not (Test-WinstSafePathSegment -Name $Id) -or (Test-WinstReservedPackageId -Id $Id)) { throw ('软件 id 不合法或使用了保留目录名：' + $Id) }
@@ -45,15 +43,14 @@ function Get-WinstPackageFilePlans {
     $options = Get-WinstState -Name WinstOptions
     $offline = [bool]($Offline -or ($options -and $options.Offline))
     $dryRun = [bool]($options -and $options.DryRun)
-    $canCheckRemote = [bool]($CheckValidators -and -not $offline -and -not $dryRun)
+    $canCheckRemote = [bool](-not $offline -and -not $dryRun)
 
     # 主包序号（files[] 第一条；$FreshMain 时它不沿用缓存，见上面的说明）
     $fileIndex = -1
     foreach ($file in @($Files)) {
         $fileIndex++
-        $deferHash = $ConfirmBeforeUse -or ($ConfirmMainBeforeUse -and $fileIndex -eq 0 -and -not $dryRun)
-        Get-WinstFilePlan -Context $Context -File $file -FileIndex $fileIndex -Dir $dir -Entry $entry `
-                -Offline:$offline -DryRun:$dryRun -CanCheckRemote:$canCheckRemote -FreshMain:$FreshMain `
-                -ConfirmBeforeUse:$deferHash -FreshMainReason $FreshMainReason
+        Get-WinstFilePlan -Context $Context -File $file -ManifestOrigin $ManifestOrigin -FileIndex $fileIndex -Dir $dir -Entry $entry `
+                -Offline:$offline -CanCheckRemote:$canCheckRemote -FreshMain:($FreshMain -and $fileIndex -eq 0) `
+                -UnchangedMainHash $UnchangedMainHash -FreshMainReason $FreshMainReason -RequireCurrent:($RequireCurrent -and $canCheckRemote)
     }
 }

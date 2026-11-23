@@ -69,10 +69,10 @@ function Invoke-WinstCommand {
     switch ($name) {
         'search'    { return (Invoke-WinstSearchCommand -Context $ctx -Arguments $rest) }
         'info'      { return (Invoke-WinstInfoCommand -Context $ctx -Arguments $rest) }
-        'install'   { return (Invoke-WinstPackageVersionScope -Context $ctx -Action { Invoke-WinstInstallCommand -Context $ctx -Arguments $rest }) }
-        'download'  { return (Invoke-WinstPackageVersionScope -Context $ctx -Action { Invoke-WinstInstallCommand -Context $ctx -Arguments $rest -DownloadOnly }) }
+        'install'   { return (Invoke-WinstInstallCommand -Context $ctx -Arguments $rest) }
+        'download'  { return (Invoke-WinstInstallCommand -Context $ctx -Arguments $rest -DownloadOnly) }
         'list'      { return (Invoke-WinstListCommand -Context $ctx -Arguments $rest) }
-        'update'    { return (Invoke-WinstPackageVersionScope -Context $ctx -Action { Invoke-WinstUpdateCommand -Context $ctx -Arguments $rest }) }
+        'update'    { return (Invoke-WinstUpdateCommand -Context $ctx -Arguments $rest) }
         'uninstall' { return (Invoke-WinstUninstallCommand -Context $ctx -Arguments $rest) }
         'clean'     { return (Invoke-WinstCleanCommand -Context $ctx -Arguments $rest) }
         'repair'    { return (Invoke-Repair -Context $ctx) }

@@ -23,9 +23,8 @@ function New-WinstFilePlanEntry {
         Name                  = $Name
         Target                = ''
         Decl                  = $File
-        CachedMeta            = $null
         FileVersion           = $fileVersion
-        VersionOwned          = $versionOwned
+        CachedVersion         = ''
         Compare               = [string](Get-EntryString -Entry $File -Key 'compare')
         NeedDownload          = $true
         Reason                = ''
@@ -33,22 +32,15 @@ function New-WinstFilePlanEntry {
         Hint                  = ''
         ValidationError       = ''
         ValidationNetwork     = $false
-        Refresh               = 'auto'
-        RefreshMaxAgeHours    = 168
-        MetaUrl               = ''
         ExpectedHash          = ''
         ExpectedAlgorithm     = ''
-        RecordedHash          = ''
         IndexHash             = ''
         ManifestHash          = ''
-        ActualHash            = ''
         ChecksumHashFile      = ''
         ChecksumHashFrom      = ''
-        ChecksumFingerprint   = ''
         ChecksumMetadataAction = 'preserve'
         ValidatorETag         = ''
         ValidatorLastModified = ''
-        ValidatorSize         = $null
         CheckedAt             = ''
     }
 }

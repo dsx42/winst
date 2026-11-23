@@ -6,8 +6,7 @@ function Show-WinstListContent {
         打印一份清单的逐项内容与状态（查看 / 一键安装 / 制作U盘安装包 共用）。
     .DESCRIPTION
         每条：编号、名称（id）、清单指定的版本（`id==版本` 时）、软件源版本、状态结论，
-        以及该软件声明的依赖（`dependencies`，含传递依赖）——清单只写用户选中的软件，
-        **依赖不会被自动写进清单**，所以这里必须说清「依赖了谁、各自什么状态、清单里没有的会在安装时自动安装」。
+        以及该软件声明的依赖（`dependencies`，含传递依赖），标出已列入清单的依赖和安装时需要补齐的依赖。
         结尾给出一句汇总（已装 / 已有安装包 / 需联网下载 / 软件源里没有）。
     #>
     param(
@@ -64,8 +63,6 @@ function Show-WinstListContent {
             }
         }
 
-        # 依赖（条目的 dependencies，含传递依赖）：清单只写用户选中的软件，依赖不会被自动写进清单——
-        # 这里说清「依赖了谁 / 各自什么状态 / 清单里没有的会在安装时自动安装」
         $depLines = @(Get-WinstDependencyLines -Context $Context -Id ([string]$item['Id']) -Type ([string]$item['Type']) -StateRead $stateRead)
         if ($depLines.Count -gt 0) {
             $depTotal = 0

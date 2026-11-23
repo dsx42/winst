@@ -34,8 +34,8 @@ function New-WinstPlanViewState {
     if (-not $versionText) { $versionText = '未知' }
     # 版本号取自「缓存里那份包」：远端无新包（remoteFresh unchanged）
     # 时缓存里那份就是软件源当前这一份，版本号即确认值；远端有新包 / 没比出结论时才标「取包后确认」
-    $versionFromCache = [bool](Get-EntryBool -Entry $Plan -Key 'versionFromCache')
-    $versionNeedsConfirm = ($versionFromCache -and ([string](Get-EntryString -Entry $Plan -Key 'remoteFresh')) -ine 'unchanged')
+    $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
+    $versionNeedsConfirm = ($versionFromPackage -and ([string](Get-EntryString -Entry $Plan -Key 'remoteFresh')) -ine 'unchanged')
 
     # 安装目录一律以 id 命名
     $installDir = ''

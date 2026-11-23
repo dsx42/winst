@@ -17,8 +17,7 @@ function Copy-WinstCompanionFiles {
         [Parameter(Mandatory = $true)][string]$PkgDir,
         [Parameter(Mandatory = $true)][string]$InstallDir,
         [switch]$OnlyChanged,
-        [string[]]$ChangedNames = @(),
-        $PreviousRules = $null
+        [string[]]$ChangedNames = @()
     )
 
     $result = @{ Ok = $true; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @(); Error = '' }
@@ -54,13 +53,11 @@ function Copy-WinstCompanionFiles {
         if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $file -Key 'url') }
         $stripValue = Get-EntryValue -Entry $file -Key 'stripTopDir' -Default $false
         if ($null -eq $stripValue) { $stripValue = $false }
-        $signature = Get-WinstCompanionLayoutSignature -File $file
-        $result.Rules[$name] = $signature
+        $result.Rules[$name] = Get-WinstCompanionLayoutSignature -File $file
         $result.Files += $dest
         $pathType = 'Leaf'
         if ($extract) { $pathType = 'Container' }
         if ($OnlyChanged -and $ChangedNames -notcontains $name -and
-                (Get-EntryString -Entry $PreviousRules -Key $name) -ceq $signature -and
                 (Test-Path -LiteralPath $destPath -PathType $pathType)) { continue }
         $source = Join-WinstPath $PkgDir $name
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {

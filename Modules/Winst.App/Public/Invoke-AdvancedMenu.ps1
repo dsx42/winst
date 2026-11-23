@@ -12,7 +12,11 @@ function Invoke-AdvancedMenu {
     $actions = @{
         '1' = { param($ctx) Invoke-ManifestManager -Context $ctx }
         '2' = { param($ctx) Invoke-WinstListManager -Context $ctx }
-        '3' = { param($ctx) $null = Invoke-WinstPack -Context $ctx }
+        '3' = {
+            param($ctx)
+            $pack = Invoke-WinstPack -Context $ctx
+            if ($pack.Error) { Write-Host ('  {0}' -f $pack.Error) -ForegroundColor Red }
+        }
     }
 
     # '1' / '2' 会进入子菜单：子菜单返回后直接重绘本菜单，不追加「按回车返回菜单」

@@ -20,12 +20,13 @@ function Invoke-WinstBundleInstallCli {
     $target = Resolve-WinstListFileForCli -Context $Context -Text $Path
     if (-not $target.Ok) { return 1 }
 
-    $loaded = Get-WinstListItems -Context $Context -Path ([string]$target.Path) -RefreshSources
+    $loaded = Get-WinstListItems -Context $Context -Path ([string]$target.Path) -RefreshSources -BundleInstall
     if (-not $loaded.Ok) {
         Write-Host ''
         Write-Host ('  {0}' -f $loaded.Error) -ForegroundColor Red
         return 1
     }
+    $Context = $loaded.Context
     if ($loaded.Warning) { Write-Host ('  提示: {0}' -f $loaded.Warning) -ForegroundColor DarkYellow }
     if (@($loaded.BadLines).Count -gt 0) {
         Write-Host ('  安装清单含无法解析的行，未执行安装：{0}' -f (@($loaded.BadLines) -join '；')) -ForegroundColor Red

@@ -14,7 +14,8 @@ function Remove-WinstCachedPackage {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string]$PackageNoun = '安装包'
+        [string]$PackageNoun = '安装包',
+        [switch]$AllowMissing
     )
 
     if (-not $PackageNoun) { $PackageNoun = '安装包' }
@@ -38,9 +39,25 @@ function Remove-WinstCachedPackage {
         return $result
     }
     $result.Path = $dir
+    $options = Get-WinstState -Name WinstOptions
+    $dryRun = [bool]($options -and $options.DryRun)
+    $packageLock = $null
+    if (-not (Test-Path -LiteralPath $Context.PkgDir -PathType Container)) {
+        if ($AllowMissing) { $result.Ok = $true; $result.FailureKind = '' }
+        else { $result.Error = ('没有找到「{0}」的已下载{1}。' -f $Id, $PackageNoun) }
+        return $result
+    }
     try {
         $result.FailureKind = 'Execution'
+        if (-not $dryRun) {
+            $packageLock = Enter-WinstPackageLock -PkgDir $Context.PkgDir -Id $Id
+        }
         Assert-WinstSafeWritePath -Path $dir -Directory
+        if ($AllowMissing -and -not (Test-Path -LiteralPath $dir)) {
+            $result.Ok = $true
+            $result.FailureKind = ''
+            return $result
+        }
 
         $files = @(
             if (Test-Path -LiteralPath $dir -PathType Container) {
@@ -51,13 +68,13 @@ function Remove-WinstCachedPackage {
         $result.Files = $files
         $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
         if (-not $cacheRead.CanSave) { $result.Error = $cacheRead.Error; return $result }
-        if ($files.Count -eq 0 -and -not $cacheRead.Index.Contains($Id)) {
+        if (-not $AllowMissing -and $files.Count -eq 0 -and -not $cacheRead.Index.Contains($Id)) {
             $result.FailureKind = 'Parameter'
             $result.Error = ('没有找到「{0}」的已下载{1}。' -f $Id, $PackageNoun)
             return $result
         }
 
-        if ([bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
+        if ($dryRun) {
             $result.DryRun = $true
             $result.Ok = $true
             $result.FailureKind = ''
@@ -86,5 +103,6 @@ function Remove-WinstCachedPackage {
         $result.FailureKind = ''
         $result.Message = ('已删除「{0}」的已下载{1}: {2} 个文件' -f $Id, $PackageNoun, $files.Count)
     } catch { $result.Error = $_.Exception.Message }
+    finally { if ($null -ne $packageLock) { $packageLock.Dispose() } }
     return $result
 }

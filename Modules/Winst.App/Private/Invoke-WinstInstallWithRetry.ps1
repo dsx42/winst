@@ -9,20 +9,20 @@ function Invoke-WinstInstallWithRetry {
     #>
     param([hashtable]$Context, $Plan, [string]$SourceName, [bool]$ForceInstall, [switch]$Overwrite,
         [string[]]$Keep = @(), [switch]$DownloadOnly, [switch]$KillRunning, [switch]$Quiet,
-        [switch]$FilesOnly, [switch]$ForceSystemItems, [switch]$Yes, [switch]$DownloadMode, $CompanionInfo = $null)
+        [switch]$FilesOnly, [switch]$ForceSystemItems, [switch]$Yes, [switch]$CompanionOnly)
 
     $install = Invoke-WinstAppInstall -Context $Context -Plan $Plan -SourceName $SourceName `
-        -CompanionInfo $CompanionInfo -Force:$ForceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning -Quiet:$Quiet `
+        -CompanionOnly:$CompanionOnly -Force:$ForceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning -Quiet:$Quiet `
         -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     $skipReasonShown = $false
-    if ($install.Skipped -and -not $Yes -and -not $DownloadMode -and -not $ForceInstall) {
+    if ($install.Skipped -and -not $Yes -and -not $ForceInstall) {
         Write-Host ''
         Write-Host ('  已跳过：{0}' -f $install.Message) -ForegroundColor DarkYellow
         $skipReasonShown = $true
         if (Read-WinstConfirm -Prompt '  是否强制重装（忽略上面的检查，覆盖安装）？(y/N)' -Default 'n') {
             $install = Invoke-WinstAppInstall -Context $Context -Plan $Plan -SourceName $SourceName `
-                -Force -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning -Quiet:$Quiet `
+                -Force -Overwrite:$Overwrite -Keep $Keep -KillRunning:$KillRunning -Quiet:$Quiet `
                 -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
             $skipReasonShown = $false
         }

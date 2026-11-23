@@ -45,7 +45,7 @@ function ConvertTo-WinstCacheIndexEntry {
     # 旧索引没有该字段时留空（首次用到时再建立基线），不报错、不误判
     $fileMeta = Copy-WinstFileMeta -FileMeta (Get-EntryValue -Entry $Entry -Key 'fileMeta' -Default $null)
 
-    return [ordered]@{
+    $result = [ordered]@{
         version        = $version
         files          = $files
         hashes         = $hashes
@@ -53,4 +53,11 @@ function ConvertTo-WinstCacheIndexEntry {
         fileMeta       = $fileMeta
         downloadedAt   = $downloadedAt
     }
+    foreach ($field in @('versionFile', 'bundleSource')) {
+        $value = Get-EntryString -Entry $Entry -Key $field
+        if ($value) { $result[$field] = $value }
+    }
+    $rule = Get-EntryValue -Entry $Entry -Key 'versionRule'
+    if ($null -ne $rule) { $result['versionRule'] = $rule }
+    return $result
 }

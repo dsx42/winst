@@ -6,7 +6,7 @@ function Get-WinstExpectedHash {
         取某个文件「应该」有的摘要：files[].hash 字面值，或 hashFile + hashFrom 从官方校验文件里取。
         算法由摘要长度决定（32 = MD5 / 40 = SHA1 / 64 = SHA256 / 128 = SHA512）。
     .OUTPUTS
-        @{ Ok; Hash; Algorithm; Label; Skipped; Error; Network; HashFile; HashFrom; Fingerprint }
+        @{ Ok; Hash; Algorithm; Label; Skipped; Error; Network; HashFile; HashFrom }
     .DESCRIPTION
         Hash 为空串表示该文件未声明校验（Skipped = $true）；Ok = $false 表示校验文件抓取 / 解析失败。
     #>
@@ -25,7 +25,7 @@ function Get-WinstExpectedHash {
 
     $result = @{
         Ok = $true; Hash = ''; Algorithm = ''; Label = 'sha256'; Skipped = $true; Error = ''
-        HashFile = ''; HashFrom = ''; Fingerprint = ''; Network = $false
+        HashFile = ''; HashFrom = ''; Network = $false
     }
     if ($null -eq $FileDecl) { return $result }
 
@@ -53,18 +53,17 @@ function Get-WinstExpectedHash {
     $result.Label = $hashFrom
     $result.HashFile = $hashFile
     $result.HashFrom = $hashFrom
-    $result.Fingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $FileName -HashFile $hashFile -HashFrom $hashFrom `
-        -FileUrl $FileUrl -FileVersion $FileVersion
 
     # 已确认过的远端摘要同时供联网和离线安装复用，声明指纹绑定文件名、地址、版本与解析规则。
-    # 此处只取得期望值；规划可读历史摘要，实际消费前由 Confirm-WinstCachedFilePlan 重算文件摘要。
     if ($CachedMeta -and -not $IgnoreCachedHash) {
+        $fingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $FileName -HashFile $hashFile -HashFrom $hashFrom `
+            -FileUrl $FileUrl -FileVersion $FileVersion
         $cachedHash = ([string]$CachedMeta.ExpectedHash).Trim()
         $cachedFingerprint = ([string]$CachedMeta.ChecksumFingerprint).Trim()
         $cachedHashFile = ([string]$CachedMeta.ChecksumHashFile).Trim()
         $cachedHashFrom = ([string]$CachedMeta.ChecksumHashFrom).Trim()
         if ($cachedHash -and $cachedFingerprint -and
-                $cachedFingerprint -ieq $result.Fingerprint -and
+                $cachedFingerprint -ieq $fingerprint -and
                 $cachedHashFile -eq $hashFile -and $cachedHashFrom -ieq $hashFrom) {
             $algorithm = Get-HashAlgorithmFromDigestLength -Length $cachedHash.Length
             if ($cachedHash -notmatch '\A[0-9a-fA-F]+\z' -or -not $algorithm) {
@@ -87,7 +86,9 @@ function Get-WinstExpectedHash {
     }
 
     try {
-        $text = Invoke-WinstHttpGet -Uri $hashFile -Context $Context
+        $compare = Get-WinstFileCompareCriteria -Text (Get-EntryString -Entry $FileDecl -Key 'compare')
+        # 显式比较要求读取校验文件时，固定地址的进程缓存也可能仍是上一版。
+        $text = Invoke-WinstHttpGet -Uri $hashFile -Context $Context -NoCache:($IgnoreCachedHash -or -not $compare.IsDefault)
     } catch {
         $result.Ok = $false
         $result.Skipped = $false

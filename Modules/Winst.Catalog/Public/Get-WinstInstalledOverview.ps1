@@ -10,11 +10,11 @@ function Get-WinstInstalledOverview {
         各页面与 CLI 进入前调用 `Update-WinstStaleSources`（按有效期），
         菜单「检查更新」额外用 `-Force` 强制刷新全部软件源。
     .OUTPUTS
-        @{ Ok; Error; Warning; Items; State; RowById; CacheIndex }
+        @{ Ok; Error; Warning; Items }
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Context)
 
-    $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @(); State = $null; RowById = $null; CacheIndex = $null }
+    $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @() }
 
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($stateRead.Error -and -not $stateRead.Reset) {
@@ -22,18 +22,16 @@ function Get-WinstInstalledOverview {
         return $result
     }
     $result.Warning = $stateRead.Error
-    $result.State = $stateRead.State
 
     $rowById = Get-WinstCatalogRowMap -Context $Context
-    $result.RowById = $rowById
 
     # 已下载的安装包（缓存索引读一次，供各条目共用；缺失 / 损坏时会按目录重建）
     $cacheIndex = $null
     if ($Context.PkgDir) {
         try { $cacheIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir).Index } catch { $cacheIndex = $null }
     }
-    $result.CacheIndex = $cacheIndex
 
+    $sourceLookup = @{}
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($key in @($stateRead.State['Installed'].Keys)) {
         $idText = [string]$key
@@ -41,7 +39,7 @@ function Get-WinstInstalledOverview {
         if (-not $entry) { continue }
         $row = $null
         if ($rowById.Contains($idText)) { $row = $rowById[$idText] }
-        $items.Add((New-WinstInstalledItem -Context $Context -Id $idText -Entry $entry -Row $row -CacheIndex $cacheIndex))
+        $items.Add((New-WinstInstalledItem -Context $Context -SourceLookup $sourceLookup -Id $idText -Entry $entry -Row $row -CacheIndex $cacheIndex))
     }
 
     # 用 @() 包住函数调用：PowerShell 里「函数返回空数组」到调用方会变成 $null，

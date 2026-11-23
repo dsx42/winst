@@ -37,7 +37,11 @@ function Invoke-SoftwareList {
 
         $item = $items[[int]$pick.Index]
         Show-WinstSoftwareDetail -Context $Context -Item $item
-        Show-WinstSoftwareActionMenu -Item $item
+        $packageTarget = [string]$item['BestVersion']
+        if ((Get-WinstRowRemoteFreshState -Row $item['Row']) -ieq 'changed') {
+            $packageTarget = Get-WinstRemoteFreshTargetText -Fresh 'changed'
+        }
+        Show-WinstSoftwareActionMenu -Item $item -PackageTarget $packageTarget
 
         $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
         if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return }

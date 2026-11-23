@@ -51,8 +51,6 @@ function Update-WinstCheckSources {
             $post = Update-WinstStaleSources -Context $Context -Quiet -OnlyIds $postIds
             $newErrors = @($post.Errors | Where-Object { $refresh.Errors -cnotcontains $_ })
             Write-WinstRefreshErrors -Errors $newErrors
-            $refresh.Errors = @($refresh.Errors) + $newErrors
-            $refresh.Refreshed += [int]$post.Refreshed
             $refresh.Failed += [int]$post.Failed
             $refresh.Network = [bool]$refresh.Network -or [bool]$post.Network
         }

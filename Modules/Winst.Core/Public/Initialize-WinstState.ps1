@@ -69,6 +69,7 @@ function Initialize-WinstState {
     $comparers = @{
         WinstHttpCache = [StringComparer]::Ordinal
         WinstJsonCache = [StringComparer]::OrdinalIgnoreCase
+        WinstPackageHashCache = [StringComparer]::OrdinalIgnoreCase
         WinstCatalogRefreshed = [StringComparer]::Ordinal
         WinstManifestPersistUnavailable = [StringComparer]::Ordinal
         WinstManifestSessionMeta = [StringComparer]::OrdinalIgnoreCase

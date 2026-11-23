@@ -14,6 +14,5 @@ function Set-WinstFilePlanValidators {
 
     $Plan['ValidatorETag'] = [string]$validators.ETag
     $Plan['ValidatorLastModified'] = [string]$validators.LastModified
-    if ($null -ne $validators.Size) { $Plan['ValidatorSize'] = $validators.Size }
     $Plan['CheckedAt'] = (Get-Date).ToString('s')
 }

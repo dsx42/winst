@@ -5,7 +5,7 @@ function Show-WinstCachedActionMenu {
     .SYNOPSIS
         按条目状态渲染可选动作（i / u / x / d / s），仅展示当前可用的项。
     #>
-    param($Item)
+    param($Item, [string]$PackageTarget)
 
     $inCatalog = [bool]$Item['InCatalog']
     $isDownloadType = ([string]$Item['Type'] -eq 'download')
@@ -18,9 +18,10 @@ function Show-WinstCachedActionMenu {
         if (-not $inCatalog) {
             Write-Host '  软件源里没有这个软件，可刷新软件源或删除已下载的软件包。' -ForegroundColor DarkYellow
         } elseif ($canDownloadPackage) {
-            Write-Host ('  x) 更新软件包到 {0}（现在是 {1}）' -f [string]$Item['BestVersion'], [string]$Item['CacheVersionText']) -ForegroundColor White
+            Write-Host ('  x) 更新软件包（{0}  →  {1}）' -f [string]$Item['CacheVersionText'], $PackageTarget) -ForegroundColor White
         } else {
-            Write-Host ('  已下载的软件包 {0} 已是软件源里的最新版。' -f [string]$Item['CacheVersionText']) -ForegroundColor DarkGray
+            $status = Get-WinstVersionConclusion -Item $Item -Kind package
+            Write-Host ('  ' + $status.Text) -ForegroundColor $status.Color
         }
         Write-Host ('  d) 删除已下载的软件包（{0} 个文件）' -f [int]$Item['CacheFileCount']) -ForegroundColor White
     } else {
@@ -30,10 +31,10 @@ function Show-WinstCachedActionMenu {
             Write-Host '  软件源里没有这个软件，可刷新软件源或删除已下载的安装包。' -ForegroundColor DarkYellow
         }
         if ($canUpgradeInstalled) {
-            Write-Host ('  u) 更新已安装的软件（{0}  →  {1}）' -f [string]$Item['InstalledVersionText'], [string]$Item['BestVersion']) -ForegroundColor White
+            Write-Host ('  u) 更新已安装的软件（{0}  →  {1}）' -f [string]$Item['InstalledVersionText'], [string]$Item['LatestVersion']) -ForegroundColor White
         }
         if ($canDownloadPackage) {
-            Write-Host ('  x) 下载更新包（安装包 {0}  →  {1}）' -f [string]$Item['CacheVersionText'], [string]$Item['BestVersion']) -ForegroundColor White
+            Write-Host ('  x) 下载更新包（安装包 {0}  →  {1}）' -f [string]$Item['CacheVersionText'], $PackageTarget) -ForegroundColor White
         }
         Write-Host ('  d) 删除已下载的安装包（{0} 个文件）' -f [int]$Item['CacheFileCount']) -ForegroundColor White
     }

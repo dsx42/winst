@@ -22,7 +22,7 @@ function Invoke-WinstUpdateTargets {
         单条软件的判定与执行见 Invoke-WinstUpdateEntry；汇总与退出码见 Write-WinstUpdateExitCode。
     .OUTPUTS
         @{ Ok; ExitCode; Updatable; Updated; Skipped; Failed; UpToDate; NotInstalled; Unknown;
-           Reported; Network; RefreshErrors; Entries }
+           Reported; Network; Entries }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -33,7 +33,6 @@ function Invoke-WinstUpdateTargets {
         [switch]$Force,
         [switch]$Yes,
         [switch]$Quiet,
-        [switch]$AutoPickSource,
         [switch]$NoRefresh,
         [switch]$FilesOnly,
         [switch]$ForceSystemItems,
@@ -43,7 +42,7 @@ function Invoke-WinstUpdateTargets {
     $result = @{
         Ok = $false; ExitCode = 0; Updatable = 0; Updated = 0; Skipped = 0; Failed = 0;
         UpToDate = 0; NotInstalled = 0; Unknown = 0; Reported = 0; Network = $false;
-        RefreshErrors = @(); RefreshFailed = 0; InternalFailed = 0; Entries = @()
+        RefreshFailed = 0; InternalFailed = 0; Entries = @()
     }
 
     # 0. 读台账 / 目标集合 / 按需刷新 / 搜索目录
@@ -54,7 +53,6 @@ function Invoke-WinstUpdateTargets {
         return $result
     }
     $state = $targets.State
-    $autoPick = [bool]$AutoPickSource -or [bool]$Yes
     $installedTargets = 0
     $downloadOnlySkipped = 0   # 指定 id 里「仅下载」类型的条数（结尾提示据此改口径）
     $entries = New-Object 'System.Collections.Generic.List[object]'
@@ -64,6 +62,7 @@ function Invoke-WinstUpdateTargets {
         check = 'Updatable'; files = 'Updatable'; latest = 'UpToDate'; newer = 'Unknown'; unknown = 'Unknown'
         updated = 'Updated'; skipped = 'Skipped'; cancelled = 'Skipped'; external = 'Reported'; failed = 'Failed'
     }
+    $allTargets = $All -or @($targets.Explicit).Count -eq 0
     foreach ($id in @($targets.TargetIds)) {
         $itemNetwork = $false
         try {
@@ -75,8 +74,8 @@ function Invoke-WinstUpdateTargets {
             }
             $installedTargets++
             $one = Invoke-WinstUpdateEntry -SourceLookup $sourceLookup -Context $Context -Id $id -Ledger $ledger -RowById $targets.RowById `
-                -Check:$Check -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
-                -AutoPick $autoPick -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName
+                -AllTargets:$allTargets -Check:$Check -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
+                -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems -SourceName $SourceName
             $itemNetwork = $one.Network
             if ($one.RefreshState) { $state = Read-WinstCommandState -Context $Context }
         } catch [System.Management.Automation.PipelineStoppedException] { throw
@@ -96,7 +95,6 @@ function Invoke-WinstUpdateTargets {
         if ($one.Network) { $result.Network = $true }
         $entries.Add($one)
         $result[$counterByAction[$one.Action]]++
-        if ($one.NewerAvailable) { $result.Updatable++ }
     }
 
     $result.Entries = $entries.ToArray()

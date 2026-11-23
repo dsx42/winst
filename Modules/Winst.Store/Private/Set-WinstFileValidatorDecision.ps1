@@ -55,7 +55,6 @@ function Set-WinstFileValidatorDecision {
     # 只有取得有效判据时才提交新基线，拿不到所选字段不能给 TTL 续期。
     $Plan['ValidatorETag'] = [string]$validators.ETag
     $Plan['ValidatorLastModified'] = [string]$validators.LastModified
-    if ($null -ne $validators.Size) { $Plan['ValidatorSize'] = $validators.Size }
     $Plan['CheckedAt'] = (Get-Date).ToString('s')
 
     if ($comparison.Changed) {

@@ -41,6 +41,7 @@ function Copy-WinstState {
                 appliedShortcuts = $entry['appliedShortcuts']
                 appliedShortcutHashes = $entry['appliedShortcutHashes']
                 appliedFileVersions = $entry['appliedFileVersions']
+                companionVersionBaseline = $entry['companionVersionBaseline']
                 appliedFiles     = $entry['appliedFiles']
                 appliedFileRules = $entry['appliedFileRules']
                 oldVersions      = $entry['oldVersions']

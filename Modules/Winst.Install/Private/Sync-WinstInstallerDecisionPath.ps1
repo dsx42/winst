@@ -8,23 +8,18 @@ function Sync-WinstInstallerDecisionPath {
     param(
         [hashtable]$Context,
         $Plan,
-        [string]$InstallDir,
         [string]$Id,
-        $Result,
         $Ledger,
         [switch]$Quiet, [string]$ProbedDir
     )
 
-    if (-not $PSBoundParameters.ContainsKey('ProbedDir')) { $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir }
-    if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
     $ledgerDir = Get-EntryString -Entry $Ledger -Key 'installDir'
-    $newDir = $Result.InstallDir
-    $clearPlaceholder = [bool](-not $newDir -and $ledgerDir -ieq (Join-WinstPath $Context.InstallRoot $Id) -and
+    $clearPlaceholder = [bool](-not $ProbedDir -and $ledgerDir -ieq (Join-WinstPath $Context.InstallRoot $Id) -and
         -not (Get-WinstInstallerExpectedDir -Plan $Plan -InstallArgs '' -InstallDir $ledgerDir))
-    if ($newDir -and $ledgerDir -ine $newDir) {
+    if ($ProbedDir -and $ledgerDir -ine $ProbedDir) {
         $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot `
-            -Id $Id -Entry $Ledger -Fields @{ installDir = $newDir }
-        if (-not $Quiet) { Write-Host ('    安装记录里的安装目录已按实际值修正: {0}' -f $newDir) -ForegroundColor Gray }
+            -Id $Id -Entry $Ledger -Fields @{ installDir = $ProbedDir }
+        if (-not $Quiet) { Write-Host ('    安装记录里的安装目录已按实际值修正: {0}' -f $ProbedDir) -ForegroundColor Gray }
     } elseif ($clearPlaceholder -and $ledgerDir) {
         $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot `
             -Id $Id -Entry $Ledger -Fields @{ installDir = '' }

@@ -5,7 +5,7 @@ function Write-WinstUpdateCheckList {
     .SYNOPSIS
         渲染检查结果（总览 / 可更新项 / 无法比较项 / 失败项 / 输入提示），返回选择性更新需要的数据。
     .OUTPUTS
-        @{ ShouldPrompt; UpdatableIds; EntryTexts }
+        @{ UpdatableIds; EntryTexts }
     #>
     param([hashtable]$Context, $Check)
 
@@ -13,7 +13,7 @@ function Write-WinstUpdateCheckList {
     if ($entries.Count -eq 0) {
         Write-Host ''
         Write-Host '  没有可检查更新的软件。' -ForegroundColor Gray
-        return @{ ShouldPrompt = $false; UpdatableIds = @(); EntryTexts = @() }
+        return @{ UpdatableIds = @(); EntryTexts = @() }
     }
     $buckets = Get-WinstUpdateCheckBuckets -Entries $entries
     $updatableIds = @($buckets.UpdatableIds)
@@ -25,7 +25,7 @@ function Write-WinstUpdateCheckList {
     if ($complete -and $buckets.LatestCount -eq $entries.Count) {
         Write-Host ''
         Write-Host '  已安装的软件都是最新版本，没有需要更新的。' -ForegroundColor Green
-        return @{ ShouldPrompt = $false; UpdatableIds = @(); EntryTexts = @() }
+        return @{ UpdatableIds = @(); EntryTexts = @() }
     }
 
     # 总览一行：-Quiet 已抑制 Invoke-WinstUpdateTargets 内部的同一行，这里由菜单统一给出（同一屏只说一次）
@@ -52,12 +52,7 @@ function Write-WinstUpdateCheckList {
                 Write-Host ('  {0}) {1}' -f ($i + 1), $rowText) -ForegroundColor Green
                 continue
             }
-            # 目标版本兜底：versionFromPackage 条目按远端新鲜度展示——远端有新包 → 「新版本」，
-            # 不显示「版本未知」；远端无新包时 Latest 已在检查时填成已下载安装包的版本
             $targetText = '版本未知（按软件源里的版本更新）'
-            if ([string]$one['RemoteFresh'] -ieq 'changed' -and -not [string]$one['Latest']) {
-                $targetText = '新版本'
-            }
             if ([string]$one['Latest']) {
                 $targetText = [string]$one['Latest']
                 if ([string]$one['LatestSource']) { $targetText += ('（来自 {0}）' -f [string]$one['LatestSource']) }
@@ -87,7 +82,8 @@ function Write-WinstUpdateCheckList {
             if (-not $latestText) { $latestText = '未知' }
             $reason = [string]$one['Message']
             if (-not $reason) { $reason = '无法比较版本' }
-            if ($reason -ieq '本机版本比软件源里的更新') { $hasNewer = $true } else { $hasMissing = $true }
+            if ($one['Action'] -eq 'newer') { $hasNewer = $true }
+            elseif ($reason -eq '软件源里没有这个软件') { $hasMissing = $true }
             $reasonColor = 'Yellow'
             if ([bool]$one['ResolutionError']) { $reasonColor = 'Red' }
             Write-Host ('    - {0}    本机 {1}，软件源 {2}（{3}）' -f [string]$one['Name'], $installedText, $latestText, $reason) -ForegroundColor $reasonColor
@@ -110,7 +106,7 @@ function Write-WinstUpdateCheckList {
     }
 
     if ($updatableIds.Count -eq 0) {
-        return @{ ShouldPrompt = $false; UpdatableIds = @(); EntryTexts = $entryTexts }
+        return @{ UpdatableIds = @(); EntryTexts = $entryTexts }
     }
 
     Write-Host ''
@@ -121,5 +117,5 @@ function Write-WinstUpdateCheckList {
     Write-Host ('  {0}' -f ($hintParts -join '；')) -ForegroundColor DarkGray
     Write-Host ('  更新方式按「设置 → 更新方式」（{0}）；来源优先安装时用的那个软件源。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor DarkGray
 
-    return @{ ShouldPrompt = $true; UpdatableIds = @($updatableIds); EntryTexts = @($entryTexts) }
+    return @{ UpdatableIds = @($updatableIds); EntryTexts = @($entryTexts) }
 }

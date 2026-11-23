@@ -10,47 +10,37 @@ function Invoke-WinstUpdateCustom {
         - 软件源：从该软件可用的来源里选择（标出安装时用的来源）；所选来源版本不比本机新时按强制安装处理
           （相同版本 = 重装一次，更低版本 = 降级覆盖），执行前仍有安装流程的确认提示。
     .OUTPUTS
-        @{ Ok; Cancelled; Mode; Source; ExitCode; Error; Updated; Skipped; Failed }
+        @{ Cancelled; Updated; Failed }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Item
     )
 
-    $result = @{ Ok = $false; Cancelled = $false; Mode = ''; Source = ''; ExitCode = 0; Error = '';
-        Updated = 0; Skipped = 0; Failed = 0 }
     $id = [string]$Item['Id']
-
-    if (-not $Item['Row']) {
-        Write-Host ''
-        Write-Host ('  软件源里没有「{0}」，无法单独选更新方式与来源；可到「高级功能 → 管理软件源」刷新软件源后重试。' -f [string]$Item['DisplayName']) -ForegroundColor Yellow
-        $result.Cancelled = $true
-        return $result
-    }
 
     Write-Host ''
     Write-Host ('  —— 更新 {0} ——' -f [string]$Item['DisplayName']) -ForegroundColor Cyan
     Write-Host ('    这次可以单独选更新方式与软件源；回车 = 不改，按默认方式更新（默认方式: {0}）。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor DarkGray
 
     $mode = Select-WinstUpdateMode
-    if (-not $mode.Ok) { $result.Cancelled = $true; return $result }
+    if (-not $mode.Ok) { return @{ Cancelled = $true; Updated = 0; Failed = 0 } }
 
     $origin = Get-EntryString -Entry $Item['Ledger'] -Key 'manifestOrigin'
     $source = Select-WinstUpdateSource -Row $Item['Row'] -OriginName $origin
     if (-not $source.Ok) {
         if ($source.Error) { Write-Host ('  {0}' -f $source.Error) -ForegroundColor Yellow }
-        $result.Cancelled = $true
-        return $result
+        return @{ Cancelled = $true; Updated = 0; Failed = 0 }
     }
 
     $sourceVersion = [string]$source.Entry['Version']
     $installed = [string]$Item['RawVersion']
     $force = $false
     Write-Host ''
-    # 版本号取自主包文件信息的条目：所选来源的「版本」其实来自缓存里那份包，不能据此判「同版本 / 更低版本」，
-    # 交给安装流程「先取包、再决定」
-    if (Test-WinstRowVersionFromPackage -Row $Item['Row']) {
-        Write-Host '  版本号取自主包文件信息：本次会重新取包核对版本，再决定是更新还是跳过。' -ForegroundColor DarkYellow
+    if (Test-WinstRowVersionFromPackage -Row $Item['Row'] -Chosen $source.Entry) {
+        if ((Get-EntryString -Entry $source.Entry['Plan'] -Key 'remoteFresh') -ine 'unchanged') {
+            Write-Host '  将取包核对版本，再决定是否更新。' -ForegroundColor DarkYellow
+        }
     } elseif ($installed -and $sourceVersion) {
         $cmp = Compare-WinstVersion -A $sourceVersion -B $installed
         if ($cmp -eq 0) {
@@ -65,15 +55,15 @@ function Invoke-WinstUpdateCustom {
 
     $params = @{
         Context = $Context; Ids = @($id); SourceName = $source.Source;
-        Force = $force; AutoPickSource = $true
+        Force = $force
     }
     if ($mode.Mode -eq 'full') { $params['ForceSystemItems'] = $true }
     else { $params['FilesOnly'] = $true }
     $updated = Invoke-WinstUpdateTargets @params
 
     # 保留实际更新 / 跳过 / 失败计数；执行阶段取消不会再触发默认更新。
-    $mapped = ConvertFrom-WinstUpdateTargetsResult -Result $updated -Mode $mode.Mode -Source $source.Source
-    if (-not $mapped.Ok -and $mapped.Error) {
+    $mapped = ConvertFrom-WinstUpdateTargetsResult -Result $updated
+    if ($mapped.Error) {
         Write-Host ''
         Write-Host ('  {0}' -f $mapped.Error) -ForegroundColor Red
     }

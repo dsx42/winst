@@ -3,94 +3,16 @@
 function Resolve-WinstBundleMissingPackages {
     <#
     .SYNOPSIS
-        ⑤ 缺包检查（只查本地缓存），按需联网补齐，并返回仍需跳过 / 源里没有的项。
-    .OUTPUTS
-        @{ NeedDownload; NoSource; Downloaded }
+        在复制之前按本地清单和摘要核对套件所需的文件。
     #>
-    param([hashtable]$Context, $Plan, $Lookup, [switch]$Offline, [switch]$DryRun, [switch]$SkipMissing,
-        [bool]$Yes = $false, [switch]$NonInteractive)
+    param([hashtable]$Context, $Plan, $Lookup)
 
-    $needDownload = @()
-    $noSource = @()
-    foreach ($entry in @($Plan)) {
-        $item = $entry['Item']
+    $missing = 0
+    foreach ($item in @($Plan)) {
         Update-WinstBundleItemCache -Context $Context -Item $item -Lookup $Lookup
         if ([bool]$item['CacheHas']) { continue }
-        if (-not [bool]$item['InCatalog']) { $noSource += $item; continue }
-        # 下载后确认版本的条目同样有可用计划，不能按空版本判不可用。
-        if (-not [bool]$item['PlanAvailable']) { $noSource += $item; continue }
-        $needDownload += $item
-    }
-
-    $downloaded = 0
-    $attempted = $false
-    if ($needDownload.Count -gt 0) {
-        Write-Host ''
-        Write-Host ('  以下 {0} 个软件本地还没有已下载的安装包：' -f $needDownload.Count) -ForegroundColor Yellow
-        foreach ($item in $needDownload) {
-            Write-Host ('    - {0}（{1}）' -f [string]$item['DisplayName'], [string]$item['Id']) -NoNewline -ForegroundColor DarkYellow
-            if ([string]$item['BestVersion']) { Write-Host ('    软件源里 {0}' -f [string]$item['BestVersion']) -ForegroundColor DarkGray }
-            else { Write-Host '    取包后确认版本' -ForegroundColor DarkGray }
-        }
-
-        $doDownload = $false
-        if ($Offline) {
-            Write-Host '  当前为离线模式，不会联网补齐，这些软件会被跳过。' -ForegroundColor DarkYellow
-        } elseif ($DryRun) {
-            Write-Host '  当前为预览模式（--dry-run），不会联网补齐，这些软件会被跳过。' -ForegroundColor DarkYellow
-        } elseif ($SkipMissing) {
-            Write-Host '  已指定 --skip-missing，不联网补齐，这些软件会被跳过。' -ForegroundColor DarkYellow
-        } elseif ($Yes) {
-            $doDownload = $true
-        } elseif ($NonInteractive -or (Test-WinstInputRedirected)) {
-            Write-Host '  当前为非交互运行，不会联网补齐，这些软件会被跳过。' -ForegroundColor DarkYellow
-        } else {
-            if (Read-WinstConfirm -Prompt '  是否现在联网下载补齐？(y/N，n = 跳过这些软件继续制作)' -Default 'n') { $doDownload = $true }
-        }
-
-        if ($doDownload) {
-            $attempted = $true
-            Write-Host ''
-            Write-Host '  正在下载补齐（每个软件的动作会逐条打印）…' -ForegroundColor Gray
-            foreach ($item in $needDownload) {
-                $chosen = $item['PlanEntry']
-                Write-Host ''
-                Write-Host ('  —— {0} 下载 {1}（来自 {2}）——' -f [string]$item['DisplayName'], [string]$chosen['Version'], [string]$chosen['Source']) -ForegroundColor Cyan
-                try {
-                    $one = Invoke-WinstAppInstall -Context $Context -Plan $chosen['Plan'] -SourceName ([string]$chosen['Source']) -DownloadOnly -Quiet
-                } catch {
-                    $one = @{ Ok = $false; Error = $_.Exception.Message; Message = '' }
-                }
-                if ($one.Ok) {
-                    $downloaded++
-                    if ($one.Message) { Write-Host ('  {0}' -f $one.Message) -ForegroundColor Green }
-                } else {
-                    $reason = [string]$one.Error
-                    if (-not $reason) { $reason = [string]$one.Message }
-                    Write-Host ('  失败: {0}' -f $reason) -ForegroundColor Red
-                }
-            }
-            # 外层重读清单、索引和目录后统一检查并报告所有缺包。
-            return @{ NeedDownload = @(); NoSource = @(); Downloaded = $downloaded; Attempted = $true }
-        }
-
-        if ($needDownload.Count -gt 0) {
-            Write-Host ''
-            Write-Host ('  将跳过 {0} 个缺包项（套件里不会有它们，目标机器安装时会尝试联网下载）。' -f $needDownload.Count) -ForegroundColor DarkYellow
-        }
-    }
-
-    foreach ($item in @($needDownload) + @($noSource)) {
+        $missing++
         Write-Host ('  缺包 {0}: {1}' -f $item['Id'], $item['CacheError']) -ForegroundColor DarkYellow
     }
-
-    if ($noSource.Count -gt 0) {
-        Write-Host ''
-        Write-Host ('  以下 {0} 个软件在软件源里没有可用的下载计划（没有定义 / 清单有误），将跳过：' -f $noSource.Count) -ForegroundColor DarkYellow
-        foreach ($item in $noSource) {
-            Write-Host ('    - {0}（{1}）' -f [string]$item['DisplayName'], [string]$item['Id']) -ForegroundColor DarkYellow
-        }
-    }
-
-    return @{ NeedDownload = $needDownload; NoSource = $noSource; Downloaded = $downloaded; Attempted = $attempted }
+    return $missing
 }

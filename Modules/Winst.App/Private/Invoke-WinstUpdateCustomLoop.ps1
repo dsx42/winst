@@ -46,8 +46,8 @@ function Invoke-WinstUpdateCustomLoop {
 
         if ((Get-WinstState -Name WinstQuitRequested)) { return $result }
         if ($customResult.Cancelled) {
-            Write-Host ('  将按默认方式更新这 1 个软件（方式: {0}；来源: 优先安装时用的软件源）。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor Gray
-            $updated = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -AutoPickSource -Yes
+            Write-Host ('  将按默认来源更新这 1 个软件（更新方式为{0}）。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor Gray
+            $updated = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -Yes
             $customResult = ConvertFrom-WinstUpdateTargetsResult -Result $updated
         }
 

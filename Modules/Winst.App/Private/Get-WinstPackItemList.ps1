@@ -3,13 +3,9 @@
 function Get-WinstPackItemList {
     <#
     .SYNOPSIS
-        汇总「制作U盘安装包」要收集的软件：安装清单里的全部软件 + 它们的传递依赖 + 两个引擎包。
-    .DESCRIPTION
-        两个引擎（FluxDown-CLI / 7-Zip-CLI）不在用户清单里，但离线机器自动引导引擎时必须有本地包，
-        因此**必须显式纳入收集范围**。
-        清单里软件声明的 dependencies（含传递依赖）同样必须收集，否则离线机器安装时会缺依赖包。
+        生成收包和套件安装清单共用的顺序，先列引擎和 winst，再按输入顺序展开各软件的传递依赖。
     .OUTPUTS
-        @{ Plan = @( @{ Item; Reason } ); Errors }；Reason = 'list' | 'dependency' | 'engine'
+        @{ Plan; Errors }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -17,43 +13,27 @@ function Get-WinstPackItemList {
         $Items
     )
 
-    $result = @()
+    $required = @((Get-WinstExtractEngineId), (Get-WinstDownloadEngineId), 'winst')
+    $roots = New-WinstOrdinalDictionary
+    $order = New-WinstOrdinalDictionary
+    foreach ($id in $required) {
+        $roots[$id] = $null
+        $order[$id] = $true
+    }
+    foreach ($item in $Items) { $roots[[string]$item['Id']] = $item }
+
     $errors = @()
-    $seen = New-WinstOrdinalDictionary
-
-    foreach ($item in @($Items)) {
-        $id = [string]$item['Id']
-        if (-not $id) { continue }
-        if ($seen.Contains($id)) { continue }
-        $seen[$id] = $true
-        $result += [ordered]@{ Item = $item; Reason = 'list' }
+    foreach ($id in $roots.Keys) {
+        $selected = Get-EntryValue -Entry $roots[$id] -Key 'PlanEntry'
+        $resolved = Resolve-WinstDependencyOrder -Context $Context -Id $id -Plan (Get-EntryValue -Entry $selected -Key 'Plan')
+        if (-not $resolved.Ok) { $errors += ('{0}: {1}' -f $id, $resolved.Error) }
+        foreach ($dep in @($resolved.Missing) + @($resolved.Order)) { $order[[string]$dep['Id']] = $true }
+        $order[$id] = $true
     }
 
-    # 依赖闭包：安装清单里软件的传递依赖一并收集，保证离线机器装得起来
-    foreach ($item in @($Items)) {
-        $id = [string]$item['Id']
-        if (-not $id) { continue }
-        $chosen = $item['PlanEntry']
-        $selectedPlan = $null
-        if ($chosen) { $selectedPlan = $chosen['Plan'] }
-        $resolvedDeps = Resolve-WinstDependencyOrder -Context $Context -Id $id -Plan $selectedPlan
-        if (-not $resolvedDeps.Ok) { $errors += ('{0}: {1}' -f $id, $resolvedDeps.Error) }
-        foreach ($one in @($resolvedDeps.Order) + @($resolvedDeps.Missing)) {
-            $depId = [string]$one['Id']
-            if (-not $depId -or $seen.Contains($depId)) { continue }
-            $seen[$depId] = $true
-            $depItem = New-WinstListItem -Context $Context -Id $depId -Lookup $Lookup
-            $result += [ordered]@{ Item = $depItem; Reason = 'dependency' }
-        }
-    }
-
-    foreach ($engineId in @((Get-WinstDownloadEngineId), (Get-WinstExtractEngineId))) {
-        $id = [string]$engineId
-        if (-not $id -or $seen.Contains($id)) { continue }
-        $seen[$id] = $true
-        $item = New-WinstListItem -Context $Context -Id $id -Lookup $Lookup
-        $result += [ordered]@{ Item = $item; Reason = 'engine' }
-    }
-
-    return @{ Plan = @($result); Errors = @($errors) }
+    $plan = @(foreach ($id in $order.Keys) {
+        if ($roots[$id]) { $roots[$id] }
+        else { New-WinstListItem -Context $Context -Lookup $Lookup -Id $id }
+    })
+    return @{ Plan = $plan; Errors = $errors }
 }

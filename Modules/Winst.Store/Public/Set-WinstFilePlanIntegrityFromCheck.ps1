@@ -10,9 +10,8 @@ function Set-WinstFilePlanIntegrityFromCheck {
         [Parameter(Mandatory = $true)]$Check
     )
 
-    # 重新下载后的结果整组替换旧摘要；未声明校验时留空，写索引阶段再为新文件计算 sha256。
-    $FilePlan['RecordedHash'] = [string]$Check.IndexHash
-    $FilePlan['IndexHash'] = ''
+    # 下载校验通过后整组替换旧摘要。
+    $FilePlan['IndexHash'] = [string]$Check.IndexHash
     $FilePlan['ManifestHash'] = ''
     if ($Check.ActualHash -and $Check.Algorithm -and $Check.Algorithm -ne 'SHA256') {
         $FilePlan['ManifestHash'] = ([string]$Check.ActualHash).ToLowerInvariant()
@@ -21,6 +20,5 @@ function Set-WinstFilePlanIntegrityFromCheck {
     $FilePlan['ExpectedAlgorithm'] = [string]$Check.Algorithm
     $FilePlan['ChecksumHashFile'] = [string]$Check.ChecksumHashFile
     $FilePlan['ChecksumHashFrom'] = [string]$Check.ChecksumHashFrom
-    $FilePlan['ChecksumFingerprint'] = [string]$Check.ChecksumFingerprint
     $FilePlan['ChecksumMetadataAction'] = 'replace'
 }

@@ -11,14 +11,14 @@ function Get-WinstFileCompareCriteria {
         大小写与 `-` / `_` 不敏感。无法识别的词收集到 Invalid，由调用方按 auto 处理并提示，
         与 files[].refresh 的容错口径一致（不静默丢弃，也不让整条清单解析失败）。
     .OUTPUTS
-        @{ Criteria; Invalid; Raw; Text; IsDefault }
+        @{ Criteria; Invalid; Text; IsDefault }
         Criteria = 归一后的判据（小写 etag / lastmodified / size / checksum）；
         Text     = 写回解析结果的规范文本（默认 `auto`，组合为 `lastModified,size` 这类写法）。
     #>
     param([string]$Text)
 
     $defaults = @('lastmodified', 'size')
-    $result = @{ Criteria = @($defaults); Invalid = @(); Raw = $Text; Text = 'auto'; IsDefault = $true }
+    $result = @{ Criteria = @($defaults); Invalid = @(); Text = 'auto'; IsDefault = $true }
     $raw = $Text.Trim()
     if (-not $raw -or $raw -ieq 'auto') { return $result }
 

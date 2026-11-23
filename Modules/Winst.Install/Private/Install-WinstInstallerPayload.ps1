@@ -26,7 +26,11 @@ function Install-WinstInstallerPayload {
             if (-not $installerResolved.Ok) { throw $installerResolved.Error }
             $found = @(Get-Item -Path $installerResolved.Path -Force -ErrorAction SilentlyContinue)
             if ($found.Count -eq 0) {
-                throw ('解压后的安装包里没有找到安装程序「{0}」（安装包: {1}）' -f $installerExeRel, (Split-Path -Leaf $PrimaryPath))
+                $missing = '解压后的安装包里没有找到安装程序「{0}」（安装包: {1}）' -f $installerExeRel, (Split-Path -Leaf $PrimaryPath)
+                if (Get-EntryBool -Entry (Get-WinstState -Name WinstOptions) -Key 'Offline') {
+                    throw ('无法离线安装 {0}，当前计划与缓存包内容不符：{1}' -f $Id, $missing)
+                }
+                throw $missing
             }
             if ($found.Count -gt 1) { throw ('「{0}」在安装包里命中了多个文件，无法确定要运行哪一个' -f $installerExeRel) }
             $work = $found[0].FullName

@@ -28,14 +28,15 @@ function New-WinstCachedItem {
         [string]$CacheVersion = '',
         $Ledger = $null,
         $Row = $null,
-        $CacheIndex = $null
+        $CacheIndex = $null,
+        [hashtable]$SourceLookup = @{}
     )
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
 
     # 索引版本已经在取包后归一化，展示时不再重复应用来源改写规则。
 
-    $installedFacet = Get-WinstInstalledFacet -Ledger $Ledger -Facts $facts
+    $installedFacet = Get-WinstInstalledFacet -Context $Context -Lookup $SourceLookup -Ledger $Ledger -Row $Row
     $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -Evaluate
 
     return [ordered]@{
@@ -66,8 +67,8 @@ function New-WinstCachedItem {
         TypeText            = (Get-PlanTypeText -Type ([string]$facts.Type))
         Row                 = $Row
         # 通用视图字段，与已安装列表的同义字段保持一致。
-        LatestVersion       = [string]$facts.BestVersion
-        LatestSource        = [string]$facts.BestSource
+        LatestVersion       = [string]$installedFacet.Latest
+        LatestSource        = [string]$installedFacet.LatestSource
         HasUpdate           = [bool]$installedFacet.HasUpdate
         UpdateHint          = [string]$installedFacet.UpdateHint
         UpdateState         = [string]$installedFacet.UpdateState

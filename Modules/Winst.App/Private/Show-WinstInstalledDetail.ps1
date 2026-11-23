@@ -12,34 +12,13 @@ function Show-WinstInstalledDetail {
 
     Write-WinstDetailHeader -Item $Item
 
-    # 版本行：本机版本 + 一句结论（可更新 / 已是最新 / 本机更新 / 无法比较 / 软件源里没有），
-    # 软件源最高版本与它的来源都写在同一行里，不单独重复「软件源最新版」与「软件源里的版本」。
     Write-Host ('    本机版本 : {0}' -f [string]$Item['Version']) -NoNewline -ForegroundColor Gray
-    $latestText = '未知'
-    if ([string]$Item['LatestVersion']) { $latestText = [string]$Item['LatestVersion'] }
-    switch ([string]$Item['UpdateState']) {
-        'update' {
-            Write-Host ('    {0}' -f [string]$Item['UpdateHint']) -ForegroundColor Green
-        }
-        'latest' {
-            Write-Host ('    已是最新（软件源里最高 {0}）' -f $latestText) -ForegroundColor Gray
-        }
-        'newer' {
-            Write-Host ('    软件源里最高 {0}，比本机旧（不会自动降级；要重装 / 降级请到「安装软件」里搜索它，按提示确认强制重装）' -f $latestText) -ForegroundColor DarkYellow
-        }
-        'unknown' {
-            if ([string]$Item['LatestSource']) {
-                Write-Host ('    软件源里最高 {0}（来自 {1}），和本机版本没法自动比较' -f $latestText, [string]$Item['LatestSource']) -ForegroundColor DarkYellow
-            } else {
-                Write-Host '    软件源里没有可用的版本信息' -ForegroundColor DarkYellow
-            }
-        }
-        default {
-            Write-Host '    软件源里没有这个软件' -ForegroundColor DarkYellow
-        }
-    }
+    $conclusion = Get-WinstVersionConclusion -Item $Item -Kind 'installed'
+    $conclusionText = $conclusion.Text
+    if ($Item['UpdateState'] -eq 'newer') { $conclusionText += '（要重装或降级，请到「安装软件」里确认强制重装）' }
+    Write-Host ('    {0}' -f $conclusionText) -ForegroundColor $conclusion.Color
 
-    # 其它来源的版本（最高版本与它的来源已在上面一行里给出，这里只补剩下的，避免重复）
+    # 其它来源的版本。
     if ([string]$Item['OtherSourcesText']) {
         Write-Host ('    其它来源 : {0}' -f [string]$Item['OtherSourcesText']) -ForegroundColor DarkGray
     }
@@ -89,7 +68,7 @@ function Show-WinstInstalledDetail {
         Write-Host ('    更新时间 : {0}（最近一次写入安装记录）' -f $when) -ForegroundColor Gray
     }
     if ([string]$Item['ManifestOrigin']) {
-        Write-Host ('    来自软件源: {0} （更新默认用它）' -f [string]$Item['ManifestOrigin']) -ForegroundColor Gray
+        Write-Host ('    来自软件源: {0} ' -f [string]$Item['ManifestOrigin']) -ForegroundColor Gray
     } else {
         Write-Host '    来自软件源: （未记录，更新按默认优先级选来源）' -ForegroundColor DarkGray
     }

@@ -5,7 +5,7 @@ function Invoke-WinstPackageDownload {
     .SYNOPSIS
         经下载引擎下载单个安装包（按代理解析结果自动重试；不设 IWR 兜底）。
     .OUTPUTS
-        @{ Ok; ExitCode; Error; Segments; Retried }
+        @{ Ok; ExitCode; Error; Retried }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -15,9 +15,7 @@ function Invoke-WinstPackageDownload {
     )
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context -Download)
-    # 每条返回路径都带 Retried：调用方按防御性方式读取，这里仍保证结果形状一致
-    # （Set-StrictMode -Version 2 下缺键会报「找不到属性 Retried」，把一次成功的下载变成失败）。
-    $last = @{ Ok = $false; ExitCode = -1; Error = ''; Segments = 0; Retried = $false }
+    $last = @{ Ok = $false; ExitCode = -1; Error = ''; Retried = $false }
 
     foreach ($proxyUrl in $attempts) {
         $last = Invoke-WinstFluxDownDownload -Context $Context -Url $Url -DestDir $DestDir -FileName $FileName -ProxyUrl ([string]$proxyUrl)

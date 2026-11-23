@@ -3,32 +3,43 @@
 function Update-WinstLockAfterDownload {
     <#
     .SYNOPSIS
-        versionFromPackage 条目的主包（重新）下载并安装成功后，把解析锁里的远端新鲜度结论改写为
-        unchanged、版本对齐为本次读数。
+        在对应解析锁中登记已确认的包内版本，主包发布后同步远端比较摘要。
     .DESCRIPTION
-        解析锁的 remoteFresh 是**刷新时刻**的快照（HEAD 比对「远端 vs 当时缓存」的结论）——用户随后
-        真的更新了软件，锁里的「远端有新包」也不会自己消失，「已装软件 / 检查更新」在下次刷新前会一直
-        显示下载前的旧结论。下载成功意味着缓存里这份就是远端当前这份：remoteFresh → unchanged、
-        version → 本次缓存包读数、versionFromCache → true；包内读数仍不能代表下一次远端版本。
         只改写锁里该软件的条目；锁里没有（来源不同步等）时静默跳过，下次刷新自然重建。
     #>
     param(
         [hashtable]$Context,
         [string]$SourceName,
-        [string]$Id,
-        [string]$Version
+        $Plan,
+        [string]$Version,
+        $DownloadedMain
     )
 
-    if (-not $SourceName -or -not $Id -or -not $Version) { return }
+    $id = Get-EntryString -Entry $Plan -Key 'id'
+    if (-not $SourceName -or -not $id -or -not $Version) { return }
     $meta = Read-ManifestMeta -PkgDir $Context.PkgDir -Name $SourceName
     if (-not $meta -or -not $meta.HasApps) { return }
 
+    $files = Get-EntryValue -Entry (Get-EntryValue -Entry $Plan -Key 'download') -Key 'files'
+    $versionRule = Get-WinstPackageVersionRule -Plan $Plan
     $changed = $false
     $apps = @()
     foreach ($app in @($meta.Apps)) {
-        if ((Get-EntryString -Entry $app -Key 'id') -cne $Id) { $apps += $app; continue }
+        if ((Get-EntryString -Entry $app -Key 'id') -cne $id -or
+                -not (Get-EntryBool -Entry $app -Key 'versionFromPackage') -or
+                -not (Test-WinstJsonValueEqual -Left (Get-EntryValue -Entry (Get-EntryValue -Entry $app -Key 'download') -Key 'files') -Right $files) -or
+                -not (Test-WinstJsonValueEqual -Left (Get-WinstPackageVersionRule -Plan $app) -Right $versionRule)) {
+            $apps += $app
+            continue
+        }
         $copy = Copy-WinstObjectShallow -InputObject $app
-        $null = Set-EntryValue -Entry $copy -Key 'remoteFresh' -Value 'unchanged'
+        if ($DownloadedMain) {
+            $hash = [string]$DownloadedMain['IndexHash']
+            $fresh = 'unknown'
+            if ($hash) { $fresh = 'unchanged' }
+            $null = Set-EntryValue -Entry $copy -Key 'remoteFresh' -Value $fresh
+            $null = Set-EntryValue -Entry $copy -Key 'remoteFreshHash' -Value $hash
+        }
         $null = Set-EntryValue -Entry $copy -Key 'version' -Value ([string]$Version)
         $null = Set-EntryValue -Entry $copy -Key 'versionFromCache' -Value $true
         $apps += $copy

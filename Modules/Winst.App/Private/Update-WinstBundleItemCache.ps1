@@ -13,16 +13,17 @@ function Update-WinstBundleItemCache {
     $chosen = $Item['PlanEntry']
     if (-not $chosen) { $Item['CacheError'] = '没有可用的下载计划'; return }
     try {
-        $files = @(Get-EntryArray -Entry $chosen['Plan']['download'] -Key 'files')
+        $download = Get-EntryValue -Entry $chosen['Plan'] -Key 'download'
+        $files = @(Get-EntryArray -Entry $download -Key 'files')
         if ($files.Count -eq 0) { throw '下载计划没有必需文件' }
-        $plans = @(Get-WinstPackageFilePlans -ConfirmBeforeUse -Context $Context -Index $Lookup.CacheIndex -Id ([string]$Item['Id']) -Files $files -Offline)
+        $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $Lookup.CacheIndex -Id ([string]$Item['Id']) -ManifestOrigin ([string]$chosen['Source']) -Files $files -Offline)
         $names = @()
         foreach ($file in $plans) {
-            Confirm-WinstCachedFilePlan -Context $Context -FilePlan $file -Offline
             if ($file['ValidationError']) { throw ([string]$file['ValidationError']) }
             if ($file['NeedDownload']) { throw ('{0}: {1}' -f $file['Name'], $file['Reason']) }
             $names += [string]$file['Name']
         }
+        $Item['CacheVersion'] = Get-WinstOfflinePackageVersion -Context $Context -Plan $chosen['Plan'] -CacheIndex $Lookup.CacheIndex -FilePlans $plans
         $Item['CacheFiles'] = @($names)
         $Item['CacheDir'] = Join-WinstPath $Context.PkgDir ([string]$Item['Id'])
         $Item['CacheHas'] = $true

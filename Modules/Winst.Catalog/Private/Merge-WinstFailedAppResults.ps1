@@ -36,6 +36,7 @@ function Merge-WinstFailedAppResults {
             $notes = @(Get-EntryArray -Entry $oldApp -Key 'notes')
             $notes += ('本次刷新检测失败（{0}），已保留上次成功结果' -f $reason)
             $kept['notes'] = @($notes)
+            $kept['lastResolveError'] = $reason
             # 保留的是旧结果，但「本次已尝试解析」要记进 per-app resolvedAt：
             # 否则旧条目（无 resolvedAt / 时间戳已过期）会被按需刷新每次都当过期重试
             $kept['resolvedAt'] = [DateTime]::UtcNow.ToString('o')

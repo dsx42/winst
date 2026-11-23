@@ -17,18 +17,16 @@ function Register-WinstExternalInstallRecord {
         [string]$Id,
         [string]$Version,
         [string]$SourceName,
-        $Result,
         $OldVersions = @(), [switch]$LocationKnown
     )
 
     if ($Type -eq 'installer' -and -not $LocationKnown) {
-        $probedDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir
-        if ($probedDir) { $Result.InstallDir = $probedDir } else { $Result.InstallDir = '' }
+        $InstallDir = (Resolve-WinstActualInstallDir -Plan $Plan -AssumedDir $InstallDir).Dir
     }
     $null = Save-WinstInstalledAppEntry -InstallRoot $Context.InstallRoot -Id $Id -Entry ([ordered]@{
         version          = $Version
         type             = $Type
-        installDir       = $Result.InstallDir
+        installDir       = $InstallDir
         manifestOrigin   = $SourceName
         managed          = 'external'
         appliedEnv       = @()

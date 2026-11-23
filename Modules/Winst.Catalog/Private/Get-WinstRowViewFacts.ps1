@@ -60,6 +60,5 @@ function Get-WinstRowViewFacts {
         Type               = $type
         VersionFromPackage = [bool]$versionFromPackage
         RemoteFresh        = $remoteFresh
-        Row                = $Row
     }
 }

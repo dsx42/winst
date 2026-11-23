@@ -25,12 +25,13 @@ function ConvertTo-WinstInstalledEntry {
         appliedShortcuts = @()
         appliedShortcutHashes = $null
         appliedFileVersions = $null
+        companionVersionBaseline = $null
         appliedFiles     = @()
         appliedFileRules = $null
         oldVersions      = @()
         uninstall        = (ConvertTo-WinstUninstallSnapshot -Block (Get-EntryValue -Entry $Entry -Key 'uninstall'))
     }
-    foreach ($key in @('appliedShortcutHashes', 'appliedFileVersions', 'appliedFileRules')) {
+    foreach ($key in @('appliedShortcutHashes', 'appliedFileVersions', 'appliedFileRules', 'companionVersionBaseline')) {
         $value = Get-EntryValue -Entry $Entry -Key $key -Default @{}
         if ($null -eq $value -or ($value -isnot [System.Collections.IDictionary] -and $value -isnot [System.Management.Automation.PSCustomObject])) { throw ('安装条目的 ' + $key + ' 必须是对象') }
         $result[$key] = Copy-WinstObjectShallow -InputObject $value

@@ -48,7 +48,11 @@ function Invoke-CacheList {
         } else {
             $item = $items[[int]$pick.Index]
             Show-WinstCachedDetail -Context $Context -Item $item
-            Show-WinstCachedActionMenu -Item $item
+            $packageTarget = [string]$item['BestVersion']
+            if ((Get-WinstRowRemoteFreshState -Row $item['Row']) -ieq 'changed') {
+                $packageTarget = Get-WinstRemoteFreshTargetText -Fresh 'changed'
+            }
+            Show-WinstCachedActionMenu -Item $item -PackageTarget $packageTarget
 
             $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
             if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return }

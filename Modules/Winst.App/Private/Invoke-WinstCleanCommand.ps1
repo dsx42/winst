@@ -72,15 +72,22 @@ function Invoke-WinstCleanCommand {
             Write-Host ('  提示: 安装包索引里的条目名不合法，已跳过: {0}' -f $idText) -ForegroundColor DarkYellow
             continue
         }
-        $keepFiles = @(Get-EntryArray -Entry $index[$key] -Key 'files')
-        if ($keepFiles.Count -eq 0) { continue }   # 索引里没记录文件名时不猜、不动任何文件
-
+        $packageLock = $null
         try {
+            $currentIndex = $index
+            if (-not $dryRun) {
+                $packageLock = Enter-WinstPackageLock -PkgDir $Context.PkgDir -Id $idText
+                $currentIndex = (Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($idText)).Index
+            }
+            $keepFiles = @(Get-EntryArray -Entry $currentIndex[$idText] -Key 'files')
+            if ($keepFiles.Count -eq 0) { continue }
             $cleanup = Remove-WinstOldPackages -Context $Context -Id $idText -KeepFiles $keepFiles -Preview:$dryRun
         } catch {
             $failed++
             Write-Host ('  {0}: 清理失败：{1}' -f $idText, $_.Exception.Message) -ForegroundColor Red
             continue
+        } finally {
+            if ($null -ne $packageLock) { $packageLock.Dispose() }
         }
         if ($dryRun) {
             if ($cleanup.PreviewCount -gt 0) {

@@ -5,7 +5,7 @@ function Show-WinstSoftwareActionMenu {
     .SYNOPSIS
         按软件状态渲染可选动作（i / p / u / d / x / s），仅展示当前可用的项。
     #>
-    param($Item)
+    param($Item, [string]$PackageTarget)
 
     $installed = [bool]$Item['Installed']
     $cacheHas = [bool]$Item['CacheHas']
@@ -21,7 +21,7 @@ function Show-WinstSoftwareActionMenu {
             Write-Host '  i) 下载软件包（只下载到安装包位置，不安装到电脑）' -ForegroundColor White
         }
         if ($canUpdatePackage) {
-            Write-Host ('  u) 更新软件包到 {0}（现在是 {1}）' -f [string]$Item['BestVersion'], [string]$Item['CacheVersionText']) -ForegroundColor White
+            Write-Host ('  u) 更新软件包（{0}  →  {1}）' -f [string]$Item['CacheVersionText'], $PackageTarget) -ForegroundColor White
         }
         if ($cacheHas) {
             Write-Host ('  x) 删除已下载的软件包（{0} 个文件）' -f [int]$Item['CacheFileCount']) -ForegroundColor White
@@ -32,7 +32,7 @@ function Show-WinstSoftwareActionMenu {
         }
         Write-Host '  p) 下载软件包（只下载到安装包位置，不安装到电脑）' -ForegroundColor White
         if ($canUpdate) {
-            Write-Host ('  u) 更新到 {0}（现在是 {1}）' -f [string]$Item['BestVersion'], [string]$Item['InstalledVersionText']) -ForegroundColor White
+            Write-Host ('  u) 更新到 {0}（现在是 {1}）' -f [string]$Item['LatestVersion'], [string]$Item['InstalledVersionText']) -ForegroundColor White
         }
         if ($installed) {
             Write-Host '  d) 卸载（从电脑上移除这个软件）' -ForegroundColor White

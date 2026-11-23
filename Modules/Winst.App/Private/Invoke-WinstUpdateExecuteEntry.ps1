@@ -7,7 +7,7 @@ function Invoke-WinstUpdateExecuteEntry {
     #>
     param([hashtable]$Context, [string]$Id, $Row, $Ledger, $Snap, $EntryResult, [string]$InstalledVersion,
         [string]$DisplayName, [switch]$DownloadOnly, [switch]$Force, [switch]$Yes, [switch]$Quiet,
-        [bool]$AutoPick = $false, [switch]$FilesOnly, [switch]$ForceSystemItems, $CompanionInfo = $null)
+        [switch]$FilesOnly, [switch]$ForceSystemItems)
 
     $latest = [string]$Snap.Latest
     $latestSource = [string]$Snap.LatestSource
@@ -38,13 +38,20 @@ function Invoke-WinstUpdateExecuteEntry {
     if ($comparable -and $latest -and $cmp -eq 0 -and -not $Force) {
         # 版本相同、只有配套文件有变化 → 走「仅配套文件更新」
         # 注意：-Force 时这一段整体被上面的条件短路掉 —— 用户明确要求重装，就不该走「只更新附加文件」
-        $companionInfo = Get-WinstRowCompanionInfo -Context $Context -Row $Row -Prepare
-        if ($companionInfo -and $companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
-        if ($companionInfo -and $companionInfo.CompanionsOnly -and -not $Quiet) {
+        $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Row['Sources'][0]['Plan']
+        if ($companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
+        if ($Snap.VersionFromPackage -and $companionInfo.PrimaryCacheError -and -not $DownloadOnly) {
+            $EntryResult.Network = [bool]$companionInfo.PrimaryCacheNetwork
+            $EntryResult.Action = 'failed'
+            $EntryResult.Message = [string]$companionInfo.PrimaryCacheError
+            if (-not $Quiet) { Write-Host ('  {0}: {1}' -f $DisplayName, $EntryResult.Message) -ForegroundColor Red }
+            return
+        }
+        if ($companionInfo.CompanionsOnly -and -not $Quiet) {
             Write-Host ''
             Write-Host ('  {0}: 附加文件待更新（{1} 个）: {2}' -f $DisplayName, $companionInfo.ChangedCount, ($companionInfo.Names -join '、')) -ForegroundColor DarkYellow
         }
-        if (-not ($companionInfo -and ($companionInfo.CompanionsOnly -or $companionInfo.PrimaryCacheError))) {
+        if (-not ($companionInfo.CompanionsOnly -or $companionInfo.PrimaryCacheError)) {
             $EntryResult.Action = 'latest'
             if (-not $Quiet) {
                 Write-Host ''
@@ -67,7 +74,6 @@ function Invoke-WinstUpdateExecuteEntry {
         }
         return
     }
-    $EntryResult.NewerAvailable = [bool]($comparable -and $latest -and $cmp -gt 0)
 
     # external 的免安装版 / 单文件程序：只报告，不覆盖
     $managed = Get-EntryString -Entry $Ledger -Key 'managed'
@@ -91,8 +97,8 @@ function Invoke-WinstUpdateExecuteEntry {
     } elseif ((-not $ForceSystemItems) -and [bool](Get-ConfigValue -Config $Context.Config -Key 'updateFilesOnly' -Default $true)) {
         Write-Host '    只更新文件：环境变量 / PATH 保持原样；快捷方式只修正不新建' -ForegroundColor DarkGray
     }
-    $one = Invoke-WinstInstallTarget -Context $Context -Row $Row -PreparedCompanions $companionInfo -Force:$forceThisItem -DownloadOnly:$DownloadOnly `
-        -Yes:$Yes -AutoPickSource:$AutoPick -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
+    $one = Invoke-WinstInstallTarget -Context $Context -Row $Row -Force:$forceThisItem -DownloadOnly:$DownloadOnly `
+        -Yes:$Yes -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     if ($one.Cancelled) {
         $EntryResult.Action = 'cancelled'

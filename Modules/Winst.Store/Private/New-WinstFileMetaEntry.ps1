@@ -9,6 +9,7 @@ function New-WinstFileMetaEntry {
 
     $meta = [ordered]@{
         url                 = [string](Get-EntryValue -Entry $Item -Key 'url')
+        manifestOrigin      = Get-EntryString -Entry $Item -Key 'manifestOrigin'
         sourceVersion       = [string](Get-EntryValue -Entry $Item -Key 'sourceVersion')
         etag                = [string](Get-EntryValue -Entry $Item -Key 'etag')
         lastModified        = [string](Get-EntryValue -Entry $Item -Key 'lastModified')

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Windows 软件包管理器，Windows PowerShell 5.1 实现。入口 `winst.ps1` → `Modules\Winst.*` → 业务逻辑；`build.cmd`（逻辑在 `build.ps1`）打包发布。本目录是 git 仓库，`dist/` 与根目录测试用 `manifest.json` 由 .gitignore 忽略；manifest.json 不参与 Git 跟踪，保留本地测试副本。
+Windows 软件包管理器，Windows PowerShell 5.1 实现。运行入口只有 `winst.ps1` 和 `winst.cmd`。`winst.cmd` 转调 `winst.ps1`，由 `winst.ps1` 调用 `Modules\Winst.*` 执行业务逻辑。模块函数仅供仓库内部使用，`Public\` 导出也无仓库外调用方。`build.cmd`（逻辑在 `build.ps1`）打包发布。本目录是 git 仓库，`dist/` 与根目录测试用 `manifest.json` 由 .gitignore 忽略；manifest.json 不参与 Git 跟踪，保留本地测试副本。
 
 ## 硬性约束
 
@@ -67,6 +67,8 @@ App         Core、Ui、Version、Manifest、Store、Install、Catalog
 - `winst.ps1` 不用 `param()` / `CmdletBinding()`（`--force`、`--pkg-dir=x` 会被绑定器拒），参数从 `$args` 读；不支持点源加载，验证用 `-File`。
 - 全局开关在命令前后都有效；新增开关要同时支持 `--x <值>` 与 `--x=<值>`。
 - 退出码：`0` 成功 / 取消，`1` 参数或内部错误（含已有实例在运行；`manifest add` 拉取失败），`2` 网络（`install` / `update` / `manifest update`），`3` 安装 / 卸载 / 校验失败，`4` = `update --check` 有可更新项（**不是错误**）。
+
+**每次代码改动后、运行验证前，必须主动清理废弃代码。** 沿本次改动影响的调用链核对仓库内的直接调用、动态分派和构建脚本引用。在同一次改动中删除已失去用途的实现，并继续清理因此失去用途的函数、参数和分支。
 
 没有测试框架、lint、CI，改完必须手动验证：
 
@@ -140,7 +142,6 @@ Get-ChildItem Modules -Recurse -Filter *.ps1 | Select-String -AllMatches -Patter
 ## 不要做
 
 - 采用能满足当前需求的最简单实现。新增抽象、配置或防护分支前，先确认它解决哪项现有需求或哪种实际可触发的失败。同一次操作中，输入和信任边界未变时复用已有校验结果。状态可能已改变或即将执行删除、覆盖等操作时，只复核与本次操作安全相关的条件。
-- 确认代码未被使用或其用途已废弃后，删除该代码，并一并清理仅为它服务的函数、参数和分支。
 - 不要把软件定义（URL、版本、下载规则）写进脚本，只放清单。
 - 不要用大小写不敏感比较处理 id：台账 / 缓存 / 清单合并一律 `New-WinstOrdinalDictionary`。
 - 不要为失败路径加静默兜底（猜地址、猜版本、静默跳过），要明确报错。

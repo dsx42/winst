@@ -21,7 +21,15 @@ function Invoke-WinstRemovePayload {
             return (Invoke-WinstUninstallAppxPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
         }
         'clean-cache' {
-            return (Invoke-WinstUninstallCachePayload -Context $Context -Id $Id -Quiet:$Quiet)
+            try {
+                Invoke-WinstFileStep -Name '删除缓存目录' -Quiet:$Quiet -Action {
+                    $cache = Remove-WinstCachedPackage -Context $Context -Id $Id -AllowMissing
+                    if (-not $cache.Ok) { throw $cache.Error }
+                }
+            } catch {
+                return @{ Abort = $true; Error = ('删除缓存目录失败，已保留安装记录：' + $_.Exception.Message) }
+            }
+            return @{ Abort = $false; Error = '' }
         }
         default {
             return (Invoke-WinstUninstallPortablePayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState -Quiet:$Quiet)

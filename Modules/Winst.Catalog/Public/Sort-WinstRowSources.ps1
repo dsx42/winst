@@ -5,8 +5,8 @@ function Sort-WinstRowSources {
     .SYNOPSIS
         按默认优先级重排一行里的软件源（本地清单 → 内置源 → 其它来源按添加顺序；未登记的来源排最后）。
     .DESCRIPTION
-        `-InstalledVersion` 用于更新场景：**有「比本机更新」版本的来源排在最前面**（同一层内再按默认优先级），
-        避免默认优先级里排第一的来源版本反而更旧、导致更新变成「无更新可做」。
+        已知本机版本时，优先选已确认有升级的来源；包内版本须先确认远端文件未变。
+        同一档里优先安装来源。安装来源可用但没有更新时，优先切换到明确远端版本最高的来源。
     .OUTPUTS
         重排后的行（`Sources` 第一位即默认要用的来源）
     #>
@@ -14,7 +14,9 @@ function Sort-WinstRowSources {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         $Row,
         [string]$InstalledVersion = '',
-        [hashtable]$Lookup = @{}
+        [hashtable]$Lookup = @{},
+        [string]$OriginName = '',
+        $Ledger = $null
     )
 
     if (-not $Row) { return $Row }
@@ -23,12 +25,24 @@ function Sort-WinstRowSources {
 
     if (-not $Lookup.ContainsKey('Priority')) { $Lookup.Priority = Get-WinstSourcePriority -Context $Context }
     $map = $Lookup.Priority
+    # 安装来源没有更新时优先切到明确远端版本最高的来源。
+    $best = $null
+    if ($OriginName -and ($sources | Where-Object { $_['Ok'] -and $_['Plan'] -and $_['Source'] -ieq $OriginName } | Select-Object -First 1)) {
+        $best = Get-WinstRowBestSourceEntry -Row $Row
+    }
     $sorted = @($sources | Sort-Object -Property `
         @{ Expression = {
-            if (-not $InstalledVersion) { return 0 }
-            $version = [string]$_['Version']
-            if ($_['Ok'] -and $version -and ((Compare-WinstVersion -A $version -B $InstalledVersion) -gt 0)) { return 0 }
+            if (-not $InstalledVersion -or $InstalledVersion -ieq 'unknown') { return 0 }
+            if ($_['Ok'] -and $_['Plan']) {
+                $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $_ -InstalledVersion $InstalledVersion -Ledger $Ledger
+                if ($snap.Cmp -gt 0) { return 0 }
+            }
             return 1
+        } },
+        @{ Expression = {
+            if ($OriginName -and $_['Source'] -ieq $OriginName) { return 0 }
+            if ($best -and $_['Source'] -ieq $best['Source']) { return 1 }
+            return 2
         } },
         @{ Expression = {
             $name = [string]$_['Source']

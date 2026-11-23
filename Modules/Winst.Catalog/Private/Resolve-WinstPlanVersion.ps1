@@ -10,8 +10,7 @@ function Resolve-WinstPlanVersion {
     param(
         $Plan,
         $Entry,
-        [string]$PkgDir = '',
-        $Context = $null,
+        [hashtable]$Context,
         $Notes = @(),
         $PackageVersionSpec
     )
@@ -19,66 +18,6 @@ function Resolve-WinstPlanVersion {
     $notes = @($Notes)
     $version = [string]$Plan['version']
     $versionAlreadyNormalized = $false
-    $id = [string]$Plan['id']
-    $fileList = @($Plan['download']['files'])
-
-    # 清单 / 接口都拿不到版本号时，可以从「已下载的主包」里取：
-    # 这里先看缓存里有没有现成的包（下载流程结束时还会再读一次并写进缓存索引）。
-    $versionFromPackage = Test-EntryVersionFromPackage -Entry $Entry
-    if ($versionFromPackage) {
-        $Plan['versionFromPackage'] = $true
-        if ($PackageVersionSpec) { $Plan['packageVersion'] = $PackageVersionSpec }
-        if (-not $version) {
-            $mainName = ''
-            if ($fileList.Count -gt 0) {
-                $mainName = Get-EntryString -Entry $fileList[0] -Key 'name'
-                if (-not $mainName) { $mainName = Get-FileNameFromUrl -Url ([string]$fileList[0]['url']) }
-            }
-            $derived = ''
-            $deriveNote = ''
-            $deriveError = ''
-            if ($PkgDir -and $mainName) {
-                $lease = $null
-                if ($Context) { $lease = $Context['PackageVersionLease'] }
-                $derivedResult = Get-WinstPackageDerivedVersion -InputLease $lease -Context $Context -PkgDir (Join-WinstPath $PkgDir $id) -Plan $Plan -FileName $mainName
-                if ($derivedResult.Ok) {
-                    $derived = [string]$derivedResult.Version
-                    if ([string]$derivedResult.Source -eq 'packagePath') {
-                        $deriveNote = ('版本号取自安装包内结构（packageVersion 命中 {0}）: {1}' -f ([string]$derivedResult.MatchedPath), $derived)
-                    } else {
-                        $deriveNote = ('版本号取自已下载的安装包文件信息: {0}' -f $derived)
-                    }
-                } else {
-                    $deriveError = [string]$derivedResult.Error
-                }
-            }
-            $fromIndex = $false
-            if (-not $derived -and $PkgDir) {
-                # 包内派生不出（没下载过 / 包内结构变化 / 引擎不可用）：退而读缓存索引——下载完成时已把
-                # 按同一套口径确认的版本号写进索引，同样只代表「缓存里那份」
-                $indexRead = Read-WinstCacheIndex -PkgDir $PkgDir -Ids @($id)
-                if ($indexRead -and -not $indexRead.Error -and $indexRead.Index.Contains($id)) {
-                    $derived = ([string](Get-EntryString -Entry $indexRead.Index[$id] -Key 'version')).Trim()
-                    $fromIndex = [bool]$derived
-                    $versionAlreadyNormalized = $fromIndex
-                }
-            }
-            if ($derived) {
-                $version = $derived
-                $Plan['version'] = $derived
-                # 记下「这个版本号取自缓存里那份包」：它不是软件源当前这一份的版本，展示与判断都要区别对待
-                $Plan['versionFromCache'] = $true
-                if ($fromIndex) {
-                    $noteText = ('版本号取自已下载的安装包（缓存索引里上次下载时确认的）: {0}' -f $derived)
-                    if ($deriveError) { $noteText += ('（按 packageVersion 读包内版本失败: {0}）' -f $deriveError) }
-                    $notes += $noteText
-                } elseif ($deriveNote) {
-                    $notes += $deriveNote
-                }
-                $Plan['notes'] = $notes
-            }
-        }
-    }
 
     # 来源原始读数在此归一；索引已有版本不再改写。下载声明已使用来源原始版本展开，
     # 随后的安装计划字段使用归一后的版本；本机检测由 detect.versionRewrite 独立处理。
@@ -90,6 +29,23 @@ function Resolve-WinstPlanVersion {
         return @{ Version = $version; Notes = $notes; Error = [string]$Plan['error'] }
     }
     if ($rewrite.Rules.Count -gt 0) { $Plan['sourceVersionRewrite'] = @($rewrite.Rules) }
+
+    # 取版规则和改写规则均匹配时，索引里的版本已经归一。
+    $versionFromPackage = Test-EntryVersionFromPackage -Entry $Entry
+    if ($versionFromPackage) {
+        $Plan['versionFromPackage'] = $true
+        if ($PackageVersionSpec) { $Plan['packageVersion'] = $PackageVersionSpec }
+        if (-not $version) {
+            $version = Get-WinstCachedPackageVersion -Context $Context -Plan $Plan
+            if ($version) {
+                $Plan['version'] = $version
+                $Plan['versionFromCache'] = $true
+                $versionAlreadyNormalized = $true
+                $notes += ('版本号取自本地缓存包: {0}' -f $version)
+            }
+        }
+    }
+
     if ($rewrite.Rules.Count -gt 0 -and $version -and -not $versionAlreadyNormalized) {
         $rewrittenVersion = Get-WinstRewrittenVersion -Version $version -Rules $rewrite.Rules
         if (-not $rewrittenVersion) {

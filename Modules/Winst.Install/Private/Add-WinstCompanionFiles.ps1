@@ -18,9 +18,8 @@ function Add-WinstCompanionFiles {
         return @{ Error = ''; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @() }
     }
 
-    $previousRules = Get-EntryValue -Entry $Ledger -Key 'appliedFileRules' -Default $null
     $landing = Copy-WinstCompanionFiles -Context $Context -Files $Files -PkgDir $PkgDir -InstallDir $InstallDir `
-        -OnlyChanged:$CompanionOnly -ChangedNames $ChangedNames -PreviousRules $previousRules
+        -OnlyChanged:$CompanionOnly -ChangedNames $ChangedNames
     if (-not $landing.Ok) { return @{ Error = [string]$landing.Error; Files = @() } }
     $appliedFiles = @($landing.Files)
     if ($CompanionOnly) {

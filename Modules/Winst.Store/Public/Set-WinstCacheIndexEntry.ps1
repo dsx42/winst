@@ -17,6 +17,9 @@ function Set-WinstCacheIndexEntry {
         [Parameter(Mandatory = $true)]$Index,
         [Parameter(Mandatory = $true)][string]$Id,
         [string]$Version = '',
+        [string]$VersionFile = '',
+        $VersionRule,
+        [string]$BundleSource = '',
         [string[]]$Files = @(),
         $Hashes = $null,
         $ManifestHashes = $null,
@@ -53,4 +56,9 @@ function Set-WinstCacheIndexEntry {
         fileMeta       = $FileMeta
         downloadedAt   = $DownloadedAt
     }
+    if ($VersionFile -and $Version) {
+        $Index[$Id]['versionFile'] = $VersionFile
+        if ($null -ne $VersionRule) { $Index[$Id]['versionRule'] = $VersionRule }
+    }
+    if ($BundleSource) { $Index[$Id]['bundleSource'] = $BundleSource }
 }

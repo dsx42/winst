@@ -12,8 +12,7 @@ function New-WinstUpdateEntryResult {
     return [ordered]@{
         Id = $Id; Name = $Name; Installed = $Installed; Latest = ''; LatestSource = ''
         Action = ''; Message = ''; ResolutionError = $false
-        NewerAvailable = $false; Network = $false; RefreshState = $false
-        PackageVersion = ''; RemoteFresh = ''
+        Network = $false; RefreshState = $false
         CompanionCount = 0; CompanionNames = @()
     }
 }

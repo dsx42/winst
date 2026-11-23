@@ -6,8 +6,7 @@ function Get-WinstPackageDerivedVersion {
         从「已下载的安装包」派生版本号的路由：声明 source.packageVersion 的条目用 7-Zip 读包内结构
         （权威口径，文件版本信息不可信的安装包）；未声明的条目维持读主包文件信息。
     .DESCRIPTION
-        返回失败时由调用方走「缓存索引 version」回退（上次下载完成时按同一套口径写入的值）。
-        规格来自计划里编译好的 packageVersion 块（解析锁里读回的是 PSCustomObject，统一走 Get-Entry* 助手）。
+        按计划中的 sourceVersionRewrite 归一结果。
     .OUTPUTS
         @{ Ok; Version; Source; MatchedPath; Error }   Source: packagePath（包内结构）/ fileInfo（文件信息）
     #>
@@ -15,58 +14,21 @@ function Get-WinstPackageDerivedVersion {
         $Context,
         [string]$PkgDir,
         $Plan,
-        [string]$FileName,
-        [hashtable]$InputLease
+        [string]$FileName
     )
 
-    $result = @{ Ok = $false; Version = ''; Source = ''; MatchedPath = ''; InputName = ''; Error = '' }
+    $result = @{ Ok = $false; Version = ''; Source = ''; MatchedPath = ''; Error = '' }
 
-    $packagePath = ''
+    if (-not $PkgDir -or -not (Test-WinstSafePathSegment -Name $FileName)) {
+        $result.Error = '缓存里没有可读的安装包'
+        return $result
+    }
+    $packagePath = Join-WinstPath $PkgDir $FileName
+    if (-not (Test-Path -LiteralPath $packagePath -PathType Leaf)) {
+        $result.Error = '缓存里没有可读的安装包'
+        return $result
+    }
     $spec = Get-EntryValue -Entry $Plan -Key 'packageVersion' -Default $null
-    if ($null -ne $spec) {
-        # 主包路径：规格声明 file 时按通配在包目录里找；否则用调用方给的主包名
-        $fileGlob = ([string](Get-EntryString -Entry $spec -Key 'file')).Trim()
-        if ($PkgDir -and (Test-Path -LiteralPath $PkgDir -PathType Container)) {
-            if ($fileGlob) {
-                $hit = @(Get-ChildItem -LiteralPath $PkgDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like $fileGlob } | Select-Object -First 1)
-                if ($hit.Count -gt 0) { $packagePath = [string]$hit[0].FullName }
-            }
-            if (-not $packagePath -and $FileName) {
-                $candidate = Join-WinstPath $PkgDir $FileName
-                if (Test-Path -LiteralPath $candidate -PathType Leaf) { $packagePath = $candidate }
-            }
-        }
-        if (-not $packagePath) {
-            $result.Error = '缓存里没有可读的安装包，无法按包内结构识别版本'
-            return $result
-        }
-    } elseif ($PkgDir -and $FileName) {
-        $packagePath = Join-WinstPath $PkgDir $FileName
-    }
-
-    if ($packagePath) { $result.InputName = [IO.Path]::GetFileName($packagePath) }
-    if ($null -ne $InputLease -and $packagePath) {
-        $rule = ''
-        if ($null -ne $spec) {
-            $rule = ConvertTo-Json -Compress -InputObject ([ordered]@{
-                file = Get-EntryString -Entry $spec -Key 'file'
-                inner = Get-EntryString -Entry $spec -Key 'inner'
-                path = Get-EntryString -Entry $spec -Key 'path'
-                kind = Get-EntryString -Entry $spec -Key 'kind'
-                between = @(Get-EntryArray -Entry $spec -Key 'between')
-            })
-        }
-        if ($InputLease['Stream'] -and $InputLease['Stream'].Name -ieq $packagePath -and
-                $InputLease['Rule'] -ceq $rule -and $InputLease['Result']) {
-            return $InputLease['Result']
-        }
-        if ($InputLease['Stream']) { $InputLease['Stream'].Dispose(); $InputLease.Clear() }
-        try {
-            $InputLease['Stream'] = [IO.File]::Open($packagePath, 'Open', 'Read', 'Read')
-            $InputLease['Rule'] = $rule
-        }
-        catch [IO.IOException], [UnauthorizedAccessException] { } # 无法持有只读句柄时，本次取版仍按普通路径执行。
-    }
 
     if ($null -ne $spec) {
         $sevenZip = ''
@@ -80,24 +42,26 @@ function Get-WinstPackageDerivedVersion {
             $result.Error = [string]$derived.Error
             return $result
         }
-        $result.Ok = $true
-        if ($null -ne $InputLease -and $InputLease['Stream']) { $InputLease['Result'] = $result }
-        $result.Version = [string]$derived.Version
+        $version = [string]$derived.Version
         $result.Source = 'packagePath'
         $result.MatchedPath = [string]$derived.MatchedPath
-        return $result
-    }
-
-    # 未声明规格：读主包文件信息
-    $fileVersion = ''
-    if ($PkgDir -and $FileName) { $fileVersion = Get-WinstPackageFileVersion -PkgDir $PkgDir -FileName $FileName }
-    if ($fileVersion) {
-        $result.Ok = $true
-        if ($null -ne $InputLease -and $InputLease['Stream']) { $InputLease['Result'] = $result }
-        $result.Version = [string]$fileVersion
+    } else {
+        $version = Get-WinstPackageFileVersion -PkgDir $PkgDir -FileName $FileName
+        if (-not $version) {
+            $result.Error = '安装包不在缓存里或读不出版本'
+            return $result
+        }
         $result.Source = 'fileInfo'
-        return $result
     }
-    $result.Error = '安装包不在缓存里或读不出版本'
+    $rules = @(Get-EntryArray -Entry $Plan -Key 'sourceVersionRewrite')
+    if ($rules.Count -gt 0) {
+        $version = Get-WinstRewrittenVersion -Version $version -Rules $rules
+        if (-not $version) {
+            $result.Error = 'source.version.rewrite 改写后版本号为空'
+            return $result
+        }
+    }
+    $result.Ok = $true
+    $result.Version = $version
     return $result
 }

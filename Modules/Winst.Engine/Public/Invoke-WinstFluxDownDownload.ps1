@@ -13,7 +13,7 @@ function Invoke-WinstFluxDownDownload {
         `-Segments` 对应引擎的 `-s/--segments`（分段 / 线程数）：0 = 不传、由引擎自动决定；
         多段并发被限速时由调用方用 `-s 1` 单连接重试。
     .OUTPUTS
-        @{ Ok; ExitCode; Error; Segments }
+        @{ Ok; ExitCode; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -24,7 +24,7 @@ function Invoke-WinstFluxDownDownload {
         [int]$Segments = 0
     )
 
-    $result = @{ Ok = $false; ExitCode = -1; Error = ''; Segments = $Segments }
+    $result = @{ Ok = $false; ExitCode = -1; Error = '' }
     $exe = Get-WinstEngineExe -Context $Context -Id (Get-WinstDownloadEngineId)
     if (-not $exe) {
         $result.Error = '下载引擎（FluxDown CLI）不可用'

@@ -9,12 +9,7 @@ function Show-WinstBundlePlan {
     #>
     param([string]$TargetDir, $Plan, [switch]$DryRun, [bool]$Yes = $false, [switch]$NonInteractive)
 
-    $copyItems = @()
-    foreach ($entry in @($Plan)) {
-        $item = $entry['Item']
-        if (-not [bool]$item['CacheHas']) { continue }
-        $copyItems += $entry
-    }
+    $copyItems = @($Plan | Where-Object { $_['CacheHas'] })
     if ($copyItems.Count -eq 0) {
         Write-Host ''
         Write-Host '  没有任何可复制的安装包（清单里的软件都缺包），已取消。' -ForegroundColor Red
@@ -23,13 +18,13 @@ function Show-WinstBundlePlan {
     }
 
     $totalFiles = 0
-    foreach ($entry in $copyItems) { $totalFiles += @($entry['Item']['CacheFiles']).Count }
+    foreach ($item in $copyItems) { $totalFiles += @($item['CacheFiles']).Count }
 
     Write-Host ''
     Write-Host ('  将复制 {0} 个软件的安装包（共 {1} 个文件）到:' -f $copyItems.Count, $totalFiles) -ForegroundColor Cyan
     Write-Host ('    {0}' -f (Join-WinstPath $TargetDir 'apps')) -ForegroundColor Gray
-    Write-Host '  同时复制脚本本体、软件源清单数据、本次选中的那份清单文件，并生成 winst.cmd。' -ForegroundColor Gray
-    Write-Host '  同版本逐文件比较内容，相同文件跳过；版本不同时替换该软件的旧目录。' -ForegroundColor DarkGray
+    Write-Host '  同时复制脚本本体和软件源清单数据，生成按收包顺序排列的安装清单和 winst.cmd。' -ForegroundColor Gray
+    Write-Host '  同版本按文件摘要比较，相同文件跳过；版本不同或有过时文件时替换旧目录。' -ForegroundColor DarkGray
     if ($DryRun) { Write-Host '  当前为预览模式（--dry-run）：只展示计划，不复制任何文件。' -ForegroundColor DarkYellow }
 
     if (-not $Yes -and -not $DryRun -and -not $NonInteractive -and -not (Test-WinstInputRedirected)) {

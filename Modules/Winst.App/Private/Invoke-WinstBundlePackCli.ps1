@@ -20,10 +20,7 @@ function Invoke-WinstBundlePackCli {
         return 1
     }
 
-    $target = Resolve-WinstListFileForCli -Context $Context -Text $ListText
-    if (-not $target.Ok) { return 1 }
-
-    $result = Invoke-WinstPack -Context $Context -ListPath ([string]$target.Path) -TargetDir $DirText `
+    $result = Invoke-WinstPack -Context $Context -ListPath $ListText -TargetDir $DirText `
         -SkipMissing:$SkipMissing -NonInteractive
     if ($result.Cancelled) { return 1 }
     if (-not $result.Ok) {

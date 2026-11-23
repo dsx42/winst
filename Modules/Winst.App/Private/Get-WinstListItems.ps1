@@ -5,13 +5,14 @@ function Get-WinstListItems {
     .SYNOPSIS
         读取清单文件并产出条目视图数组（含 Lookup，便于调用方复用同一份数据）。
     .OUTPUTS
-        @{ Ok; Error; Warning; Exists; BadLines; Items; Lookup }
+        @{ Ok; Error; Warning; Exists; CommentLines; BadLines; Items; Lookup; Context }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Path,
         [switch]$RefreshSources,
-        [switch]$ListOnly
+        [switch]$ListOnly,
+        [switch]$BundleInstall
     )
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Exists = $false
@@ -24,6 +25,7 @@ function Get-WinstListItems {
     }
     $result.Exists = $read.Exists
     $result.BadLines = @($read.BadLines)
+    $result.CommentLines = @($read.CommentLines)
 
     $ids = @(foreach ($entry in $read.Entries) { [string]$entry['Id'] })
     if ($RefreshSources -and @($read.Entries).Count -gt 0) {
@@ -39,6 +41,13 @@ function Get-WinstListItems {
         $result.Error = $lookup.Error
         return $result
     }
+    $options = Get-WinstState -Name WinstOptions
+    if ($BundleInstall -and $options -and $options.Offline) {
+        $Context = $Context.Clone()
+        $Context['BundleDependencyIndex'] = Get-WinstDependencyIndex -Context $Context -BundleCacheIndex $lookup.CacheIndex
+        $lookup.RowById = $Context['BundleDependencyIndex']['Rows']
+    }
+    $result.Context = $Context
     $result.Lookup = $lookup
     $result.Warning = [string]$lookup.Warning
 

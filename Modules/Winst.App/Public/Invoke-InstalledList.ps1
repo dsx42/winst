@@ -81,11 +81,8 @@ function Invoke-InstalledList {
             $hasOldVersions = [bool]$item['HasOldVersions']
             Write-Host ''
             if ($canUpdate) {
-                # u) 更新：注明当前更新方式（设置 → 更新方式）与默认使用的来源（安装时选的那个软件源）
-                $updateSourceText = '默认优先级（本地清单 → 内置源 → 其它源）'
-                if ([string]$item['ManifestOrigin']) { $updateSourceText = ('安装时用的软件源 {0}' -f [string]$item['ManifestOrigin']) }
                 Write-Host ('  u) 更新（按「设置 → 更新方式」: {0}）' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor White
-                Write-Host ('     来源: {0}' -f $updateSourceText) -ForegroundColor DarkGray
+                Write-Host ('     来源: {0}' -f [string]$item['LatestSource']) -ForegroundColor DarkGray
                 Write-Host '  c) 更新（可单独选更新方式与软件源）' -ForegroundColor White
             }
             if ($hasOldVersions) {
@@ -112,7 +109,7 @@ function Invoke-InstalledList {
                 continue   # 回车 / 其它 = 返回列表
             } elseif ($text -eq 'u') {
                 # 默认更新：方式按「设置 → 更新方式」，来源优先安装时选的来源（不询问；要临时换源 / 换方式用 c）
-                $null = Invoke-WinstUpdateTargets -Context $Context -Ids @($id) -AutoPickSource
+                $null = Invoke-WinstUpdateTargets -Context $Context -Ids @($id)
             } elseif ($text -eq 'c') {
                 $null = Invoke-WinstUpdateCustomLoop -Context $Context -Targets @($id) -Items @($item)
                 if (Get-WinstState -Name WinstQuitRequested) { return }

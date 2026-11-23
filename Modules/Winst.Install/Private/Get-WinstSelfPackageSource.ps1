@@ -49,7 +49,6 @@ function Get-WinstSelfPackageSource {
     )
 
     $selfId = 'winst'
-    $archiveFileName = ('winst-{0}.zip' -f (Get-WinstProductVersion))
 
     $result = @{
         Ok                 = $false
@@ -81,74 +80,32 @@ function Get-WinstSelfPackageSource {
 
     # ------------------------------------------------------------ ② 取包
     $offline = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline)
-    $errorText = ''
 
     if ($plan -and -not $offline) {
         $download = Get-EntryValue -Entry $plan -Key 'download' -Default $null
         $files = @(Get-EntryArray -Entry $download -Key 'files')
-        $url = ''
-        if ($files.Count -gt 0) { $url = Get-EntryString -Entry $files[0] -Key 'url' }
-
-        if ($url) {
+        if ($files.Count -gt 0) {
             $pkgDir = Join-WinstPath $Context.PkgDir $selfId
-            if (-not (Test-Path -LiteralPath $pkgDir -PathType Container)) {
-                $null = New-Item -ItemType Directory -Path $pkgDir -Force -ErrorAction SilentlyContinue
+            $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($selfId)
+            $prevEntry = $null
+            if ($cacheRead.Index.Contains($selfId)) { $prevEntry = $cacheRead.Index[$selfId] }
+            $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId -ManifestOrigin $sourceName `
+                -Files @($files[0]))
+            $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $packagePlans -PkgDir $pkgDir -Id $selfId `
+                -DisplayName $selfId -SourceName $sourceName -Version $sourceVersion -PrevEntry $prevEntry -DirectHttp -Quiet:$Quiet
+            if ($download.Ok) {
+                Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
+                    -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames $download.Names
+                $result.ArchivePath = [string]$packagePlans[0]['Target']
+                $result.Resolved = $true
+                $result.Ok = $true
+                return $result
             }
 
-            # 文件名与普通安装包使用相同规则，优先使用清单明确声明的名称。
-            $archiveName = Get-EntryString -Entry $files[0] -Key 'name'
-            if (-not $archiveName) { $archiveName = Get-FileNameFromUrl -Url $url }
-            if (-not $archiveName) { $archiveName = $archiveFileName }
-
-            if (-not (Test-WinstSafePathSegment -Name $archiveName)) {
-                $errorText = ('winst 安装包的文件名不合法：{0}' -f $archiveName)
-            } else {
-                $archivePath = Join-WinstPath $pkgDir $archiveName
-
-                # 自身包也使用统一索引，复用已记录的远端期望值和本地实测值。
-                $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($selfId)
-                $prevEntry = $null
-                if ($cacheRead.Index.Contains($selfId)) { $prevEntry = $cacheRead.Index[$selfId] }
-                $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId `
-                    -Files @($files[0]) -CheckValidators -ConfirmBeforeUse)
-                $filePlan = $packagePlans[0]
-                Confirm-WinstCachedFilePlan -Context $Context -FilePlan $filePlan
-                if ($filePlan['ValidationError']) {
-                    $result.Error = [string]$filePlan['ValidationError']
-                    return $result
-                }
-
-                if (-not $filePlan['NeedDownload']) {
-                    Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
-                        -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames @()
-                    $result.ArchivePath = $archivePath
-                    $result.Resolved = $true
-                    $result.Ok = $true
-                    return $result
-                }
-
-                if (-not $Quiet) { Write-Host ('    正在下载 {0} …' -f $archiveName) -ForegroundColor Gray }
-
-                $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $archivePath
-                if ($dl.Ok) {
-                    $check = Test-WinstFileIntegrity -Context $Context -FilePath $archivePath -FileDecl $files[0] `
-                        -FileUrl $url -FileVersion ([string]$filePlan['FileVersion'])
-                    if (-not $check.Ok) {
-                        Remove-Item -LiteralPath $archivePath -Force -ErrorAction SilentlyContinue
-                        $result.Error = ('{0} 校验失败：{1}' -f $archiveName, $check.Error)
-                        return $result
-                    }
-                    Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
-                    Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
-                        -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames @($archiveName)
-
-                    $result.ArchivePath = $archivePath
-                    $result.Resolved = $true
-                    $result.Ok = $true
-                    return $result
-                }
-
-                $errorText = ('下载 {0} 失败：{1}' -f $archiveName, $dl.Error)
+            $errorText = [string]$download.Error
+            if (-not $download['DownloadFailed']) {
+                $result.Error = $errorText
+                return $result
             }
         } else {
             $errorText = 'winst 的软件定义里没有可下载的安装包'
@@ -161,7 +118,6 @@ function Get-WinstSelfPackageSource {
 
     # ------------------------------------------------------- ③ 仅引导安装
     if ($RequireDownload) {
-        if (-not $errorText) { $errorText = '没有取得可验证的 winst 更新包' }
         $result.Error = $errorText
         return $result
     }
@@ -176,7 +132,6 @@ function Get-WinstSelfPackageSource {
         return $result
     }
 
-    if (-not $errorText) { $errorText = '既没有可下载的 winst 安装包，也读不到当前运行的脚本' }
     $result.Error = $errorText
     return $result
 }

@@ -6,27 +6,27 @@ function New-WinstInstalledItem {
         由安装记录条目 + 软件清单行生成「已装软件」的展示视图对象。
     .OUTPUTS
         [ordered]@{ CompanionVersionLines; Id; DisplayName; Group; Version; RawVersion; Type; TypeText; InstallDir;
-                    InstalledAt; UpdatedAt; ManifestOrigin; SourceText; Managed; ManagedText; InCatalog;
+                    InstalledAt; UpdatedAt; ManifestOrigin; SourceText; ManagedText; InCatalog;
                     LatestVersion; LatestSource; HasUpdate; UpdateHint; UpdateState; OtherSourcesText;
                     OldVersions; OldVersionsText; HasOldVersions;
                     CacheDir; CacheVersion; CacheHas; CacheDirMissing; CacheFiles;
-                    DirMissing; Row; Ledger; InstalledVersion; InstalledVersionText; InstalledDirMissing;
-                    InstalledUpdateState; InstalledUpdateHint; BestVersion; BestSource }
+                    DirMissing; Row; Ledger; InstalledVersion; InstalledUpdateState; InstalledUpdateHint }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
         [Parameter(Mandatory = $true)]$Entry,
         $Row = $null,
-        $CacheIndex = $null
+        $CacheIndex = $null,
+        [hashtable]$SourceLookup = @{}
     )
 
-    $rawVersion = Get-EntryString -Entry $Entry -Key 'version'
     $managed = Get-EntryString -Entry $Entry -Key 'managed'
     if (-not $managed) { $managed = 'winst' }
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Entry
-    $installedFacet = Get-WinstInstalledFacet -Ledger $Entry -Facts $facts
+    $installedFacet = Get-WinstInstalledFacet -Context $Context -Lookup $SourceLookup -Ledger $Entry -Row $Row
+    $rawVersion = $installedFacet.Version
     $displayName = [string]$facts.DisplayName
     $inCatalog = [bool]$facts.InCatalog
     $sourceText = [string]$facts.SourceText
@@ -35,34 +35,28 @@ function New-WinstInstalledItem {
 
     $installDir = Get-EntryString -Entry $Entry -Key 'installDir'
     $dirMissing = [bool]$installedFacet.DirMissing
-    $latest = [string]$facts.BestVersion
-    $latestSource = [string]$facts.BestSource
+    $latest = [string]$installedFacet.Latest
+    $latestSource = [string]$installedFacet.LatestSource
     $hasUpdate = [bool]$installedFacet.HasUpdate
     $updateHint = [string]$installedFacet.UpdateHint
     $updateState = [string]$installedFacet.UpdateState
     $otherSourcesText = ''
-    if ($inCatalog) {
-        # package 来源尚无确定远端版本时，不再列出其它来源的版本比较。
-        $freshBranch = [bool]($facts.VersionFromPackage -and $latest -and ([string]$facts.RemoteFresh) -ine 'unchanged')
-        if ($latest -and -not $freshBranch) {
-            # 其它来源的版本（版本行里已经体现了最高版本与它的来源，这里只列出剩下的，避免重复展示）
-            $others = @()
-            foreach ($sourceEntry in @($Row['Sources'])) {
-                $name = [string]$sourceEntry['Source']
-                if (-not $name) { continue }
-                if ($latestSource -and $name -ieq $latestSource) { continue }
-                $version = [string]$sourceEntry['Version']
-                if (-not $version) { $version = '未知' }
-                $mark = ''
-                if (-not $sourceEntry['Ok']) { $mark = '·不可用' }
-                $others += ('{0} ({1}){2}' -f $name, $version, $mark)
-            }
-            $otherSourcesText = ($others -join '、')
+    if ($latest) {
+        # 版本行已展示默认更新来源。
+        $others = @()
+        foreach ($sourceEntry in @($Row['Sources'])) {
+            $name = [string]$sourceEntry['Source']
+            if (-not $name -or $name -ieq $latestSource) { continue }
+            $version = [string]$sourceEntry['Version']
+            if (-not $version) { $version = '未知' }
+            $mark = ''
+            if (-not $sourceEntry['Ok']) { $mark = '·不可用' }
+            $others += ('{0} ({1}){2}' -f $name, $version, $mark)
         }
+        $otherSourcesText = ($others -join '、')
     }
 
-    $versionText = '未知'
-    if ($rawVersion) { $versionText = $rawVersion }
+    $versionText = $installedFacet.VersionText
 
     # 本机并存的低版本（低于本机版本）：供列表与详情提醒用户清理
     $oldVersions = @()
@@ -113,7 +107,7 @@ function New-WinstInstalledItem {
     }
 
     return [ordered]@{
-        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Plan (Get-EntryValue -Entry $facts.Chosen -Key 'Plan') -Ledger $Entry -CacheIndex $CacheIndex)
+        CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Plan (Get-EntryValue -Entry $installedFacet.Chosen -Key 'Plan') -Ledger $Entry -CacheIndex $CacheIndex)
         Id               = $Id
         DisplayName      = $displayName
         Group            = $group
@@ -126,7 +120,6 @@ function New-WinstInstalledItem {
         UpdatedAt        = (Get-EntryString -Entry $Entry -Key 'updatedAt')
         ManifestOrigin   = (Get-EntryString -Entry $Entry -Key 'manifestOrigin')
         SourceText       = $sourceText
-        Managed          = $managed
         ManagedText      = (Get-WinstInstalledManagedText -Managed $managed -Type $type)
         InCatalog        = $inCatalog
         LatestVersion    = $latest
@@ -148,11 +141,7 @@ function New-WinstInstalledItem {
         Ledger           = $Entry
         # 通用视图字段，与缓存和软件列表的同义字段保持一致。
         InstalledVersion      = $versionText
-        InstalledVersionText  = $versionText
-        InstalledDirMissing   = $dirMissing
         InstalledUpdateState  = $updateState
         InstalledUpdateHint   = $updateHint
-        BestVersion           = $latest
-        BestSource            = $latestSource
     }
 }

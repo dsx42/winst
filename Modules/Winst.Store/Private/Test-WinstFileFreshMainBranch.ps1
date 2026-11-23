@@ -12,10 +12,10 @@ function Test-WinstFileFreshMainBranch {
     .OUTPUTS
         [bool] 是否命中该分支
     #>
-    param($Plan, [hashtable]$Context, [string]$Uri, [int]$FileIndex, [string]$RefreshRaw,
-        [switch]$Offline, [switch]$CanCheckRemote, [switch]$FreshMain, [string]$Reason)
+    param($Plan, [hashtable]$Context, [string]$Uri, [string]$RefreshRaw,
+        [switch]$CanCheckRemote, [switch]$FreshMain, [string]$Reason)
 
-    if (-not $FreshMain -or $FileIndex -ne 0 -or $RefreshRaw -or $Offline) { return $false }
+    if (-not $FreshMain -or $RefreshRaw) { return $false }
     if ($CanCheckRemote) { Set-WinstFilePlanValidators -Plan $Plan -Context $Context -Uri $Uri }
     $Plan['NeedDownload'] = $true
     $Plan['Reason'] = $Reason

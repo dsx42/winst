@@ -5,7 +5,7 @@ function Get-WinstUpdateCheckBuckets {
     .SYNOPSIS
         归类「检查更新」的可更新项、无法比较项和失败项，并统计已是最新的条目。
     .OUTPUTS
-        @{ UpdatableIds; UpdateEntries; Uncomparable; FailedEntries; LatestCount; UnknownInUpdatable; CompanionUpdatable; SummaryText }
+        @{ UpdatableIds; UpdateEntries; Uncomparable; FailedEntries; LatestCount; SummaryText }
     .DESCRIPTION
         「可以更新」= `Action = check`（有更新版本、以及「无法比较版本」但按软件源定义更新这两类）
         **加上** `Action = files`（主包无变化、只有附加文件有更新）。`UpdatableIds` 与 `UpdateEntries`
@@ -53,8 +53,6 @@ function Get-WinstUpdateCheckBuckets {
         Uncomparable       = @($uncomparable)
         FailedEntries      = @($failedEntries)
         LatestCount        = $latestCount
-        UnknownInUpdatable = $unknownInUpdatable
-        CompanionUpdatable = $companionUpdatable
         SummaryText        = $summaryText
     }
 }

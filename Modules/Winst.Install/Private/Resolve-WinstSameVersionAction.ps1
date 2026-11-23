@@ -30,9 +30,9 @@ function Resolve-WinstSameVersionAction {
         $Result.Version = $Detected
         if (-not $Quiet) {
             if ($DryRun) {
-                Write-Host ('  {0} {1}：主包无变化，将只更新 {2} 个附加文件（预览，不重装）' -f $DisplayName, $Detected, $CompanionDownloadCount) -ForegroundColor DarkYellow
+                Write-Host ('  {0} {1}：将只更新 {2} 个附加文件（预览，不重装）' -f $DisplayName, $Detected, $CompanionDownloadCount) -ForegroundColor DarkYellow
             } else {
-                Write-Host ('  {0} {1}：主包无变化，只更新 {2} 个附加文件（不重装）' -f $DisplayName, $Detected, $CompanionDownloadCount) -ForegroundColor Gray
+                Write-Host ('  {0} {1}：只更新 {2} 个附加文件（不重装）' -f $DisplayName, $Detected, $CompanionDownloadCount) -ForegroundColor Gray
             }
         }
         return @{ Return = $false; CompanionOnly = $true }

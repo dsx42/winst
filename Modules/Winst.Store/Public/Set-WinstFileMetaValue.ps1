@@ -11,6 +11,7 @@ function Set-WinstFileMetaValue {
         $Container,
         [string]$FileName,
         [string]$Url,
+        [string]$ManifestOrigin,
         [string]$SourceVersion,
         [string]$ETag,
         [string]$LastModified,
@@ -31,6 +32,7 @@ function Set-WinstFileMetaValue {
     $merged = New-WinstFileMetaEntry -Item $Container[$key] -NormalizeDigest
 
     if ($PSBoundParameters.ContainsKey('Url') -and $Url) { $merged['url'] = $Url }
+    if ($PSBoundParameters.ContainsKey('ManifestOrigin')) { $merged['manifestOrigin'] = $ManifestOrigin }
     # sourceVersion 记录的是「这个文件自己的版本」：跟随主包版本的附加文件要能显式写空，
     # 否则旧索引里继承的主包版本会一直留着（判定虽已不看它，但记录会误导排查）
     if ($PSBoundParameters.ContainsKey('SourceVersion')) { $merged['sourceVersion'] = [string]$SourceVersion }

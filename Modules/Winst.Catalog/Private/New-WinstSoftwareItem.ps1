@@ -28,11 +28,12 @@ function New-WinstSoftwareItem {
         [string[]]$CacheFiles = @(),
         [long]$CacheSizeBytes = 0,
         [string]$CacheVersion = '',
-        $CacheIndex = $null
+        $CacheIndex = $null,
+        [hashtable]$SourceLookup = @{}
     )
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
-    $installedFacet = Get-WinstInstalledFacet -Ledger $Ledger -Facts $facts
+    $installedFacet = Get-WinstInstalledFacet -Context $Context -Lookup $SourceLookup -Ledger $Ledger -Row $Row
     $cacheHas = [bool](@($CacheFiles).Count -gt 0)
     $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -Evaluate:$cacheHas
 
@@ -66,8 +67,8 @@ function New-WinstSoftwareItem {
         HasPackageUpdate     = [bool]$packageFacet.HasUpdate
         Ledger               = $Ledger
         # 通用视图字段，与已安装列表的同义字段保持一致。
-        LatestVersion        = [string]$facts.BestVersion
-        LatestSource         = [string]$facts.BestSource
+        LatestVersion        = [string]$installedFacet.Latest
+        LatestSource         = [string]$installedFacet.LatestSource
         HasUpdate            = [bool]$installedFacet.HasUpdate
         UpdateHint           = [string]$installedFacet.UpdateHint
         UpdateState          = [string]$installedFacet.UpdateState

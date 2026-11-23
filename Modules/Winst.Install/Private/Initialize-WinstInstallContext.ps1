@@ -8,11 +8,11 @@ function Initialize-WinstInstallContext {
         把「软件定义里有什么」「主包要不要重新取」「缓存里哪些文件可以复用」「本机装没装」四件事一次算清，
         供后续决策矩阵 / 下载 / 安装各段直接使用。Error 非空时调用方应立即返回该结果。
     .OUTPUTS
-        @{ Error; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; Files; VersionFromPackage;
+        @{ Error; Plan; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; Files; VersionFile;
            VersionFromCachedPackage; PlanFreshState; FreshMain; IsDownloadType; PrevEntry;
-           Plans; NeedDownload; PrimaryTarget; CompanionDownloadCount; CompanionsOnly; Ledger }
+           Plans; NeedDownload; CompanionNames; CompanionsOnly; Ledger }
     #>
-    param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$Quiet, $Result, $CompanionInfo = $null, [hashtable]$InputLease)
+    param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$RequireCurrent, [switch]$Quiet)
 
     $id = Get-EntryString -Entry $Plan -Key 'id'
     $displayName = Get-EntryString -Entry $Plan -Key 'name'
@@ -35,7 +35,6 @@ function Initialize-WinstInstallContext {
 
     $installDir = Join-WinstPath $Context.InstallRoot $id
     $pkgDir = Join-WinstPath $Context.PkgDir $id
-    $Result.InstallDir = $installDir
 
     $install = Get-EntryValue -Entry $Plan -Key 'install' -Default $null
     $download = Get-EntryValue -Entry $Plan -Key 'download' -Default $null
@@ -49,43 +48,23 @@ function Initialize-WinstInstallContext {
 
     # versionFromPackage（清单里是 source.versionFrom: "package"）：清单 / 接口都拿不到版本号时，从已下载的主包文件信息里取
     $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
-    # 版本号取自「缓存里那份包」（不是软件源）——它不代表软件源当前提供的那一份，只能当展示值，不能当判据。
-    # 解析锁里带着 versionFromCache 标记时必须沿用：否则主包重新取回后，「重读包内版本」那一步会被跳过，
-    # 把上一次那份包的版本当成这一次的——消息与缓存索引都会留下错误版本号
-    $versionFromCachedPackage = [bool](Get-EntryBool -Entry $Plan -Key 'versionFromCache')
+    $versionFromCachedPackage = $false
     # 解析锁里的远端新鲜度结论：versionFromPackage 条目据此决定「主包要不要重新取」——
     # unchanged（远端无新包）时缓存里那份就是软件源当前这一份，安装 / 更新直接沿用缓存、按缓存版本决策；
     # changed（远端有新包）/ unknown（文件比较没有结论）才重新取包；明确的下载操作（DownloadOnly）始终重新下载
-    $planFreshState = [string](Get-EntryString -Entry $Plan -Key 'remoteFresh')
-    $freshMain = [bool]$versionFromPackage
-    if ($freshMain -and -not $DownloadOnly -and $planFreshState -ieq 'unchanged') { $freshMain = $false }
+    $options = Get-WinstState -Name WinstOptions
+    $offline = [bool]($options -and $options.Offline)
+    $planFreshState = ''
+    if (-not $offline) { $planFreshState = Get-EntryString -Entry $Plan -Key 'remoteFresh' }
+    $unchangedMainHash = ''
+    if ($versionFromPackage -and -not $DownloadOnly -and $planFreshState -ieq 'unchanged') {
+        $unchangedMainHash = Get-EntryString -Entry $Plan -Key 'remoteFreshHash'
+    }
     $freshMainReason = ''
-    if ($freshMain) {
+    if ($versionFromPackage) {
         if ($planFreshState -ieq 'changed') { $freshMainReason = '远端有新包（文件比较），将重新下载安装包' }
         else { $freshMainReason = '无法确认远端文件是否变化，将重新取包核对版本' }
     }
-    if (-not $version -and $versionFromPackage) {
-        $mainName = Get-EntryString -Entry $files[0] -Key 'name'
-        if (-not $mainName) { $mainName = Get-FileNameFromUrl -Url (Get-EntryString -Entry $files[0] -Key 'url') }
-        # 派生路由：声明 packageVersion 的条目用 7-Zip 读包内结构，否则读主包文件信息
-        $derivedResult = Get-WinstPackageDerivedVersion -Context $Context -PkgDir $pkgDir -Plan $Plan -FileName $mainName -InputLease $InputLease
-        if ($derivedResult.Ok) {
-            $derived = [string]$derivedResult.Version
-            # 包内派生的版本就是「软件源里的版本」→ 套源侧规则 source.versionRewrite
-            $rules = @(Get-EntryArray -Entry $Plan -Key 'sourceVersionRewrite')
-            if ($rules.Count -gt 0) {
-                $rewritten = Get-WinstRewrittenVersion -Version $derived -Rules $rules
-                if ($rewritten) { $derived = $rewritten }
-            }
-            $version = $derived
-            $versionFromCachedPackage = $true
-            # 解析锁里的条目是 PSObject（不能 ['key'] 赋值，见 Set-EntryValue）：统一走设置助手
-            $null = Set-EntryValue -Entry $Plan -Key 'version' -Value $derived
-        } elseif ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
-            Write-Host ('  [verbose] 包内版本派生未成功（{0}），后续按既有记录继续' -f [string]$derivedResult.Error) -ForegroundColor DarkGray
-        }
-    }
-
     $isDownloadType = ($type -eq 'download') -or $DownloadOnly
 
     # —— ① 取包判定（缓存里已有需要的文件 → 跳过下载，绝不重复下载）——
@@ -98,52 +77,55 @@ function Initialize-WinstInstallContext {
     $state = $stateRead.State
     if ($stateRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor DarkYellow }
     $ledger = Get-WinstInstalledApp -State $state -Id $id
-    $options = Get-WinstState -Name WinstOptions
-    # 仅附件更新需要先知道附件是否变化；其他实际取包流程把整包校验留到使用前。
-    $confirmBeforeUse = (-not ($options -and $options.DryRun) -and
-        ($isDownloadType -or -not $ledger -or $files.Count -eq 1))
-
-    # -CheckValidators：安装 / 更新 / 仅下载都要按 files[].refresh 判定「缓存里那份还算不算数」
     # -FreshMain：版本号取自主包文件信息的条目——unchanged（远端无新包）沿用缓存，changed / unknown 才重新取
     # 安装与仅下载操作共用主包版本优先判定；FreshMain 时不能用缓存包版本命中
-    if ($DownloadOnly -or -not $CompanionInfo -or -not $CompanionInfo.Checked -or -not $CompanionInfo.FilePlans) {
-        $CompanionInfo = $null
+    $planArgs = @{
+        Context = $Context; Id = $id; ManifestOrigin = Get-EntryString -Entry $Plan -Key 'manifestOrigin'; Files = $files
+        FreshMain = $versionFromPackage; UnchangedMainHash = $unchangedMainHash; FreshMainReason = $freshMainReason
+        RequireCurrent = $RequireCurrent
     }
-    if ($CompanionInfo) {
-        $plans = @($CompanionInfo.FilePlans)
-    } else {
-        $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $id -Files $files -CheckValidators `
-            -FreshMain:$freshMain -FreshMainReason:$freshMainReason -ConfirmBeforeUse:$confirmBeforeUse -ConfirmMainBeforeUse)
+    $plans = @(Get-WinstPackageFilePlans @planArgs -Index $index)
+    $versionFile = ''
+    if ($versionFromPackage) {
+        $versionInput = Get-WinstPackageVersionInput -Plan $Plan
+        if (-not $versionInput) { return @{ Error = '未找到有效的包内取版文件' } }
+        $versionFile = $versionInput.Name
+        $version = ''
+        if (-not $plans[0]['NeedDownload'] -and -not $plans[$versionInput.Index]['NeedDownload']) {
+            $version = Get-WinstCachedPackageVersion -Context $Context -MainFilePlan $plans[0] -Plan $Plan -Entry $prevEntry -MainHash $unchangedMainHash -Offline:$offline
+            $versionFromCachedPackage = [bool]$version
+        }
+    } elseif ($offline -and -not $plans[0]['NeedDownload'] -and $plans[0]['CachedVersion']) {
+        $version = [string]$plans[0]['CachedVersion']
     }
+    if ($offline -and -not $isDownloadType -and $version) {
+        try { $Plan = Get-WinstOfflineInstallPlan -Context $Context -Plan $Plan -CachedVersion $version }
+        catch { return @{ Error = $_.Exception.Message } }
+        $install = Get-EntryValue -Entry $Plan -Key 'install'
+    }
+
     $needDownload = $false
     # 注意：循环变量不能叫 $plan——PowerShell 变量名不区分大小写，会覆盖参数 $Plan（软件清单条目）
     foreach ($filePlan in $plans) { if ($filePlan['NeedDownload']) { $needDownload = $true; break } }
-    $primaryTarget = [string]$plans[0]['Target']
-    # 需要重取的只有配套文件吗？主包命中缓存、第 2 条起有变化 → 走「仅配套文件更新」
-    $mainNeedsDownload = [bool]$plans[0]['NeedDownload']
-    $companionDownloadCount = 0
-    for ($planIndex = 1; $planIndex -lt $plans.Count; $planIndex++) {
-        if ($plans[$planIndex]['NeedDownload']) { $companionDownloadCount++ }
-    }
-    $companionsOnly = [bool]($companionDownloadCount -gt 0 -and -not $mainNeedsDownload)
+    $freshMain = $versionFromPackage -and -not $offline -and (-not $unchangedMainHash -or $plans[0]['NeedDownload'])
+    $companionNames = @()
+    $companionsOnly = $false
 
     if (-not $isDownloadType -and $plans.Count -gt 1) {
         # 复用已完成的取包计划，同时把缺失目标、落位规则变化计入附件更新；不重复规划或联网。
-        if (-not $CompanionInfo -or -not $CompanionInfo.Checked) {
-            $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Plan -FilePlans $plans
-        }
+        $companionInfo = Get-WinstCompanionUpdateInfo -Context $Context -Plan $Plan -FilePlans $plans
         if ($companionInfo.Error) { return @{ Error = [string]$companionInfo.Error } }
-        $companionDownloadCount = [int]$companionInfo.ChangedCount
+        $companionNames = @($companionInfo.Names)
         $companionsOnly = [bool]$companionInfo.CompanionsOnly
     }
 
     return @{
-        Error = ''; Id = $id; DisplayName = $displayName; Type = $type; Version = $version
+        Error = ''; Plan = $Plan; Id = $id; DisplayName = $displayName; Type = $type; Version = $version
         InstallDir = $installDir; PkgDir = $pkgDir; Install = $install; Files = $files
-        VersionFromPackage = $versionFromPackage; VersionFromCachedPackage = $versionFromCachedPackage
+        VersionFile = $versionFile; VersionFromCachedPackage = $versionFromCachedPackage
         PlanFreshState = $planFreshState; FreshMain = $freshMain
         IsDownloadType = $isDownloadType; PrevEntry = $prevEntry; Plans = $plans; NeedDownload = $needDownload
-        PrimaryTarget = $primaryTarget; CompanionDownloadCount = $companionDownloadCount
+        CompanionNames = $companionNames
         CompanionsOnly = $companionsOnly; Ledger = $ledger
     }
 }

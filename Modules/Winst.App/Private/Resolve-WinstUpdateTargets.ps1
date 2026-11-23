@@ -42,7 +42,6 @@ function Resolve-WinstUpdateTargets {
     #    避免「刚刷新过的源又被 update 抓一遍」；列表 / 检查 / 执行三步读到的是同一份数据。
     if (-not $NoRefresh) {
         $refresh = Update-WinstStaleSources -Context $Context -Quiet:$Quiet -OnlyIds $targetIds
-        $Result.RefreshErrors = @($refresh.Errors)
         $Result.Network = [bool]$refresh.Network
         $Result.RefreshFailed = [int]$refresh.Failed
         Write-WinstRefreshErrors -Errors $refresh.Errors

@@ -6,18 +6,11 @@ function Set-WinstFileRefreshDecision {
         ④ 未声明校验时的判定：先按 refresh 档位 / 离线 / 只读视图给出结论，再交给校验器比对。
     .DESCRIPTION
         档位：ifMissing = 存在即命中；always = 每次重取；ttl = 距 lastCheckedAt 未超 maxAgeHours 才命中；
-        auto / check 继续走校验器。offline 与「不发请求的三种情形」在这里短路（只读视图零联网由构造保证，
-        不要在这里加任何网络调用。
+        auto / check 继续走校验器；预览跳过联网检查。
     #>
     param($Plan, [hashtable]$Context, $Meta, $Refresh, [string]$Name, [string]$Target, $Criteria,
-        [switch]$Offline, [switch]$DryRun, [switch]$CanCheckRemote)
+        [switch]$CanCheckRemote)
 
-    if ($Offline) {
-        # 严格离线：校验器请求整段跳过，各档都退化为「缓存里有就用」
-        $Plan['NeedDownload'] = $false
-        $Plan['Reason'] = '已缓存（离线模式不做新鲜度确认）'
-        return
-    }
     if ($Refresh.Mode -eq 'ifMissing') {
         $Plan['NeedDownload'] = $false
         $Plan['Reason'] = '已缓存（refresh: ifMissing，不做新鲜度确认）'
@@ -42,14 +35,8 @@ function Set-WinstFileRefreshDecision {
         return
     }
     if (-not $CanCheckRemote) {
-        # 不发请求的情形：调用方没开 -CheckValidators（只读视图走的路径）与 --dry-run（--offline 在函数开头已返回）。
-        # 这条分支是「只读视图零联网」由构造保证的地方——不要在这里加任何网络调用
         $Plan['NeedDownload'] = $false
-        if ($DryRun) {
-            $Plan['Reason'] = '已缓存（预览模式不做新鲜度确认）'
-        } else {
-            $Plan['Reason'] = '已缓存（未做新鲜度确认）'
-        }
+        $Plan['Reason'] = '已缓存（预览模式不做新鲜度确认）'
         return
     }
 

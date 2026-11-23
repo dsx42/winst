@@ -6,7 +6,7 @@ function New-WinstListItem {
         把清单里的一行（id 或 id==版本）解析成「清单条目」视图对象。
     .DESCRIPTION
         PlanAvailable 表示可执行的下载计划；VersionPending 表示计划可用、版本需取包后确认。
-        PinMismatch：清单里写了 `id==版本`，而软件源里最高可用版本不是它（由调用方提示，不悄悄忽略）。
+        固定版本通常与软件源比较，离线套件安装时与选定来源的本地包比较。
     .OUTPUTS
         [ordered]@{ Id; DisplayName; PinnedVersion; PinMismatch; PinUnknown; InCatalog; PlanAvailable; VersionPending; SourceText;
                     BestVersion; BestSource; Row; Installed; InstalledVersion; InstalledVersionText;
@@ -28,7 +28,7 @@ function New-WinstListItem {
     if ($Lookup.State) { $ledger = Get-WinstInstalledApp -State $Lookup.State -Id $Id }
     $facts = Get-WinstRowViewFacts -Id $Id -Row $row -Ledger $ledger
     $planAvailable = [bool]$facts.Chosen
-    $installedFacet = Get-WinstInstalledFacet -Ledger $ledger -Facts $facts
+    $installedFacet = Get-WinstInstalledFacet -Context $Context -Lookup $Lookup -Ledger $ledger -Row $row
 
     $cacheInfo = $null
     if ($Lookup.CacheDirById.Contains($Id)) { $cacheInfo = $Lookup.CacheDirById[$Id] }
@@ -47,9 +47,20 @@ function New-WinstListItem {
 
     $pinMismatch = $false
     $pinUnknown = $false
+    $pinSource = '软件源'
+    $pinVersion = [string]$facts.RemoteVersion
     if ($PinnedVersion) {
-        if (-not $facts.RemoteVersion) { $pinUnknown = $true }
-        elseif ((Compare-WinstVersion -A $PinnedVersion -B ([string]$facts.RemoteVersion)) -ne 0) { $pinMismatch = $true }
+        if ($Context.ContainsKey('BundleDependencyIndex')) {
+            $pinSource = '缓存包'
+            $pinVersion = ''
+            if ($planAvailable -and $cacheHas) {
+                # 旧套件可能保留多个来源，批量安装按行顺序选第一个可用计划。
+                $bundlePlan = Get-WinstRowBestPlanEntry -Row $row -Best $null
+                $pinVersion = Get-WinstOfflinePackageVersion -Context $Context -Plan $bundlePlan['Plan'] -CacheIndex $Lookup.CacheIndex
+            }
+        }
+        if (-not $pinVersion -or $pinVersion -ieq 'unknown') { $pinUnknown = $true }
+        elseif ((Compare-WinstVersion -A $PinnedVersion -B $pinVersion) -ne 0) { $pinMismatch = $true }
     }
 
     # 条目类型（download = 「仅下载软件包」）：下载流程据此把「安装包」换成「软件包」措辞
@@ -62,6 +73,8 @@ function New-WinstListItem {
         DisplayName          = [string]$facts.DisplayName
         Type                 = $typeText
         PinnedVersion        = $PinnedVersion
+        PinSource            = $pinSource
+        PinVersion           = $pinVersion
         PinMismatch          = $pinMismatch
         PinUnknown           = $pinUnknown
         InCatalog            = [bool]$facts.InCatalog
@@ -86,8 +99,8 @@ function New-WinstListItem {
         CacheFileCount       = @($cacheFiles).Count
         HasPackageUpdate     = [bool]$packageFacet.HasUpdate
         HasUpdate            = [bool]$installedFacet.HasUpdate
-        LatestVersion        = [string]$facts.BestVersion
-        LatestSource         = [string]$facts.BestSource
+        LatestVersion        = [string]$installedFacet.Latest
+        LatestSource         = [string]$installedFacet.LatestSource
         DirMissing           = [bool]$installedFacet.DirMissing
         Version              = [string]$installedFacet.VersionText
         PackageUpdateState   = [string]$packageFacet.State
