@@ -10,7 +10,7 @@ function Expand-WinstInstallerArguments {
     param(
         [string]$Template,
         [string]$InstallDir,
-        [string]$InstallRoot = ''
+        [string]$InstallRoot
     )
 
     $result = @{ Ok = $false; Value = ''; Error = '' }

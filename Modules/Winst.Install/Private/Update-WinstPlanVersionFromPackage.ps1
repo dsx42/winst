@@ -13,7 +13,7 @@ function Update-WinstPlanVersionFromPackage {
         throw ('无法读取安装包版本：{0}' -f [string]$derivedResult.Error)
     }
     $derived = [string]$derivedResult.Version
-    $null = Set-EntryValue -Entry $Plan -Key 'version' -Value $derived
+    Set-EntryValue -Entry $Plan -Key 'version' -Value $derived
     if (-not $Quiet) {
         if ([string]$derivedResult.Source -eq 'packagePath') {
             Write-Host ('    版本号取自安装包内结构（packageVersion 命中 {0}）: {1}' -f ([string]$derivedResult.MatchedPath), $derived) -ForegroundColor Gray

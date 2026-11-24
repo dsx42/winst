@@ -5,10 +5,10 @@ function Get-WinstManifestAppPlan {
     .SYNOPSIS
         按 id 取得某软件的「全流程实际内容」（优先复用软件清单解析锁，未命中时实时解析）。
     .DESCRIPTION
-        软件源之间互不覆盖，同一 id 可能命中多个来源：本函数返回全部命中（Matches），
+        同一 id 可以命中多个软件源。
         -PreferSource 指定优先来源；-RequiredSource 限定唯一允许来源，供引擎引导使用。
     .OUTPUTS
-        @{ Ok; Source; Plan; Error; Matches }
+        @{ Ok; Source; Plan; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -18,12 +18,12 @@ function Get-WinstManifestAppPlan {
         [switch]$LiveResolve
     )
 
-    $result = @{ Ok = $false; Source = ''; Plan = $null; Error = ''; Matches = @() }
+    $result = @{ Ok = $false; Source = ''; Plan = $null; Error = '' }
 
-    $found = @(Get-ResolvedAppsById -Context $Context -Id $Id)
-    if ($RequiredSource) { $found = @($found | Where-Object { [string]$_['Source'] -ceq $RequiredSource }) }
-    $result.Matches = @($found)
-
+    if (-not $LiveResolve) {
+        $found = @(Get-ResolvedAppsById -Context $Context -Id $Id)
+        if ($RequiredSource) { $found = @($found | Where-Object { [string]$_['Source'] -ceq $RequiredSource }) }
+    }
     if (-not $LiveResolve -and $found.Count -gt 0) {
         $chosen = $null
         if ($PreferSource) {

@@ -3,7 +3,7 @@
 function Invoke-WinstHttpRequest {
     <#
     .SYNOPSIS
-        HTTP GET（元数据类请求）并返回结构化结果 @{ Content; Links; FinalUri; FromCache }。
+        HTTP GET（元数据类请求）并返回结构化结果 @{ Content; Links; FinalUri }。
     .DESCRIPTION
         **元数据类**请求（清单 / 版本页 / 校验文件）：按 `proxyMode` 决定尝试序列。
         这类请求不属于「下载」，`proxyMode = download-direct` 时**只用代理**、不先试直连——
@@ -15,7 +15,6 @@ function Invoke-WinstHttpRequest {
         [Parameter(Mandatory = $true)]
         [string]$Uri,
         [hashtable]$Context,
-        [int]$TimeoutSec = 30,
         [hashtable]$Headers = $null,
         [string]$Method = 'Get',
         [switch]$NoCache,
@@ -35,7 +34,7 @@ function Invoke-WinstHttpRequest {
             if (-not $TextOnly -and $null -eq $cached.Links) {
                 $cached.Links = @(Get-HtmlAnchorList -Html $cached.Content)
             }
-            return @{ Content = $cached.Content; Links = $cached.Links; FinalUri = $cached.FinalUri; FromCache = $true }
+            return @{ Content = $cached.Content; Links = $cached.Links; FinalUri = $cached.FinalUri }
         }
     }
 
@@ -44,7 +43,7 @@ function Invoke-WinstHttpRequest {
     $lastError = $null
     foreach ($currentProxy in $attempts) {
         try {
-            $params = New-WinstHttpRequestParameters -Uri $Uri -TimeoutSec $TimeoutSec -Method $Method -Headers $Headers -Proxy $currentProxy
+            $params = New-WinstHttpRequestParameters -Uri $Uri -TimeoutSec 30 -Method $Method -Headers $Headers -Proxy $currentProxy
 
             if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
                 $headerNote = ''
@@ -84,7 +83,7 @@ function Invoke-WinstHttpRequest {
             }
 
             if (-not $NoCache) { Set-WinstHttpCacheEntry -Key $cacheKey -Entry @{ Content = $text; Links = $links; FinalUri = $finalUri } }
-            return @{ Content = $text; Links = $links; FinalUri = $finalUri; FromCache = $false }
+            return @{ Content = $text; Links = $links; FinalUri = $finalUri }
         } catch {
             $lastError = $_
             if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {

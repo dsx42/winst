@@ -20,7 +20,7 @@ function Resolve-WinstDetectFiles {
     param(
         [hashtable]$Context,
         $Detect,
-        [string]$InstallDir = ''
+        [string]$InstallDir
     )
 
     $result = @{ Ok = $false; Files = @(); HitCount = 0 }

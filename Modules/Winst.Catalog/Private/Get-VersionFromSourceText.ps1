@@ -16,7 +16,7 @@ function Get-VersionFromSourceText {
     .OUTPUTS
         @{ Ok; Version; Error; Missing }
     #>
-    param($Source, [string]$Text, [string]$Where = '来源文本')
+    param($Source, [string]$Text, [string]$Where)
 
     $result = @{ Ok = $false; Version = ''; Error = ''; Missing = $false }
     $versionKind = (Get-EntryString -Entry $Source -Key 'versionKind').Trim()

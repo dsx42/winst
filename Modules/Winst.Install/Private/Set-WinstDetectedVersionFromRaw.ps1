@@ -19,9 +19,9 @@ function Set-WinstDetectedVersionFromRaw {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Result,
-        [string]$Raw = '',
-        [string]$Kind = '',
-        $Between = @(),
+        [string]$Raw,
+        [string]$Kind,
+        $Between,
         [string]$Detail = '',
         [ValidateSet('whenNoKind', 'always')][string]$Fallback = 'whenNoKind'
     )

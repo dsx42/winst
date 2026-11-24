@@ -4,17 +4,15 @@ function Set-WinstManifestHash {
     <#
     .SYNOPSIS
         把某包文件「按软件源声明算法」的摘要写进索引用的容器（形如 { 文件名 = { sha512 = <摘要> } }）。
-    .OUTPUTS
-        写入后的容器；容器不可写或摘要 / 算法为空时原样返回。
     #>
     param($Container, [string]$FileName, [string]$Algorithm, [string]$Hash)
 
-    if ($null -eq $Container -or ($Container -isnot [System.Collections.IDictionary])) { return $Container }
-    if (-not $FileName) { return $Container }
+    if ($null -eq $Container -or ($Container -isnot [System.Collections.IDictionary])) { return }
+    if (-not $FileName) { return }
 
     $text = $Hash.Trim()
     $algorithmKey = $Algorithm.Trim().ToLowerInvariant()
-    if (-not $text -or -not $algorithmKey) { return $Container }
+    if (-not $text -or -not $algorithmKey) { return }
 
     $key = Get-WinstFileMapKey -Map $Container -Name $FileName
     $entry = $Container[$key]
@@ -23,5 +21,4 @@ function Set-WinstManifestHash {
         $Container[$key] = $entry
     }
     if ($entry -is [System.Collections.IDictionary]) { $entry[$algorithmKey] = $text.ToLowerInvariant() }
-    return $Container
 }

@@ -22,9 +22,9 @@ function New-WinstDevToolsSession {
         @{ Ok; Error; Socket; Token; TokenSource; SessionId; Process; ProfileDir; Engine; Downloads; Requests }
     #>
     param(
-        [string]$ProxyUrl = '',
-        [string]$UserAgent = '',
-        [int]$TimeoutSec = 40,
+        [string]$ProxyUrl,
+        [string]$UserAgent,
+        [int]$TimeoutSec,
         [Parameter(Mandatory = $true)][datetime]$Deadline
     )
 

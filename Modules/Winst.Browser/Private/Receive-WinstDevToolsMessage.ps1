@@ -9,7 +9,7 @@ function Receive-WinstDevToolsMessage {
         未完成的任务挂在会话上、下次接着等（否则下一次接收会直接报「已有未完成的接收」）。
         分片消息按 EndOfMessage 拼完整；连接出错时抛出，由调用方转成可读的失败原因。
     #>
-    param($Session, [int]$TimeoutMs = 20000)
+    param($Session, [int]$TimeoutMs)
 
     if (-not $Session.Pending) {
         # 缓冲区与 ArraySegment 只建一次并复用：每条消息都 New-Object 会让读取速度掉到几毫秒一条，

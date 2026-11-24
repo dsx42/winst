@@ -13,7 +13,7 @@ function Write-WinstGroupHeading {
     .OUTPUTS
         [string] 本次处理后应记住的「上一分组」（调用方回写，供下一条比较）
     #>
-    param([string]$Group, [string]$LastGroup = '', [switch]$ShowUngrouped)
+    param([string]$Group, [string]$LastGroup, [switch]$ShowUngrouped)
 
     if (-not $Group) {
         if (-not $ShowUngrouped) { return '' }

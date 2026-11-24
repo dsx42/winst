@@ -12,8 +12,8 @@ function Get-WinstUpdateVerdict {
     param(
         [string]$BestVersion,
         [string]$CurrentVersion,
-        [bool]$VersionFromPackage = $false,
-        [string]$RemoteFresh = '',
+        [bool]$VersionFromPackage,
+        [string]$RemoteFresh,
         [switch]$ForPackage,
         [string]$BestSource = ''
     )
@@ -24,7 +24,7 @@ function Get-WinstUpdateVerdict {
     if ($VersionFromPackage) {
         if ($RemoteFresh -ieq 'changed') {
             if ($ForPackage) { return @{ State = 'update'; Hint = '远端文件已变化，可以更新缓存包'; HasUpdate = $true } }
-            return @{ State = 'unknown'; Hint = '远端文件已变化，软件版本待确认'; HasUpdate = $false }
+            return @{ State = 'update'; Hint = '远端文件已变化，取包后确认版本'; HasUpdate = $true }
         }
         if ($RemoteFresh -ine 'unchanged') {
             return @{ State = 'unknown'; Hint = '无法确认远端文件是否变化，软件版本待确认'; HasUpdate = $false }

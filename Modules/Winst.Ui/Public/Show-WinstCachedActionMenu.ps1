@@ -30,7 +30,9 @@ function Show-WinstCachedActionMenu {
         } else {
             Write-Host '  软件源里没有这个软件，可刷新软件源或删除已下载的安装包。' -ForegroundColor DarkYellow
         }
-        if ($canUpgradeInstalled) {
+        if ($canUpgradeInstalled -and -not $Item['LatestVersion']) {
+            Write-Host ('  u) 更新已安装的软件（{0}）' -f $Item['InstalledUpdateHint']) -ForegroundColor White
+        } elseif ($canUpgradeInstalled) {
             Write-Host ('  u) 更新已安装的软件（{0}  →  {1}）' -f [string]$Item['InstalledVersionText'], [string]$Item['LatestVersion']) -ForegroundColor White
         }
         if ($canDownloadPackage) {

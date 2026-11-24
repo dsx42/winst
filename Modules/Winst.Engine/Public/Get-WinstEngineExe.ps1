@@ -7,12 +7,11 @@ function Get-WinstEngineExe {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Id,
-        [string]$MainExe = ''
+        [Parameter(Mandatory = $true)][string]$Id
     )
 
-    if (-not $MainExe) { $MainExe = Get-WinstEngineMainExe -Id $Id }
-    if (-not $MainExe) { return '' }
+    $mainExe = Get-WinstEngineMainExe -Id $Id
+    if (-not $mainExe) { return '' }
 
     # 进程内缓存：解压 / 下载 / 引擎自检会反复定位同一个引擎，每次定位都要读一遍 state.json
     if ($null -eq (Get-WinstState -Name WinstEnginePathCache)) {
@@ -31,12 +30,12 @@ function Get-WinstEngineExe {
     if ($entry) {
         $dir = Get-EntryString -Entry $entry -Key 'installDir'
         if ($dir) {
-            $candidate = Join-WinstPath $dir $MainExe
+            $candidate = Join-WinstPath $dir $mainExe
             if (Test-Path -LiteralPath $candidate -PathType Leaf) { $found = $candidate }
         }
     }
     if (-not $found) {
-        $probe = Join-WinstPath (Join-WinstPath $Context.InstallRoot $Id) $MainExe
+        $probe = Join-WinstPath (Join-WinstPath $Context.InstallRoot $Id) $mainExe
         if (Test-Path -LiteralPath $probe -PathType Leaf) { $found = $probe }
     }
     # 未找到时不缓存：本次会话里引擎可能刚被安装，下一次定位必须能读到新装的路径

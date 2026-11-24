@@ -11,7 +11,7 @@ function Invoke-WinstUninstallCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $ids = @()

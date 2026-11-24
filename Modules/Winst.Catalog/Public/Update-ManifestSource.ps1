@@ -15,7 +15,7 @@ function Update-ManifestSource {
         取得清单见 Get-WinstManifestPayload；解析见 Invoke-WinstManifestResolve；
         失败保留 / 按需合并见 Merge-WinstFailedAppResults / Merge-WinstOnDemandApps。
     .OUTPUTS
-        @{ Name; Success; Version; Message; Network; Apps; Resolved; ResolveFailed; Retained; RetainedReasons; Total; LocalManifest; Files }
+        @{ Success; Version; Message; Network; Apps; Resolved; ResolveFailed; Total }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -33,7 +33,10 @@ function Update-ManifestSource {
 
     $save = $null
     try {
-        $result = New-WinstManifestRefreshResult -Name $name -IsLocal:$isLocal
+        $result = @{
+            Success = $false; Version = ''; Message = ''; Network = $false
+            Apps = @(); Resolved = 0; ResolveFailed = 0; Total = 0
+        }
 
         if (-not $name) { $result.Message = '软件源名称缺失'; return $result }
         if (-not $isLocal -and -not $url) { $result.Message = '软件源地址为空'; return $result }
@@ -55,7 +58,6 @@ function Update-ManifestSource {
         if (-not $payload.Ok) {
             $result.Message = [string]$payload.Message
             $result.Network = [bool]$payload.Network
-            $result.Files = @($payload.Files)
             return $result
         }
         $entries = @($payload.Entries)
@@ -64,7 +66,6 @@ function Update-ManifestSource {
         $manifestVersion = [string]$payload.ManifestVersion
         $reusedFromCache = [bool]$payload.ReusedFromCache
         $writeCache = [bool]$payload.WriteCache
-        $result.Files = @($payload.Files)
 
         # —— 按需解析的 id 集合（含「从未解析过」的补齐） ——
         $onlySet = Get-WinstResolveFilter -Entries $entries -OnlyIds $OnlyIds -Meta $meta -IncludeUnresolved:$IncludeUnresolved
@@ -81,7 +82,6 @@ function Update-ManifestSource {
         $succeeded = [int]$retain.Succeeded
         $failed = [int]$retain.Failed
         $retained = [int]$retain.Retained
-        $retainedReasons = @($retain.Reasons)
 
         # —— 按需解析：未解析条目沿用 sidecar 缓存（清单中已移除的仍自然清退） ——
         $resolvedCount = 0
@@ -99,8 +99,6 @@ function Update-ManifestSource {
         $result.Apps = $apps
         $result.Resolved = $succeeded
         $result.ResolveFailed = $failed
-        $result.Retained = $retained
-        $result.RetainedReasons = @($retainedReasons)
         $result.Total = $entries.Count
 
         $options = Get-WinstState -Name WinstOptions
@@ -115,7 +113,6 @@ function Update-ManifestSource {
             -WriteCache:$writeCache -TargetUrl $targetUrl -Version $manifestVersion -Apps $apps -FetchedAt $fetchedAt
         if ($save.Error) {
             $result.Message = [string]$save.Error
-            if ($save.PersistUnavailable) { $result.PersistUnavailable = $true }
             return $result
         }
 
@@ -127,6 +124,6 @@ function Update-ManifestSource {
         return $result
     } finally {
         # 提前返回或抛错时也让下次依赖查询重建索引，持久化和会话回退由写入方失效。
-        if ($null -eq $save) { $null = Remove-WinstState -Name WinstDependencyIndex }
+        if ($null -eq $save) { Remove-WinstState -Name WinstDependencyIndex }
     }
 }

@@ -11,16 +11,14 @@ function Show-WinstSoftwareRows {
           第 3 行：下载状态（未下载 / 已下载包 a.b + 大小 + 文件数 + 安装包能否更新）。
         统计信息（共多少个 / 已安装 / 已下载 / 可升级）在列表顶部与底部各给一份。
     .OUTPUTS
-        @{ Action = 'select' | 'back' | 'quit' | 'empty'; Index = <选中下标>; Filter = <当前关键字过滤> }
+        @{ Action = 'select' | 'back' | 'quit'; Index = <选中下标>; Filter = <当前关键字过滤> }
     #>
     param(
         $Items,
-        [string]$Prompt = '请选择',
-        [string]$Filter = ''
+        [string]$Filter
     )
 
     $items = @($Items)
-    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = ([string]$Filter).Trim() } }
 
     $installedCount = 0
     $cachedCount = 0
@@ -82,5 +80,5 @@ function Show-WinstSoftwareRows {
     return (Invoke-WinstListPage -Items $items -SummaryText $summaryText -SummaryColor $summaryColor `
         -EmptyText '没有匹配的软件。' `
         -SelectHint '输入编号查看详情（安装 / 更新 / 卸载 / 删除安装包），也可以直接输入软件名搜索' `
-        -Prompt $Prompt -Filter $Filter -RenderRow $renderRow -RenderFooter $renderFooter)
+        -Filter $Filter -RenderRow $renderRow -RenderFooter $renderFooter)
 }

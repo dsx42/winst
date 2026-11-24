@@ -5,7 +5,7 @@ function Get-WinstGithubTagVersion {
     .SYNOPSIS
         把发布 tag 转成可比较的版本号（先去掉 source.releaseTag 前缀，再规范化）。
     #>
-    param([string]$Tag, [string]$ReleaseTagPrefix = '')
+    param([string]$Tag, [string]$ReleaseTagPrefix)
 
     $text = $Tag.Trim()
     if (-not $text) { return '' }

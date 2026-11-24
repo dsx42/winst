@@ -3,7 +3,7 @@
 function Get-WinstPackageDirectoryMap {
     <#
     .SYNOPSIS
-        扫描安装包位置下实际含文件的 id 目录，返回路径、文件、大小及格式化大小。
+        扫描安装包位置下实际含文件的 id 目录，返回路径、文件和字节数。
     #>
     param([string]$PkgDir, [string[]]$Ids)
 
@@ -29,7 +29,6 @@ function Get-WinstPackageDirectoryMap {
             Path      = [string]$dir.FullName
             Files     = $names
             SizeBytes = $size
-            SizeText  = (Format-WinstSizeText -Bytes $size)
         }
     }
     return $map

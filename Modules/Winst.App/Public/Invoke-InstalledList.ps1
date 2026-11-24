@@ -66,7 +66,7 @@ function Invoke-InstalledList {
             # u) 全部升级：列出可升级的软件并确认后一次性更新（更新方式取「设置 → 更新方式」）
             $updatable = @()
             foreach ($one in $items) { if ([bool]$one['HasUpdate']) { $updatable += $one } }
-            $null = Invoke-WinstUpgradeAll -Context $Context -Items $updatable
+            Invoke-WinstUpgradeAll -Context $Context -Items $updatable
         } elseif ($pick.Action -ne 'select') {
             Write-Host '  已返回。' -ForegroundColor DarkGray
             return
@@ -75,8 +75,6 @@ function Invoke-InstalledList {
             $id = [string]$item['Id']
             Show-WinstInstalledDetail -Context $Context -Item $item
 
-            # 更新相关的两个选项**只在真的有更新时出现**（HasUpdate = 软件源里有比本机更高的版本）：
-            # 没有更新就没有可执行的动作，摆着只会让人试一次才发现没内容。
             $canUpdate = [bool]$item['HasUpdate']
             $hasOldVersions = [bool]$item['HasOldVersions']
             Write-Host ''
@@ -102,7 +100,7 @@ function Invoke-InstalledList {
                     Write-Host '  本机没有检测到并存的其他版本。' -ForegroundColor DarkYellow
                     continue
                 }
-                $null = Invoke-WinstOldVersionCleanup -Context $Context -Item $item
+                Invoke-WinstOldVersionCleanup -Context $Context -Item $item
             } elseif ($text -eq 's') {
                 $null = Invoke-WinstSoftwareSourceRefresh -Context $Context -Id $id
             } elseif ($text -ne 'u' -and $text -ne 'c' -and $text -ne 'd' -and $text -ne 'r') {

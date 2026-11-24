@@ -11,7 +11,7 @@ function Get-WinstPathRemovalPlan {
         @{ Removed; Kept; Refused }
     #>
     param(
-        [string[]]$Segments = @(),
+        [string[]]$Segments,
         [string]$PathValue
     )
 

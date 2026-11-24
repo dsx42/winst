@@ -7,7 +7,7 @@ function Get-WinstResolveFilter {
     .OUTPUTS
         哈希集合（未传 OnlyIds 时返回 $null）
     #>
-    param($Entries, [string[]]$OnlyIds = @(), $Meta, [switch]$IncludeUnresolved)
+    param($Entries, [string[]]$OnlyIds, $Meta, [switch]$IncludeUnresolved)
 
     if (@($OnlyIds).Count -eq 0) { return $null }
     $onlySet = Get-WinstIdFilterSet -Ids $OnlyIds

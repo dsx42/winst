@@ -14,7 +14,7 @@ function Invoke-ManifestManager {
     param([Parameter(Mandatory = $true)][hashtable]$Context)
 
     # 进入前先做内置源自愈，保证列表与后续操作基于一致的源列表
-    $null = Ensure-OfficialManifest -Context $Context
+    Ensure-OfficialManifest -Context $Context
 
     $pause = {
         Write-Host ''
@@ -45,12 +45,6 @@ function Invoke-ManifestManager {
         # —— 输入编号：进入这个软件源的详情，随后可刷新 / 删除 ——
         $number = 0
         if ([int]::TryParse($text, [ref]$number)) {
-            if ($sources.Count -eq 0) {
-                Write-Host ''
-                Write-Host '  现在还没有软件源，可直接输入地址新建。' -ForegroundColor Yellow
-                & $pause
-                continue
-            }
             if ($number -lt 1 -or $number -gt $sources.Count) {
                 Write-Host ''
                 Write-Host ('  没有这个编号（可选 1 - {0}），请重新输入；也可以直接输入地址新建。' -f $sources.Count) -ForegroundColor Yellow

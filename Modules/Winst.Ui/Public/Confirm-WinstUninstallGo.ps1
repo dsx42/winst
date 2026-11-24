@@ -7,7 +7,7 @@ function Confirm-WinstUninstallGo {
     .OUTPUTS
         @{ Proceed; Preview }
     #>
-    param([switch]$DryRun, [switch]$Yes, [switch]$SkipConfirm)
+    param([switch]$DryRun, [switch]$Yes)
 
     if ($DryRun) {
         Write-Host ''
@@ -15,7 +15,7 @@ function Confirm-WinstUninstallGo {
         return @{ Proceed = $false; Preview = $true }
     }
 
-    if (-not $Yes -and -not $SkipConfirm) {
+    if (-not $Yes) {
         Write-Host ''
         Write-Host '  y) 确认卸载' -ForegroundColor White
         Write-Host '  回车 / 其它任意输入 = 取消' -ForegroundColor DarkGray

@@ -16,23 +16,21 @@ function Invoke-WinstUninstallApp {
         Confirm-WinstUninstallRunning / Invoke-WinstPreUninstallCommands / Invoke-WinstRemovePayload /
         Remove-WinstAppliedSystemItems 的说明。
     .OUTPUTS
-        @{ Ok; Cancelled; Removed; NeedRestart; RestartInitiated; Missing; Error; Message; Leftovers; Notes }
+        @{ Ok; Cancelled; NeedRestart; RestartInitiated; Error; Message; Notes }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
         [switch]$Force,
         [switch]$Yes,
-        [switch]$Quiet,
-        [switch]$SkipConfirm,
         # --kill：非交互（--yes / 输入被重定向）下检测到软件在运行时自动结束进程（与安装 / 更新同一口径，
         #；交互式下不传也会就地询问 k / c
         [switch]$Kill
     )
 
     $result = @{
-        Ok = $false; Cancelled = $false; Removed = $false; NeedRestart = $false; RestartInitiated = $false; Missing = $false;
-        Error = ''; Message = ''; Leftovers = @(); Notes = @()
+        Ok = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false;
+        Error = ''; Message = ''; Notes = @()
     }
 
     $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
@@ -42,7 +40,7 @@ function Invoke-WinstUninstallApp {
         $result.Error = $stateRead.Error
         return $result
     }
-    if ($stateRead.Error -and -not $Quiet) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor Yellow }
+    if ($stateRead.Error) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor Yellow }
     $state = $stateRead.State
 
     $ledger = Get-WinstInstalledApp -State $state -Id $Id
@@ -58,7 +56,7 @@ function Invoke-WinstUninstallApp {
 
     Write-WinstDependentsHint -Context $Context -Id $Id
 
-    $gate = Confirm-WinstUninstallGo -DryRun:$dryRun -Yes:$Yes -SkipConfirm:$SkipConfirm
+    $gate = Confirm-WinstUninstallGo -DryRun:$dryRun -Yes:$Yes
     if (-not $gate.Proceed) {
         if ($gate.Preview) {
             $result.Ok = $true
@@ -70,13 +68,12 @@ function Invoke-WinstUninstallApp {
     }
 
     $uninstallTimer = [Diagnostics.Stopwatch]::StartNew()
-    # 卸载过程共享的可变状态（备注 / 残留目录 / 是否「只移除记录」；结果对象用于 Missing / NeedRestart）
-    $runState = @{ Notes = @(); Leftovers = @(); ForceRemove = [bool]$Force; Result = $result }
+    $runState = @{ Notes = @(); ForceRemove = [bool]$Force; Result = $result }
 
     try {
         # —— 运行中检测 ——
         $running = Confirm-WinstUninstallRunning -Context $Context -Id $Id -Ledger $ledger -Targets $targets `
-            -Yes:$Yes -Kill:$Kill -Quiet:$Quiet
+            -Yes:$Yes -Kill:$Kill
         if (-not $running.Ok) {
             if ($running.Cancelled) {
                 $result.Cancelled = $true
@@ -88,7 +85,7 @@ function Invoke-WinstUninstallApp {
         foreach ($note in @($running.Notes)) { $runState.Notes += $note }
 
         # —— ⓪ 卸载命令 ——
-        $pre = Invoke-WinstPreUninstallCommands -Context $Context -CommandDir $commandDir -Targets $targets -ForceRemove ([bool]$Force) -Quiet:$Quiet
+        $pre = Invoke-WinstPreUninstallCommands -Context $Context -CommandDir $commandDir -Targets $targets -ForceRemove ([bool]$Force)
         foreach ($note in @($pre.Notes)) { $runState.Notes += $note }
         if (-not $pre.Ok) {
             $result.Error = [string]$pre.Error
@@ -96,7 +93,7 @@ function Invoke-WinstUninstallApp {
         }
 
         # —— ① 删除程序本体 ——
-        $payload = Invoke-WinstRemovePayload -Context $Context -Id $Id -Targets $targets -RunState $runState -Yes:$Yes -Quiet:$Quiet
+        $payload = Invoke-WinstRemovePayload -Context $Context -Id $Id -Targets $targets -RunState $runState -Yes:$Yes
         if ($payload.Abort) {
             $result.Error = [string]$payload.Error
             return $result
@@ -104,7 +101,7 @@ function Invoke-WinstUninstallApp {
 
         # —— ② 回收 winst 写入的系统项 ——
         try {
-            Remove-WinstAppliedSystemItems -Context $Context -State $state -Id $Id -Targets $targets -RunState $runState -Quiet:$Quiet
+            Remove-WinstAppliedSystemItems -Context $Context -State $state -Id $Id -Targets $targets -RunState $runState
         } catch {
             $result.Error = ('移交共享系统项登记失败，已保留安装记录：{0}' -f $_.Exception.Message)
             return $result
@@ -118,14 +115,12 @@ function Invoke-WinstUninstallApp {
         }
 
         $result.Ok = $true
-        $result.Removed = $true
         $result.Message = Format-WinstUninstallMessage -Id $Id -Targets $targets
         return $result
     } finally {
         $elapsed = '（总耗时 {0:F1} 秒）' -f $uninstallTimer.Elapsed.TotalSeconds
         if ($result.Ok) { $result.Message += $elapsed }
         elseif ($result.Error -and -not $result.Cancelled) { $result.Error += $elapsed }
-        $result.Leftovers = @($runState.Leftovers)
         $result.Notes = @($runState.Notes)
     }
 }

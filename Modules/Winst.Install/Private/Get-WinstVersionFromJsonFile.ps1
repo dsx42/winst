@@ -11,9 +11,9 @@ function Get-WinstVersionFromJsonFile {
     param(
         [hashtable]$Context,
         $Detect,
-        [string]$InstallDir = '',
-        [string]$Kind = '',
-        $Between = @(),
+        [string]$InstallDir,
+        [string]$Kind,
+        $Between,
         [hashtable]$Result
     )
 
@@ -28,10 +28,10 @@ function Get-WinstVersionFromJsonFile {
         if ($null -eq $obj) { continue }
         $found = Get-JsonNodeValue -Node $obj -Key $jsonKey
         if (-not $found.Ok) { continue }
-        $one = @{ Ok = $false; Found = $true; Version = ''; Detail = '' }
+        $one = @{ Ok = $false; Version = ''; Detail = '' }
         Set-WinstDetectedVersionFromRaw -Result $one -Raw ([string]$found.Text) -Kind $Kind -Between $Between `
             -Detail ('JSON 文件: {0}（字段 {1}）' -f $file.FullName, $jsonKey)
-        if (-not $one.Ok -or -not $one.Version) { continue }
+        if (-not $one.Ok) { continue }
         Add-WinstVersionItem -Result $Result -Version ([string]$one.Version) -Detail ([string]$one.Detail) `
             -GroupKey (Get-WinstPathGroupKey -Path $file.FullName)
     }

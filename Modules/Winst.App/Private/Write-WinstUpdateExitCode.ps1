@@ -12,16 +12,16 @@ function Write-WinstUpdateExitCode {
     # -Quiet 表示调用方（如菜单「检查更新」）会自己渲染结果与统计：这里一并不打印，
     # 否则同一屏会出现两份口径不同的统计（一份含「已是最新 / 未安装」，一份只讲「可以更新」）。
     if (-not $Quiet) { Write-Host '' }
-    if ($Check) {
+    if ($Check -and -not $Quiet) {
         $parts = @()
         $parts += ('可更新 {0}' -f $Result.Updatable)
         $parts += ('已是最新 {0}' -f $Result.UpToDate)
         if ($Result.Failed -gt 0) { $parts += ('失败 {0}' -f $Result.Failed) }
         if ($Result.Unknown -gt 0) { $parts += ('无法比较 {0}' -f $Result.Unknown) }
         if ($Result.NotInstalled -gt 0) { $parts += ('未安装 {0}' -f $Result.NotInstalled) }
-        if (-not $Quiet) { Write-Host ('  检查结果: {0}' -f ($parts -join ' / ')) -ForegroundColor Gray }
-    } else {
-        Write-WinstResultSummary -Result $Result -Quiet:$Quiet -Fields @(
+        Write-Host ('  检查结果: {0}' -f ($parts -join ' / ')) -ForegroundColor Gray
+    } elseif (-not $Check) {
+        Write-WinstResultSummary -Result $Result -Fields @(
             @{ Key = 'Updated'; Text = '已更新' },
             @{ Key = 'Skipped'; Text = '跳过' },
             @{ Key = 'Failed'; Text = '失败' },

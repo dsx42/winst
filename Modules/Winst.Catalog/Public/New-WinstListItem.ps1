@@ -9,10 +9,8 @@ function New-WinstListItem {
         固定版本通常与软件源比较，离线套件安装时与选定来源的本地包比较。
     .OUTPUTS
         [ordered]@{ Id; DisplayName; PinnedVersion; PinMismatch; PinUnknown; InCatalog; PlanAvailable; VersionPending; SourceText;
-                    BestVersion; BestSource; Row; Installed; InstalledVersion; InstalledVersionText;
-                    InstalledDirMissing; UpdateState; CacheHas; CacheVersion; CacheVersionText;
-                    CacheFiles; CacheDir; CacheSizeText; CacheFileCount; HasPackageUpdate;
-                    Type }
+                    BestVersion; Row; Installed; InstalledVersionText; InstalledDirMissing; UpdateState; InstalledUpdateHint;
+                    CacheHas; CacheVersionText; Type; PinSource; PinVersion; PlanEntry; CompanionVersionLines }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -30,20 +28,10 @@ function New-WinstListItem {
     $planAvailable = [bool]$facts.Chosen
     $installedFacet = Get-WinstInstalledFacet -Context $Context -Lookup $Lookup -Ledger $ledger -Row $row
 
-    $cacheInfo = $null
-    if ($Lookup.CacheDirById.Contains($Id)) { $cacheInfo = $Lookup.CacheDirById[$Id] }
-    $cacheHas = [bool]($null -ne $cacheInfo)
-    $cacheFiles = @()
-    $cacheDirPath = ''
-    $cacheSizeText = ''
-    if ($cacheInfo) {
-        $cacheFiles = @($cacheInfo['Files'])
-        $cacheDirPath = [string]$cacheInfo['Path']
-        $cacheSizeText = [string]$cacheInfo['SizeText']
-    }
+    $cacheHas = $Lookup.CacheDirById.Contains($Id)
     $cacheVersion = ''
     if ($Lookup.CacheIndex.Contains($Id)) { $cacheVersion = Get-EntryString -Entry $Lookup.CacheIndex[$Id] -Key 'version' }
-    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $cacheVersion -Evaluate
+    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $cacheVersion
 
     $pinMismatch = $false
     $pinUnknown = $false
@@ -83,30 +71,13 @@ function New-WinstListItem {
         VersionPending       = [bool]($planAvailable -and -not $facts.BestVersion)
         SourceText           = [string]$facts.SourceText
         BestVersion          = [string]$facts.BestVersion
-        BestSource           = [string]$facts.BestSource
         Row                  = $row
         Installed            = [bool]$installedFacet.Installed
-        InstalledVersion     = [string]$installedFacet.Version
         InstalledVersionText = [string]$installedFacet.VersionText
         InstalledDirMissing  = [bool]$installedFacet.DirMissing
         UpdateState          = [string]$installedFacet.UpdateState
         CacheHas             = $cacheHas
-        CacheVersion         = $cacheVersion
         CacheVersionText     = [string]$packageFacet.VersionText
-        CacheFiles           = @($cacheFiles)
-        CacheDir             = $cacheDirPath
-        CacheSizeText        = $cacheSizeText
-        CacheFileCount       = @($cacheFiles).Count
-        HasPackageUpdate     = [bool]$packageFacet.HasUpdate
-        HasUpdate            = [bool]$installedFacet.HasUpdate
-        LatestVersion        = [string]$installedFacet.Latest
-        LatestSource         = [string]$installedFacet.LatestSource
-        DirMissing           = [bool]$installedFacet.DirMissing
-        Version              = [string]$installedFacet.VersionText
-        PackageUpdateState   = [string]$packageFacet.State
-        PackageUpdateHint    = [string]$packageFacet.Hint
-        InstalledUpdateState = [string]$installedFacet.UpdateState
-        UpdateHint            = [string]$installedFacet.UpdateHint
         InstalledUpdateHint  = [string]$installedFacet.UpdateHint
     }
 }

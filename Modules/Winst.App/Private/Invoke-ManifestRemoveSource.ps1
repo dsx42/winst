@@ -5,7 +5,7 @@ function Invoke-ManifestRemoveSource {
     .SYNOPSIS
         删除一个软件源：先说明影响面并确认，再移除源列表条目与清单缓存。
     .DESCRIPTION
-        供「管理软件源」的详情页使用。内置源与本地清单在这里就被挡住，不会走到删除。
+        供「管理软件源」的详情页使用。详情页仅允许删除第三方软件源。
         `--dry-run` 只打印将要删除什么；`--yes` 跳过确认。
     .OUTPUTS
         @{ Removed = <bool>; Cancelled = <bool> }
@@ -18,13 +18,6 @@ function Invoke-ManifestRemoveSource {
     $result = @{ Removed = $false; Cancelled = $false }
 
     $name = [string]$Source['name']
-    $isLocal = Get-EntryBool -Entry $Source -Key 'isLocal'
-    $isBuiltin = Get-EntryBool -Entry $Source -Key 'isBuiltin'
-
-    if ($isLocal -or $isBuiltin) {
-        Write-Host ('  软件源 "{0}" 不能在这里删除（内置源 / 本地清单）。' -f $name) -ForegroundColor Yellow
-        return $result
-    }
 
     $dryRun = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)
     Write-Host ''

@@ -10,16 +10,14 @@ function Confirm-WinstUninstallRunning {
     .OUTPUTS
         @{ Ok; Cancelled; Error; Notes }
     #>
-    param([hashtable]$Context, [string]$Id, $Ledger, $Targets, [switch]$Yes, [switch]$Kill, [switch]$Quiet)
+    param([hashtable]$Context, [string]$Id, $Ledger, $Targets, [switch]$Yes, [switch]$Kill)
 
     $notes = @()
     if ([string]$Targets['Method'] -eq 'record-only') { return @{ Ok = $true; Cancelled = $false; Error = ''; Notes = @() } }
 
     $checkPlan = $Targets['ManifestPlan']
     if (-not $checkPlan) {
-        $ledgerName = Get-EntryString -Entry $Ledger -Key 'name'
-        if (-not $ledgerName) { $ledgerName = $Id }
-        $checkPlan = @{ id = $Id; name = $ledgerName }
+        $checkPlan = @{ id = $Id }
     }
     $checkDirs = @()
     foreach ($d in @((Get-EntryString -Entry $Ledger -Key 'installDir'), (Join-WinstPath $Context.InstallRoot $Id))) {
@@ -29,7 +27,7 @@ function Confirm-WinstUninstallRunning {
     $nonInteractive = [bool]($Yes -or (Test-WinstInputRedirected))
     $runningCheck = Confirm-WinstAppNotRunning -Plan $checkPlan `
         -InstallDir ([string]$Targets['InstallDir']) -ExtraDirs $checkDirs `
-        -Action '卸载' -Kill:$Kill -NonInteractive:$nonInteractive -Quiet:$Quiet
+        -Action '卸载' -Kill:$Kill -NonInteractive:$nonInteractive
     if (-not $runningCheck.Ok) {
         return @{ Ok = $false; Cancelled = [bool]$runningCheck.Cancelled; Error = [string]$runningCheck.Error; Notes = @() }
     }

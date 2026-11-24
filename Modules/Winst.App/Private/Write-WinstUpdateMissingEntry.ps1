@@ -7,7 +7,7 @@ function Write-WinstUpdateMissingEntry {
     .OUTPUTS
         是否为仅下载类型。
     #>
-    param([string]$Id, $RowById, [string]$SourceName = '')
+    param([string]$Id, $RowById, [string]$SourceName)
 
     Write-Host ''
     # 仅下载类型的软件不写台账，它的「更新」是换新软件包，不该被引导去执行安装

@@ -11,7 +11,7 @@ function Get-WinstFileDest {
     #>
     param(
         [Parameter(Mandatory = $true)]$Item,
-        [int]$Index = 1,
+        [int]$Index,
         [Parameter(Mandatory = $true)]$Result
     )
 

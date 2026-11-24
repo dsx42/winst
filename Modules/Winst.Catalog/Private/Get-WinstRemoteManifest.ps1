@@ -13,7 +13,7 @@ function Get-WinstRemoteManifest {
 
     $out = @{
         Ok = $false; Message = ''; Network = $false; Content = ''; Entries = @(); TargetUrl = $Url
-        ManifestVersion = ''; ReusedFromCache = $false; WriteCache = $false; Files = @()
+        ManifestVersion = ''; ReusedFromCache = $false; WriteCache = $false
     }
 
     $isPlaceholder = $Url.Contains('{version}')
@@ -59,7 +59,6 @@ function Get-WinstRemoteManifest {
         $targetUrl = $Url.Replace('{version}', $latest)
     }
 
-    $content = ''
     $writeCache = $false
     if ($reusedFromCache) {
         try {

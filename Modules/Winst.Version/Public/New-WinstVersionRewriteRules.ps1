@@ -15,13 +15,12 @@ function New-WinstVersionRewriteRules {
           ③ 正则（高级）：{ "pattern": "^jdk-", "replace": "" }
         三种写法最终都编译成 { pattern, replace } 后统一使用。
     .OUTPUTS
-        @{ Ok; Rules = @( [ordered]@{ pattern; replace } ); Error; Declared }
+        @{ Ok; Rules = @( [ordered]@{ pattern; replace } ); Error }
     #>
     param($Spec)
 
-    $result = @{ Ok = $true; Rules = @(); Error = ''; Declared = $false }
+    $result = @{ Ok = $true; Rules = @(); Error = '' }
     if ($null -eq $Spec) { return $result }
-    $result.Declared = $true
 
     $formHint = '版本改写要写成 { "from": "jdk8u{u}-b{b}", "to": "1.8.0_{u}-b{b}" }（推荐）、{ "stripPrefix": "jdk-" }（只去前缀）或 { "pattern": "…", "replace": "…" }（正则，高级）；一条规则只能用一种写法，多条规则写成数组按顺序应用'
 

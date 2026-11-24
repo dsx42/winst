@@ -5,17 +5,16 @@ function New-MatchRule {
     .SYNOPSIS
         把清单里的匹配规则编译为可复用的对象（通配、re: 正则、preset: 版本预置规则或 product: 产品名预置规则）。
     .OUTPUTS
-        @{ Ok; IsRegex; Pattern; Source; Error; Kind }
+        @{ Ok; Pattern; Source; Error; Kind }
     #>
-    param([string]$Rule, [string]$Kind = '')
+    param([string]$Rule, [string]$Kind)
 
     $text = $Rule
 
-    $result = @{ Ok = $false; IsRegex = $false; Pattern = ''; Source = $text; Error = ''; Kind = $Kind }
+    $result = @{ Ok = $false; Pattern = ''; Source = $text; Error = ''; Kind = $Kind }
     if (-not $text.Trim()) { $result.Error = '匹配规则为空'; return $result }
 
     if (Test-RegexRuleText -Rule $text) {
-        $result.IsRegex = $true
         $result.Pattern = Get-RegexRuleText -Rule $text
     } elseif ($text.TrimStart() -match '^(?i)preset:') {
         $preset = $text.Substring($text.IndexOf(':') + 1).Trim()

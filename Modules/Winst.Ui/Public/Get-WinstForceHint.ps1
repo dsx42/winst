@@ -10,7 +10,7 @@ function Get-WinstForceHint {
     .OUTPUTS
         [string]
     #>
-    param([ValidateSet('downgrade', 'continue')][string]$Kind = 'downgrade')
+    param([ValidateSet('downgrade', 'continue')][string]$Kind)
 
     if (Test-WinstMenuMode) { return '' }
     if ($Kind -eq 'downgrade') { return '；如需降级请加 --force' }

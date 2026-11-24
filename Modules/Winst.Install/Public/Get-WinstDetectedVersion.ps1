@@ -19,7 +19,7 @@ function Get-WinstDetectedVersion {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$InstallDir = ''
+        [string]$InstallDir
     )
 
     $result = Get-WinstDetectedVersionCore -Context $Context -Plan $Plan -InstallDir $InstallDir

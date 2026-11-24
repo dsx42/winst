@@ -36,14 +36,7 @@ function Add-RemoteManifest {
     }
 
     # 添加即校验：实际拉取清单并全量解析，失败即不写入源列表
-    $probe = [ordered]@{
-        name      = $sourceName
-        kind      = 'remote'
-        url       = [string]$parsed.Url
-        files     = @()
-        isLocal   = $false
-        isBuiltin = $false
-    }
+    $probe = @{ name = $sourceName; url = [string]$parsed.Url }
     Write-Host ('  正在校验 {0} …' -f $parsed.Url) -ForegroundColor Gray
     $check = Update-ManifestSource -Context $Context -Source $probe
     if (-not $check.Success) {

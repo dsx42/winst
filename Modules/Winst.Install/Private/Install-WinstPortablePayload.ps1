@@ -8,7 +8,7 @@ function Install-WinstPortablePayload {
         @{ Ok; Error; PostInstallCopyApplied }
     #>
     param([hashtable]$Context, $Install, [string]$InstallDir, [string]$PrimaryPath,
-        [switch]$Overwrite, [string[]]$Keep = @(), [switch]$Quiet, $Plan = $null)
+        [switch]$Overwrite, [string[]]$Keep, [switch]$Quiet, $Plan)
 
     try { Assert-WinstSafeWritePath -Path $InstallDir -Directory }
     catch { return @{ Ok = $false; Error = $_.Exception.Message } }

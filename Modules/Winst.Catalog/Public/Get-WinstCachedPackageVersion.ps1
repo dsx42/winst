@@ -37,8 +37,7 @@ function Get-WinstCachedPackageVersion {
             if ($hash -ine $MainHash) { return '' }
             # 即使新取版附件尚未下载，已核实的主包仍可与安装基线比较。
             if ($null -ne $MatchedMainHash -and $meta.ManifestOrigin) { $MatchedMainHash.Value = $hash }
-        } elseif ((-not $Offline -and -not $meta.ManifestOrigin -and -not $meta.Url) -or
-                ($meta.Url -and $meta.Url -cne $url -and -not ($Offline -and $meta.ManifestOrigin))) {
+        } elseif (-not $Offline -and (-not $meta.Exists -or ($meta.Url -and $meta.Url -cne $url))) {
             return ''
         }
     }

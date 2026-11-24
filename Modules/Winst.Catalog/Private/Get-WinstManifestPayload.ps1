@@ -5,14 +5,14 @@ function Get-WinstManifestPayload {
     .SYNOPSIS
         取得清单内容与条目：本地清单直接读文件，远程按 {version} 指示地址 / 缓存复用决定是否下载。
     .OUTPUTS
-        @{ Ok; Message; Network; Content; Entries; TargetUrl; ManifestVersion; ReusedFromCache; WriteCache; Files }
+        @{ Ok; Message; Network; Content; Entries; TargetUrl; ManifestVersion; ReusedFromCache; WriteCache }
     #>
     param([hashtable]$Context, $Source, [string]$Url, [switch]$IsLocal,
         [string]$CachePath, [switch]$HasCache, [string]$CachedVersion, [switch]$Force)
 
     $out = @{
         Ok = $false; Message = ''; Network = $false; Content = ''; Entries = @(); TargetUrl = $Url
-        ManifestVersion = ''; ReusedFromCache = $false; WriteCache = $false; Files = @()
+        ManifestVersion = ''; ReusedFromCache = $false; WriteCache = $false
     }
 
     if ($IsLocal) {
@@ -29,7 +29,6 @@ function Get-WinstManifestPayload {
         if ($local.Version) { $out.ManifestVersion = [string]$local.Version }
         # 更新时间 = 本次刷新的时刻（每次刷新都改写，便于多机共用安装包位置时确认谁刷新过）
         $out.TargetUrl = (@(Get-EntryArray -Entry $Source -Key 'files') -join ' ; ')
-        $out.Files = @(Get-EntryArray -Entry $Source -Key 'files')
         return $out
     }
 

@@ -14,7 +14,7 @@ function Resolve-WinstSafeChildPattern {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Child,
-        [string]$Label = '路径'
+        [string]$Label
     )
 
     Split-WinstSafeChildSegments -Root $Root -Child $Child -Label $Label -AllowWildcard

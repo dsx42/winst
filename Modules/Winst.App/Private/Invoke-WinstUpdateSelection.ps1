@@ -17,7 +17,7 @@ function Invoke-WinstUpdateSelection {
     $updatableIds = @($View.UpdatableIds)
     $entryTexts = @($View.EntryTexts)
 
-    $pick = Read-WinstIndexSelection -Prompt '  请选择' -Count $updatableIds.Count -AllowMultiple -AllowEmpty -AllKey 'u'
+    $pick = Read-WinstIndexSelection -Prompt '  请选择' -Count $updatableIds.Count -AllowMultiple -AllKey 'u'
     if ($pick.Action -eq 'quit') { Set-WinstQuit; return $result }
     if ($pick.Action -eq 'back' -or $pick.Action -eq 'empty') {
         # 用户已经按过一次回车表示返回：跳过菜单的「按回车键返回菜单」

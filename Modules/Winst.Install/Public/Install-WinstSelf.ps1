@@ -12,13 +12,12 @@ function Install-WinstSelf {
         目标已是同版本、或包比已装版本更旧（降级）时也重装。
 
     .OUTPUTS
-        @{ Ok; Error; Installed; Updated; UpToDate; Version; Exe }
+        @{ Ok; Error; Updated; UpToDate; Version }
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [switch]$Quiet,
         [switch]$ForceUpdate,
         [string]$FromPath = ''
     )
@@ -26,11 +25,9 @@ function Install-WinstSelf {
     $result = @{
         Ok        = $false
         Error     = ''
-        Installed = $false
         Updated   = $false
         UpToDate  = $false
         Version   = ''
-        Exe       = ''
     }
 
     $selfId = 'winst'
@@ -70,11 +67,7 @@ function Install-WinstSelf {
                 if ($comparison -eq 0 -and $exists) {
                     $result.Ok = $true
                     $result.UpToDate = $true
-                    $result.Version = $installedVersion
-                    $result.Exe = $launcherPath
-                    if (-not $Quiet) {
-                        Write-Host ('    winst 已是最新版本（{0}），无需更新。' -f $installedVersion) -ForegroundColor DarkGray
-                    }
+                    Write-Host ('    winst 已是最新版本（{0}），无需更新。' -f $installedVersion) -ForegroundColor DarkGray
                     return $result
                 }
 
@@ -84,7 +77,7 @@ function Install-WinstSelf {
                 }
             }
 
-            $plan = New-WinstSelfPlan -Version $sourceVersion
+            $plan = New-WinstSelfPlan
 
             # 两种形态都接受：已解压目录直接复制，压缩包解压。
             # 按实际形态传参，调用方已有树时就不必再解压一次。
@@ -99,14 +92,13 @@ function Install-WinstSelf {
         } else {
             if ($exists -and -not $ForceUpdate) {
                 $result.Ok = $true
-                $result.Exe = $launcherPath
                 return $result
             }
             if (-not ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline)) {
                 try { $packageLock = Enter-WinstPackageLock -PkgDir $Context.PkgDir -Id $selfId }
                 catch { $result.Error = $_.Exception.Message; return $result }
             }
-            $package = Get-WinstSelfPackageSource -Context $Context -Quiet:$Quiet -RequireDownload:$isUpdate
+            $package = Get-WinstSelfPackageSource -Context $Context -RequireDownload:$isUpdate
             if (-not $package.Ok) {
                 $result.Error = [string]$package.Error
                 return $result
@@ -129,19 +121,15 @@ function Install-WinstSelf {
     }
     $ledger = Register-WinstSelfLedger -Context $Context -Plan $plan -InstallDir $installDir `
         -Updated $isUpdate -Resolved $resolved `
-        -SourceVersion $sourceVersion -SourceName $sourceName -Quiet:$Quiet
+        -SourceVersion $sourceVersion -SourceName $sourceName
 
     $result.Ok = $true
     $result.Updated = $isUpdate
-    $result.Installed = -not $exists
     $result.Version = [string]$ledger.Version
-    $result.Exe = $launcherPath
 
-    if (-not $Quiet) {
-        $actionText = '已安装'
-        if ($result.Updated) { $actionText = '已更新（重启 winst 后生效）' }
-        Write-Host ('    winst {0}: {1}' -f $actionText, $installDir) -ForegroundColor DarkGray
-    }
+    $actionText = '已安装'
+    if ($result.Updated) { $actionText = '已更新（重启 winst 后生效）' }
+    Write-Host ('    winst {0}: {1}' -f $actionText, $installDir) -ForegroundColor DarkGray
 
     return $result
 }

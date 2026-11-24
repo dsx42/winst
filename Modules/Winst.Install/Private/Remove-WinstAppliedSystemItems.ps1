@@ -5,7 +5,7 @@ function Remove-WinstAppliedSystemItems {
     .SYNOPSIS
         ② 回收 winst 写入的系统项：快捷方式 / 环境变量（含「仍被其它软件使用时恢复」）/ PATH 项。
     #>
-    param([hashtable]$Context, $State, [string]$Id, $Targets, [hashtable]$RunState, [switch]$Quiet)
+    param([hashtable]$Context, $State, [string]$Id, $Targets, [hashtable]$RunState)
 
     $owners = Get-WinstSystemItemOwners -Context $Context -State $State -ExceptId $Id `
         -Declarations:([bool]($Targets['Env'] -or $Targets['PathItems']))
@@ -20,7 +20,7 @@ function Remove-WinstAppliedSystemItems {
             }
             $r = Remove-WinstShortcutFile -LinkPath $link
             if ($r.Ok) {
-                if ($r.Removed -and -not $Quiet) { Write-Host ('    已删除快捷方式: {0}' -f $link) -ForegroundColor Gray }
+                if ($r.Removed) { Write-Host ('    已删除快捷方式: {0}' -f $link) -ForegroundColor Gray }
             } else {
                 $RunState.Notes += ('删除快捷方式失败（{0}）：{1}' -f $link, $r.Error)
             }
@@ -48,7 +48,7 @@ function Remove-WinstAppliedSystemItems {
                 }
                 try {
                     Set-WinstEnvironmentVariableEx -Name $name -Value $restore.Value -Scope $scope -Changes $changes
-                    if (-not $Quiet) { Write-Host ('    环境变量 {0} 已恢复为「{1}」需要的值' -f $name, $restore.FromId) -ForegroundColor Gray }
+                    Write-Host ('    环境变量 {0} 已恢复为「{1}」需要的值' -f $name, $restore.FromId) -ForegroundColor Gray
                 } catch {
                     $RunState.Notes += ('恢复环境变量 {0} 失败：{1}' -f $name, $_.Exception.Message)
                 }
@@ -60,10 +60,10 @@ function Remove-WinstAppliedSystemItems {
                     # 安装前就有这个变量（值被本软件覆盖过）：还原原值，不删用户的设置
                     $previous = Get-EntryString -Entry $item -Key 'previous'
                     Set-WinstEnvironmentVariableEx -Name $name -Value $previous -Scope $scope -Changes $changes
-                    if (-not $Quiet) { Write-Host ('    环境变量 {0} 已还原为安装前的值' -f $name) -ForegroundColor Gray }
+                    Write-Host ('    环境变量 {0} 已还原为安装前的值' -f $name) -ForegroundColor Gray
                 } else {
                     $removedVariable = Remove-WinstEnvironmentVariableEx -Name $name -Scope $scope -Changes $changes
-                    if ($removedVariable -and -not $Quiet) { Write-Host ('    已移除环境变量: {0}（{1}）' -f $name, $scope) -ForegroundColor Gray }
+                    if ($removedVariable) { Write-Host ('    已移除环境变量: {0}（{1}）' -f $name, $scope) -ForegroundColor Gray }
                 }
             } catch {
                 $RunState.Notes += ('回收环境变量 {0} 失败：{1}' -f $name, $_.Exception.Message)
@@ -79,12 +79,12 @@ function Remove-WinstAppliedSystemItems {
             $ownerId = $owners.Paths[$scope + '|' + $path]
             if ($ownerId) {
                 Move-WinstSystemItemOwnership -Context $Context -State $State -FromId $Id -ToId $ownerId -Field 'appliedPath' -Item $item
-                if (-not $Quiet) { Write-Host ('    PATH 项仍被其它已装软件使用，已保留: {0}' -f $path) -ForegroundColor Gray }
+                Write-Host ('    PATH 项仍被其它已装软件使用，已保留: {0}' -f $path) -ForegroundColor Gray
                 continue
             }
             $r = Remove-WinstPathEntry -PathValue $path -Scope $scope -Changes $changes
             if ($r.Ok) {
-                if ($r.Removed -gt 0 -and -not $Quiet) { Write-Host ('    已移除 PATH 项: {0}（{1}）' -f $path, $scope) -ForegroundColor Gray }
+                if ($r.Removed -gt 0) { Write-Host ('    已移除 PATH 项: {0}（{1}）' -f $path, $scope) -ForegroundColor Gray }
             } else {
                 $RunState.Notes += ('移除 PATH 项 {0} 失败：{1}' -f $path, $r.Error)
             }

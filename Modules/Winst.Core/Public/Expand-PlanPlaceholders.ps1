@@ -10,7 +10,7 @@ function Expand-PlanPlaceholders {
     param(
         [string]$Value,
         [string]$InstallDir,
-        [string]$InstallRoot = ''
+        [string]$InstallRoot
     )
 
     return [regex]::Replace($Value, '\{installDir\}|\{installRoot\}', [System.Text.RegularExpressions.MatchEvaluator]{

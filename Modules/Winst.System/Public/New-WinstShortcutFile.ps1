@@ -11,8 +11,8 @@ function New-WinstShortcutFile {
     param(
         [Parameter(Mandatory = $true)][string]$LinkPath,
         [Parameter(Mandatory = $true)][string]$TargetPath,
-        [string]$WorkingDirectory = '',
-        [string]$Description = ''
+        [string]$WorkingDirectory,
+        [string]$Description
     )
 
     $parent = Split-Path -Parent $LinkPath

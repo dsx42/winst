@@ -40,11 +40,10 @@ function Invoke-InstallFlow {
         # 全部刷新会让输入关键字后又要干等；只有用户选中要安装的那几个才刷新。
         $lookup = Search-WinstRowsWithRefresh -Context $Context -Keyword $keyword -SkipVersionRefresh
         $searched = $lookup.Searched
-        $refresh = $lookup.Refresh
         if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
             Write-Host '  当前为离线模式，直接使用已有软件清单。' -ForegroundColor DarkGray
         }
-        Write-WinstRefreshErrors -Errors $refresh.Errors
+        Write-WinstRefreshErrors -Errors $lookup.Errors
 
         # 关键字解析：整串优先、搜不到再按多个关键字分别搜索并合并去重
         $rows = @($searched.Rows)

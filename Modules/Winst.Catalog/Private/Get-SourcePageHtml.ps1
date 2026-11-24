@@ -7,7 +7,7 @@ function Get-SourcePageHtml {
     .OUTPUTS
         @{ Ok; Html; Anchors; Notes; Error }
     #>
-    param([hashtable]$Context, $Source, [string]$PageUrl, [string]$Label = '页面')
+    param([hashtable]$Context, $Source, [string]$PageUrl, [string]$Label)
 
     $result = @{ Ok = $false; Html = ''; Anchors = @(); Notes = @(); Error = '' }
     try { Assert-WinstHttpUrl -Url $PageUrl -Label $Label }

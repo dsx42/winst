@@ -16,7 +16,7 @@ function Invoke-ManifestAddSource {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$RepoOrUrl = ''
+        [string]$RepoOrUrl
     )
 
     Write-Section '新建软件源'

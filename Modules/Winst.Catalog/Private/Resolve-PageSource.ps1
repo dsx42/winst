@@ -46,10 +46,6 @@ function Resolve-PageSource {
     $fileRule = $spec.FileRule
 
     $pageHeaders = Get-WinstBrowserHeaders
-    $html = ''
-    $downloadUrl = ''
-
-    $browserPageHash = ''
     if ($null -ne $spec.ClickSpec) {
         $click = Get-WinstPageClickedUrl -Context $Context -Source $source -PageUrl $pageUrl -ClickSpec $spec.ClickSpec `
             -FileRule $fileRule -Item $item -Result $result

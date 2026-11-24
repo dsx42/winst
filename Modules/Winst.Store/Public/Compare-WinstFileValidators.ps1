@@ -7,7 +7,7 @@ function Compare-WinstFileValidators {
     .OUTPUTS
         @{ Compared; Changed; Baseline }
     #>
-    param([string[]]$Criteria, $Meta, $Validators, $LocalSize = $null)
+    param([string[]]$Criteria, $Meta, $Validators, $LocalSize)
 
     $result = @{ Compared = 0; Changed = $false; Baseline = $false }
     foreach ($field in @(@('etag', 'ETag'), @('lastmodified', 'LastModified'))) {

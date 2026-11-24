@@ -10,7 +10,7 @@ function Write-ManifestSourceInfo {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Source,
-        [int]$Index = 0
+        [int]$Index
     )
 
     $name = [string]$Source['name']

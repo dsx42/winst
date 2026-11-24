@@ -7,14 +7,14 @@ function New-ResolvedFileItem {
     #>
     param(
         [string]$Url,
-        [string]$Name = '',
-        [string]$Dest = '',
-        [string]$Hash = '',
-        [string]$HashFile = '',
-        [string]$HashFrom = '',
-        $Size = $null,
+        [string]$Name,
+        [string]$Dest,
+        [string]$Hash,
+        [string]$HashFile,
+        [string]$HashFrom,
+        $Size,
         [switch]$Extract,
-        $StripTopDir = $null
+        $StripTopDir
     )
 
     $fileName = $Name

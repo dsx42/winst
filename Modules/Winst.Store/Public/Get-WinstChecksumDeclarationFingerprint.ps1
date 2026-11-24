@@ -11,8 +11,8 @@ function Get-WinstChecksumDeclarationFingerprint {
     #>
     param(
         [string]$FileName,
-        [string]$FileUrl = '',
-        [string]$FileVersion = '',
+        [string]$FileUrl,
+        [string]$FileVersion,
         [string]$HashFile,
         [string]$HashFrom
     )

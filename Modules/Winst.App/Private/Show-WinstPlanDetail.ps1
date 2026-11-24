@@ -8,7 +8,7 @@ function Show-WinstPlanDetail {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$SourceName = '',
+        [string]$SourceName,
         $StateRead, $Ledger, [switch]$IsUpgrade
     )
 
@@ -20,5 +20,5 @@ function Show-WinstPlanDetail {
     Show-ResolvedAppPlan -Plan $Plan -SourceName $SourceName `
         -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
         @shortcutDirs `
-        -InstalledVersion $installedVersion -InstalledDir $installedDir -IsUpgrade:$IsUpgrade -Context $Context -State $StateRead.State -StateRead $StateRead
+        -InstalledVersion $installedVersion -InstalledDir $installedDir -IsUpgrade:$IsUpgrade -Context $Context -StateRead $StateRead
 }

@@ -9,14 +9,10 @@ function Enter-WinstInstanceLock {
         拒绝其它实例写入。Temp 锁放在 .winst-stage 外，避免暂存清理影响锁。
         句柄及对应 Temp 保存在 WinstInstanceLock，业务与暂存清理结束后统一释放；
         申请失败时释放已取得的句柄，进程被强杀时由系统回收。
-    .PARAMETER Path
-        数据目录锁路径，默认 Get-WinstInstanceLockPath；Temp 锁始终按实际 Temp 申请。
     .OUTPUTS
         @{ Ok; Busy; Path; OwnerPid; OwnerPath; OwnerStartedAt; Error }
     #>
-    param([string]$Path = '')
-
-    if (-not $Path) { $Path = Get-WinstInstanceLockPath }
+    $path = Get-WinstInstanceLockPath
     $result = @{ Ok = $false; Busy = $false; Path = $Path; OwnerPid = 0; OwnerPath = ''; OwnerStartedAt = ''; Error = '' }
     if ($null -ne (Get-WinstState -Name WinstInstanceLock)) {
         $result.Error = '当前进程已经持有实例锁，不能重复申请'

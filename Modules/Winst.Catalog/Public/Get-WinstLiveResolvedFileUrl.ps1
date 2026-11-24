@@ -18,9 +18,9 @@ function Get-WinstLiveResolvedFileUrl {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string]$PreferSource = '',
-        [int]$Index = -1,
-        [string]$FileName = ''
+        [string]$PreferSource,
+        [int]$Index,
+        [string]$FileName
     )
 
     $result = @{ Ok = $false; Url = ''; Name = ''; Version = ''; Error = '' }

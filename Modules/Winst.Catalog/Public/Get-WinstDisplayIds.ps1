@@ -15,12 +15,10 @@ function Get-WinstDisplayIds {
         [string[]] 去重后的 id（保持首次出现顺序）
     #>
     param(
-        # 列表项（hashtable，取 Id 键）或其他「带 id 的对象」
+        # 列表项（字典，取 Id 键）
         [AllowEmptyCollection()]$Items = @(),
         # 直接给 id 字符串时用这个（与 -Items 二选一）
-        [AllowEmptyCollection()][string[]]$Ids = @(),
-        # 从对象的哪个属性 / 键取 id
-        [string]$IdKey = 'Id'
+        [AllowEmptyCollection()][string[]]$Ids = @()
     )
 
     $collected = New-Object 'System.Collections.Generic.List[string]'
@@ -36,15 +34,7 @@ function Get-WinstDisplayIds {
         & $add ([string]$raw)
     }
     foreach ($item in @($Items)) {
-        if ($null -eq $item) { continue }
-        $value = $null
-        if ($item -is [System.Collections.IDictionary]) {
-            if ($item.Contains($IdKey)) { $value = $item[$IdKey] }
-        } else {
-            $prop = $item.PSObject.Properties[$IdKey]
-            if ($prop) { $value = $prop.Value }
-        }
-        & $add ([string]$value)
+        & $add ([string]$item['Id'])
     }
 
     return $collected.ToArray()

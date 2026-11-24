@@ -23,10 +23,10 @@ function Resolve-WinstDeferredDecision {
         [string]$Detected,
         $Result,
         $Ledger,
-        [int]$CompanionDownloadCount = 0,
+        [int]$CompanionDownloadCount,
         [switch]$Quiet,
         # 调用方显式传了 -SourceName；不声明的话只能靠动态作用域读到调用方变量（换调用点或 StrictMode 就断）
-        [string]$SourceName = ''
+        [string]$SourceName
     )
 
     $cmpAfterPackage = Compare-WinstVersion -A $Detected -B $Version

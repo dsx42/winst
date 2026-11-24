@@ -10,8 +10,8 @@ function Set-WinstInstallLedger {
         已有的 applied* 登记也从重读后的条目取，与磁盘保持一致。
     #>
     param([hashtable]$Context, [string]$Id, [string]$Type, $Plan, [string]$InstallDir,
-        [string]$Version, [string]$SourceName, $SystemItems, $AppliedFiles, $OldVersions = @(), $AppliedFileRules = $null,
-        $AppliedFileVersions = $null, $CompanionVersionBaseline = $null)
+        [string]$Version, [string]$SourceName, $SystemItems, $AppliedFiles, $OldVersions, $AppliedFileRules,
+        $AppliedFileVersions, $CompanionVersionBaseline)
 
     $existingEnv = @()
     $existingPath = @()

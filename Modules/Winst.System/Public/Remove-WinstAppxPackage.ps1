@@ -9,11 +9,11 @@ function Remove-WinstAppxPackage {
         一个软件可能对应不同包家族及架构；逐个移除清单名称规则明确允许的包。
         清单应限定所属系列与通道，并明确列出需要一并卸载的共享组件。
     .OUTPUTS
-        @{ Ok; Error; PackageFullName; Removed; Failed }
+        @{ Ok; Error; Failed }
     #>
-    param($NameRule, [switch]$Quiet)
+    param($NameRule)
 
-    $result = @{ Ok = $false; Error = ''; PackageFullName = ''; Removed = @(); Failed = @() }
+    $result = @{ Ok = $false; Error = ''; Failed = @() }
     $packages = @(Get-WinstAppxPackagesMatching -NameRules $NameRule)
     if ($packages.Count -eq 0) {
         $result.Error = ('没有找到已安装的应用包（名称规则: {0}）' -f ((@($NameRule) | ForEach-Object { [string]$_ }) -join '、'))
@@ -27,11 +27,9 @@ function Remove-WinstAppxPackage {
 
     foreach ($package in $packages) {
         try { $fullName = [string]$package.PackageFullName } catch { $fullName = '' }
-        if (-not $result.PackageFullName) { $result.PackageFullName = $fullName }
-        if (-not $Quiet) { Write-Host ('    正在移除应用包: {0} …' -f $fullName) -ForegroundColor Gray }
+        Write-Host ('    正在移除应用包: {0} …' -f $fullName) -ForegroundColor Gray
         try {
             Remove-AppxPackage -Package $fullName -ErrorAction Stop
-            $result.Removed += $fullName
         } catch {
             $result.Failed += [ordered]@{ PackageFullName = $fullName; Error = [string]$_.Exception.Message }
         }

@@ -22,7 +22,7 @@ function Invoke-WinstOldVersionRemoval {
         [hashtable]$Context,
         [string]$Id,
         [string]$Version,
-        [string]$RecordKey = ''
+        [string]$RecordKey
     )
 
     $result = @{

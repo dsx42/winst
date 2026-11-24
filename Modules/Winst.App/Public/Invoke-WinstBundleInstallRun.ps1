@@ -14,7 +14,7 @@ function Invoke-WinstBundleInstallRun {
         [switch]$PinAutoContinue,
         [switch]$SkipExisting,
         [ValidateSet('Menu', 'Cli')]
-        [string]$Presentation = 'Menu'
+        [string]$Presentation
     )
 
     $stats = @{

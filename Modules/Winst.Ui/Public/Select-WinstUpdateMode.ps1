@@ -7,10 +7,10 @@ function Select-WinstUpdateMode {
     .DESCRIPTION
         回车 / `b` = 不改本次方式，按「设置 → 更新方式」里的默认方式继续更新（调用方据此回退），
         所以提示行写的是「回车 / b = 不改，按默认方式更新」——不能让用户以为「取消 = 不更新了」。
-        `q` 是退出整个程序（Set-WinstQuit），同样返回 Cancelled 由调用方停止后续动作。
+        `q` 是退出整个程序（Set-WinstQuit），返回 Ok = $false 由调用方停止后续动作。
         非法输入重新提示，不当作取消。
     .OUTPUTS
-        @{ Ok; Cancelled; Mode }  Mode = 'keep' | 'full'
+        @{ Ok; Mode }  Mode = 'keep' | 'full'
     #>
     param()
 
@@ -24,10 +24,10 @@ function Select-WinstUpdateMode {
     while ($true) {
         $text = Read-WinstAnswerText -Prompt '  请输入编号（回车 / b = 不改，按默认方式更新）'
 
-        if (-not $text -or $text -ieq 'b') { return @{ Ok = $false; Cancelled = $true; Mode = '' } }
-        if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return @{ Ok = $false; Cancelled = $true; Mode = '' } }
-        if ($text -eq '1') { return @{ Ok = $true; Cancelled = $false; Mode = 'keep' } }
-        if ($text -eq '2') { return @{ Ok = $true; Cancelled = $false; Mode = 'full' } }
+        if (-not $text -or $text -ieq 'b') { return @{ Ok = $false; Mode = '' } }
+        if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return @{ Ok = $false; Mode = '' } }
+        if ($text -eq '1') { return @{ Ok = $true; Mode = 'keep' } }
+        if ($text -eq '2') { return @{ Ok = $true; Mode = 'full' } }
         Write-Host '  请输入 1 或 2（回车 / b = 不改，按默认方式更新）。' -ForegroundColor Yellow
     }
 }

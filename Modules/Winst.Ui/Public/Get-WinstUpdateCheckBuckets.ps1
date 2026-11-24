@@ -29,7 +29,7 @@ function Get-WinstUpdateCheckBuckets {
             if ($action -eq 'files') {
                 $companionUpdatable++
             } elseif ([string]$one['Message']) {
-                # check 档里带原因的是「无法比较版本」（本机版本未知 / 软件源里没有可用的版本信息）
+                # 缺少可比较的版本号时，列表按条目说明原因。
                 $unknownInUpdatable++
             }
             continue
@@ -40,7 +40,7 @@ function Get-WinstUpdateCheckBuckets {
     }
 
     $notes = @()
-    if ($unknownInUpdatable -gt 0) { $notes += ('{0} 个版本没法自动比较，会按软件源里的版本更新' -f $unknownInUpdatable) }
+    if ($unknownInUpdatable -gt 0) { $notes += ('{0} 个待核对版本' -f $unknownInUpdatable) }
     if ($companionUpdatable -gt 0) { $notes += ('{0} 个主包没变、只有附加文件有更新' -f $companionUpdatable) }
     $summaryText = ('共 {0} 个软件可以更新' -f $updateEntries.Count)
     if ($notes.Count -gt 0) {

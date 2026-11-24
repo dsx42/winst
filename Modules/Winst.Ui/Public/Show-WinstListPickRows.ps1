@@ -17,13 +17,12 @@ function Show-WinstListPickRows {
     #>
     param(
         $Rows,
-        [hashtable]$Selected = $null,
-        [string]$Filter = '',
-        [string]$Title = ''
+        [hashtable]$Selected,
+        [string]$Filter,
+        [string]$Title
     )
 
     $all = @($Rows)
-    if (-not $Selected) { $Selected = New-WinstOrdinalDictionary }
 
     $filterText = $Filter.Trim()
     if (Test-WinstInputRedirected) { return @{ Action = 'cancel'; Ids = @(); Filter = $filterText } }
@@ -43,7 +42,7 @@ function Show-WinstListPickRows {
         }
 
         Write-Host ''
-        if ($Title) { Write-Host ('  {0}' -f $Title) -ForegroundColor Cyan }
+        Write-Host ('  {0}' -f $Title) -ForegroundColor Cyan
         Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
 
         if ($visible.Count -eq 0) {

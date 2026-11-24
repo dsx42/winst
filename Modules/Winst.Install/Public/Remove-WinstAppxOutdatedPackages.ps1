@@ -12,11 +12,11 @@ function Remove-WinstAppxOutdatedPackages {
         低于的逐一移除；清单名称规则应明确限定系列、通道及是否包含共享组件，不能依靠内部版本号
         判断所属系列。只对卸载方式为 appx 的条目生效。
     .OUTPUTS
-        @{ Ok; Error; Removed; Failed; Kept }
+        @{ Ok; Error; Removed; Failed }
     #>
     param([hashtable]$Context, $Plan, [switch]$Quiet)
 
-    $result = @{ Ok = $true; Error = ''; Removed = @(); Failed = @(); Kept = 0 }
+    $result = @{ Ok = $true; Error = ''; Removed = @(); Failed = @() }
     $uninstall = Get-EntryValue -Entry $Plan -Key 'uninstall' -Default $null
     if ($null -eq $uninstall) { return $result }
     if ((Get-EntryString -Entry $uninstall -Key 'method').Trim().ToLowerInvariant() -ne 'appx') { return $result }
@@ -36,7 +36,7 @@ function Remove-WinstAppxOutdatedPackages {
     foreach ($package in $packages) {
         try { $pkgVersion = [string]$package.Version } catch { $pkgVersion = '' }
         try { $cmp = Compare-WinstVersion -A $pkgVersion -B $detectedVersion } catch { $cmp = 0 }
-        if ($cmp -ge 0) { $result.Kept++; continue }   # 版本相同 / 更高 → 本次安装的（或更高的版本前缀）→ 保留
+        if ($cmp -ge 0) { continue }   # 版本相同 / 更高 → 本次安装的（或更高的版本前缀）→ 保留
         try { $fullName = [string]$package.PackageFullName } catch { $fullName = '' }
         if (-not $Quiet) { Write-Host ('    正在清理旧版本应用包: {0} …' -f $fullName) -ForegroundColor Gray }
         try {

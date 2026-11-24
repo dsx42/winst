@@ -5,7 +5,7 @@ function Test-WinstManifestSourceMayContainId {
     .SYNOPSIS
         用清单正文判断未解析 id 的归属；远程正文缺失 / 损坏 / 过期时允许刷新确认。
     #>
-    param([hashtable]$Context, $Source, [string]$Id, [hashtable]$Lookup = @{})
+    param([hashtable]$Context, $Source, [string]$Id, [hashtable]$Lookup)
 
     if (Get-EntryBool -Entry $Source -Key 'isLocal') {
         return (Test-WinstLocalManifestHasId -Context $Context -Id $Id -Lookup $Lookup)
@@ -16,7 +16,7 @@ function Test-WinstManifestSourceMayContainId {
     $name = Get-EntryString -Entry $Source -Key 'name'
     $path = Get-ManifestCachePath -PkgDir $Context.PkgDir -Name $name
     if (-not $path) { return $true }
-    $read = Read-WinstJsonFileCached -ParsedOnly -Path $path
+    $read = Read-WinstJsonFileCached -Path $path
     if (-not $read.Ok -or $null -eq $read.Value) { return $true }
     try { $entries = @(Get-ManifestEntries -Manifest $read.Value) }
     catch { return $true }

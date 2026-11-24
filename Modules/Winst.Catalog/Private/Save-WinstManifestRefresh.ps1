@@ -5,7 +5,7 @@ function Save-WinstManifestRefresh {
     .SYNOPSIS
         落盘：需要时写清单缓存，并改写 sidecar 的更新时间与解析锁。
     .OUTPUTS
-        @{ Error; PersistUnavailable }
+        @{ Error }
     #>
     param([hashtable]$Context, [string]$Name, [string]$CachePath, [string]$Content, [switch]$WriteCache,
         [string]$TargetUrl, [string]$Version, $Apps, [string]$FetchedAt)
@@ -45,7 +45,7 @@ function Save-WinstManifestRefresh {
         }
         if ($persistUnavailable) { (Get-WinstState -Name WinstManifestPersistUnavailable)[$metaPath] = $true }
         Reset-WinstCatalogCache
-        return @{ Error = ('写入缓存失败: {0}；本次解析结果仅在当前会话可用' -f $message); PersistUnavailable = $persistUnavailable }
+        return @{ Error = ('写入缓存失败: {0}；本次解析结果仅在当前会话可用' -f $message) }
     }
-    return @{ Error = ''; PersistUnavailable = $false }
+    return @{ Error = '' }
 }

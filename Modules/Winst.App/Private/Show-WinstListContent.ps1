@@ -13,7 +13,7 @@ function Show-WinstListContent {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Items,
         [switch]$Quiet,
-        $StateRead = $null
+        $StateRead
     )
 
     $list = @($Items)

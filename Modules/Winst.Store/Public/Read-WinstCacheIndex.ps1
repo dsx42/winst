@@ -5,7 +5,7 @@ function Read-WinstCacheIndex {
     .SYNOPSIS
         读取缓存索引；缺失或损坏时按各 id 目录内的文件重建。
     .OUTPUTS
-        @{ Index; Rebuilt; Changed; Error; CanSave; BackupError }
+        @{ Index; Changed; Error; CanSave }
     .DESCRIPTION
         重建时版本未知（记空串），并按文件的最后写入时间填 downloadedAt；目录已不存在的索引条目
         在本次读取中清除（Changed 为 $true 时调用方应回写）。
@@ -17,11 +17,9 @@ function Read-WinstCacheIndex {
 
     $result = @{
         Index   = (New-WinstOrdinalDictionary)
-        Rebuilt = $false
         Changed = $false
         Error   = ''
         CanSave = $true
-        BackupError = ''
     }
 
     $wanted = $null
@@ -44,11 +42,9 @@ function Read-WinstCacheIndex {
     $cachedIndex = $cache[$cacheKey]
     if ($null -eq $StoredValue -and $indexFileStamp -and $cachedIndex -and ([string]$cachedIndex['Stamp'] -eq $indexFileStamp)) {
         $cachedResult = $cachedIndex['Value']
-        $result.Rebuilt = [bool]$cachedResult.Rebuilt
         $result.Changed = [bool]$cachedResult.Changed
         $result.Error = [string]$cachedResult.Error
         $result.CanSave = [bool]$cachedResult.CanSave
-        $result.BackupError = [string]$cachedResult.BackupError
 
         if ($null -ne $wanted) {
             foreach ($id in $wanted.Keys) {
@@ -120,7 +116,6 @@ function Read-WinstCacheIndex {
     }
 
     if (-not $loaded) {
-        $result.Rebuilt = $true
         $result.Changed = $true
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             $result.Error = '安装包索引损坏，已按各软件目录内的文件重建。'
@@ -138,8 +133,7 @@ function Read-WinstCacheIndex {
                 }
             } catch {
                 $result.CanSave = $false
-                $result.BackupError = ('备份损坏索引失败，禁止覆盖原文件 {0}：{1}' -f $path, $_.Exception.Message)
-                $result.Error += ' ' + $result.BackupError
+                $result.Error += (' 备份损坏索引失败，禁止覆盖原文件 {0}：{1}' -f $path, $_.Exception.Message)
             }
         }
     }
@@ -158,7 +152,7 @@ function Read-WinstCacheIndex {
         }
     }
 
-    if ($result.Rebuilt) {
+    if (-not $loaded) {
         $dirs = if ($null -eq $wanted) {
             Get-ChildItem -LiteralPath $PkgDir -Directory -ErrorAction SilentlyContinue
         } else {
@@ -179,11 +173,9 @@ function Read-WinstCacheIndex {
     # 缓存里存副本：调用方（Update-WinstPackageCacheIndex）会就地改 Index 再写盘，
     # 存本体等于把「还没落盘的改动」留在缓存里，写盘失败后本进程会一直读到一份从未存在的索引。
     $cacheCopy = @{
-        Rebuilt = [bool]$result.Rebuilt
         Changed = [bool]$result.Changed
         Error   = [string]$result.Error
         CanSave = [bool]$result.CanSave
-        BackupError = [string]$result.BackupError
         Index   = (New-WinstOrdinalDictionary)
     }
     foreach ($id in @($result.Index.Keys)) {

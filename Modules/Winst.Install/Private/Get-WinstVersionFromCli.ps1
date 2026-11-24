@@ -9,9 +9,9 @@ function Get-WinstVersionFromCli {
         [hashtable]$Context,
         $Plan,
         $Detect,
-        [string]$InstallDir = '',
-        [string]$Kind = '',
-        $Between = @(),
+        [string]$InstallDir,
+        [string]$Kind,
+        $Between,
         [hashtable]$Result
     )
 
@@ -65,7 +65,7 @@ function Get-WinstVersionFromCli {
 
     # 先在「临时结果」上试 stdout，取不到再试 stderr（java -version 等把版本打到 stderr）
     $detail = ('命令: {0} {1}' -f $exePath, $fullArgs)
-    $probe = @{ Ok = $false; Found = $false; Version = ''; Method = $Result.Method; Detail = ''; Note = '' }
+    $probe = @{ Ok = $false; Version = '' }
     Set-WinstDetectedVersionFromRaw -Result $probe -Raw ([string]$text) -Kind $Kind -Between $Between
     if (-not $probe.Ok -and $errText) {
         Set-WinstDetectedVersionFromRaw -Result $probe -Raw ([string]$errText) -Kind $Kind -Between $Between

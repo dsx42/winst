@@ -5,16 +5,16 @@ function Show-WinstBundlePlan {
     .SYNOPSIS
         ⑥ 制作计划确认：列出将复制的软件与文件数，确认后返回待复制项。
     .OUTPUTS
-        @{ Cancelled; CopyItems }
+        确认后返回可复制的软件包。
     #>
-    param([string]$TargetDir, $Plan, [switch]$DryRun, [bool]$Yes = $false, [switch]$NonInteractive)
+    param([string]$TargetDir, $Plan, [switch]$DryRun, [bool]$Yes, [switch]$NonInteractive)
 
     $copyItems = @($Plan | Where-Object { $_['CacheHas'] })
     if ($copyItems.Count -eq 0) {
         Write-Host ''
         Write-Host '  没有任何可复制的安装包（清单里的软件都缺包），已取消。' -ForegroundColor Red
         Write-Host '  可先在联网机器上把安装包取到本地（「软件列表 → d 一键下载」或「已下载包 → x 下载全部更新包」），再重新制作。' -ForegroundColor DarkGray
-        return @{ Cancelled = $false; Empty = $true; CopyItems = @() }
+        return
     }
 
     $totalFiles = 0
@@ -30,9 +30,9 @@ function Show-WinstBundlePlan {
     if (-not $Yes -and -not $DryRun -and -not $NonInteractive -and -not (Test-WinstInputRedirected)) {
         if (-not (Read-WinstConfirm -Prompt '  确认制作？(y/N)' -Default 'n')) {
             Write-Host '  已取消。' -ForegroundColor DarkGray
-            return @{ Cancelled = $true; Empty = $false; CopyItems = $copyItems }
+            return
         }
     }
 
-    return @{ Cancelled = $false; Empty = $false; CopyItems = $copyItems }
+    return $copyItems
 }

@@ -15,7 +15,7 @@ function Get-WinstDetectedVersionCore {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$InstallDir = '',
+        [string]$InstallDir,
         $RegistryMatches = $null
     )
 
@@ -27,7 +27,6 @@ function Get-WinstDetectedVersionCore {
         Version     = ''
         Versions    = New-Object 'System.Collections.Generic.List[object]'
         OldVersions = @()
-        Method      = 'none'
         Detail      = ''
         Note        = ''
         QuerySucceeded = $false

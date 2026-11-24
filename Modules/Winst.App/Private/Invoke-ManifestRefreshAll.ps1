@@ -25,10 +25,6 @@ function Invoke-ManifestRefreshAll {
         $title = '刷新全部软件源'
         $sources = @(Get-ManifestSourceList -Context $Context)
     }
-    if ($sources.Count -eq 0) {
-        Write-Host '  当前没有软件源。' -ForegroundColor Yellow
-        return $result
-    }
 
     Write-Section $title
 

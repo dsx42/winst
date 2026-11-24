@@ -13,7 +13,7 @@ function Update-WinstDisplaySources {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [AllowEmptyCollection()]
-        [string[]]$Ids = @(),
+        [string[]]$Ids,
         [switch]$Quiet
     )
 

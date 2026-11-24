@@ -21,9 +21,9 @@ function Invoke-WinstCommandList {
     #>
     param(
         [Parameter(Mandatory = $true)]$Commands,
-        [string]$Label = '命令',
-        [string]$InstallDir = '',
-        [string]$InstallRoot = '',
+        [string]$Label,
+        [string]$InstallDir,
+        [string]$InstallRoot,
         [switch]$ShowCommand
     )
 

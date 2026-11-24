@@ -5,7 +5,7 @@ function Get-WinstCompanionVersionLines {
     .SYNOPSIS
         按附加文件的比较项生成本地版本说明，不联网；安装快照与下载索引分别读取。
     #>
-    param([hashtable]$Context, [string]$Id, $Row, $Ledger, $CacheIndex = $null, $Plan = $null)
+    param([hashtable]$Context, [string]$Id, $Row, $Ledger, $CacheIndex, $Plan = $null)
 
     if (-not $Context) { return @() }
     if ($null -eq $Plan -and $Row) {

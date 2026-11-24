@@ -7,7 +7,7 @@ function Invoke-WinstListShowCli {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Path = ''
+        [string]$Path
     )
 
     $kindText = (Get-WinstListKindText)

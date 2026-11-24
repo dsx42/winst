@@ -24,13 +24,13 @@ function Invoke-WinstUpdateCustom {
     Write-Host ('    这次可以单独选更新方式与软件源；回车 = 不改，按默认方式更新（默认方式: {0}）。' -f (Get-WinstUpdateModeName -Context $Context)) -ForegroundColor DarkGray
 
     $mode = Select-WinstUpdateMode
-    if (-not $mode.Ok) { return @{ Cancelled = $true; Updated = 0; Failed = 0 } }
+    if (-not $mode.Ok) { return @{ Cancelled = $true } }
 
     $origin = Get-EntryString -Entry $Item['Ledger'] -Key 'manifestOrigin'
     $source = Select-WinstUpdateSource -Row $Item['Row'] -OriginName $origin
     if (-not $source.Ok) {
         if ($source.Error) { Write-Host ('  {0}' -f $source.Error) -ForegroundColor Yellow }
-        return @{ Cancelled = $true; Updated = 0; Failed = 0 }
+        return @{ Cancelled = $true }
     }
 
     $sourceVersion = [string]$source.Entry['Version']

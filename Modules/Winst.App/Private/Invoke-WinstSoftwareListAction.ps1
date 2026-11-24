@@ -33,7 +33,7 @@ function Invoke-WinstSoftwareListAction {
             Write-Host '  这是「仅下载软件包」类型的软件，请用 i) 下载软件包 / u) 更新软件包。' -ForegroundColor DarkYellow
         } else {
             # 只下载安装包（与「已下载包 → x 下载更新包」同一实现）：不安装、不写台账、不改系统项
-            $null = Invoke-WinstDownloadUpdates -Context $Context -Items @($Item) -Download
+            Invoke-WinstDownloadUpdates -Context $Context -Items @($Item) -Download
         }
         return $true
     }
@@ -44,12 +44,12 @@ function Invoke-WinstSoftwareListAction {
                 Write-Host '  这个软件包现在没有可更新的版本。' -ForegroundColor DarkYellow
             } else {
                 # 仅下载类型：更新 = 把已下载的软件包换成软件源里的新版（与「已下载包 → x」同一实现）
-                $null = Invoke-WinstDownloadUpdates -Context $Context -Items @($Item)
+                Invoke-WinstDownloadUpdates -Context $Context -Items @($Item)
             }
         } elseif (-not $canUpdate) {
             Write-Host '  这个软件现在没有可更新的版本。' -ForegroundColor DarkYellow
         } else {
-            $null = Invoke-WinstUpgradeAll -Context $Context -Items @($Item)
+            Invoke-WinstUpgradeAll -Context $Context -Items @($Item)
         }
         return $true
     }

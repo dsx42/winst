@@ -20,12 +20,5 @@ function Get-WinstCachedOverviewReady {
     $refresh = Update-WinstDisplaySources -Context $Context -Ids $displayIds
     Write-WinstRefreshErrors -Errors $refresh.Errors
 
-    $overview = Get-WinstCachedOverview -Context $Context -PackageDirs $packageDirs
-    if (-not $overview.Ok) {
-        return @{ Ok = $false; Error = [string]$overview.Error; Warning = ''; Items = @() }
-    }
-
-    # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-    $items = @($overview.Items | Where-Object { $null -ne $_ })
-    return @{ Ok = $true; Error = ''; Warning = [string]$overview.Warning; Items = $items }
+    return (Get-WinstCachedOverview -Context $Context -PackageDirs $packageDirs)
 }

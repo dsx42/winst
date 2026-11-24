@@ -20,7 +20,7 @@ function Invoke-WinstAppInstall {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
-        [string]$SourceName = '',
+        [string]$SourceName,
         [switch]$Force,
         [switch]$Overwrite,
         [string[]]$Keep = @(),

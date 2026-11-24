@@ -10,7 +10,7 @@ function Remove-WinstOldPackages {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string[]]$KeepFiles = @(),
+        [string[]]$KeepFiles,
         [switch]$Preview
     )
 

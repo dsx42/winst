@@ -37,11 +37,11 @@ function Update-WinstLockAfterDownload {
             $hash = [string]$DownloadedMain['IndexHash']
             $fresh = 'unknown'
             if ($hash) { $fresh = 'unchanged' }
-            $null = Set-EntryValue -Entry $copy -Key 'remoteFresh' -Value $fresh
-            $null = Set-EntryValue -Entry $copy -Key 'remoteFreshHash' -Value $hash
+            Set-EntryValue -Entry $copy -Key 'remoteFresh' -Value $fresh
+            Set-EntryValue -Entry $copy -Key 'remoteFreshHash' -Value $hash
         }
-        $null = Set-EntryValue -Entry $copy -Key 'version' -Value ([string]$Version)
-        $null = Set-EntryValue -Entry $copy -Key 'versionFromCache' -Value $true
+        Set-EntryValue -Entry $copy -Key 'version' -Value ([string]$Version)
+        Set-EntryValue -Entry $copy -Key 'versionFromCache' -Value $true
         $apps += $copy
         $changed = $true
     }

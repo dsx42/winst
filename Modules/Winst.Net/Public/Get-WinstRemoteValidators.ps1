@@ -7,15 +7,14 @@ function Get-WinstRemoteValidators {
     .OUTPUTS
         @{ Ok; ETag; LastModified; Size; Headers; Error }
     .DESCRIPTION
-        元数据类请求：与 HEAD 可用性探测共用「直连 → 代理重试」链。成功结果按 URL、请求头、超时和
+        元数据类请求：与 HEAD 可用性探测共用「直连 → 代理重试」链。成功结果按 URL、请求头和
         代理尝试序列记入进程内 TTL 缓存；匹配同一次代理尝试时也复用探测的成功响应。
         站点不支持 HEAD、超时或请求失败时，Ok 为 $false，Error 记录原因。
         若校验码尚未确认，调用方在 check 模式下重新下载，其余模式按缓存有效期判断。
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Uri,
-        [int]$TimeoutSec = 20
+        [Parameter(Mandatory = $true)][string]$Uri
     )
 
     $result = @{ Ok = $false; ETag = ''; LastModified = ''; Size = $null; Headers = @{}; Error = '' }
@@ -23,14 +22,14 @@ function Get-WinstRemoteValidators {
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $requestHeaders = Get-WinstBrowserHeaders
     $requestKey = Get-WinstHttpCacheKey -Uri $Uri -Headers $requestHeaders -Method 'Head'
-    $cacheKey = 'validators|' + (Get-WinstHeadCacheKey -RequestKey $requestKey -TimeoutSec $TimeoutSec -ProxyAttempts $attempts)
+    $cacheKey = 'validators|' + (Get-WinstHeadCacheKey -RequestKey $requestKey -ProxyAttempts $attempts)
     $cached = Get-WinstHttpCacheEntry -Key $cacheKey
     if ($cached) { return $cached.Value }
 
     $lastError = ''
     foreach ($currentProxy in $attempts) {
         try {
-            $head = Invoke-WinstCachedHeadRequest -Uri $Uri -TimeoutSec $TimeoutSec -Headers $requestHeaders -Proxy $currentProxy -RequestKey $requestKey
+            $head = Invoke-WinstCachedHeadRequest -Uri $Uri -Headers $requestHeaders -Proxy $currentProxy -RequestKey $requestKey
 
             foreach ($key in $head.Headers.Keys) {
                 $result.Headers[$key] = [string]$head.Headers[$key]

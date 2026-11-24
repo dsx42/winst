@@ -32,7 +32,7 @@ function Invoke-WinstCachedListAction {
         } elseif (-not $canUpgradeInstalled) {
             Write-Host '  这个软件现在没有可更新的版本。' -ForegroundColor DarkYellow
         } else {
-            $null = Invoke-WinstUpgradeAll -Context $Context -Items @($Item)
+            Invoke-WinstUpgradeAll -Context $Context -Items @($Item)
         }
         return $true
     }
@@ -42,7 +42,7 @@ function Invoke-WinstCachedListAction {
             if ($isDownloadType) { Write-Host '  这个软件包已经是最新的，不需要重新下载。' -ForegroundColor DarkYellow }
             else { Write-Host '  这个安装包已经是最新的，不需要重新下载。' -ForegroundColor DarkYellow }
         } else {
-            $null = Invoke-WinstDownloadUpdates -Context $Context -Items @($Item)
+            Invoke-WinstDownloadUpdates -Context $Context -Items @($Item)
         }
         return $true
     }

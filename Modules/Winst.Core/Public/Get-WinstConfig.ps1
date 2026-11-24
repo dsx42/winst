@@ -14,7 +14,7 @@ function Get-WinstConfig {
     $configPath = Join-WinstPath $DataRoot 'config.json'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         try {
-            $read = Read-WinstJsonFileCached -Path $configPath -ParsedOnly
+            $read = Read-WinstJsonFileCached -Path $configPath
             if (-not $read.Ok) { throw $read.Error }
             $obj = $read.Value
             if ($null -eq $obj -or ($obj -isnot [System.Collections.IDictionary] -and $obj -isnot [System.Management.Automation.PSCustomObject])) { throw '配置根必须是对象' }

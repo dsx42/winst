@@ -187,15 +187,14 @@ try {
 
     # 跨模块状态必须先建好：StrictMode 下读取未初始化的状态会得到 $null，
     # 随后对 $null 取成员 / 调方法会直接抛异常。
-    $null = Initialize-WinstState
+    Initialize-WinstState
 
     $parsed = Read-WinstCommandLine -Tokens $script:WinstArguments
     if (Test-WinstNeedsElevation -ReadOnly (Test-WinstReadOnlyInvocation -Parsed $parsed)) {
         Start-WinstElevatedEntry -Interactive (-not $parsed.Error -and -not $parsed.Command)
     }
 
-    $result = Invoke-WinstApplication -Root $script:WinstRoot -Parsed $parsed
-    $script:WinstExitCode = $result.ExitCode
+    $script:WinstExitCode = Invoke-WinstApplication -Root $script:WinstRoot -Parsed $parsed
 } catch {
     $script:WinstExitCode = 1
 

@@ -11,9 +11,9 @@ function Get-WinstVersionFromFileVersion {
     param(
         [hashtable]$Context,
         $Detect,
-        [string]$InstallDir = '',
-        [string]$Kind = '',
-        $Between = @(),
+        [string]$InstallDir,
+        [string]$Kind,
+        $Between,
         [hashtable]$Result
     )
 

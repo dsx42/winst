@@ -13,19 +13,19 @@ function Confirm-WinstAppNotRunning {
         -Action 传动作名词（安装 / 卸载）；只有「安装」允许安装版软件选择直接安装。
         非交互（`--yes` / 输入被重定向）时不擅自杀进程：`--kill` 才结束进程，否则报错并给出指引。
     .OUTPUTS
-        @{ Ok; Cancelled; Error; Killed; Running }
+        @{ Ok; Cancelled; Error; Killed }
     #>
     param(
         $Plan,
-        [string]$InstallDir = '',
-        [string[]]$ExtraDirs = @(),
+        [string]$InstallDir,
+        [string[]]$ExtraDirs,
         [switch]$Kill,
         [switch]$NonInteractive,
         [switch]$Quiet,
         [string]$Action = '安装'
     )
 
-    $result = @{ Ok = $true; Cancelled = $false; Error = ''; Killed = 0; Running = @() }
+    $result = @{ Ok = $true; Cancelled = $false; Error = ''; Killed = 0 }
 
     $displayName = Get-EntryString -Entry $Plan -Key 'name'
     if (-not $displayName) { $displayName = Get-EntryString -Entry $Plan -Key 'id' }
@@ -38,11 +38,9 @@ function Confirm-WinstAppNotRunning {
 
     while ($true) {
         $attempt++
-        # 每次都强制实时枚举：3 秒快照会让刚刚关闭的进程继续出现在列表里
         $running = @(Get-WinstRunningAppProcess -Plan $Plan -InstallDir $InstallDir `
-            -ExtraDirs $ExtraDirs -Refresh)
+            -ExtraDirs $ExtraDirs)
         if ($running.Count -eq 0) { return $result }
-        $result.Running = $running
 
         $split = Split-WinstKillableProcesses -Processes $running
         $killable = @($split.Killable)
@@ -142,7 +140,7 @@ function Confirm-WinstAppNotRunning {
         # 最后一次尝试之后先重新检测：结束可能刚刚生效，不能拿旧的判断直接中止
         if ($attempt -ge 5) {
             $left = @(Get-WinstRunningAppProcess -Plan $Plan -InstallDir $InstallDir `
-                -ExtraDirs $ExtraDirs -Refresh)
+                -ExtraDirs $ExtraDirs)
             if ($left.Count -eq 0) { return $result }
             $result.Ok = $false
             $result.Error = ('{0} 仍在运行，多次尝试结束进程仍未成功，{1}已中止。' -f $displayName, $Action)

@@ -6,7 +6,7 @@ function Confirm-WinstDownloadEngine {
         确保下载引擎可用：不存在时先自动下载并安装 FluxDown-CLI；
         已存在且软件源里有新版本时自动更新；当前正在安装的同名目标不重复引导或更新。
     .OUTPUTS
-        @{ Ok; Exe; Error; Installed }
+        @{ Ok; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,

@@ -5,14 +5,13 @@ function Get-VersionBetween {
     .SYNOPSIS
         取「两个标记之间」的内容作为版本（如 ["version_", "_"] 从文件名里取出 26h1）。
     .OUTPUTS
-        @{ Ok; Value; Error }
+        @{ Ok; Value }
     #>
     param($Spec, [string]$Text)
 
-    $result = @{ Ok = $false; Value = ''; Error = '' }
+    $result = @{ Ok = $false; Value = '' }
     $parts = @($Spec)
     if ($parts.Count -lt 1 -or $parts.Count -gt 2) {
-        $result.Error = 'versionBetween 要写成 ["前缀", "后缀"] 两项（后缀可省略）'
         return $result
     }
 
@@ -21,7 +20,6 @@ function Get-VersionBetween {
     $after = ''
     if ($parts.Count -eq 2 -and $null -ne $parts[1]) { $after = ([string]$parts[1]) }
     if (-not $before) {
-        $result.Error = 'versionBetween 的前缀不能为空'
         return $result
     }
 

@@ -8,7 +8,7 @@ function Get-WinstHttpCacheKey {
     param(
         [string]$Uri,
         [hashtable]$Headers,
-        [string]$Method = 'Get'
+        [string]$Method
     )
 
     $verb = 'GET'

@@ -16,9 +16,9 @@ function New-WinstInstalledItem {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
         [Parameter(Mandatory = $true)]$Entry,
-        $Row = $null,
-        $CacheIndex = $null,
-        [hashtable]$SourceLookup = @{}
+        $Row,
+        $CacheIndex,
+        [hashtable]$SourceLookup
     )
 
     $managed = Get-EntryString -Entry $Entry -Key 'managed'

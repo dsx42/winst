@@ -12,7 +12,7 @@ function Test-WinstPathUnderAnyDir {
     #>
     param(
         [string]$Path,
-        [string[]]$Dirs = @()
+        [string[]]$Dirs
     )
 
     $text = ([string]$Path).Trim().Trim('"').Replace('/', '\')

@@ -14,7 +14,7 @@ function Read-WinstConfirm {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Prompt,
-        [ValidateSet('y', 'n')][string]$Default = 'n'
+        [ValidateSet('y', 'n')][string]$Default
     )
 
     $text = Read-WinstAnswerText -Prompt $Prompt

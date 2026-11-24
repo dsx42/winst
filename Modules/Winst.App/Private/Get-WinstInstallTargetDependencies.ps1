@@ -5,7 +5,7 @@ function Get-WinstInstallTargetDependencies {
     .SYNOPSIS
         解析传递依赖里需要动作的部分（未安装 / 可更新），并打印缺失与汇总提示。
     .OUTPUTS
-        需要安装或更新的依赖步骤，每项包含 Id、Name、Row 和 ActionText。
+        需要安装或更新的依赖步骤，每项包含 Name、Row 和 ActionText。
     #>
     param([hashtable]$Context, $Plan, [string]$PlanId, $State, [switch]$SkipDependencies, [switch]$IsDownloadPlan)
 
@@ -21,8 +21,6 @@ function Get-WinstInstallTargetDependencies {
             } else {
                 $depMissing = @($resolvedDeps.Missing)
                 $depIndex = Get-WinstDependencyIndex -Context $Context
-                $stateForDeps = $State
-                if ($null -eq $stateForDeps) { $stateForDeps = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
                 foreach ($one in @($resolvedDeps.Order)) {
                     $depId = [string]$one['Id']
                     $depRow = $null
@@ -37,7 +35,7 @@ function Get-WinstInstallTargetDependencies {
                     # 递归安装必须使用解析闭包时选定的来源，不能再次默认挑中其它来源。
                     $depRow = Copy-WinstObjectShallow -InputObject $depRow
                     $depRow['Sources'] = @($depEntry)
-                    $depLedger = Get-WinstInstalledApp -State $stateForDeps -Id $depId
+                    $depLedger = Get-WinstInstalledApp -State $State -Id $depId
                     $depInstalledVersion = ''
                     if ($depLedger) { $depInstalledVersion = Get-EntryString -Entry $depLedger -Key 'version' }
                     $depTargetVersion = [string]$depEntry['Version']
@@ -54,7 +52,6 @@ function Get-WinstInstallTargetDependencies {
                     $depName = [string]$depRow['Name']
                     if (-not $depName) { $depName = $depId }
                     $depSteps += @{
-                        Id               = $depId
                         Name             = $depName
                         Row              = $depRow
                         ActionText       = $depActionText

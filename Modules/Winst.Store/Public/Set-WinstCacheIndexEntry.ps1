@@ -16,14 +16,14 @@ function Set-WinstCacheIndexEntry {
     param(
         [Parameter(Mandatory = $true)]$Index,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string]$Version = '',
-        [string]$VersionFile = '',
+        [string]$Version,
+        [string]$VersionFile,
         $VersionRule,
-        [string]$BundleSource = '',
-        [string[]]$Files = @(),
-        $Hashes = $null,
-        $ManifestHashes = $null,
-        $FileMeta = $null,
+        [string]$BundleSource,
+        [string[]]$Files,
+        $Hashes,
+        $ManifestHashes,
+        $FileMeta,
         [string]$DownloadedAt = ''
     )
 

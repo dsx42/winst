@@ -40,11 +40,6 @@ function Resolve-WinstShortcutTarget {
             return $result
         }
     }
-    if (-not $linkTarget) {
-        # 启动器没建成就别建快捷方式：指向 .ps1 的 .lnk 双击 / 点开始菜单都打不开
-        $result.Note = ('主程序是脚本且未能生成同名 .cmd 启动器，已跳过快捷方式: {0}' -f $main)
-        return $result
-    }
 
     $result.Target = $linkTarget
     $result.WorkingDirectory = Split-Path -Parent $linkTarget

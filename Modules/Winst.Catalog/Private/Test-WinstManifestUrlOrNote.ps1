@@ -25,7 +25,7 @@ function Test-WinstManifestUrlOrNote {
     param(
         [hashtable]$Context,
         [string]$Url,
-        [bool]$Skip = $false,
+        [bool]$Skip,
         [hashtable]$Headers = $null,
         [Parameter(Mandatory = $true)]$MissingError
     )

@@ -7,14 +7,14 @@ function Resolve-WinstUpdateTargets {
     .OUTPUTS
         @{ Empty; State; TargetIds; Explicit; RowById }
     #>
-    param([hashtable]$Context, [string[]]$Ids = @(), [switch]$All, [switch]$Quiet, [switch]$NoRefresh, [hashtable]$Result)
+    param([hashtable]$Context, [string[]]$Ids, [switch]$Quiet, [switch]$NoRefresh, [hashtable]$Result)
 
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($stateRead.Error -and -not $stateRead.Reset) {
         Write-Host ''
         Write-Host ('  {0}' -f $stateRead.Error) -ForegroundColor Red
         $Result.ExitCode = 1
-        return @{ Empty = $true; State = $stateRead.State; TargetIds = @(); Explicit = @(); RowById = $null }
+        return @{ Empty = $true }
     }
     if ($stateRead.Error) { Write-Host ('  提示: {0}' -f $stateRead.Error) -ForegroundColor Yellow }
     $state = $stateRead.State
@@ -26,7 +26,7 @@ function Resolve-WinstUpdateTargets {
         if ($text -and ($explicit -cnotcontains $text)) { $explicit += $text }
     }
     $targetIds = @()
-    if ($explicit.Count -gt 0 -and -not $All) {
+    if ($explicit.Count -gt 0) {
         $targetIds = @($explicit)
     } else {
         foreach ($key in @($state['Installed'].Keys)) { $targetIds += [string]$key }
@@ -34,7 +34,7 @@ function Resolve-WinstUpdateTargets {
     if ($targetIds.Count -eq 0) {
         Write-Host ''
         Write-Host '  安装记录里还没有已安装的软件，没有需要检查的内容。' -ForegroundColor DarkGray
-        return @{ Empty = $true; State = $state; TargetIds = @(); Explicit = $explicit; RowById = $null }
+        return @{ Empty = $true }
     }
 
     # 2. 按需刷新：清单本体按源有效期决定是否重新下载，逐条版本解析只针对

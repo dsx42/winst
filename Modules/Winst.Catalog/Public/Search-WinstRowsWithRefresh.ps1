@@ -13,7 +13,7 @@ function Search-WinstRowsWithRefresh {
         用户选中后再按 id 定向刷新，避免为了展示几十个命中项把每个条目都联网解析一遍。
         正文补找仍会执行——它只解析关键字命中的声明项，是「能不能搜到」的前提。
     .OUTPUTS
-        @{ Searched = <Search-WinstRowsByKeywords 的结果>; Refresh = <Update-WinstDisplaySources 的结果> }
+        @{ Searched = <Search-WinstRowsByKeywords 的结果>; Errors = <两次刷新产生的错误> }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -25,28 +25,23 @@ function Search-WinstRowsWithRefresh {
     $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
 
     # 解析锁里没有命中的，可能只是「清单里有、还没解析过」：再按清单正文找一遍，命中就解析后重搜
-    $discovered = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
+    $errors = @()
     if (@($searched.Rows).Count -eq 0) {
         $discovered = Resolve-WinstDeclaredKeywordMatches -Context $Context -Keyword $Keyword -Quiet:$Quiet
+        $errors += @($discovered.Errors)
         if ([int]$discovered.Refreshed -gt 0) {
             $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
         }
     }
 
-    $refresh = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
     if (-not $SkipVersionRefresh) {
         $hitIds = @(Get-WinstDisplayIds -Items $searched.Rows)
         $refresh = Update-WinstDisplaySources -Context $Context -Ids $hitIds -Quiet:$Quiet
+        $errors += @($refresh.Errors)
         if ([int]$refresh.Refreshed -gt 0) {
             $searched = Search-WinstRowsByKeywords -Context $Context -Keyword $Keyword
         }
     }
 
-    # 两段刷新合并上报：调用方只看 Refresh 的 Errors / Skipped，正文补找产生的错误不能丢
-    $refresh.Refreshed = [int]$refresh.Refreshed + [int]$discovered.Refreshed
-    $refresh.Failed = [int]$refresh.Failed + [int]$discovered.Failed
-    $refresh.Skipped = ([bool]$refresh.Skipped -or [bool]$discovered.Skipped)
-    $refresh.Errors = @($discovered.Errors) + @($refresh.Errors)
-    $refresh.Network = [bool]$refresh.Network -or [bool]$discovered.Network
-    return @{ Searched = $searched; Refresh = $refresh }
+    return @{ Searched = $searched; Errors = $errors }
 }

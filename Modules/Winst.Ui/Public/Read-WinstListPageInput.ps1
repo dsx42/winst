@@ -16,8 +16,8 @@ function Read-WinstListPageInput {
     param(
         [Parameter(Mandatory = $true)][string]$Prompt,
         [Parameter(Mandatory = $true)][int]$Count,
-        [string]$Filter = '',
-        [hashtable]$ExtraKeys = @{},
+        [string]$Filter,
+        [hashtable]$ExtraKeys,
         [switch]$AllowMultiple
     )
 

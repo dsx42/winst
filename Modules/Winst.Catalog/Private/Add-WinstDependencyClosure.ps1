@@ -11,14 +11,14 @@ function Add-WinstDependencyClosure {
     param(
         [Parameter(Mandatory = $true)][hashtable]$State,
         [Parameter(Mandatory = $true)][string]$Id,
-        [int]$Level = 1
+        [int]$Level
     )
 
     $map = $State['Deps']
     if (-not $map.Contains($Id)) {
         if (-not $State['MissingSeen'].Contains($Id)) {
             $State['MissingSeen'][$Id] = $true
-            $State['Missing'].Add(@{ Id = $Id; Level = $Level; Via = [string]$State['Via'][$Id] })
+            $State['Missing'].Add(@{ Id = $Id })
         }
         return
     }

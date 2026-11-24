@@ -7,7 +7,7 @@ function Get-WinstSoftwareListItems {
     .OUTPUTS
         @{ Ok; Items }
     #>
-    param([hashtable]$Context, [switch]$Silent, [string]$EmptyText = '  软件源里还没有任何软件。')
+    param([hashtable]$Context, [switch]$Silent, [string]$EmptyText)
 
     $overview = Get-WinstSoftwareOverview -Context $Context
     if (-not $overview.Ok) {

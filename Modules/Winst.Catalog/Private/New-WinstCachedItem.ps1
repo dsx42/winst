@@ -12,24 +12,23 @@ function New-WinstCachedItem {
           ④ 软件源里的版本：SourceText（**全部来源并排**，如 `local (21.0.5)、dsx42/winst-manifest (21.0.6)`）；
           ⑤ 安装包能否更新：HasPackageUpdate / PackageUpdateHint（缓存版本 vs 软件源最高可用版本）。
     .OUTPUTS
-        [ordered]@{ CompanionVersionLines; Id; DisplayName; Group; CacheVersion; CacheVersionText; CacheDir; CacheFiles; CacheFileCount;
+        [ordered]@{ CompanionVersionLines; Id; DisplayName; Group; CacheVersionText; CacheDir; CacheFiles; CacheFileCount;
                     CacheSizeText; Installed; InstalledVersion; InstalledVersionText;
                     InstalledDirMissing; InstalledUpdateState; InstalledUpdateHint; SourceText;
                     BestVersion; BestSource; PackageUpdateState; PackageUpdateHint; HasPackageUpdate;
-                    InCatalog; Type; TypeText; Row; LatestVersion; LatestSource; HasUpdate;
-                    UpdateHint; UpdateState; DirMissing; Version }
+                    InCatalog; Type; TypeText; Row; LatestVersion; LatestSource }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string]$CacheDir = '',
-        [string[]]$CacheFiles = @(),
-        [long]$CacheSizeBytes = 0,
-        [string]$CacheVersion = '',
-        $Ledger = $null,
-        $Row = $null,
-        $CacheIndex = $null,
-        [hashtable]$SourceLookup = @{}
+        [string]$CacheDir,
+        [string[]]$CacheFiles,
+        [long]$CacheSizeBytes,
+        [string]$CacheVersion,
+        $Ledger,
+        $Row,
+        $CacheIndex,
+        [hashtable]$SourceLookup
     )
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
@@ -44,7 +43,6 @@ function New-WinstCachedItem {
         Id                  = $Id
         DisplayName         = [string]$facts.DisplayName
         Group               = [string]$facts.Group
-        CacheVersion        = $CacheVersion
         CacheVersionText    = [string]$packageFacet.VersionText
         CacheDir            = $CacheDir
         CacheFiles          = @($CacheFiles)
@@ -66,13 +64,7 @@ function New-WinstCachedItem {
         Type                = [string]$facts.Type
         TypeText            = (Get-PlanTypeText -Type ([string]$facts.Type))
         Row                 = $Row
-        # 通用视图字段，与已安装列表的同义字段保持一致。
         LatestVersion       = [string]$installedFacet.Latest
         LatestSource        = [string]$installedFacet.LatestSource
-        HasUpdate           = [bool]$installedFacet.HasUpdate
-        UpdateHint          = [string]$installedFacet.UpdateHint
-        UpdateState         = [string]$installedFacet.UpdateState
-        DirMissing          = [bool]$installedFacet.DirMissing
-        Version             = [string]$installedFacet.VersionText
     }
 }

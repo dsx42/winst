@@ -29,7 +29,7 @@ function Invoke-UpdateCheck {
 
     $round = 0
     while ($true) {
-        $check = Invoke-WinstUpdateTargets -Context $Context -All -Check -Quiet -NoRefresh
+        $check = Invoke-WinstUpdateTargets -Context $Context -Check -Quiet -NoRefresh
         if ($check.ExitCode -eq 1 -and @($check.Entries).Count -eq 0) { return }
         if ($refresh.Failed -gt 0 -or $refresh.Network) {
             $check.RefreshFailed = [int]$refresh.Failed

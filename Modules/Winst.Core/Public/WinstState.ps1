@@ -59,7 +59,7 @@ function Set-WinstState {
 
         [Parameter(Mandatory = $false)]
         [AllowNull()]
-        [object]$Value = $null
+        [object]$Value
     )
 
     [Winst.State]::Set($Name, $Value)
@@ -88,16 +88,13 @@ function Remove-WinstState {
     <#
     .SYNOPSIS
         移除一个状态项。
-
-    .OUTPUTS
-        [bool] 确实移除了项时为 $true
     #>
     [CmdletBinding()]
-    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Name
     )
 
-    return [Winst.State]::Remove($Name)
+    # 强制重载模块时，进程可能仍持有返回布尔值的状态类型。
+    [void][Winst.State]::Remove($Name)
 }

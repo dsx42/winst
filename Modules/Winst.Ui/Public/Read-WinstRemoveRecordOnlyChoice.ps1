@@ -12,7 +12,7 @@ function Read-WinstRemoveRecordOnlyChoice {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Name,
-        [string]$Reason = ''
+        [string]$Reason
     )
 
     Write-Host ''

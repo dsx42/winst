@@ -24,7 +24,7 @@ function Split-WinstSafeChildSegments {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Child,
-        [string]$Label = '路径',
+        [string]$Label,
         [switch]$AllowWildcard,
         [int]$MaxSegmentLength = 100
     )

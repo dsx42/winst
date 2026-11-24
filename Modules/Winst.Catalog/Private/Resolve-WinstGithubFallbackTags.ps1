@@ -11,9 +11,9 @@ function Resolve-WinstGithubFallbackTags {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Repo,
-        [string]$ChosenTag = '',
-        $Releases = @(),
-        [string]$ReleaseTagPrefix = ''
+        [string]$ChosenTag,
+        $Releases,
+        [string]$ReleaseTagPrefix
     )
 
     $releaseItems = @($Releases)

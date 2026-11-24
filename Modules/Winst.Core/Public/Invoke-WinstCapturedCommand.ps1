@@ -13,7 +13,7 @@ function Invoke-WinstCapturedCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
-        [string]$Arguments = '',
+        [string]$Arguments,
         [int]$TimeoutMs = 10000,
         [switch]$NoTimeout,
         [ValidateRange(1, 2147483647)][int]$MaxOutputChars = 16777216,

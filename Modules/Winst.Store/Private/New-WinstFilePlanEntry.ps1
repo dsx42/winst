@@ -7,7 +7,7 @@ function New-WinstFilePlanEntry {
     .OUTPUTS
         [ordered]@{ ... }
     #>
-    param($File, [string]$Url, [string]$Name, [int]$FileIndex = 0)
+    param($File, [string]$Url, [string]$Name, [int]$FileIndex)
 
     # 只有「这个文件自己的版本」才参与版本优先判定与索引记账：主包恒有；附加文件只有声明
     # versionListUrl 并独立取版时才有，其余跟随主包版本的记录只用于地址模板展开。

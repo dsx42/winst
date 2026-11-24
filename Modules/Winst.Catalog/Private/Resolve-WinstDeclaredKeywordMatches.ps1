@@ -13,7 +13,7 @@ function Resolve-WinstDeclaredKeywordMatches {
         - 正文缓存不存在的源（从未刷新过）无从核对，留给解析锁为空时的整源刷新；
         - `--offline` / `--dry-run` 跳过（不联网 / 不写盘）。
     .OUTPUTS
-        @{ Refreshed; Failed; Skipped; Errors }
+        @{ Refreshed; Errors }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -21,11 +21,11 @@ function Resolve-WinstDeclaredKeywordMatches {
         [switch]$Quiet
     )
 
-    $result = @{ Refreshed = 0; Failed = 0; Skipped = $false; Errors = @(); Network = $false }
+    $result = @{ Refreshed = 0; Errors = @() }
     # 关键字为空时每条都会被当成命中（IndexOf('') = 0），等于给每个源做一次全量解析：直接不做事
     if (-not ([string]$Keyword).Trim()) { return $result }
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { $result.Skipped = $true; return $result }
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { $result.Skipped = $true; return $result }
+    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) { return $result }
+    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { return $result }
 
     $persistUnavailable = Get-WinstState -Name WinstManifestPersistUnavailable
 
@@ -38,7 +38,6 @@ function Resolve-WinstDeclaredKeywordMatches {
 
         $declared = Get-WinstDeclaredManifestEntries -Context $Context -Source $Source
         if ($declared.Error) {
-            $result.Failed++
             $result.Errors += [string]$declared.Error
             continue
         }
@@ -80,9 +79,7 @@ function Resolve-WinstDeclaredKeywordMatches {
             Write-Host ('  软件源 {0} 的清单里有 {1} 个匹配，正在解析 …' -f $name, $ids.Count) -ForegroundColor Gray
         }
         $r = Update-ManifestSource -Context $Context -Source $Source -OnlyIds $ids
-        $result.Network = $result.Network -or [bool]$r.Network
         if (-not $r.Success) {
-            $result.Failed++
             $result.Errors += ('{0}: {1}' -f $name, [string]$r.Message)
             continue
         }

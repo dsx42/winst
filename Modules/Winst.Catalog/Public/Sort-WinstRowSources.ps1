@@ -5,7 +5,7 @@ function Sort-WinstRowSources {
     .SYNOPSIS
         按默认优先级重排一行里的软件源（本地清单 → 内置源 → 其它来源按添加顺序；未登记的来源排最后）。
     .DESCRIPTION
-        已知本机版本时，优先选已确认有升级的来源；包内版本须先确认远端文件未变。
+        已知本机版本时，优先选版本更高的来源，其次选包内取版且已确认远端文件变化的来源。
         同一档里优先安装来源。安装来源可用但没有更新时，优先切换到明确远端版本最高的来源。
     .OUTPUTS
         重排后的行（`Sources` 第一位即默认要用的来源）
@@ -13,10 +13,10 @@ function Sort-WinstRowSources {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         $Row,
-        [string]$InstalledVersion = '',
-        [hashtable]$Lookup = @{},
+        [string]$InstalledVersion,
+        [hashtable]$Lookup,
         [string]$OriginName = '',
-        $Ledger = $null
+        $Ledger
     )
 
     if (-not $Row) { return $Row }
@@ -36,8 +36,9 @@ function Sort-WinstRowSources {
             if ($_['Ok'] -and $_['Plan']) {
                 $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $_ -InstalledVersion $InstalledVersion -Ledger $Ledger
                 if ($snap.Cmp -gt 0) { return 0 }
+                if ($snap.RemoteFresh -ieq 'changed') { return 1 }
             }
-            return 1
+            return 2
         } },
         @{ Expression = {
             if ($OriginName -and $_['Source'] -ieq $OriginName) { return 0 }
@@ -54,7 +55,6 @@ function Sort-WinstRowSources {
     return [ordered]@{
         Id          = $Row['Id']
         Name        = $Row['Name']
-        Description = $Row['Description']
         Group       = [string]$Row['Group']
         Sources     = @($sorted)
     }

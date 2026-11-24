@@ -5,7 +5,7 @@ function Invoke-WinstUpdateTargets {
     .SYNOPSIS
         检查 / 执行更新：解析目标集合 → 取软件源最新版本 → 比较 → 复用安装流程更新。
     .DESCRIPTION
-        - `-All` 或未指定 id：遍历安装记录里的全部软件；指定 id：只处理这些软件（未安装项报告并跳过）。
+        - 未指定 id：遍历安装记录里的全部软件；指定 id：只处理这些软件（未安装项报告并跳过）。
         - `-Check` 仅报告。
         - `-DownloadOnly` 只刷新软件包缓存，不安装。
         - `-FilesOnly` 仅更新文件：环境变量 / PATH 保持原样，快捷方式只修正已存在的、不新建，
@@ -22,12 +22,11 @@ function Invoke-WinstUpdateTargets {
         单条软件的判定与执行见 Invoke-WinstUpdateEntry；汇总与退出码见 Write-WinstUpdateExitCode。
     .OUTPUTS
         @{ Ok; ExitCode; Updatable; Updated; Skipped; Failed; UpToDate; NotInstalled; Unknown;
-           Reported; Network; Entries }
+           Reported; Network }。菜单以 -Quiet 检查时另含逐项结果 Entries。
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [string[]]$Ids = @(),
-        [switch]$All,
         [switch]$Check,
         [switch]$DownloadOnly,
         [switch]$Force,
@@ -42,11 +41,13 @@ function Invoke-WinstUpdateTargets {
     $result = @{
         Ok = $false; ExitCode = 0; Updatable = 0; Updated = 0; Skipped = 0; Failed = 0;
         UpToDate = 0; NotInstalled = 0; Unknown = 0; Reported = 0; Network = $false;
-        RefreshFailed = 0; InternalFailed = 0; Entries = @()
+        RefreshFailed = 0; InternalFailed = 0
     }
 
+    if ($Quiet) { $result.Entries = New-Object 'System.Collections.ArrayList' }
+
     # 0. 读台账 / 目标集合 / 按需刷新 / 搜索目录
-    $targets = Resolve-WinstUpdateTargets -Context $Context -Ids $Ids -All:$All -Quiet:$Quiet -NoRefresh:$NoRefresh -Result $result
+    $targets = Resolve-WinstUpdateTargets -Context $Context -Ids $Ids -Quiet:$Quiet -NoRefresh:$NoRefresh -Result $result
     if ($targets.Empty) {
         # 读台账失败时 ExitCode 已被置 1（Ok 保持 false）；正常「没有已安装软件」则视为成功
         if ([int]$result.ExitCode -eq 0) { $result.Ok = $true }
@@ -55,14 +56,13 @@ function Invoke-WinstUpdateTargets {
     $state = $targets.State
     $installedTargets = 0
     $downloadOnlySkipped = 0   # 指定 id 里「仅下载」类型的条数（结尾提示据此改口径）
-    $entries = New-Object 'System.Collections.Generic.List[object]'
 
     $sourceLookup = @{}
     $counterByAction = @{
         check = 'Updatable'; files = 'Updatable'; latest = 'UpToDate'; newer = 'Unknown'; unknown = 'Unknown'
         updated = 'Updated'; skipped = 'Skipped'; cancelled = 'Skipped'; external = 'Reported'; failed = 'Failed'
     }
-    $allTargets = $All -or @($targets.Explicit).Count -eq 0
+    $allTargets = @($targets.Explicit).Count -eq 0
     foreach ($id in @($targets.TargetIds)) {
         $itemNetwork = $false
         try {
@@ -93,11 +93,10 @@ function Invoke-WinstUpdateTargets {
             if (-not $Quiet) { Write-Host ('  {0}: 处理失败 —— {1}' -f $id, $one.Message) -ForegroundColor Red }
         }
         if ($one.Network) { $result.Network = $true }
-        $entries.Add($one)
+        if ($Quiet) { [void]$result.Entries.Add($one) }
         $result[$counterByAction[$one.Action]]++
     }
 
-    $result.Entries = $entries.ToArray()
     return (Write-WinstUpdateExitCode -Result $result -Check:$Check -Quiet:$Quiet `
             -Explicit (@($targets.Explicit)) -InstalledTargets $installedTargets -DownloadOnlySkipped $downloadOnlySkipped)
 }

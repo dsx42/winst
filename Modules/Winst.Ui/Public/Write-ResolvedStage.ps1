@@ -8,8 +8,7 @@ function Write-ResolvedStage {
     param(
         [Parameter(Mandatory = $true)][string]$Marker,
         [Parameter(Mandatory = $true)][string]$Label,
-        [string[]]$Lines = @(),
-        [string]$Color = 'Gray'
+        [string[]]$Lines
     )
 
     $head = '    {0} {1}' -f $Marker, $Label
@@ -20,9 +19,9 @@ function Write-ResolvedStage {
     $items = @($Lines)
     if ($items.Count -eq 0) { $items = @('（无）') }
 
-    Write-Host ($headText + [string]$items[0]) -ForegroundColor $Color
+    Write-Host ($headText + [string]$items[0]) -ForegroundColor Gray
     $indent = ' ' * (Get-DisplayWidth -Text $headText)
     for ($i = 1; $i -lt $items.Count; $i++) {
-        Write-Host ($indent + [string]$items[$i]) -ForegroundColor $Color
+        Write-Host ($indent + [string]$items[$i]) -ForegroundColor Gray
     }
 }

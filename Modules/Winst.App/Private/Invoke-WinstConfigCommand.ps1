@@ -9,7 +9,7 @@ function Invoke-WinstConfigCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $tokens = @()

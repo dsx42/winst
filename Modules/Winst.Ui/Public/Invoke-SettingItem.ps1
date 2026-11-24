@@ -14,7 +14,7 @@ function Invoke-SettingItem {
         [string]$DisplayName,
         [Parameter(Mandatory = $true)]
         [string]$CurrentDisplay,
-        [string]$Hint = '',
+        [string]$Hint,
         [scriptblock]$Validator = $null
     )
 

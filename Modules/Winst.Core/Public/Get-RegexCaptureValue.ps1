@@ -10,7 +10,7 @@ function Get-RegexCaptureValue {
     param(
         [string]$Text,
         [string]$Pattern,
-        [string]$GroupName = 'v'
+        [string]$GroupName
     )
 
     $result = @{ Hit = $false; Value = '' }

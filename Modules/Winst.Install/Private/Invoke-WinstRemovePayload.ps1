@@ -7,7 +7,7 @@ function Invoke-WinstRemovePayload {
     .OUTPUTS
         @{ Abort; Error }
     #>
-    param([hashtable]$Context, [string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
+    param([hashtable]$Context, [string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes)
 
     switch ([string]$Targets['Method']) {
         'record-only' {
@@ -15,14 +15,14 @@ function Invoke-WinstRemovePayload {
             return @{ Abort = $false; Error = '' }
         }
         'registry' {
-            return (Invoke-WinstUninstallRegistryPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
+            return (Invoke-WinstUninstallRegistryPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes)
         }
         'appx' {
-            return (Invoke-WinstUninstallAppxPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes -Quiet:$Quiet)
+            return (Invoke-WinstUninstallAppxPayload -Id $Id -Targets $Targets -RunState $RunState -Yes:$Yes)
         }
         'clean-cache' {
             try {
-                Invoke-WinstFileStep -Name '删除缓存目录' -Quiet:$Quiet -Action {
+                Invoke-WinstFileStep -Name '删除缓存目录' -Action {
                     $cache = Remove-WinstCachedPackage -Context $Context -Id $Id -AllowMissing
                     if (-not $cache.Ok) { throw $cache.Error }
                 }
@@ -32,7 +32,7 @@ function Invoke-WinstRemovePayload {
             return @{ Abort = $false; Error = '' }
         }
         default {
-            return (Invoke-WinstUninstallPortablePayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState -Quiet:$Quiet)
+            return (Invoke-WinstUninstallPortablePayload -Context $Context -Id $Id -Targets $Targets -RunState $RunState)
         }
     }
 }

@@ -8,19 +8,18 @@ function Get-WinstDependents {
         把依赖关系反转成「被依赖 → 依赖者」图后从 id 出发按层展开（同一软件只保留首次出现的链路）；
         用安装记录过滤，只列出真正装在本机上的依赖者。用于卸载前的提示，不做拦截。
     .OUTPUTS
-        @{ Ok; Items = @( @{ Id; Name; Level; Via; ViaName } ); Error }
+        @{ Ok; Items = @( @{ Id; Name; Level; Via; ViaName } ) }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id
     )
 
-    $result = @{ Ok = $false; Items = @(); Error = '' }
+    $result = @{ Ok = $false; Items = @() }
     $index = Get-WinstDependencyIndex -Context $Context
 
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($stateRead.Error -and -not $stateRead.Reset) {
-        $result.Error = $stateRead.Error
         return $result
     }
     $state = $stateRead.State

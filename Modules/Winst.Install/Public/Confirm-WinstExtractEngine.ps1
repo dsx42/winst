@@ -8,7 +8,7 @@ function Confirm-WinstExtractEngine {
     .DESCRIPTION
         失败时返回 Ok = $false；依赖解压引擎的普通软件安装必须中止，不继续解压或修改安装目录。
     .OUTPUTS
-        @{ Ok; Exe; Error; Installed }
+        @{ Ok; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,

@@ -27,7 +27,7 @@ function Update-WinstPackageCacheIndex {
         if ($algorithm -and $algorithm -ne 'SHA256') {
             $manifestHash = [string]$filePlan['ManifestHash']
             if ($manifestHash) {
-                $null = Set-WinstManifestHash -Container $indexManifestHashes -FileName $name -Algorithm $algorithm -Hash $manifestHash
+                Set-WinstManifestHash -Container $indexManifestHashes -FileName $name -Algorithm $algorithm -Hash $manifestHash
             }
         }
 
@@ -53,7 +53,7 @@ function Update-WinstPackageCacheIndex {
             $validatorArgs['ETag'] = [string]$filePlan['ValidatorETag']
             $validatorArgs['LastModified'] = [string]$filePlan['ValidatorLastModified']
         }
-        $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name @validatorArgs `
+        Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name @validatorArgs `
             -Url ([string]$filePlan['Url']) -SourceVersion ([string]$filePlan['FileVersion']) -Size $size `
             -DownloadedAt $downloadedAt -LastCheckedAt $checkedAt
         if ([string]$filePlan['ChecksumMetadataAction'] -eq 'replace') {
@@ -64,7 +64,7 @@ function Update-WinstPackageCacheIndex {
                     -HashFile ([string]$filePlan['ChecksumHashFile']) -HashFrom ([string]$filePlan['ChecksumHashFrom']) `
                     -FileUrl ([string]$filePlan['Url']) -FileVersion ([string]$filePlan['FileVersion'])
             }
-            $null = Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
+            Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
                 -ExpectedHash ([string]$filePlan['ExpectedHash']) -ExpectedAlgorithm ([string]$filePlan['ExpectedAlgorithm']) `
                 -ChecksumHashFile ([string]$filePlan['ChecksumHashFile']) -ChecksumHashFrom ([string]$filePlan['ChecksumHashFrom']) `
                 -ChecksumFingerprint $checksumFingerprint

@@ -5,7 +5,7 @@ function Read-WinstState {
     .SYNOPSIS
         读取安装台账；缺失 / 损坏 / 低版本分别按「新建 / 备份重建 / 迁移」处理。
     .OUTPUTS
-        @{ State; Migrated; Reset; BackupPath; NeedSave; Error }
+        @{ State; Reset; NeedSave; Error }
     .DESCRIPTION
         台账位于 <安装根目录>\state.json；解析失败 → 备份为 state.json.bak-<时间戳> 并重建空台账；
         备份本身失败时**停止写入**（Reset / NeedSave 均为 $false，Error 说明原因），避免空台账覆盖唯一副本。
@@ -27,9 +27,7 @@ function Read-WinstState {
     if ($PSBoundParameters.ContainsKey('Ids')) { $selection['Ids'] = $Ids }
     $result = @{
         State      = (New-WinstState)
-        Migrated   = $false
         Reset      = $false
-        BackupPath = ''
         NeedSave   = $false
         Error      = ''
     }
@@ -44,11 +42,9 @@ function Read-WinstState {
             $cached = $cache[$path]
             if ([string]$cached['Stamp'] -eq $stamp) {
                 $result.State = (Copy-WinstState -State $cached['State'] -ShareEntries:$ForEntryReplacement @selection)
-                $result.Migrated = [bool]$cached['Migrated']
                 $result.NeedSave = [bool]$cached['NeedSave']
                 $result.Reset = [bool]$cached['Reset']
                 $result.Error = [string]$cached['Error']
-                $result.BackupPath = [string]$cached['BackupPath']
                 return $result
             }
         }
@@ -75,7 +71,6 @@ function Read-WinstState {
         try {
             Assert-WinstSafeWritePath -Path $backup
             Copy-Item -LiteralPath $path -Destination $backup -Force -ErrorAction Stop
-            $result.BackupPath = $backup
         } catch {
             # 备份失败时不得重建：调用方普遍以 -not $Reset 判错，一旦允许继续，
             # 后续任何一次 Save-WinstState 都会用空台账覆盖唯一副本 → 安装记录全丢。
@@ -88,8 +83,8 @@ function Read-WinstState {
         if ($stamp) {
             (Get-WinstState -Name WinstStateReadCache)[$path] = @{
                 Stamp = $stamp; State = (Copy-WinstState -State $result.State)
-                Migrated = $false; NeedSave = $true; Reset = $true
-                Error = $result.Error; BackupPath = $result.BackupPath
+                NeedSave = $true; Reset = $true
+                Error = $result.Error
             }
         }
         return $result
@@ -108,7 +103,6 @@ function Read-WinstState {
     }
 
     if ($version -lt (Get-WinstStateSchemaVersion)) {
-        $result.Migrated = $true
         $result.NeedSave = $true
     }
 
@@ -136,7 +130,7 @@ function Read-WinstState {
     $result.State = @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $installed }
     if ($result.Error) { $result.NeedSave = $false; return $result }
 
-    # —— 写入读缓存（缓存归一化结果；NeedSave / Migrated 一并记住，命中时行为与首次一致） ——
+    # —— 写入读缓存（缓存归一化结果；NeedSave 一并记住，命中时行为与首次一致） ——
     # 缓存单独的条目字典，以便调用方替换整条记录。
     if ($stamp) {
         $cache = Get-WinstState -Name WinstStateReadCache
@@ -144,7 +138,6 @@ function Read-WinstState {
             $cache[$path] = @{
                 Stamp    = $stamp
                 State    = (Copy-WinstState -State $result.State)
-                Migrated = [bool]$result.Migrated
                 NeedSave = [bool]$result.NeedSave
             }
         }

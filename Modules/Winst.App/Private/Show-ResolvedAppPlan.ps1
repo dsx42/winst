@@ -14,15 +14,15 @@ function Show-ResolvedAppPlan {
         $Plan,
         [int]$Index = 0,
         [int]$Total = 0,
-        [string]$SourceName = '',
-        [string]$InstallRoot = '',
-        [string]$PkgDir = '',
+        [string]$SourceName,
+        [string]$InstallRoot,
+        [string]$PkgDir,
         [string]$DesktopDir = '',
         [string]$StartMenuDir = '',
         [string]$InstalledVersion = '',
         [string]$InstalledDir = '',
         [switch]$IsUpgrade,
-        [Parameter(Mandatory = $true)][hashtable]$Context, $State = $null, $CacheIndex = $null, $StateRead = $null
+        [Parameter(Mandatory = $true)][hashtable]$Context, $CacheIndex = $null, $StateRead
     )
 
     $view = New-WinstPlanViewState -Plan $Plan -Index $Index -Total $Total -SourceName $SourceName `
@@ -40,8 +40,7 @@ function Show-ResolvedAppPlan {
     }
 
     $id = Get-EntryString -Entry $Plan -Key 'id'
-    if ($null -eq $State) { $State = (Read-WinstState -InstallRoot $Context.InstallRoot).State }
-    $ledger = Get-WinstInstalledApp -State $State -Id $id
+    $ledger = Get-WinstInstalledApp -State $StateRead.State -Id $id
     $lines = @(Get-WinstCompanionVersionLines -Context $Context -Id $id -Plan $Plan -Ledger $ledger -CacheIndex $CacheIndex)
     Write-WinstCompanionVersions -Item @{ CompanionVersionLines = $lines }
 

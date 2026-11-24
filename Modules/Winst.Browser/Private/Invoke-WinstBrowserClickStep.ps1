@@ -3,7 +3,7 @@
 function Invoke-WinstBrowserClickStep {
     <#
     .SYNOPSIS
-        在无头浏览器里按一步 click 规则定位元素并点击；返回 @{ Clicked; Skipped; Error }。
+        在无头浏览器里按一步 click 规则定位元素并点击；返回 @{ Clicked; Error }。
     .DESCRIPTION
         候选元素由页面脚本列出（a / button / input / [role=button] / [id] / [class] 且不是 display:none），
         匹配沿用 link 的同一套规则。
@@ -48,7 +48,7 @@ function Invoke-WinstBrowserClickStep {
         try { $parsed = $raw | ConvertFrom-Json } catch { $parsed = $null }
         if ($null -ne $parsed) { $candidates = @($parsed) }
     }
-    if ($candidates.Count -eq 0) { return @{ Clicked = $false; Skipped = $true; Error = '页面上没有可点的元素' } }
+    if ($candidates.Count -eq 0) { return @{ Clicked = $false; Error = '页面上没有可点的元素' } }
 
     $matched = @()
     foreach ($candidate in $candidates) {
@@ -61,7 +61,7 @@ function Invoke-WinstBrowserClickStep {
         }
         if (Test-AnchorMatches -Anchor $anchor -Spec $Spec) { $matched += $candidate }
     }
-    if ($matched.Count -eq 0) { return @{ Clicked = $false; Skipped = $true; Error = '没有元素符合条件' } }
+    if ($matched.Count -eq 0) { return @{ Clicked = $false; Error = '没有元素符合条件' } }
 
     $ordered = @($matched | Sort-Object -Property @{ Expression = { [int]$_.area } })
     $blocked = ''
@@ -110,8 +110,8 @@ function Invoke-WinstBrowserClickStep {
         $null = Invoke-WinstDevToolsCommand -Session $Session -Method 'Input.dispatchMouseEvent' -Params @{ type = 'mouseMoved'; x = $x; y = $y }
         $null = Invoke-WinstDevToolsCommand -Session $Session -Method 'Input.dispatchMouseEvent' -Params @{ type = 'mousePressed'; x = $x; y = $y; button = 'left'; clickCount = 1 }
         $null = Invoke-WinstDevToolsCommand -Session $Session -Method 'Input.dispatchMouseEvent' -Params @{ type = 'mouseReleased'; x = $x; y = $y; button = 'left'; clickCount = 1 }
-        return @{ Clicked = $true; Skipped = $false; Error = '' }
+        return @{ Clicked = $true; Error = '' }
     }
 
-    return @{ Clicked = $false; Skipped = $true; Error = $blocked }
+    return @{ Clicked = $false; Error = $blocked }
 }

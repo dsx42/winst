@@ -9,7 +9,7 @@ function Invoke-ManifestCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $tokens = @()
@@ -36,7 +36,7 @@ function Invoke-ManifestCommand {
         return 1
     }
 
-    $null = Ensure-OfficialManifest -Context $Context
+    Ensure-OfficialManifest -Context $Context
 
     if ($sub -eq 'list') {
         Invoke-ManifestList -Context $Context
@@ -76,7 +76,7 @@ function Invoke-ManifestCommand {
 
     $sources = @(Get-ManifestSourceList -Context $Context)
     $targets = @()
-    if ($all -or $positional.Count -eq 0) {
+    if ($positional.Count -eq 0) {
         $targets = @($sources)
     } else {
         foreach ($name in $positional) {
@@ -89,11 +89,6 @@ function Invoke-ManifestCommand {
             }
             $targets += $entry
         }
-    }
-
-    if ($targets.Count -eq 0) {
-        Write-Host '  没有可刷新的软件源。' -ForegroundColor Yellow
-        return 0
     }
 
     $refresh = Invoke-ManifestRefreshAll -Context $Context -Sources $targets

@@ -115,7 +115,7 @@ function Get-SourceScriptFile {
     #>
     param(
         [string]$Root,
-        [string[]]$AdditionalFile = @()
+        [string[]]$AdditionalFile
     )
 
     $files = New-Object 'System.Collections.Generic.List[object]'

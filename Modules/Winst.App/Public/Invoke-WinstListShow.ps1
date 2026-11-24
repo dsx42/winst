@@ -3,12 +3,11 @@
 function Invoke-WinstListShow {
     <#
     .SYNOPSIS
-        「查看清单」：管理安装清单 里输入编号后直接调用（没有单独的查看菜单项）；
-        不指定清单时列出全部清单文件，指定后逐项显示内容与状态。
+        显示选中清单的内容与状态。
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Path = ''
+        [string]$Path
     )
 
     $kindText = (Get-WinstListKindText)
@@ -16,35 +15,8 @@ function Invoke-WinstListShow {
 
     if (-not (Assert-WinstContext $Context)) { return }
 
-    $targetPath = ''
-    if ($Path) {
-        # 解析 + 报错文案在 Resolve-WinstListTargetPath 里（编辑 / 查看两页共用）
-        $targetPath = Resolve-WinstListTargetPath -Context $Context -Path $Path
-        if (-not $targetPath) { return }
-    } else {
-        $files = @(Get-WinstListFiles -Context $Context)
-        Write-Host ''
-        if ($files.Count -eq 0) {
-            Write-Host ('  lists 目录里还没有{0}。' -f $kindText) -ForegroundColor Yellow
-            Write-Host ('  清单目录: {0}' -f (Get-WinstListsDir -Context $Context)) -ForegroundColor DarkGray
-            Write-Host ('  可到「高级功能 → 管理{0}」里新建。' -f $kindText) -ForegroundColor DarkGray
-            return
-        }
-
-        if ($files.Count -eq 1) {
-            $targetPath = [string]$files[0]['Path']
-        } else {
-            Write-Host ('  已有的{0}：' -f $kindText) -ForegroundColor Gray
-            Write-WinstListFileRows -Files $files
-            Write-Host ''
-            $pick = @(Read-WinstSelection -Count $files.Count -Single)
-            if ($pick.Count -eq 0) {
-                Write-Host '  已返回。' -ForegroundColor DarkGray
-                return
-            }
-            $targetPath = [string]$files[[int]$pick[0] - 1]['Path']
-        }
-    }
+    $targetPath = Resolve-WinstListTargetPath -Context $Context -Path $Path
+    if (-not $targetPath) { return }
 
     $loaded = Get-WinstListItems -Context $Context -Path $targetPath -RefreshSources -ListOnly
     if (-not $loaded.Ok) {

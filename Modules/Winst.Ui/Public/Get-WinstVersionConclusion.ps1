@@ -13,7 +13,7 @@ function Get-WinstVersionConclusion {
     #>
     param(
         [Parameter(Mandatory = $true)]$Item,
-        [ValidateSet('installed', 'package')][string]$Kind = 'package'
+        [ValidateSet('installed', 'package')][string]$Kind
     )
 
     if ($Kind -eq 'installed') {

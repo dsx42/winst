@@ -7,8 +7,8 @@ function Invoke-WinstBundlePackCli {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$ListText = '',
-        [string]$DirText = '',
+        [string]$ListText,
+        [string]$DirText,
         [switch]$SkipMissing
     )
 
@@ -22,7 +22,6 @@ function Invoke-WinstBundlePackCli {
 
     $result = Invoke-WinstPack -Context $Context -ListPath $ListText -TargetDir $DirText `
         -SkipMissing:$SkipMissing -NonInteractive
-    if ($result.Cancelled) { return 1 }
     if (-not $result.Ok) {
         if ($result.Error) { Write-Host ('  {0}' -f $result.Error) -ForegroundColor Red }
         return 1

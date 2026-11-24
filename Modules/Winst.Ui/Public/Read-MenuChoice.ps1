@@ -11,13 +11,13 @@ function Read-MenuChoice {
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$Valid,
-        [string]$Prompt = '请选择', [switch]$EmptyAsBack
+        [switch]$EmptyAsBack
     )
 
     $emptyStreak = 0
     while ($true) {
         try {
-            $raw = Read-Host $Prompt
+            $raw = Read-Host '请选择'
         } catch {
             # 无控制台（输入被重定向 / 宿主不支持）：友好退出
             return 'q'

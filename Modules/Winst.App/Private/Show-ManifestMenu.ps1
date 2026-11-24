@@ -18,12 +18,8 @@ function Show-ManifestMenu {
     Write-Host '' -ForegroundColor DarkGray
 
     $sources = @(Get-ManifestSourceList -Context $Context)
-    if ($sources.Count -eq 0) {
-        Write-Host '  （当前没有软件源）' -ForegroundColor DarkGray
-    } else {
-        for ($i = 0; $i -lt $sources.Count; $i++) {
-            Write-ManifestSourceInfo -Context $Context -Source $sources[$i] -Index ($i + 1)
-        }
+    for ($i = 0; $i -lt $sources.Count; $i++) {
+        Write-ManifestSourceInfo -Context $Context -Source $sources[$i] -Index ($i + 1)
     }
 
     Write-Host ''

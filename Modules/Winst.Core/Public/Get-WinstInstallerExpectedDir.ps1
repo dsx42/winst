@@ -12,8 +12,8 @@ function Get-WinstInstallerExpectedDir {
     #>
     param(
         $Plan,
-        [string]$InstallArgs = '',
-        [string]$InstallDir = ''
+        [string]$InstallArgs,
+        [string]$InstallDir
     )
 
     # .msi：winst 自己会在安装命令里补 TARGETDIR=<软件安装目录>（见 Invoke-WinstAppInstall）

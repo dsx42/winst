@@ -7,7 +7,7 @@ function Get-WinstRepairCatalog {
     .OUTPUTS
         @{ Plan; Source; CiId; CanScan }
     #>
-    param([hashtable]$Context, [switch]$Quiet, [string[]]$RefreshIds = $null, [switch]$SourcesReady)
+    param([hashtable]$Context, [switch]$Quiet, [string[]]$RefreshIds, [switch]$SourcesReady)
 
     # 超期软件源先按 TTL 刷新，避免用过期清单匹配 id。
     # 页面内嵌调用（已装软件 / 检查更新）传 -RefreshIds：只刷这些 id，不把仅下载条目的版本也解析一遍；

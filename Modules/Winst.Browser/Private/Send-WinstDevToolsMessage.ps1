@@ -5,7 +5,7 @@ function Send-WinstDevToolsMessage {
     .SYNOPSIS
         往 DevTools 连接（WebSocket）发一条 JSON 消息。
     #>
-    param($Session, [hashtable]$Message, [int]$TimeoutMs = 15000)
+    param($Session, [hashtable]$Message, [int]$TimeoutMs)
 
     $json = $Message | ConvertTo-Json -Compress -Depth 8
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)

@@ -31,7 +31,9 @@ function Show-WinstSoftwareActionMenu {
             Write-Host '  i) 安装（缓存里有这个包就直接用，不再重复下载）' -ForegroundColor White
         }
         Write-Host '  p) 下载软件包（只下载到安装包位置，不安装到电脑）' -ForegroundColor White
-        if ($canUpdate) {
+        if ($canUpdate -and -not $Item['LatestVersion']) {
+            Write-Host ('  u) 更新（{0}）' -f $Item['InstalledUpdateHint']) -ForegroundColor White
+        } elseif ($canUpdate) {
             Write-Host ('  u) 更新到 {0}（现在是 {1}）' -f [string]$Item['LatestVersion'], [string]$Item['InstalledVersionText']) -ForegroundColor White
         }
         if ($installed) {

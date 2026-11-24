@@ -14,7 +14,7 @@ function Register-WinstSelfLedger {
         @{ Version }
     #>
     param([hashtable]$Context, $Plan, [string]$InstallDir, [bool]$Updated, [bool]$Resolved,
-        [string]$SourceVersion, [string]$SourceName, [switch]$Quiet)
+        [string]$SourceVersion, [string]$SourceName)
 
     $appliedEnv = @()
     $appliedPath = @()
@@ -36,13 +36,11 @@ function Register-WinstSelfLedger {
             $appliedPath = @($systemItems.AppliedPath)
             $appliedShortcuts = @($systemItems.AppliedShortcuts)
             $shortcutHashes = $systemItems.ShortcutHashes
-            if (-not $Quiet) {
-                foreach ($note in @($systemItems.Notes)) {
-                    if ($note) { Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow }
-                }
+            foreach ($note in @($systemItems.Notes)) {
+                if ($note) { Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow }
             }
         } catch {
-            if (-not $Quiet) { Write-Host ('    提示: 落地快捷方式失败：{0}' -f $_.Exception.Message) -ForegroundColor DarkYellow }
+            Write-Host ('    提示: 落地快捷方式失败：{0}' -f $_.Exception.Message) -ForegroundColor DarkYellow
         }
     }
 

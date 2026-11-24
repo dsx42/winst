@@ -5,15 +5,14 @@ function Merge-WinstFailedAppResults {
     .SYNOPSIS
         本次检测失败的软件不覆盖已有成功结果：保留上次成功条目（备注写明原因）。
     .OUTPUTS
-        @{ Apps; Succeeded; Failed; Retained; Reasons }
+        @{ Apps; Succeeded; Failed; Retained }
     #>
     param($Apps, $Meta, [int]$Failed, [int]$Succeeded)
 
     $apps = @($Apps)
     $retained = 0
-    $retainedReasons = @()
     if ($Failed -le 0 -or -not $Meta -or -not $Meta.HasApps) {
-        return @{ Apps = $apps; Succeeded = $Succeeded; Failed = $Failed; Retained = 0; Reasons = @() }
+        return @{ Apps = $apps; Succeeded = $Succeeded; Failed = $Failed; Retained = 0 }
     }
 
     $previous = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
@@ -22,7 +21,7 @@ function Merge-WinstFailedAppResults {
         if ($oldId) { $previous[$oldId] = $oldApp }
     }
     if ($previous.Count -eq 0) {
-        return @{ Apps = $apps; Succeeded = $Succeeded; Failed = $Failed; Retained = 0; Reasons = @() }
+        return @{ Apps = $apps; Succeeded = $Succeeded; Failed = $Failed; Retained = 0 }
     }
 
     $merged = @()
@@ -42,7 +41,6 @@ function Merge-WinstFailedAppResults {
             $kept['resolvedAt'] = [DateTime]::UtcNow.ToString('o')
             $merged += $kept
             $retained++
-            $retainedReasons += ('{0}: {1}' -f (Get-EntryString -Entry $app -Key 'name'), $reason)
             Write-Host ('    ! {0} 本次检测失败，已保留上次成功结果（{1}）' -f (Get-EntryString -Entry $app -Key 'name'), $reason) -ForegroundColor Yellow
         } else {
             $merged += $app
@@ -54,6 +52,5 @@ function Merge-WinstFailedAppResults {
         Succeeded = ($Succeeded + $retained)
         Failed    = ($Failed - $retained)
         Retained  = $retained
-        Reasons   = @($retainedReasons)
     }
 }

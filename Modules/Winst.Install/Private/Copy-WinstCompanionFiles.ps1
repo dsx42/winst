@@ -17,7 +17,7 @@ function Copy-WinstCompanionFiles {
         [Parameter(Mandatory = $true)][string]$PkgDir,
         [Parameter(Mandatory = $true)][string]$InstallDir,
         [switch]$OnlyChanged,
-        [string[]]$ChangedNames = @()
+        [string[]]$ChangedNames
     )
 
     $result = @{ Ok = $true; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @(); Error = '' }

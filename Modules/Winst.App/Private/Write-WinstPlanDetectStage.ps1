@@ -5,7 +5,7 @@ function Write-WinstPlanDetectStage {
     .SYNOPSIS
         ⑥ 版本检测段（按 detect.method 生成说明文字）。
     #>
-    param($Plan, [hashtable]$View, [string]$MainProgram = '')
+    param($Plan, [hashtable]$View, [string]$MainProgram)
 
     $installDir = $View.InstallDir
     $detect = Get-EntryValue -Entry $Plan -Key 'detect' -Default $null

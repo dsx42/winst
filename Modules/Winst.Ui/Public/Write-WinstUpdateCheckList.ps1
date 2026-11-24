@@ -52,17 +52,14 @@ function Write-WinstUpdateCheckList {
                 Write-Host ('  {0}) {1}' -f ($i + 1), $rowText) -ForegroundColor Green
                 continue
             }
-            $targetText = '版本未知（按软件源里的版本更新）'
-            if ([string]$one['Latest']) {
-                $targetText = [string]$one['Latest']
-                if ([string]$one['LatestSource']) { $targetText += ('（来自 {0}）' -f [string]$one['LatestSource']) }
-            }
-            $noteText = ''
-            if ([string]$one['Message']) { $noteText = ('（{0}）' -f [string]$one['Message']) }
-            # 版本未知但软件源里有可用信息：整行标黄（其余条目仍为绿色）
+            $rowText = ('{0}    当前 {1}' -f [string]$one['Name'], $installedText)
+            if ([string]$one['Latest']) { $rowText += ('  →  {0}  ↑' -f [string]$one['Latest']) }
             $rowColor = 'Green'
-            if ($noteText) { $rowColor = 'DarkYellow' }
-            $rowText = ('{0}    当前 {1}  →  {2}  ↑{3}' -f [string]$one['Name'], $installedText, $targetText, $noteText)
+            if ([string]$one['Message']) {
+                $rowText += ('    {0}' -f [string]$one['Message'])
+                $rowColor = 'DarkYellow'
+            }
+            if ([string]$one['LatestSource']) { $rowText += ('（来自 {0}）' -f [string]$one['LatestSource']) }
             $entryTexts += $rowText
             Write-Host ('  {0}) {1}' -f ($i + 1), $rowText) -ForegroundColor $rowColor
         }

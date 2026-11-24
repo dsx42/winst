@@ -16,7 +16,7 @@ function Merge-WinstDirScanRecords {
             $detect = Get-WinstDetectedVersion -Context $Context -Plan $app -InstallDir ([string]$record['FullName'])
             $version = 'unknown'
             if ($detect.Ok -and $detect.Version) { $version = [string]$detect.Version }
-            $Found[$matchId] = New-WinstScanRecord -Id $matchId -Version $version -OldVersions @($detect.OldVersions) -Type $type `
+            $Found[$matchId] = New-WinstScanRecord -Version $version -OldVersions @($detect.OldVersions) -Type $type `
                 -InstallDir ([string]$record['FullName']) -Managed 'winst' -Source ([string]$record['Source'])
             if ($VerboseOutput) {
                 $detail = ''
@@ -29,7 +29,7 @@ function Merge-WinstDirScanRecords {
         # 清单里没有对应软件：仍按目录登记，保证 installRoot 下的文件夹都能在安装记录里看到
         $dirId = [string]$record['DirName']
         if (-not $dirId -or $Found.Contains($dirId)) { continue }
-        $Found[$dirId] = New-WinstScanRecord -Id $dirId -Managed 'winst' -DirOnly
+        $Found[$dirId] = New-WinstScanRecord -Managed 'winst' -DirOnly
         if ($VerboseOutput) {
             Write-Host ('    [目录] {0} → 清单里没有对应软件，按目录登记' -f $dirId) -ForegroundColor DarkGray
         }

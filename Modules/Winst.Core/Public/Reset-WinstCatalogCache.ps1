@@ -8,7 +8,7 @@ function Reset-WinstCatalogCache {
     .DESCRIPTION
         移除软件汇总、搜索目录与依赖索引缓存，下次读取时分别重建。
     #>
-    $null = Remove-WinstState -Name WinstAllAppsCache
-    $null = Remove-WinstState -Name WinstSearchCatalogCache
-    $null = Remove-WinstState -Name WinstDependencyIndex
+    Remove-WinstState -Name WinstAllAppsCache
+    Remove-WinstState -Name WinstSearchCatalogCache
+    Remove-WinstState -Name WinstDependencyIndex
 }

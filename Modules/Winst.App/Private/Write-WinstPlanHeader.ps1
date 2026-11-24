@@ -5,7 +5,7 @@ function Write-WinstPlanHeader {
     .SYNOPSIS
         软件清单头部：标题 / 类型 / 版本 / 说明 / 已装版本 / 来源 / 依赖。
     #>
-    param($Plan, [hashtable]$View, [Parameter(Mandatory = $true)][hashtable]$Context, $StateRead = $null, [switch]$IsUpgrade)
+    param($Plan, [hashtable]$View, [Parameter(Mandatory = $true)][hashtable]$Context, $StateRead, [switch]$IsUpgrade)
 
     Write-Host ''
     Write-Host ('  ' + ('─' * 66)) -ForegroundColor DarkGray

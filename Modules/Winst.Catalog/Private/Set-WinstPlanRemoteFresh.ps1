@@ -40,7 +40,6 @@ function Set-WinstPlanRemoteFresh {
 
     if ($header -or $hasDeclaredChecksum) {
         try {
-            $expectedHash = ''
             if ($header) {
                 $expectedHash = Get-WinstRemoteHeader -Context $Context -Uri $url -Name $header
             } else {

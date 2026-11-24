@@ -6,7 +6,7 @@ function Invoke-WinstUpdateExecuteEntry {
         执行更新：保护规则（不自动降级 / external 只报告）→ 按检查选定的来源复用安装流程。
     #>
     param([hashtable]$Context, [string]$Id, $Row, $Ledger, $Snap, $EntryResult, [string]$InstalledVersion,
-        [string]$DisplayName, [switch]$DownloadOnly, [switch]$Force, [switch]$Yes, [switch]$Quiet,
+        [string]$DisplayName, [switch]$DownloadOnly, [switch]$Force, [switch]$Yes,
         [switch]$FilesOnly, [switch]$ForceSystemItems)
 
     $latest = [string]$Snap.Latest
@@ -21,18 +21,14 @@ function Invoke-WinstUpdateExecuteEntry {
     if (-not $comparable -or -not $latest) {
         if ($Snap.VersionFromPackage) {
             # 「版本号取自主包文件信息」的条目交给安装流程「先取包、再决定」——不强制重装
-            if (-not $Quiet) {
-                Write-Host ''
-                Write-Host ('  {0}: 无法比较版本（版本号取自主包文件信息），更新时重新取包核对。' -f $DisplayName) -ForegroundColor DarkYellow
-            }
+            Write-Host ''
+            Write-Host ('  {0}: 无法比较版本（版本号取自主包文件信息），更新时重新取包核对。' -f $DisplayName) -ForegroundColor DarkYellow
         } else {
             $forceThisItem = $true
-            if (-not $Quiet) {
-                $reasonText = '本机版本未知'
-                if (-not $latest) { $reasonText = '软件源里没有可用的版本信息' }
-                Write-Host ''
-                Write-Host ('  {0}: 无法比较版本（{1}），按软件源里的定义更新。' -f $DisplayName, $reasonText) -ForegroundColor DarkYellow
-            }
+            $reasonText = '本机版本未知'
+            if (-not $latest) { $reasonText = '软件源里没有可用的版本信息' }
+            Write-Host ''
+            Write-Host ('  {0}: 无法比较版本（{1}），按软件源里的定义更新。' -f $DisplayName, $reasonText) -ForegroundColor DarkYellow
         }
     }
     if ($comparable -and $latest -and $cmp -eq 0 -and -not $Force) {
@@ -43,34 +39,28 @@ function Invoke-WinstUpdateExecuteEntry {
         if ($Snap.VersionFromPackage -and $companionInfo.PrimaryCacheError -and -not $DownloadOnly) {
             $EntryResult.Network = [bool]$companionInfo.PrimaryCacheNetwork
             $EntryResult.Action = 'failed'
-            $EntryResult.Message = [string]$companionInfo.PrimaryCacheError
-            if (-not $Quiet) { Write-Host ('  {0}: {1}' -f $DisplayName, $EntryResult.Message) -ForegroundColor Red }
+            Write-Host ('  {0}: {1}' -f $DisplayName, $companionInfo.PrimaryCacheError) -ForegroundColor Red
             return
         }
-        if ($companionInfo.CompanionsOnly -and -not $Quiet) {
+        if ($companionInfo.CompanionsOnly) {
             Write-Host ''
             Write-Host ('  {0}: 附加文件待更新（{1} 个）: {2}' -f $DisplayName, $companionInfo.ChangedCount, ($companionInfo.Names -join '、')) -ForegroundColor DarkYellow
         }
         if (-not ($companionInfo.CompanionsOnly -or $companionInfo.PrimaryCacheError)) {
             $EntryResult.Action = 'latest'
-            if (-not $Quiet) {
-                Write-Host ''
-                Write-Host ('  {0}: 已是最新版本（{1}）。' -f $DisplayName, $InstalledVersion) -ForegroundColor Gray
-            }
+            Write-Host ''
+            Write-Host ('  {0}: 已是最新版本（{1}）。' -f $DisplayName, $InstalledVersion) -ForegroundColor Gray
             return
         }
     }
     if ($comparable -and $latest -and $cmp -lt 0 -and -not $Force) {
         $EntryResult.Action = 'newer'
-        $EntryResult.Message = '本机版本比软件源里的更新'
-        if (-not $Quiet) {
-            Write-Host ''
-            if (Test-WinstMenuMode) {
-                # 菜单里不能出现命令行开关：指向菜单里能做到重装 / 降级的入口
-                Write-Host ('  {0}: 本机已安装 {1}，比软件源里的 {2} 更新；不自动降级（需要重装 / 降级请到「安装软件」里搜索「{0}」，按提示确认强制重装）。' -f $DisplayName, $InstalledVersion, $latest) -ForegroundColor DarkYellow
-            } else {
-                Write-Host ('  {0}: 本机已安装 {1}，比软件源里的 {2} 更新；如需降级请加 --force。' -f $DisplayName, $InstalledVersion, $latest) -ForegroundColor DarkYellow
-            }
+        Write-Host ''
+        if (Test-WinstMenuMode) {
+            # 菜单里不能出现命令行开关：指向菜单里能做到重装 / 降级的入口
+            Write-Host ('  {0}: 本机已安装 {1}，比软件源里的 {2} 更新；不自动降级（需要重装 / 降级请到「安装软件」里搜索「{0}」，按提示确认强制重装）。' -f $DisplayName, $InstalledVersion, $latest) -ForegroundColor DarkYellow
+        } else {
+            Write-Host ('  {0}: 本机已安装 {1}，比软件源里的 {2} 更新；如需降级请加 --force。' -f $DisplayName, $InstalledVersion, $latest) -ForegroundColor DarkYellow
         }
         return
     }
@@ -81,11 +71,9 @@ function Invoke-WinstUpdateExecuteEntry {
     $type = (Get-EntryString -Entry $Ledger -Key 'type').Trim().ToLowerInvariant()
     if ($managed -ne 'winst' -and $type -and $type -ne 'installer') {
         $EntryResult.Action = 'external'
-        if (-not $Quiet) {
-            Write-Host ''
-            Write-Host ('  {0}: 当前 {1}  →  新版本 {2}（来自 {3}）  ↑' -f $DisplayName, $InstalledVersion, $latest, $latestSource) -ForegroundColor DarkYellow
-            Write-Host '    该软件不是 winst 安装的，winst 不覆盖它，请用软件自己的方式更新。' -ForegroundColor DarkGray
-        }
+        Write-Host ''
+        Write-Host ('  {0}: 当前 {1}  →  新版本 {2}（来自 {3}）  ↑' -f $DisplayName, $InstalledVersion, $latest, $latestSource) -ForegroundColor DarkYellow
+        Write-Host '    该软件不是 winst 安装的，winst 不覆盖它，请用软件自己的方式更新。' -ForegroundColor DarkGray
         return
     }
 
@@ -98,28 +86,25 @@ function Invoke-WinstUpdateExecuteEntry {
         Write-Host '    只更新文件：环境变量 / PATH 保持原样；快捷方式只修正不新建' -ForegroundColor DarkGray
     }
     $one = Invoke-WinstInstallTarget -Context $Context -Row $Row -Force:$forceThisItem -DownloadOnly:$DownloadOnly `
-        -Yes:$Yes -Quiet:$Quiet -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
+        -Yes:$Yes -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     if ($one.Cancelled) {
         $EntryResult.Action = 'cancelled'
     } elseif (-not $one.Ok) {
         $EntryResult.Network = [bool]$one.Network
         $EntryResult.Action = 'failed'
-        $reason = [string]$one.Error
-        if (-not $reason) { $reason = [string]$one.Message }
-        if (-not $reason) { $reason = '未知原因' }
-        $EntryResult.Message = $reason
         # 失败原因就地打印过就不再重复；没有的话在这里补一句，否则汇总只剩「失败 1」
         if (-not [bool]$one.FailureShown) {
+            $reason = [string]$one.Error
+            if (-not $reason) { $reason = [string]$one.Message }
+            if (-not $reason) { $reason = '未知原因' }
             Write-Host ''
             Write-Host ('  {0}: 更新失败 —— {1}' -f $DisplayName, $reason) -ForegroundColor Red
         }
     } elseif ($one.Skipped) {
         $EntryResult.Action = 'skipped'
-        $EntryResult.Message = [string]$one.Message
     } else {
         $EntryResult.Action = 'updated'
-        $EntryResult.Latest = [string]$one.Version
     }
 
     # 更新后重读安装记录，后续条目按最新状态处理

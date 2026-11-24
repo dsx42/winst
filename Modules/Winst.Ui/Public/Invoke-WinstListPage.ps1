@@ -8,20 +8,19 @@ function Invoke-WinstListPage {
     param(
         $Items,
         [Parameter(Mandatory = $true)][string]$SummaryText,
-        [string]$SummaryColor = 'DarkGray',
+        [string]$SummaryColor,
         [Parameter(Mandatory = $true)][string]$EmptyText,
         [Parameter(Mandatory = $true)][string]$SelectHint,
         [string]$Prompt = '请选择',
-        [string]$Filter = '',
+        [string]$Filter,
         [Parameter(Mandatory = $true)][scriptblock]$RenderRow,
-        [scriptblock]$RenderFooter = $null,
+        [scriptblock]$RenderFooter,
         [hashtable]$ExtraKeys = @{},
         [switch]$AllowMultiple
     )
 
     $all = @($Items)
     $filterText = $Filter.Trim()
-    if ($all.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = $filterText } }
 
     while ($true) {
         $visible = $all
@@ -47,7 +46,7 @@ function Invoke-WinstListPage {
         }
 
         Write-Host ('  {0}' -f $SummaryText) -ForegroundColor $SummaryColor
-        if ($RenderFooter) { & $RenderFooter }
+        & $RenderFooter
         Write-Host ('  {0}' -f $SelectHint) -ForegroundColor DarkGray
         if ($AllowMultiple) { Write-Host '  可一次输入多个编号（如 1 3 5）' -ForegroundColor DarkGray }
         if ($filterText) { Write-Host '  输入 f 清除过滤' -ForegroundColor DarkGray }

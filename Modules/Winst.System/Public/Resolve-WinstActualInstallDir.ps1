@@ -10,7 +10,7 @@ function Resolve-WinstActualInstallDir {
     .OUTPUTS
         @{ Dir; FromRegistry } —— FromRegistry 表示目录取自系统安装记录（而不是 winst 的预期目录）
     #>
-    param($Plan, [string]$AssumedDir = '')
+    param($Plan, [string]$AssumedDir)
 
     $result = @{ Dir = ''; FromRegistry = $false }
 

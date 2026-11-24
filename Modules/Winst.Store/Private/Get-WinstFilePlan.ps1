@@ -19,7 +19,7 @@ function Get-WinstFilePlan {
         [switch]$CanCheckRemote,
         [switch]$FreshMain,
         [switch]$RequireCurrent,
-        [string]$FreshMainReason = '',
+        [string]$FreshMainReason,
         [string]$UnchangedMainHash
     )
 
@@ -89,8 +89,8 @@ function Get-WinstFilePlan {
             if ($FileIndex -eq 0 -and $indexedFiles.Count -and $indexedFiles[0] -ieq $name) {
                 $plan['CachedVersion'] = Get-EntryString -Entry $Entry -Key 'version'
             }
-            if ($meta.Exists) {
-                if ($sameOrigin -and $meta.ExpectedHash -and $meta.SourceVersion -cne $plan['FileVersion']) {
+            if ($sameOrigin) {
+                if ($meta.ExpectedHash -and $meta.SourceVersion -cne $plan['FileVersion']) {
                     if ($meta.ChecksumHashFile) {
                         $offlineDecl = @{ hashFile = $meta.ChecksumHashFile; hashFrom = $meta.ChecksumHashFrom }
                     } else { $offlineDecl = @{ hash = $meta.ExpectedHash } }

@@ -11,7 +11,7 @@ function Invoke-WinstBundleInstallCli {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Path = '',
+        [string]$Path,
         [switch]$SkipExisting
     )
 

@@ -11,7 +11,7 @@ function Invoke-WinstSearchCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $keyword = ''
@@ -35,7 +35,7 @@ function Invoke-WinstSearchCommand {
     # 刷新有成果时用新数据重新搜索展示——不把软件源里所有软件都解析一遍
     $state = Read-WinstCommandState -Context $Context
     $lookup = Search-WinstRowsWithRefresh -Context $Context -Keyword $keyword -Quiet
-    Write-WinstRefreshErrors -Errors $lookup.Refresh.Errors
+    Write-WinstRefreshErrors -Errors $lookup.Errors
     $searched = $lookup.Searched
 
     $rows = @($searched.Rows)

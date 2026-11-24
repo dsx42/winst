@@ -10,32 +10,30 @@ function Remove-WinstOrphanRegistryRecord {
 
         只允许删卸载记录分支下的键（KeyPath 来自注册表枚举，但脏数据不能拿去递归删除任意键）。
     .OUTPUTS
-        @{ Ok; Skipped; Error }
+        @{ Ok; Error }
     #>
     param([string]$KeyPath, [switch]$Quiet)
 
-    $result = @{ Ok = $false; Skipped = $false; Error = '' }
-    if (-not $KeyPath) { $result.Skipped = $true; return $result }
+    $result = @{ Ok = $false; Error = '' }
+    if (-not $KeyPath) { return $result }
     # `[^\\]+` 也会匹配 `..`：`...\Uninstall\..` 解析出来是 `...\CurrentVersion`，
     # 递归删除会清掉整棵卸载记录分支。因此先排除带 . / .. 段或尾点的写法
     if ($KeyPath -match '\\\.\.?(\\|$)' -or $KeyPath -match '\\[^\\]*\.$' -or
         $KeyPath -notmatch '(?i)\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\[^\\]+$') {
-        $result.Skipped = $true
         $result.Error = ('不是系统安装记录里的键，已跳过: {0}' -f $KeyPath)
         return $result
     }
     try {
         $props = Read-WinstUninstallRegistryEntry -KeyPath $KeyPath
-        if (-not $props) { $result.Skipped = $true; return $result }
+        if (-not $props) { return $result }
         $resolved = Resolve-WinstUninstallerCommand -CommandLine (Get-EntryString -Entry $props -Key 'UninstallString')
         if (-not $resolved.Missing) {
-            $result.Skipped = $true
             if (-not $resolved.Ok) { $result.Error = ('无法确认卸载器文件已不存在，已保留安装记录：{0}' -f $resolved.Error) }
             return $result
         }
         $displayName = Get-EntryString -Entry $props -Key 'DisplayName'
         $parent = Open-WinstUninstallRegistryKey -KeyPath $KeyPath -Writable -Parent
-        if ($null -eq $parent) { $result.Skipped = $true; return $result }
+        if ($null -eq $parent) { return $result }
         try { $parent.DeleteSubKeyTree(($KeyPath -split '\\')[-1], $false) } finally { $parent.Dispose() }
         Reset-WinstSystemCache
         if (-not $Quiet) {

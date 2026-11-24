@@ -12,7 +12,7 @@ function Install-WinstEngine {
         找不到可用系统安装时用 /S 静默运行已下载的 EXE，安装结束后用系统 7-Zip 解压引导包并交付。
         取定义 / 下载与索引 / 解压落地 / 台账 各由独立函数承担。
     .OUTPUTS
-        @{ Ok; Exe; Error; Installed; Updated }
+        @{ Ok; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -23,7 +23,7 @@ function Install-WinstEngine {
         [switch]$ForceUpdate
     )
 
-    $result = @{ Ok = $false; Exe = ''; Error = ''; Installed = $false; Updated = $false }
+    $result = @{ Ok = $false; Error = '' }
 
     try { Assert-WinstAppIdentityAvailable -Context $Context -Id $Id }
     catch { $result.Error = $_.Exception.Message; return $result }
@@ -32,10 +32,8 @@ function Install-WinstEngine {
     $existing = Get-WinstEngineExe -Context $Context -Id $Id
     if ($existing -and -not $ForceUpdate) {
         $result.Ok = $true
-        $result.Exe = $existing
         return $result
     }
-    if ($ForceUpdate -and $existing) { $result.Updated = $true }
 
     if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Offline) {
         $result.Error = ('离线模式下无法自动安装 {0}；请在联网机器上执行 bundle pack，或手动把引擎放到安装目录' -f $Id)
@@ -81,16 +79,14 @@ function Install-WinstEngine {
             $result.Error = [string]$layout.Error
             return $result
         }
-        if ($mainExe) { $result.Exe = Join-WinstPath $installDir $mainExe }
 
         # ④ 台账只登记引擎专用目录
         Register-WinstEngineLedger -Context $Context -Plan $plan -PlanId $planId -InstallDir $installDir `
             -SourceName ([string]$resolved.Source)
 
-        if (-not $Quiet) { Write-Host ('    {0} 已就绪: {1}' -f $Id, $result.Exe) -ForegroundColor DarkGray }
+        if (-not $Quiet) { Write-Host ('    {0} 已就绪: {1}' -f $Id, (Join-WinstPath $installDir $mainExe)) -ForegroundColor DarkGray }
 
         $result.Ok = $true
-        $result.Installed = $true
         return $result
     } finally {
         $packageLock.Dispose()

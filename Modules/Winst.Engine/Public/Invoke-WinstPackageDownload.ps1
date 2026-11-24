@@ -11,7 +11,7 @@ function Invoke-WinstPackageDownload {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)][string]$DestDir,
-        [string]$FileName = ''
+        [string]$FileName
     )
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context -Download)

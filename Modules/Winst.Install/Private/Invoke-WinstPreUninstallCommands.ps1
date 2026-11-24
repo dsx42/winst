@@ -11,7 +11,7 @@ function Invoke-WinstPreUninstallCommands {
     .OUTPUTS
         @{ Ok; Error; Notes }
     #>
-    param([hashtable]$Context, [string]$CommandDir, $Targets, [bool]$ForceRemove, [switch]$Quiet)
+    param([hashtable]$Context, [string]$CommandDir, $Targets, [bool]$ForceRemove)
 
     $notes = @()
     $uninstallCommands = @($Targets['Commands'])
@@ -23,7 +23,7 @@ function Invoke-WinstPreUninstallCommands {
         return @{ Ok = $true; Error = ''; Notes = $notes }
     }
 
-    $run = Invoke-WinstCommandList -Commands $uninstallCommands -Label '卸载命令' -InstallDir $commandDir -InstallRoot $Context.InstallRoot -ShowCommand:(-not $Quiet)
+    $run = Invoke-WinstCommandList -Commands $uninstallCommands -Label '卸载命令' -InstallDir $commandDir -InstallRoot $Context.InstallRoot -ShowCommand
     if (-not $run.Ok) {
         return @{ Ok = $false; Error = ('{0}；安装目录与安装记录均未改动。如已手动处理过这一步，可加 --force 跳过卸载命令。' -f $run.Error); Notes = $notes }
     }

@@ -11,9 +11,9 @@ function Get-WinstVersionFromMarkerFile {
     param(
         [hashtable]$Context,
         $Detect,
-        [string]$InstallDir = '',
-        [string]$Kind = '',
-        $Between = @(),
+        [string]$InstallDir,
+        [string]$Kind,
+        $Between,
         [hashtable]$Result
     )
 
@@ -24,10 +24,10 @@ function Get-WinstVersionFromMarkerFile {
     foreach ($file in @($probe.Files)) {
         try { $text = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue } catch { $text = '' }
         # 标记文件内容常常就是版本号本身 → 无条件兜底（-Fallback always）
-        $one = @{ Ok = $false; Found = $true; Version = ''; Detail = '' }
+        $one = @{ Ok = $false; Version = ''; Detail = '' }
         Set-WinstDetectedVersionFromRaw -Result $one -Raw $text -Kind $Kind -Between $Between `
             -Detail ('标记文件: {0}' -f $file.FullName) -Fallback always
-        if (-not $one.Ok -or -not $one.Version) { continue }
+        if (-not $one.Ok) { continue }
         Add-WinstVersionItem -Result $Result -Version ([string]$one.Version) -Detail ([string]$one.Detail) `
             -GroupKey (Get-WinstPathGroupKey -Path $file.FullName)
     }

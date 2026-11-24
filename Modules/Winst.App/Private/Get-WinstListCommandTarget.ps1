@@ -9,7 +9,7 @@ function Get-WinstListCommandTarget {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Text = ''
+        [string]$Text
     )
 
     $defaultName = (Get-WinstListFileName)

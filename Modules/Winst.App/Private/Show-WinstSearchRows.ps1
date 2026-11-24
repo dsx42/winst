@@ -12,11 +12,10 @@ function Show-WinstSearchRows {
     #>
     param(
         $Rows,
-        [hashtable]$State = $null, [hashtable]$Context
+        [hashtable]$State, [hashtable]$Context
     )
 
     $rows = @($Rows)
-    if ($rows.Count -eq 0) { return @() }
 
     Write-Host ''
     $summaryText = ('共 {0} 个软件' -f $rows.Count)
@@ -35,7 +34,7 @@ function Show-WinstSearchRows {
     Write-Host ('  {0}' -f $summaryText) -ForegroundColor DarkGray
     Write-Host '  输入编号选择（可多选，如 1 3 5）；回车 = 取消' -ForegroundColor DarkGray
 
-    $selection = Read-WinstIndexSelection -Prompt '  请选择' -Count $rows.Count -AllowEmpty -AllowMultiple
+    $selection = Read-WinstIndexSelection -Prompt '  请选择' -Count $rows.Count -AllowMultiple
     if ($selection.Action -eq 'quit') { Set-WinstQuit; return @() }
     return @($selection.Indexes | ForEach-Object { [int]$_ + 1 })
 }

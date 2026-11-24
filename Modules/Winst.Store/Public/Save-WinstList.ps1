@@ -8,17 +8,17 @@ function Save-WinstList {
         先写注释行、再按传入顺序写 `id` 或 `id==版本`；目录不存在时由 Write-FileAtomic 自动创建。
         `--dry-run` 下不落盘，只把 Count 记为将写入的项数并返回同一结构。
     .OUTPUTS
-        @{ Ok; Error; Path; Count; DryRun }
+        @{ Ok; Error; Count }
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [string[]]$CommentLines = @(),
-        [string[]]$Ids = @(),
-        $VersionById = $null,
+        [string[]]$CommentLines,
+        [string[]]$Ids,
+        $VersionById,
         [switch]$DryRun
     )
 
-    $result = @{ Ok = $false; Error = ''; Path = $Path; Count = 0; DryRun = [bool]$DryRun }
+    $result = @{ Ok = $false; Error = ''; Count = 0 }
 
     # 逐行数组追加是 O(n²)：与 Read-WinstList 同一口径，统一用 List
     $lines = New-Object 'System.Collections.Generic.List[string]'

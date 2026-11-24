@@ -50,7 +50,7 @@ function Select-WinstRowSource {
         Write-Host ('    {0}) {1}    版本 {2}' -f ($i + 1), [string]$usable[$i]['Source'], $version) -ForegroundColor White
     }
     Write-Host ''
-    $selection = @(Read-WinstSelection -Count $usable.Count -Single)
+    $selection = @(Read-WinstSelection -Count $usable.Count)
     if ($selection.Count -eq 0) { return @{ Ok = $false; Entry = $null; Error = ''; Cancelled = $true } }
     return @{ Ok = $true; Entry = $usable[[int]$selection[0] - 1]; Error = ''; Cancelled = $false }
 }

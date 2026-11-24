@@ -15,7 +15,7 @@ function Resolve-WinstListFileForCli {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Text = ''
+        [string]$Text
     )
 
     $target = Get-WinstListCommandTarget -Context $Context -Text $Text

@@ -11,7 +11,7 @@ function Get-WinstRegistryEntryForPlan {
 
         全部命中的记录见 Get-WinstRegistryEntriesForPlan（同一软件可能同时存在新旧两版的多条记录）。
     #>
-    param($Plan, [string]$InstallDir = '')
+    param($Plan, [string]$InstallDir)
 
     $status = @{}
     $versions = @(Get-WinstRegistryVersionEntries -Plan $Plan -InstallDir $InstallDir -Status $status)

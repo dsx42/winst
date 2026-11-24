@@ -7,8 +7,8 @@ function Get-WinstRowViewFacts {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Id,
-        $Row = $null,
-        $Ledger = $null
+        $Row,
+        $Ledger
     )
 
     $displayName = $Id

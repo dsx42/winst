@@ -9,11 +9,10 @@ function Invoke-WinstHttpGet {
         [Parameter(Mandatory = $true)]
         [string]$Uri,
         [hashtable]$Context,
-        [int]$TimeoutSec = 30,
         [hashtable]$Headers = $null,
         [switch]$NoCache
     )
 
-    $result = Invoke-WinstHttpRequest -Uri $Uri -Context $Context -TimeoutSec $TimeoutSec -Headers $Headers -NoCache:$NoCache -TextOnly
+    $result = Invoke-WinstHttpRequest -Uri $Uri -Context $Context -Headers $Headers -NoCache:$NoCache -TextOnly
     return $result.Content
 }

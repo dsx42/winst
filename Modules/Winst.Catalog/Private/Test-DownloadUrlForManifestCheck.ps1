@@ -19,8 +19,8 @@ function Test-DownloadUrlForManifestCheck {
     param(
         [hashtable]$Context,
         [string]$Url,
-        [bool]$Skip = $false,
-        [hashtable]$Headers = $null
+        [bool]$Skip,
+        [hashtable]$Headers
     )
 
     if ($Skip) { return 'skipped' }

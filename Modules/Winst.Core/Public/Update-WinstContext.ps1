@@ -3,7 +3,7 @@
 function Update-WinstContext {
     <#
     .SYNOPSIS
-        就地应用已解析的上下文，未提供时从当前配置重新构造。
+        就地应用已解析的上下文。
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -11,8 +11,5 @@ function Update-WinstContext {
         [hashtable]$NextContext
     )
 
-    if (-not $NextContext) {
-        $NextContext = New-WinstContext -Options (Get-WinstState -Name WinstOptions) -DataRoot $Context.DataRoot
-    }
     foreach ($key in $NextContext.Keys) { $Context[$key] = $NextContext[$key] }
 }

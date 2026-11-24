@@ -12,9 +12,7 @@ function Write-WinstResultSummary {
     #>
     param(
         [hashtable]$Result,
-        [object[]]$Fields,
-        [switch]$Quiet,
-        [string]$Label = '汇总'
+        [object[]]$Fields
     )
 
     $parts = @()
@@ -25,5 +23,5 @@ function Write-WinstResultSummary {
     }
     $color = 'Gray'
     if ([int]$Result['Failed'] -gt 0) { $color = 'Yellow' }
-    if (-not $Quiet) { Write-Host ('  {0}: {1}' -f $Label, ($parts -join ' / ')) -ForegroundColor $color }
+    Write-Host ('  汇总: {0}' -f ($parts -join ' / ')) -ForegroundColor $color
 }

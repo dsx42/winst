@@ -10,15 +10,13 @@ function Get-WinstRunningAppProcess {
         `Certain` 区分「路径确认」与「仅按名字兜底」：
           - 路径确认在安装目录下 → $true，允许不询问就结束；
           - 只按清单进程名 / 主程序名命中 → $false，要求用户手动关闭。
-        -Refresh 跳过进程快照缓存，强制用实时数据判定（交互确认后复核用）。
     .OUTPUTS
         @( @{ Id; Name; Path; StartedAt; Certain } )
     #>
     param(
         $Plan,
-        [string]$InstallDir = '',
-        [string[]]$ExtraDirs = @(),
-        [switch]$Refresh
+        [string]$InstallDir,
+        [string[]]$ExtraDirs
     )
 
     $dirs = @()
@@ -43,7 +41,7 @@ function Get-WinstRunningAppProcess {
 
     $result = @()
     $self = $PID
-    foreach ($proc in @(Get-WinstProcessSnapshot -Refresh:$Refresh -Discard:$Refresh)) {
+    foreach ($proc in @(Get-WinstProcessSnapshot)) {
         $procId = [int]$proc['Id']
         if ($procId -eq $self) { continue }
 

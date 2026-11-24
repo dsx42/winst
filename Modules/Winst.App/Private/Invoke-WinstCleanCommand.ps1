@@ -13,7 +13,7 @@ function Invoke-WinstCleanCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $ids = @()

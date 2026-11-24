@@ -16,7 +16,7 @@ function Invoke-WinstPack {
         只动本次涉及的软件目录，不删除其它软件的既有内容；`--dry-run` 全链路只展示不落盘。
         本函数只做编排，各步骤由 select / show / copy 系列函数承担。
     .OUTPUTS
-        @{ Ok; Cancelled; Error }
+        @{ Ok; Error }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -28,7 +28,7 @@ function Invoke-WinstPack {
         [switch]$NonInteractive
     )
 
-    $result = @{ Ok = $false; Cancelled = $false; Error = '' }
+    $result = @{ Ok = $false; Error = '' }
 
     Write-Section '制作U盘安装包'
 
@@ -49,7 +49,7 @@ function Invoke-WinstPack {
     }
 
     # —— ① 选择安装清单 ——
-    if ($ListPath -or $NonInteractive) {
+    if ($NonInteractive) {
         $pick = Resolve-WinstListFileForCli -Context $Context -Text $ListPath
         if (-not $pick.Ok) { return $result }
     } else {
@@ -73,7 +73,7 @@ function Invoke-WinstPack {
         $result.Error = ('目标目录不合法：{0}' -f $_.Exception.Message)
         return $result
     }
-    if (-not $TargetDir) { $result.Cancelled = $true; return $result }
+    if (-not $TargetDir) { return $result }
     $listTarget = Join-WinstPath (Join-WinstPath $TargetDir 'lists') (Split-Path -Leaf $ListPath)
     if ([IO.Path]::GetFullPath($ListPath) -ieq $listTarget) {
         $result.Error = '套件安装清单不能覆盖用于收包的输入清单。'
@@ -171,16 +171,12 @@ function Invoke-WinstPack {
     }
 
     # —— ⑥ 制作计划确认 ——
-    $confirm = Show-WinstBundlePlan -TargetDir $TargetDir -Plan $plan -DryRun:$dryRun -Yes:$yes -NonInteractive:$NonInteractive
-    if ($confirm.Empty) { return $result }   # 一个可复制的包都没有：原实现直接返回（不置 Cancelled）
-    if ($confirm.Cancelled) {
-        $result.Cancelled = $true
-        return $result
-    }
+    $copyItems = @(Show-WinstBundlePlan -TargetDir $TargetDir -Plan $plan -DryRun:$dryRun -Yes:$yes -NonInteractive:$NonInteractive)
+    if ($copyItems.Count -eq 0) { return $result }
 
     # —— ⑦ 复制安装包 + 生成套件索引 ——
     $kitAppsDir = Join-WinstPath $TargetDir 'apps'
-    $packages = Copy-WinstBundlePackages -Context $Context -CopyItems $confirm.CopyItems -KitAppsDir $kitAppsDir `
+    $packages = Copy-WinstBundlePackages -Context $Context -CopyItems $copyItems -KitAppsDir $kitAppsDir `
         -SourceCacheIndex $lookup.CacheIndex -TargetDir $TargetDir -DryRun:$dryRun
     $copied = [int]$packages.Copied
     $skipped = [int]$packages.Skipped

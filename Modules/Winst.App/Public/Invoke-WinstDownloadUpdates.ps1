@@ -12,8 +12,6 @@ function Invoke-WinstDownloadUpdates {
         来源与目标版本的解析与「一键下载」共用同一口径（`Get-WinstRowBestPlanEntry`）：版本号取自主包
         文件信息的条目（versionFromPackage）在软件源里没有版本号可比 → 退回第一个可用来源，取包后再读版本。
         `-Download`：用「将被下载」而不是「可以更新」的措辞（软件列表 → `p)` 的单项下载用它）。
-    .OUTPUTS
-        @{ Ok; Cancelled; Count; Downloaded; Failed; Skipped }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -22,7 +20,7 @@ function Invoke-WinstDownloadUpdates {
     )
 
     $targets = @($Items)
-    if ($targets.Count -eq 0) { return @{ Ok = $true; Cancelled = $false; Count = 0; Downloaded = 0; Failed = 0; Skipped = 0 } }
+    if ($targets.Count -eq 0) { return }
 
     # 整批都是「仅下载」类型时，更新的是软件包：列表与问句都换用「更新软件包」的措辞
     $downloadOnlyBatch = $true
@@ -65,7 +63,7 @@ function Invoke-WinstDownloadUpdates {
     $yes = [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Yes)
     if (-not $yes -and -not (Read-WinstConfirm -Prompt $confirmPrompt -Default 'n')) {
         Write-Host '  已取消。' -ForegroundColor DarkGray
-        return @{ Ok = $false; Cancelled = $true; Count = $targets.Count; Downloaded = 0; Failed = 0; Skipped = 0 }
+        return
     }
 
     $downloaded = 0
@@ -132,5 +130,4 @@ function Invoke-WinstDownloadUpdates {
         @{ Key = 'Skipped'; Text = '已跳过'; SkipZero = $true },
         @{ Key = 'Failed'; Text = '失败'; SkipZero = $true }
     )
-    return @{ Ok = ($failed -eq 0); Cancelled = $false; Count = $targets.Count; Downloaded = $downloaded; Failed = $failed; Skipped = $skipped }
 }

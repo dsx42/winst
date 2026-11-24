@@ -5,7 +5,7 @@ function Get-WinstMissingLedgerDirs {
     .SYNOPSIS
         ⑥ 找出台账里记录存在、但安装目录已不存在的条目（只报告，不改记录）。
     .OUTPUTS
-        @( [ordered]@{ Id; InstallDir; Managed } )
+        @( [ordered]@{ Id; InstallDir } )
     #>
     param($State)
 
@@ -22,7 +22,6 @@ function Get-WinstMissingLedgerDirs {
         $missingDirs += [ordered]@{
             Id         = [string]$id
             InstallDir = $dir
-            Managed    = (Get-EntryString -Entry $entry -Key 'managed')
         }
     }
     return $missingDirs

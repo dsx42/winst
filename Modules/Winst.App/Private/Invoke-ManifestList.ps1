@@ -10,11 +10,6 @@ function Invoke-ManifestList {
     Write-Section '软件源列表'
 
     $sources = @(Get-ManifestSourceList -Context $Context)
-    if ($sources.Count -eq 0) {
-        Write-Host '  暂无软件源。' -ForegroundColor Yellow
-        return
-    }
-
     $index = 0
     foreach ($source in $sources) {
         $index++

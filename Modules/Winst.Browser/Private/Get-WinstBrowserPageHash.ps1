@@ -15,7 +15,7 @@ function Get-WinstBrowserPageHash {
     param(
         $Session,
         $HashClickSpecs,
-        [DateTime]$Deadline = [DateTime]::MaxValue
+        [DateTime]$Deadline
     )
 
     if ($null -eq $Session) { return '' }

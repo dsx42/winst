@@ -20,7 +20,7 @@ function Resolve-WinstGithubSourceForTag {
         [string]$Tag,
         $Releases,
         $Result,
-        [string]$ReleaseTagPrefix = ''
+        [string]$ReleaseTagPrefix
     )
 
     $out = @{ Ok = $false; Error = ''; Files = @(); ResultVersion = ''; MissingFile = $false }

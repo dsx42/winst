@@ -18,8 +18,8 @@ function Get-WinstVersionFromRegistry {
     #>
     param(
         $Plan,
-        [string]$InstallDir = '',
-        [hashtable]$Result, $RegistryMatches = $null
+        [string]$InstallDir,
+        [hashtable]$Result, $RegistryMatches
     )
 
     $query = @{}

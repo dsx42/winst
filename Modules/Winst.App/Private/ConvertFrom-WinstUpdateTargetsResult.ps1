@@ -8,14 +8,7 @@ function ConvertFrom-WinstUpdateTargetsResult {
     param($Result)
 
     # 选择阶段取消才回退到默认更新，执行阶段取消计入跳过。
-    $mapped = @{ Cancelled = $false; Updated = 0; Failed = 0; Error = '' }
-    if (-not $Result) {
-        $mapped.Error = '更新没有返回结果'
-        $mapped.Failed = 1
-        return $mapped
-    }
-    $mapped.Updated = [int]$Result.Updated
-    $mapped.Failed = [int]$Result.Failed
+    $mapped = @{ Cancelled = $false; Updated = [int]$Result.Updated; Failed = [int]$Result.Failed; Error = '' }
     if (-not $Result.Ok) {
         if ($mapped.Failed -gt 0) {
             $mapped.Error = ('{0} 个软件更新失败（退出码 {1}）' -f $mapped.Failed, $Result.ExitCode)

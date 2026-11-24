@@ -24,19 +24,16 @@ function Read-WinstSharePathInput {
         因此非交互环境下明确报错，不做静默降级。
 
         本地路径（含本地盘符）原样返回，由调用方按本地路径规则继续处理。
-    .PARAMETER Prompt
-        路径输入提示语。
     .OUTPUTS
         @{ Ok; Cancelled; Path; Error }
 
         Cancelled = $true 表示用户直接回车 / 输入空值放弃。
     #>
-    param([string]$Prompt = '  请输入 UNC 路径（直接回车取消）')
 
     $result = @{ Ok = $false; Cancelled = $false; Path = ''; Error = '' }
 
     # ---------------------------------------------------------------- ① 路径
-    try { $raw = Read-Host $Prompt } catch { $result.Cancelled = $true; return $result }
+    try { $raw = Read-Host '  请输入新路径（直接回车取消）' } catch { $result.Cancelled = $true; return $result }
     if ($null -eq $raw -or -not ([string]$raw).Trim()) {
         $result.Cancelled = $true
         return $result

@@ -10,7 +10,7 @@ function Format-WinstOldVersionText {
     .OUTPUTS
         [string] 没有旧版本时返回空串
     #>
-    param($OldVersions = @())
+    param($OldVersions)
 
     $parts = @()
     foreach ($item in @($OldVersions)) {

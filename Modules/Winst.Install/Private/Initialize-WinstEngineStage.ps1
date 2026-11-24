@@ -10,7 +10,6 @@ function Initialize-WinstEngineStage {
     $copy = Invoke-WinstPostInstallCopy -Plan $Plan -InstallDir $SourceDir
     if (-not $copy.Ok) { throw ([string]$copy.Error) }
     $mainExe = Get-WinstEngineMainExe -Id $Id
-    if (-not $mainExe) { return }
     $mainPath = Resolve-WinstSafeChildPath -Root $SourceDir -Child $mainExe -Label '引擎主程序'
     if (-not $mainPath.Ok) { throw ([string]$mainPath.Error) }
     if (-not (Test-Path -LiteralPath $mainPath.Path -PathType Leaf -ErrorAction Stop)) {

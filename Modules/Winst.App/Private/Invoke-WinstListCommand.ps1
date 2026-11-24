@@ -14,7 +14,7 @@ function Invoke-WinstListCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $onlyInstalled = $false

@@ -8,8 +8,6 @@ function Update-WinstBundleItemCache {
     param([hashtable]$Context, $Item, $Lookup)
 
     $Item['CacheHas'] = $false
-    $Item['CacheFiles'] = @()
-    $Item['CacheError'] = ''
     $chosen = $Item['PlanEntry']
     if (-not $chosen) { $Item['CacheError'] = '没有可用的下载计划'; return }
     try {
@@ -25,7 +23,6 @@ function Update-WinstBundleItemCache {
         }
         $Item['CacheVersion'] = Get-WinstOfflinePackageVersion -Context $Context -Plan $chosen['Plan'] -CacheIndex $Lookup.CacheIndex -FilePlans $plans
         $Item['CacheFiles'] = @($names)
-        $Item['CacheDir'] = Join-WinstPath $Context.PkgDir ([string]$Item['Id'])
         $Item['CacheHas'] = $true
     } catch {
         $Item['CacheError'] = $_.Exception.Message

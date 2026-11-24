@@ -11,19 +11,15 @@ function Invoke-WinstOldVersionCleanup {
         两者都没有时（只剩遗留目录）如实告诉用户去「设置 → 应用」手动卸载。
         逐个确认，`n` 跳过但不影响其它条目；全部处理完后把台账里的 `oldVersions` 换成剩下的，
         用户下次进来看到的就是真实剩余状态。
-    .OUTPUTS
-        @{ Ok; Cancelled; Removed; Skipped; Failed; Notes }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Item
     )
 
-    $result = @{ Ok = $true; Cancelled = $false; Removed = @(); Skipped = @(); Failed = @(); Notes = @() }
-
     $id = [string]$Item['Id']
     $oldVersions = @($Item['OldVersions'])
-    if ($oldVersions.Count -eq 0) { return $result }
+    if ($oldVersions.Count -eq 0) { return }
 
     $displayName = [string]$Item['DisplayName']
     if (-not $displayName) { $displayName = $id }
@@ -33,10 +29,12 @@ function Invoke-WinstOldVersionCleanup {
     if (Test-WinstInputRedirected) {
         Write-Host '  当前输入被重定向（或非交互运行），无法逐个确认，本次不做任何卸载。' -ForegroundColor DarkYellow
         Write-Host '  请在菜单「已装软件」的详情里选 o) 清理旧版本。' -ForegroundColor DarkGray
-        $result.Notes += '输入被重定向时清理旧版本需要交互确认，本次跳过'
-        return $result
+        return
     }
 
+    $notes = @()
+    $removedCount = 0
+    $failedCount = 0
     $remaining = @()
     $restartInitiated = $false
     foreach ($one in $oldVersions) {
@@ -55,7 +53,6 @@ function Invoke-WinstOldVersionCleanup {
 
         $delete = Read-WinstConfirm -Prompt ('    卸载这个旧版本？(y/N，默认保留)') -Default 'n'
         if (-not $delete) {
-            $result.Skipped += $version
             $remaining += $one
             continue
         }
@@ -65,28 +62,25 @@ function Invoke-WinstOldVersionCleanup {
         $run = Invoke-WinstOldVersionRemoval -Context $Context -Id $id -Version $version -RecordKey $recordKey
 
         if ($run.Cancelled) {
-            $result.Cancelled = $true
-            $result.Skipped += $version
             $remaining += $one
             Write-Host ('      已取消卸载旧版本 {0}，未尝试其它卸载入口。' -f $version) -ForegroundColor DarkGray
             continue
         }
         if (-not $run.Ok) {
-            $result.Ok = $false
-            $result.Failed += [ordered]@{ Version = $version; Error = [string]$run.Error }
+            $failedCount++
             $remaining += $one
             Write-Host ('      失败: {0}' -f [string]$run.Error) -ForegroundColor Red
             continue
         }
 
         if ([bool]$run.NeedRestart) {
-            $result.Notes += ('卸载 {0} 的旧版本 {1} 时提示需要重启电脑才能完成' -f $displayName, $version)
+            $notes += ('卸载 {0} 的旧版本 {1} 时提示需要重启电脑才能完成' -f $displayName, $version)
         }
         $restartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
-        $result.Removed += $version
+        $removedCount++
         Write-Host ('      已移除旧版本 {0}。' -f $version) -ForegroundColor Green
         foreach ($cleaned in @($run.Cleaned)) {
-            $result.Notes += ('顺带清理了一条失效的安装记录（卸载程序已不存在），版本 {0}' -f $version)
+            $notes += ('顺带清理了一条失效的安装记录（卸载程序已不存在），版本 {0}' -f $version)
         }
     }
     # 刷新系统快照：注册表卸载项 / 应用包都变了，后续检测必须重读
@@ -95,8 +89,7 @@ function Invoke-WinstOldVersionCleanup {
     # 台账里只留没清掉的旧版本：清完就写空数组，下次进来不再提醒
     $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot
     if ($stateRead.Error) {
-        $result.Ok = $false
-        $result.Notes += ('旧版本清理结果未写回台账：{0}' -f $stateRead.Error)
+        $notes += ('旧版本清理结果未写回台账：{0}' -f $stateRead.Error)
     } else {
         $ledger = Get-WinstInstalledApp -State $stateRead.State -Id $id
         if ($ledger) {
@@ -112,19 +105,14 @@ function Invoke-WinstOldVersionCleanup {
                 $null = Update-WinstInstalledAppFields -InstallRoot $Context.InstallRoot -Id $id -Entry $ledger `
                     -Fields @{ oldVersions = @($kept) }
             } catch {
-                $result.Ok = $false
-                $result.Notes += ('旧版本清理结果没能写回安装记录：{0}' -f $_.Exception.Message)
+                $notes += ('旧版本清理结果没能写回安装记录：{0}' -f $_.Exception.Message)
             }
         }
     }
 
     Write-Host ''
-    $removedCount = @($result.Removed).Count
-    $failedCount = @($result.Failed).Count
     if ($removedCount -gt 0) { Write-Host ('  已清理 {0} 个旧版本。' -f $removedCount) -ForegroundColor Green }
     if ($failedCount -gt 0) { Write-Host ('  有 {0} 个旧版本没能清理。' -f $failedCount) -ForegroundColor Red }
     if ($removedCount -eq 0 -and $failedCount -eq 0) { Write-Host '  没有清理任何旧版本。' -ForegroundColor DarkGray }
-    foreach ($note in @($result.Notes)) { Write-Host ('  提示: {0}' -f $note) -ForegroundColor DarkYellow }
-
-    return $result
+    foreach ($note in $notes) { Write-Host ('  提示: {0}' -f $note) -ForegroundColor DarkYellow }
 }

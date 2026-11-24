@@ -15,21 +15,21 @@ function New-WinstSoftwareItem {
                     SourceText; BestVersion; BestSource;
                     Installed; InstalledVersion; InstalledVersionText; InstalledDirMissing;
                     InstalledUpdateState; InstalledUpdateHint;
-                    CacheHas; CacheVersion; CacheVersionText; CacheDir; CacheFiles; CacheFileCount;
+                    CacheHas; CacheVersionText; CacheDir; CacheFiles; CacheFileCount;
                     CacheSizeText; PackageUpdateState; PackageUpdateHint; HasPackageUpdate; Ledger;
-                    LatestVersion; LatestSource; HasUpdate; UpdateHint; UpdateState; DirMissing; Version }
+                    LatestVersion; LatestSource }
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        $Row = $null,
-        $Ledger = $null,
-        [string]$CacheDir = '',
-        [string[]]$CacheFiles = @(),
-        [long]$CacheSizeBytes = 0,
-        [string]$CacheVersion = '',
-        $CacheIndex = $null,
-        [hashtable]$SourceLookup = @{}
+        $Row,
+        $Ledger,
+        [string]$CacheDir,
+        [string[]]$CacheFiles,
+        [long]$CacheSizeBytes,
+        [string]$CacheVersion,
+        $CacheIndex,
+        [hashtable]$SourceLookup
     )
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
@@ -56,7 +56,6 @@ function New-WinstSoftwareItem {
         InstalledUpdateState = [string]$installedFacet.UpdateState
         InstalledUpdateHint  = [string]$installedFacet.UpdateHint
         CacheHas             = $cacheHas
-        CacheVersion         = $CacheVersion
         CacheVersionText     = [string]$packageFacet.VersionText
         CacheDir             = $CacheDir
         CacheFiles           = @($CacheFiles)
@@ -66,13 +65,7 @@ function New-WinstSoftwareItem {
         PackageUpdateHint    = [string]$packageFacet.Hint
         HasPackageUpdate     = [bool]$packageFacet.HasUpdate
         Ledger               = $Ledger
-        # 通用视图字段，与已安装列表的同义字段保持一致。
         LatestVersion        = [string]$installedFacet.Latest
         LatestSource         = [string]$installedFacet.LatestSource
-        HasUpdate            = [bool]$installedFacet.HasUpdate
-        UpdateHint           = [string]$installedFacet.UpdateHint
-        UpdateState          = [string]$installedFacet.UpdateState
-        DirMissing           = [bool]$installedFacet.DirMissing
-        Version              = [string]$installedFacet.VersionText
     }
 }

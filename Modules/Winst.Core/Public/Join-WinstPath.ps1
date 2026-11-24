@@ -29,12 +29,12 @@ function Join-WinstPath {
         [Parameter(Position = 0)]
         [AllowEmptyString()]
         [AllowNull()]
-        [string]$Path = '',
+        [string]$Path,
 
         [Parameter(Position = 1)]
         [AllowEmptyString()]
         [AllowNull()]
-        [string]$Child = ''
+        [string]$Child
     )
 
     if (-not $Path) { return $Child }

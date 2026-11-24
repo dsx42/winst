@@ -22,6 +22,9 @@ function New-WinstFileMetaEntry {
         checksumHashFrom    = Get-EntryString -Entry $Item -Key 'checksumHashFrom'
         checksumFingerprint = Get-EntryString -Entry $Item -Key 'checksumFingerprint'
     }
+    if ($null -ne $Item -and [string]::IsNullOrWhiteSpace($meta.manifestOrigin)) {
+        $meta.manifestOrigin = Get-WinstOfficialManifestName
+    }
     if ($NormalizeDigest) {
         $meta.expectedHash = $meta.expectedHash.ToLowerInvariant()
         $meta.expectedAlgorithm = $meta.expectedAlgorithm.ToUpperInvariant()

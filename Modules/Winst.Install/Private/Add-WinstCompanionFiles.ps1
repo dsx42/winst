@@ -12,7 +12,7 @@ function Add-WinstCompanionFiles {
         @{ Error; Files; Rules; UpdatedNames }
     #>
     param([hashtable]$Context, $Files, [string]$PkgDir, [string]$InstallDir, $Ledger, [string]$Method,
-        [switch]$CompanionOnly, [switch]$Quiet, [string[]]$ChangedNames = @())
+        [switch]$CompanionOnly, [switch]$Quiet, [string[]]$ChangedNames)
 
     if ($Method -eq 'installer') {
         return @{ Error = ''; Files = @(); Rules = (New-WinstOrdinalDictionary); UpdatedNames = @() }

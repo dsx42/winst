@@ -22,7 +22,7 @@ function Test-WinstShortcutMatches {
     param(
         [Parameter(Mandatory = $true)][string]$LinkPath,
         [Parameter(Mandatory = $true)][string]$TargetPath,
-        [string]$WorkingDirectory = ''
+        [string]$WorkingDirectory
     )
 
     $info = Get-WinstShortcutInfo -LinkPath $LinkPath

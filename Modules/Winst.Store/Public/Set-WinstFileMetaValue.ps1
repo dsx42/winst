@@ -4,8 +4,6 @@ function Set-WinstFileMetaValue {
     <#
     .SYNOPSIS
         写入 / 合并某个文件的记账。
-    .OUTPUTS
-        写入后的容器；容器不可写或文件名为空时原样返回。
     #>
     param(
         $Container,
@@ -25,8 +23,8 @@ function Set-WinstFileMetaValue {
         [string]$ChecksumFingerprint
     )
 
-    if ($null -eq $Container -or ($Container -isnot [System.Collections.IDictionary])) { return $Container }
-    if (-not $FileName) { return $Container }
+    if ($null -eq $Container -or ($Container -isnot [System.Collections.IDictionary])) { return }
+    if (-not $FileName) { return }
 
     $key = Get-WinstFileMapKey -Map $Container -Name $FileName
     $merged = New-WinstFileMetaEntry -Item $Container[$key] -NormalizeDigest
@@ -50,5 +48,4 @@ function Set-WinstFileMetaValue {
     if ($PSBoundParameters.ContainsKey('ChecksumFingerprint')) { $merged['checksumFingerprint'] = ([string]$ChecksumFingerprint).ToLowerInvariant() }
 
     $Container[$key] = $merged
-    return $Container
 }

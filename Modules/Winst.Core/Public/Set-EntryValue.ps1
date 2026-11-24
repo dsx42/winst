@@ -8,31 +8,27 @@ function Set-EntryValue {
         解析锁里的条目读自 JSON（ConvertFrom-Json 得到 PSCustomObject，既不能用 ['key'] 读取、
         也不能用 ['key'] = 赋值，会报「Unable to index into an object of type PSObject」），
         而解析器实时构造的条目是哈希表；安装流程回写版本号时统一走这里。
-    .OUTPUTS
-        [bool] 是否写入成功（PSCustomObject 缺该字段时补一个属性）
     #>
     param(
         $Entry,
         [Parameter(Mandatory = $true)]
         [string]$Key,
-        $Value = $null
+        $Value
     )
 
-    if ($null -eq $Entry -or -not $Key) { return $false }
+    if ($null -eq $Entry) { return }
     if ($Entry -is [System.Collections.IDictionary]) {
         $Entry[$Key] = $Value
-        return $true
+        return
     }
     $prop = $Entry.PSObject.Properties[$Key]
     if ($prop) {
-        if (-not $prop.IsSettable) { return $false }
+        if (-not $prop.IsSettable) { return }
         $prop.Value = $Value
-        return $true
+        return
     }
     try {
         $Entry | Add-Member -NotePropertyName $Key -NotePropertyValue $Value -Force -ErrorAction Stop
-        return $true
     } catch {
-        return $false
     }
 }

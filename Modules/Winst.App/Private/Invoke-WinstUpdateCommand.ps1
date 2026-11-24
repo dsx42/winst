@@ -9,7 +9,7 @@ function Invoke-WinstUpdateCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $ids = @()
@@ -73,7 +73,7 @@ function Invoke-WinstUpdateCommand {
         Write-Host ('  更新方式: {0}' -f (Format-UpdateFilesOnlyDisplay -Value (Get-ConfigValue -Config $Context.Config -Key 'updateFilesOnly' -Default $true))) -ForegroundColor DarkGray
     }
 
-    $result = Invoke-WinstUpdateTargets -Context $Context -Ids $ids -All:$all -Check:$check `
+    $result = Invoke-WinstUpdateTargets -Context $Context -Ids $ids -Check:$check `
         -DownloadOnly:$downloadOnly -Force:$force -Yes:$yes -FilesOnly:$filesOnly -ForceSystemItems:$forceSystemItems -SourceName $sourceName
     return [int]$result.ExitCode
 }

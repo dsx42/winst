@@ -19,7 +19,7 @@ function Invoke-PathSettingItem {
         [string]$DisplayName,
         [Parameter(Mandatory = $true)]
         [string]$CurrentDisplay,
-        [string]$Hint = ''
+        [string]$Hint
     )
 
     Write-Section $DisplayName
@@ -43,7 +43,7 @@ function Invoke-PathSettingItem {
         try { $entered.Path = ([string](Read-Host '  请输入本地路径（直接回车取消）')).Trim().Trim('"').Trim() } catch { $entered.Cancelled = $true }
         if (-not $entered.Path) { $entered.Cancelled = $true }
     } else {
-        $entered = Read-WinstSharePathInput -Prompt '  请输入新路径（直接回车取消）'
+        $entered = Read-WinstSharePathInput
     }
     if ([bool]$entered.Cancelled) {
         Write-Host '  已取消。' -ForegroundColor DarkGray

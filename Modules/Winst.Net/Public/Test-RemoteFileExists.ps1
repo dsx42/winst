@@ -15,12 +15,10 @@ function Test-RemoteFileExists {
         [Parameter(Mandatory = $true)]
         [string]$Uri,
         [hashtable]$Context,
-        [int]$TimeoutSec = 20,
-        [hashtable]$Headers = $null,
         [string]$FinalUriMustContain = ''
     )
 
-    $probe = Get-WinstRemoteFileProbe -Uri $Uri -Context $Context -TimeoutSec $TimeoutSec -Headers $Headers `
+    $probe = Get-WinstRemoteFileProbe -Uri $Uri -Context $Context `
         -FinalUriMustContain $FinalUriMustContain
     if ($probe.State -eq 'ok') { return $true }
     if ($probe.State -eq 'missing') { return $false }

@@ -13,7 +13,7 @@ function Resolve-WinstSafeChildPath {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Child,
-        [string]$Label = '路径',
+        [string]$Label,
         [int]$MaxSegmentLength = 100
     )
 

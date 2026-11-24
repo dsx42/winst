@@ -44,7 +44,6 @@ function Get-WinstSelfPackageSource {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [switch]$Quiet,
         [switch]$RequireDownload
     )
 
@@ -92,7 +91,7 @@ function Get-WinstSelfPackageSource {
             $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId -ManifestOrigin $sourceName `
                 -Files @($files[0]))
             $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $packagePlans -PkgDir $pkgDir -Id $selfId `
-                -DisplayName $selfId -SourceName $sourceName -Version $sourceVersion -PrevEntry $prevEntry -DirectHttp -Quiet:$Quiet
+                -DisplayName $selfId -SourceName $sourceName -Version $sourceVersion -PrevEntry $prevEntry -DirectHttp
             if ($download.Ok) {
                 Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
                     -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames $download.Names
@@ -126,9 +125,7 @@ function Get-WinstSelfPackageSource {
         (Test-Path -LiteralPath (Get-WinstState -Name WinstScriptPath) -PathType Leaf)) {
         $result.FallbackSourcePath = (Get-WinstState -Name WinstScriptPath)
         $result.Ok = $true
-        if (-not $Quiet) {
-            Write-Host ('    提示: 改用当前完整运行树作为 winst 的安装来源（{0}）' -f (Split-Path -Leaf $result.FallbackSourcePath)) -ForegroundColor DarkGray
-        }
+        Write-Host ('    提示: 改用当前完整运行树作为 winst 的安装来源（{0}）' -f (Split-Path -Leaf $result.FallbackSourcePath)) -ForegroundColor DarkGray
         return $result
     }
 

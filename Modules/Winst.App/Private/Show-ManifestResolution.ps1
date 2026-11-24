@@ -10,17 +10,11 @@ function Show-ManifestResolution {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Apps,
+        [Parameter(Mandatory = $true)][object[]]$Apps,
         [switch]$Preview
     )
 
     Write-Section ('软件清单 · {0}' -f $Name)
-
-    if ($Apps.Count -eq 0) {
-        Write-Host '  还没读取过这个软件源的软件清单，请先刷新软件源。' -ForegroundColor DarkGray
-        return
-    }
-
 
     Write-Host ('  下面显示每个软件装到哪里、怎么用、以后怎么卸载。' ) -ForegroundColor DarkGray
     Write-Host ('  路径已按本机设置展开（软件安装到 {0}）；带 %XXX% 的内容表示会跟随该环境变量，切换变量即可整体切换版本。' -f $Context.InstallRoot) -ForegroundColor DarkGray
@@ -37,7 +31,7 @@ function Show-ManifestResolution {
         if (Get-EntryBool -Entry $app -Key 'ok') { $succeeded++ } else { $failed++ }
         Show-ResolvedAppPlan -Plan $app -Index $index -Total $Apps.Count -SourceName $Name `
             -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
-            @shortcutDirs -Context $Context -State $stateRead.State -StateRead $stateRead -CacheIndex $cacheIndex
+            @shortcutDirs -Context $Context -StateRead $stateRead -CacheIndex $cacheIndex
     }
 
     Write-Host ''

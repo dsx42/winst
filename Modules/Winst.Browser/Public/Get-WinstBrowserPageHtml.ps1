@@ -33,12 +33,11 @@ function Get-WinstBrowserPageHtml {
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Url,
-        [int]$TimeoutSec = 60
+        [Parameter(Mandatory = $true)][string]$Url
     )
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
-    $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
+    $deadline = [datetime]::UtcNow.AddSeconds(60)
     # 提权与否决定先走哪条通道（见上方说明）：提权进程里 --dump-dom 的 stdout 是空的，先试它只会白等一轮
     try {
         $isElevated = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole(
@@ -46,7 +45,7 @@ function Get-WinstBrowserPageHtml {
     } catch { $isElevated = $false }
 
     if ($isElevated) {
-        $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec -Deadline $deadline
+        $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -Deadline $deadline
         $result.Engine = [string]$viaDevTools.Engine
         if ($viaDevTools.Ok) {
             $result.Html = [string]$viaDevTools.Html
@@ -108,7 +107,7 @@ function Get-WinstBrowserPageHtml {
                 $run = Invoke-WinstCapturedCommand -FilePath $exe -Arguments ($argList -join ' ') -TimeoutMs (Get-WinstBrowserRemainingMs -Deadline $deadline -LimitMs ([int]::MaxValue))
                 if ($run.TimedOut) {
                     # 超时已经等了一整轮，换 profile 重试多半只是再等一轮：直接换下一个代理
-                    $lastError = ('浏览器抓取超时（{0} 秒未完成）' -f $TimeoutSec)
+                    $lastError = '浏览器抓取超时（60 秒未完成）'
                     Reset-WinstBrowserProfile -Deadline $deadline
                     break
                 }
@@ -151,7 +150,7 @@ function Get-WinstBrowserPageHtml {
     if (@($attempts).Count -gt 1) { $lastError = ('{0}（直连与代理均失败）' -f $lastError) }
 
     # 非提权进程先试过 --dump-dom 了，再给 CDP 一次机会（有的环境里 stdout 管道就是收不到东西）
-    $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -TimeoutSec $TimeoutSec -Deadline $deadline
+    $viaDevTools = Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -Deadline $deadline
     if ($viaDevTools.Ok) {
         $result.Html = [string]$viaDevTools.Html
         $result.Ok = $true

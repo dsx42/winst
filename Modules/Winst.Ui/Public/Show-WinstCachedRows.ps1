@@ -12,12 +12,11 @@ function Show-WinstCachedRows {
         存在可更新的安装包 / 可升级的已装软件时，列表下方提供两个批量选项（由调用方执行）：
         `d) 下载全部更新包`、`u) 升级已装软件`。统计信息在列表顶部与底部各给一份。
     .OUTPUTS
-        @{ Action = 'select' | 'update-all' | 'download-all' | 'back' | 'quit' | 'empty'; Index = <选中下标>; Filter = <当前关键字过滤> }
+        @{ Action = 'select' | 'update-all' | 'download-all' | 'back' | 'quit'; Index = <选中下标>; Filter = <当前关键字过滤> }
     #>
     param(
         $Items,
-        [string]$Prompt = '请选择',
-        [string]$Filter = ''
+        [string]$Filter
     )
 
     $items = @($Items)
@@ -67,5 +66,5 @@ function Show-WinstCachedRows {
     return (Invoke-WinstListPage -Items $items -SummaryText $summaryText -SummaryColor $summaryColor `
         -EmptyText '没有匹配的安装包。' `
         -SelectHint '输入编号查看详情（安装 / 更新 / 删除安装包），也可以直接输入软件名搜索' `
-        -Prompt $Prompt -Filter $Filter -RenderRow $renderRow -RenderFooter $renderFooter -ExtraKeys $extraKeys)
+        -Filter $Filter -RenderRow $renderRow -RenderFooter $renderFooter -ExtraKeys $extraKeys)
 }

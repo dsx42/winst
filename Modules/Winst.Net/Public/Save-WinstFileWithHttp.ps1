@@ -12,8 +12,7 @@ function Save-WinstFileWithHttp {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Uri,
-        [Parameter(Mandatory = $true)][string]$OutFile,
-        [int]$TimeoutSec = 900
+        [Parameter(Mandatory = $true)][string]$OutFile
     )
 
     $result = @{ Ok = $false; Error = '' }
@@ -27,7 +26,7 @@ function Save-WinstFileWithHttp {
     foreach ($currentProxy in $attempts) {
         $tempPath = '{0}.part-{1}' -f $OutFile, ([Guid]::NewGuid().ToString('N').Substring(0, 6))
         try {
-            $params = New-WinstHttpRequestParameters -Uri $Uri -OutFile $tempPath -TimeoutSec $TimeoutSec -Proxy $currentProxy
+            $params = New-WinstHttpRequestParameters -Uri $Uri -OutFile $tempPath -TimeoutSec 900 -Proxy $currentProxy
             $null = Invoke-WebRequest @params
             if (Test-Path -LiteralPath $tempPath -PathType Leaf) {
                 Move-Item -LiteralPath $tempPath -Destination $OutFile -Force

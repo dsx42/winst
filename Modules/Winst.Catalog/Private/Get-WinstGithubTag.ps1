@@ -13,7 +13,7 @@ function Get-WinstGithubTag {
     .OUTPUTS
         @{ Error; Tag; Releases; Notes }
     #>
-    param([hashtable]$Context, [string]$Repo, [string]$ReleaseTagPrefix = '')
+    param([hashtable]$Context, [string]$Repo, [string]$ReleaseTagPrefix)
 
     $chosenTag = ''
     $notes = @()

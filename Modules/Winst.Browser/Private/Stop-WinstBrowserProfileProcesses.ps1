@@ -5,7 +5,7 @@ function Stop-WinstBrowserProfileProcesses {
     .SYNOPSIS
         结束 winst 专用 profile 的进程；退出码与重新查询均确认后才允许清理目录。
     #>
-    param([string]$ProfileDir, [datetime]$Deadline = [datetime]::MaxValue)
+    param([string]$ProfileDir, [datetime]$Deadline)
 
     if (-not $ProfileDir) { return }
     $leaf = Split-Path -Leaf $ProfileDir

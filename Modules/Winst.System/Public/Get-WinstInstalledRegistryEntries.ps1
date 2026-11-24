@@ -5,12 +5,12 @@ function Get-WinstInstalledRegistryEntries {
     .SYNOPSIS
         显式枚举 HKLM / HKCU 的卸载记录；KeyPath 包含注册表视图。
     #>
-    param([switch]$Force, [int]$TtlSeconds = 15, [hashtable]$Status = $null)
+    param([switch]$Force, [hashtable]$Status)
 
     $cached = Get-WinstState -Name WinstRegistryEntriesCache
     if (-not $Force -and $cached) {
         $age = ((Get-Date) - [datetime]$cached.At).TotalSeconds
-        if ($age -ge 0 -and $age -lt $TtlSeconds) {
+        if ($age -ge 0 -and $age -lt 15) {
             if ($null -ne $Status) { $Status.Error = $cached.Error; $Status.Ok = -not [bool]$cached.Error }
             return @($cached.List)
         }

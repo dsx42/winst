@@ -7,11 +7,11 @@ function Invoke-WinstUninstallAppxPayload {
     .OUTPUTS
         @{ Abort; Error }
     #>
-    param([string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes, [switch]$Quiet)
+    param([string]$Id, $Targets, [hashtable]$RunState, [switch]$Yes)
 
-    $remove = Remove-WinstAppxPackage -NameRule $Targets['NameRule'] -Quiet:$Quiet
+    $remove = Remove-WinstAppxPackage -NameRule $Targets['NameRule']
     if ($remove.Ok) {
-        if (-not $Quiet) { Write-Host '    应用包已移除。' -ForegroundColor Gray }
+        Write-Host '    应用包已移除。' -ForegroundColor Gray
         return @{ Abort = $false; Error = '' }
     }
 

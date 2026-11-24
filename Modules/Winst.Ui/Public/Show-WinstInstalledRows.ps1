@@ -10,7 +10,7 @@ function Show-WinstInstalledRows {
         其它调用方（如「卸载软件」的选软件步骤）不传该开关，列表里不出现这一项。
         统计信息（共多少个、几个可更新）在列表顶部与底部各给一份。
     .OUTPUTS
-        @{ Action = 'select' | 'select-multi' | 'update-all' | 'back' | 'quit' | 'empty'; Index = <选中下标>; Indexes = <多选下标数组，仅 select-multi>; Filter = <当前关键字过滤> }
+        @{ Action = 'select' | 'select-multi' | 'update-all' | 'back' | 'quit'; Index = <选中下标>; Indexes = <多选下标数组，仅 select-multi>; Filter = <当前关键字过滤> }
     #>
     param(
         $Items,
@@ -24,7 +24,6 @@ function Show-WinstInstalledRows {
     )
 
     $items = @($Items)
-    if ($items.Count -eq 0) { return @{ Action = 'empty'; Index = -1; Indexes = @(); Filter = ([string]$Filter).Trim() } }
 
     $summary = Get-WinstInstalledSummary -Items $items -ItemNoun $ItemNoun
     $updatableCount = $summary.UpdateCount

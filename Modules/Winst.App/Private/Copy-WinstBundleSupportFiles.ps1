@@ -21,7 +21,7 @@ function Copy-WinstBundleSupportFiles {
                 $manifestCopied = Copy-WinstBundleItem -Source $srcManifestDir -Destination (Join-WinstPath $KitAppsDir 'manifests') -CountFiles
             } catch {
                 $errorText = '复制软件源清单数据失败: {0}' -f $_.Exception.Message
-                return @{ Ok = $false; Error = $errorText; ManifestCopied = 0 }
+                return @{ Ok = $false; Error = $errorText }
             }
         } else {
             Write-Host ('  将复制软件源清单数据: {0}  ->  {1}' -f $srcManifestDir, (Join-WinstPath $KitAppsDir 'manifests')) -ForegroundColor Gray
@@ -35,7 +35,7 @@ function Copy-WinstBundleSupportFiles {
     if (-not $scriptDir -or -not (Test-Path -LiteralPath $mainScript -PathType Leaf) -or
         -not (Test-Path -LiteralPath $modulesDir -PathType Container) -or
         -not (Test-Path -LiteralPath $licensePath -PathType Leaf)) {
-        return @{ Ok = $false; Error = '当前 winst 的脚本、Modules 或 LICENSE 不完整，无法制作套件。'; ManifestCopied = $manifestCopied }
+        return @{ Ok = $false; Error = '当前 winst 的脚本、Modules 或 LICENSE 不完整，无法制作套件。' }
     }
     if (-not $DryRun) {
         try {
@@ -65,7 +65,7 @@ function Copy-WinstBundleSupportFiles {
             }
         } catch {
             $errorText = '复制脚本 / 模块 / 本地清单失败: {0}' -f $_.Exception.Message
-            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied }
+            return @{ Ok = $false; Error = $errorText }
         }
     } else {
         Write-Host ('  将复制脚本、模块与本地清单: {0}  ->  {1}' -f $scriptDir, $TargetDir) -ForegroundColor Gray
@@ -79,7 +79,7 @@ function Copy-WinstBundleSupportFiles {
         if (-not $saved.Ok) { throw $saved.Error }
         if ($DryRun) { Write-Host ('  将生成安装清单: {0}' -f $ListTarget) -ForegroundColor Gray }
     } catch {
-        return @{ Ok = $false; Error = ('生成套件安装清单失败: {0}' -f $_.Exception.Message); ManifestCopied = $manifestCopied }
+        return @{ Ok = $false; Error = ('生成套件安装清单失败: {0}' -f $_.Exception.Message) }
     }
 
     # winst.cmd 双击启动器
@@ -95,7 +95,7 @@ function Copy-WinstBundleSupportFiles {
             Write-FileAtomic -Path (Join-WinstPath $TargetDir 'winst.cmd') -Content $cmdContent
         } catch {
             $errorText = '写入启动器失败: {0}' -f $_.Exception.Message
-            return @{ Ok = $false; Error = $errorText; ManifestCopied = $manifestCopied }
+            return @{ Ok = $false; Error = $errorText }
         }
     }
 

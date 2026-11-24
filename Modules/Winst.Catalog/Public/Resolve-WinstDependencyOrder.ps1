@@ -13,7 +13,7 @@ function Resolve-WinstDependencyOrder {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        $Plan = $null
+        $Plan
     )
 
     $result = @{ Ok = $false; Order = @(); Missing = @(); Error = '' }

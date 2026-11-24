@@ -11,7 +11,7 @@ function Invoke-WinstListEditFlow {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string]$Path = ''
+        [string]$Path
     )
 
     $result = @{ Ok = $false; Cancelled = $false }
@@ -28,8 +28,6 @@ function Invoke-WinstListEditFlow {
     $refresh = Update-WinstStaleSources -Context $Context -Quiet
     Write-WinstRefreshErrors -Errors $refresh.Errors
 
-
-    $targetPath = ''
     if ($Path) {
         # 解析 + 报错文案在 Resolve-WinstListTargetPath 里（编辑 / 查看两页共用）
         $targetPath = Resolve-WinstListTargetPath -Context $Context -Path $Path

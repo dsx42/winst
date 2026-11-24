@@ -25,7 +25,6 @@ function Write-WinstUpdateCheckEntry {
         if ($companionInfo.Error) { throw ('附加文件检查失败：{0}' -f $companionInfo.Error) }
         if ($companionInfo.CompanionsOnly) {
             $EntryResult.Action = 'files'
-            $EntryResult.Message = ('附加文件有更新（{0} 个）' -f $companionInfo.ChangedCount)
             $EntryResult.CompanionCount = [int]$companionInfo.ChangedCount
             $EntryResult.CompanionNames = @($companionInfo.Names)
         } else {

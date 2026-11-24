@@ -36,11 +36,11 @@ function Invoke-CacheList {
                 foreach ($one in $items) {
                     if ([bool]$one['Installed'] -and ([string]$one['InstalledUpdateState'] -eq 'update')) { $targets += $one }
                 }
-                $null = Invoke-WinstUpgradeAll -Context $Context -Items $targets
+                Invoke-WinstUpgradeAll -Context $Context -Items $targets
             } else {
                 $targets = @()
                 foreach ($one in $items) { if ([bool]$one['HasPackageUpdate']) { $targets += $one } }
-                $null = Invoke-WinstDownloadUpdates -Context $Context -Items $targets
+                Invoke-WinstDownloadUpdates -Context $Context -Items $targets
             }
         } elseif ($pick.Action -ne 'select') {
             Write-Host '  已返回。' -ForegroundColor DarkGray

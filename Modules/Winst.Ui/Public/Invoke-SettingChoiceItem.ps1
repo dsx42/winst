@@ -15,7 +15,7 @@ function Invoke-SettingChoiceItem {
         [Parameter(Mandatory = $true)][string]$DisplayName,
         [Parameter(Mandatory = $true)][string]$CurrentDisplay,
         [Parameter(Mandatory = $true)][array]$Options,
-        [string]$Hint = ''
+        [string]$Hint
     )
 
     Write-Section $DisplayName
@@ -39,7 +39,7 @@ function Invoke-SettingChoiceItem {
     }
     Write-Host ''
 
-    $pick = Read-WinstIndexSelection -Prompt '  请输入编号（回车 / b = 不做修改）' -Count $Options.Count -AllowEmpty
+    $pick = Read-WinstIndexSelection -Prompt '  请输入编号（回车 / b = 不做修改）' -Count $Options.Count
     if ($pick.Action -eq 'quit') { Set-WinstQuit; return }
     if ($pick.Action -ne 'select') {
         Write-Host '  已取消。' -ForegroundColor DarkGray

@@ -6,9 +6,9 @@ function Expand-WinstArchiveWithTool {
         按引擎、系统 tar、系统 ZIP 的顺序解压到空暂存目录，重试前清除失败残留。
     #>
     param([hashtable]$Context, [Parameter(Mandatory = $true)][string]$ArchivePath,
-        [Parameter(Mandatory = $true)][string]$DestDir, [Parameter(Mandatory = $true)]$Errors, [string]$SevenZipPath = '')
+        [Parameter(Mandatory = $true)][string]$DestDir, [Parameter(Mandatory = $true)]$Errors, [string]$SevenZipPath)
 
-    $result = @{ Ok = $false; Tool = ''; ValidationFailed = $false }
+    $result = @{ Ok = $false; ValidationFailed = $false }
     try {
         Assert-WinstSafeWritePath -Path $DestDir -Directory
         if ((Test-WinstFileSystemPath -Path $DestDir) -and
@@ -63,7 +63,6 @@ function Expand-WinstArchiveWithTool {
                 }
             }
             $result.Ok = $true
-            $result.Tool = $tool.Name
             return $result
         } catch {
             $Errors.Add(('{0} 解压失败：{1}' -f $tool.Name, $_.Exception.Message))

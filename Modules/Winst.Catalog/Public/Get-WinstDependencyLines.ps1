@@ -21,7 +21,7 @@ function Get-WinstDependencyLines {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [string]$Type = '',
+        [string]$Type,
         $Plan = $null,
         $StateRead = $null
     )

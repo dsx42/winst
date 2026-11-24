@@ -8,11 +8,11 @@ function Invoke-WinstInstallWithRetry {
         @{ Install; SkipReasonShown }
     #>
     param([hashtable]$Context, $Plan, [string]$SourceName, [bool]$ForceInstall, [switch]$Overwrite,
-        [string[]]$Keep = @(), [switch]$DownloadOnly, [switch]$KillRunning, [switch]$Quiet,
+        [string[]]$Keep, [switch]$DownloadOnly, [switch]$KillRunning,
         [switch]$FilesOnly, [switch]$ForceSystemItems, [switch]$Yes, [switch]$CompanionOnly)
 
     $install = Invoke-WinstAppInstall -Context $Context -Plan $Plan -SourceName $SourceName `
-        -CompanionOnly:$CompanionOnly -Force:$ForceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning -Quiet:$Quiet `
+        -CompanionOnly:$CompanionOnly -Force:$ForceInstall -Overwrite:$Overwrite -Keep $Keep -DownloadOnly:$DownloadOnly -KillRunning:$KillRunning `
         -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     $skipReasonShown = $false
@@ -22,7 +22,7 @@ function Invoke-WinstInstallWithRetry {
         $skipReasonShown = $true
         if (Read-WinstConfirm -Prompt '  是否强制重装（忽略上面的检查，覆盖安装）？(y/N)' -Default 'n') {
             $install = Invoke-WinstAppInstall -Context $Context -Plan $Plan -SourceName $SourceName `
-                -Force -Overwrite:$Overwrite -Keep $Keep -KillRunning:$KillRunning -Quiet:$Quiet `
+                -Force -Overwrite:$Overwrite -Keep $Keep -KillRunning:$KillRunning `
                 -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
             $skipReasonShown = $false
         }

@@ -15,7 +15,7 @@ function Search-WinstInstalledItemsByKeywords {
     #>
     param(
         [AllowEmptyCollection()]
-        $Items = @(),
+        $Items,
         [Parameter(Mandatory = $true)][string]$Keyword
     )
 

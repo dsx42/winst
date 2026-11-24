@@ -9,7 +9,7 @@ function Invoke-WinstBundleCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @()
+        [string[]]$Arguments
     )
 
     $sub = ''

@@ -11,7 +11,7 @@ function Resolve-WinstPlanVersion {
         $Plan,
         $Entry,
         [hashtable]$Context,
-        $Notes = @(),
+        $Notes,
         $PackageVersionSpec
     )
 

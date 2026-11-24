@@ -9,7 +9,7 @@ function Get-FileVerifyText {
         Store，而是由调用方传入 -HashRule（Get-WinstHashRule 的结果）；不传时只按
         hashFrom 原样显示。
     #>
-    param($File, $HashRule = $null)
+    param($File, $HashRule)
 
     $hash = Get-EntryString -Entry $File -Key 'hash'
     if ($hash) { return ('下载后校验: sha256 {0}' -f $hash) }

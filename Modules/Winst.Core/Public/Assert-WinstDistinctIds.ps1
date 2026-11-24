@@ -5,7 +5,7 @@ function Assert-WinstDistinctIds {
     .SYNOPSIS
         id 保持 Ordinal 身份；拒绝仅大小写不同的身份共用 Windows 目录或 JSON 字典。
     #>
-    param([string[]]$Ids = @())
+    param([string[]]$Ids)
 
     $seen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
     foreach ($id in @($Ids)) {

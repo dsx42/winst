@@ -9,7 +9,7 @@ function Get-WinstRegistryScanRecords {
 
     # 先于目录登记执行：安装版软件可能装在 installRoot 之外，命中注册表即登记，installDir 取 InstallLocation。
     $ids = @($Plan.Keys | Where-Object {
-        -not $Found.Contains($_) -and (Get-EntryString -Entry $Plan[$_] -Key 'type').Trim() -ieq 'installer'
+        (Get-EntryString -Entry $Plan[$_] -Key 'type').Trim() -ieq 'installer'
     })
     if (-not $ids.Count) { return }
     $registryEntries = @()
@@ -100,7 +100,7 @@ function Get-WinstRegistryScanRecords {
         if (-not $version) { $version = 'unknown' }
         $managed = 'external'
         if (Test-WinstUnderInstallRoot -Path $location -InstallRoot $Context.InstallRoot) { $managed = 'winst' }
-        $Found[$id] = New-WinstScanRecord -Id $id -Version $version -OldVersions @($detectResult.OldVersions) -Type $type `
+        $Found[$id] = New-WinstScanRecord -Version $version -OldVersions @($detectResult.OldVersions) -Type $type `
             -InstallDir $location -Managed $managed -Source ([string]$Source[$id]) -VerifiedIdentity
         if ($VerboseOutput) {
             Write-Host ('    [注册表] {0} → 版本 {1}（{2}，{3}）' -f $id, $version, [string]$hit['DisplayName'], $managed) -ForegroundColor DarkGray

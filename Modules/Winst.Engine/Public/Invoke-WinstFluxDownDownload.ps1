@@ -19,8 +19,8 @@ function Invoke-WinstFluxDownDownload {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)][string]$DestDir,
-        [string]$FileName = '',
-        [string]$ProxyUrl = '',
+        [string]$FileName,
+        [string]$ProxyUrl,
         [int]$Segments = 0
     )
 

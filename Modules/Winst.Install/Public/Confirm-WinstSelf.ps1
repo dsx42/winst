@@ -15,68 +15,42 @@
 
     当前进程跑的就是已安装副本时
     ----------------------------
-    若当前进程已经在执行已安装的启动器或脚本，只做更新检查——
+    若当前进程已经在执行已安装的脚本，只做更新检查——
     在目录被占用时重装只会替换正在运行进程底下的文件，没有收益。
-
-    .OUTPUTS
-        @{ Ok; Installed; Updated; Error }
 #>
 function Confirm-WinstSelf {
     <#
     .SYNOPSIS
         未安装则安装 winst，已安装则检查并应用更新。
-
-    .OUTPUTS
-        @{ Ok; Installed; Updated; Error }
     #>
     [CmdletBinding()]
-    [OutputType([hashtable])]
     param(
-        [Parameter(Mandatory = $true)][hashtable]$Context,
-        [switch]$Quiet
+        [Parameter(Mandatory = $true)][hashtable]$Context
     )
 
-    $result = @{ Ok = $true; Installed = $false; Updated = $false; Error = '' }
-
-    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { return $result }
-    if ((Get-WinstState -Name WinstInstallingAppIds) -ccontains 'winst') { return $result }
-    if ((Get-WinstState -Name WinstSelfChecked)) { return $result }
+    if ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun) { return }
+    if ((Get-WinstState -Name WinstInstallingAppIds) -ccontains 'winst') { return }
+    if ((Get-WinstState -Name WinstSelfChecked)) { return }
     $null = Set-WinstState -Name WinstSelfChecked -Value ($true)
 
     $installDir = Join-WinstPath $Context.InstallRoot 'winst'
     $launcherPath = Join-WinstPath $installDir 'winst.cmd'
     $scriptPath = Join-WinstPath $installDir 'winst.ps1'
 
-    # 正常入口记录脚本路径。显式指定入口路径的调用方也可指向已安装的启动器。
-    $runningInstalledCopy = $false
     $currentScript = [string](Get-WinstState -Name WinstScriptPath)
-
-    if ($currentScript) {
-        foreach ($candidate in @($launcherPath, $scriptPath)) {
-            try {
-                if ([IO.Path]::GetFullPath($currentScript) -ieq [IO.Path]::GetFullPath($candidate)) {
-                    $runningInstalledCopy = $true
-                    break
-                }
-            } catch {
-                # 路径无法解析：保持 $runningInstalledCopy 原值。
-            }
-        }
+    try {
+        $runningInstalledCopy = [IO.Path]::GetFullPath($currentScript) -ieq [IO.Path]::GetFullPath($scriptPath)
+    } catch {
+        $runningInstalledCopy = $false
     }
 
     if (-not $runningInstalledCopy -and -not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
-        $r = Install-WinstSelf -Context $Context -Quiet:$Quiet
-        $result.Ok = [bool]$r.Ok
-        $result.Installed = [bool]$r.Installed
-        $result.Error = [string]$r.Error
-        if (-not $r.Ok -and -not $Quiet) {
+        $r = Install-WinstSelf -Context $Context
+        if (-not $r.Ok) {
             Write-Host ('  winst 自动安装失败（不影响本次操作）: {0}' -f $r.Error) -ForegroundColor DarkYellow
         }
-        return $result
+        return
     }
 
-    $u = Update-WinstSelfIfOutdated -Context $Context -Quiet:$Quiet
-    $result.Updated = [bool]$u.Updated
-    $result.Error = [string]$u.Error
-    return $result
+    Update-WinstSelfIfOutdated -Context $Context
 }

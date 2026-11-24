@@ -9,7 +9,7 @@ function Invoke-WinstInstallCommand {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [string[]]$Arguments = @(),
+        [string[]]$Arguments,
         [switch]$DownloadOnly
     )
 

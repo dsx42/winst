@@ -11,11 +11,11 @@ function Invoke-WinstUninstallRegistryKey {
         执行前重新回读该键（记录可能已被其它卸载动作连带移除），按 Resolve-WinstUninstallerCommand
         解析命令、校验路径与参数后运行。MsiExec 返回 1605（产品不存在）视为已移除。
     .OUTPUTS
-        @{ Ok; Missing; Cancelled; NeedRestart; RestartInitiated; Error; Command; ExitCode }
+        @{ Ok; Missing; Cancelled; NeedRestart; RestartInitiated; Error }
     #>
     param([string]$KeyPath, [string]$ExtraArgs = '', [switch]$Quiet)
 
-    $result = @{ Ok = $false; Missing = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false; Error = ''; Command = ''; ExitCode = 0 }
+    $result = @{ Ok = $false; Missing = $false; Cancelled = $false; NeedRestart = $false; RestartInitiated = $false; Error = '' }
 
     if (-not $KeyPath) { $result.Missing = $true; $result.Error = '缺少卸载记录'; return $result }
     # 只允许卸载记录分支下的键：KeyPath 虽然来自注册表枚举，但脏数据 / 被改过的值不能拿去执行
@@ -32,14 +32,13 @@ function Invoke-WinstUninstallRegistryKey {
         $result.Error = [string]$command.Error
         return $result
     }
-    $result.Command = [string]$command.Command
     $isMsiExec = ([IO.Path]::GetFileName([string]$command.Exe) -ieq 'msiexec.exe')
     if ($isMsiExec) {
         $systemMsiPaths = @('System32','SysWOW64','Sysnative') | ForEach-Object { Join-WinstPath $env:SystemRoot ($_ + '\msiexec.exe') }
         $isMsiExec = ($systemMsiPaths -icontains [string]$command.Exe)
     }
 
-    if (-not $Quiet) { Write-Host ('    正在运行卸载程序: {0}' -f $result.Command) -ForegroundColor Gray }
+    if (-not $Quiet) { Write-Host ('    正在运行卸载程序: {0}' -f $command.Command) -ForegroundColor Gray }
     try {
         $params = @{ FilePath = [string]$command.Exe; Wait = $true; PassThru = $true }
         if ([string]$command.Args) { $params['ArgumentList'] = [string]$command.Args }
@@ -50,24 +49,24 @@ function Invoke-WinstUninstallRegistryKey {
             $result.Error = '读不到卸载程序退出码，未确认卸载成功（如已手动卸载，可加 --force 只移除安装记录）'
             return $result
         }
-        $result.ExitCode = [int]$process.ExitCode
+        $exitCode = [int]$process.ExitCode
     } catch {
         $result.Error = ('运行卸载程序失败：{0}' -f $_.Exception.Message)
         return $result
     }
 
-    if ($isMsiExec -and $result.ExitCode -in @(3010,1641)) {
+    if ($isMsiExec -and $exitCode -in @(3010,1641)) {
         $result.Ok = $true
         $result.NeedRestart = $true
-        $result.RestartInitiated = ($result.ExitCode -eq 1641)
+        $result.RestartInitiated = ($exitCode -eq 1641)
         return $result
     }
-    if (($isMsiExec -and $result.ExitCode -eq 1605) -or $result.ExitCode -eq 0) {
+    if (($isMsiExec -and $exitCode -eq 1605) -or $exitCode -eq 0) {
         # 1605 = 产品未安装（已被上一条卸载连带移除）→ 视为已移除
         $result.Ok = $true
         return $result
     }
-    $result.Cancelled = ($result.ExitCode -eq 1602 -and $isMsiExec)
-    $result.Error = ('卸载程序返回失败（退出码 {0}）' -f $result.ExitCode)
+    $result.Cancelled = ($exitCode -eq 1602 -and $isMsiExec)
+    $result.Error = ('卸载程序返回失败（退出码 {0}）' -f $exitCode)
     return $result
 }

@@ -7,7 +7,7 @@ function Get-WinstPackageFacet {
     #>
     param(
         [Parameter(Mandatory = $true)]$Facts,
-        [string]$CacheVersion = '',
+        [string]$CacheVersion,
         [switch]$Evaluate
     )
 

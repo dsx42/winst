@@ -10,7 +10,7 @@ function Get-WinstCachedOverview {
     .OUTPUTS
         @{ Ok; Error; Warning; Items }
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Context, $PackageDirs = $null)
+    param([Parameter(Mandatory = $true)][hashtable]$Context, $PackageDirs)
 
     $result = @{ Ok = $false; Error = ''; Warning = ''; Items = @() }
 
@@ -20,7 +20,6 @@ function Get-WinstCachedOverview {
     }
 
     # 缓存索引：只读，不在这里回写（校对与重建由 repair / 下载流程负责）
-    if ($null -eq $PackageDirs) { $PackageDirs = Get-WinstPackageDirectoryMap -PkgDir $Context.PkgDir }
     $ids = @($PackageDirs.Keys)
     if ($ids.Count) { $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids $ids }
     else { $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir }

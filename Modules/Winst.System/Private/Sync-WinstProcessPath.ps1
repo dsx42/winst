@@ -7,7 +7,7 @@ function Sync-WinstProcessPath {
     .DESCRIPTION
         OldPersistent 是写入前展开的持久 PATH；会话前置项继续前置，其余会话项保留在合并项之后。
     #>
-    param([string[]]$OldPersistent = @(), [string]$SessionPath)
+    param([string[]]$OldPersistent, [string]$SessionPath)
 
     $persistent = New-Object 'System.Collections.Generic.List[string]'
     $persistentKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::InvariantCultureIgnoreCase)

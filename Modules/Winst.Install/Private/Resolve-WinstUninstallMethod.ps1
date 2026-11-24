@@ -10,7 +10,6 @@ function Resolve-WinstUninstallMethod {
     param([switch]$IsSelf, [switch]$External, $RecordSnapshot, $ManifestSnapshot, [switch]$HasManifest)
 
     $notes = @()
-    $method = 'portable-dir'
     if ($IsSelf) {
         $method = 'portable-dir'
     } elseif ($External) {

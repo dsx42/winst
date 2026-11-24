@@ -30,15 +30,10 @@ function Initialize-WinstState {
 
     .DESCRIPTION
         补齐缺失的状态项。缓存字典及要求非空的状态项在值为 $null 时也会重新初始化。
-
-    .OUTPUTS
-        [int] 本次初始化的项数
     #>
     [CmdletBinding()]
-    [OutputType([int])]
     param()
 
-    $initialized = 0
     $defaults = @{
         WinstScriptPath = ''
         WinstScriptDir = ''
@@ -55,14 +50,12 @@ function Initialize-WinstState {
         WinstRegistryEntriesCache = $null
         WinstEnvironmentCache = $null
         WinstAppxCache = $null
-        WinstProcessCache = $null
         WinstLocalManifestFilesCache = $null
         WinstEnginePathCache = $null
     }
     foreach ($name in $defaults.Keys) {
         if (-not (Test-WinstState -Name $name)) {
             $null = Set-WinstState -Name $name -Value $defaults[$name]
-            $initialized++
         }
     }
 
@@ -79,32 +72,24 @@ function Initialize-WinstState {
     foreach ($name in $comparers.Keys) {
         if ($null -eq (Get-WinstState -Name $name)) {
             $null = Set-WinstState -Name $name -Value (New-Object System.Collections.Hashtable ($comparers[$name]))
-            $initialized++
         }
     }
 
     if ($null -eq (Get-WinstState -Name 'WinstHttpCacheSweepAt')) {
         $null = Set-WinstState -Name 'WinstHttpCacheSweepAt' -Value ([DateTime]::MinValue)
-        $initialized++
     }
     if ($null -eq (Get-WinstState -Name 'WinstInstallingAppIds')) {
         $null = Set-WinstState -Name 'WinstInstallingAppIds' -Value @()
-        $initialized++
     }
     if ($null -eq (Get-WinstState -Name 'WinstSelfChecked')) {
         $null = Set-WinstState -Name 'WinstSelfChecked' -Value $false
-        $initialized++
     }
     if ($null -eq (Get-WinstState -Name 'WinstBrowserProfileDir')) {
         $null = Set-WinstState -Name 'WinstBrowserProfileDir' -Value ''
-        $initialized++
     }
     if ($null -eq (Get-WinstState -Name 'WinstSettingChangeReady')) {
         $null = Set-WinstState -Name 'WinstSettingChangeReady' -Value $false
-        $initialized++
     }
-
-    return $initialized
 }
 
 function Set-WinstScriptLocation {
@@ -125,26 +110,13 @@ function Set-WinstScriptLocation {
 
     .PARAMETER Directory
         winst.ps1 所在目录（「脚本目录」）。
-
-    .OUTPUTS
-        [hashtable] 已记录的位置
     #>
     [CmdletBinding()]
-    [OutputType([hashtable])]
     param(
-        [string]$ScriptPath = '',
-        [string]$Directory = ''
+        [string]$ScriptPath,
+        [string]$Directory
     )
-
-    if (-not $Directory -and $ScriptPath) {
-        try { $Directory = Split-Path -Parent $ScriptPath } catch { $Directory = '' }
-    }
 
     $null = Set-WinstState -Name 'WinstScriptPath' -Value ([string]$ScriptPath)
     $null = Set-WinstState -Name 'WinstScriptDir' -Value ([string]$Directory)
-
-    return @{
-        ScriptPath = [string]$ScriptPath
-        Directory  = [string]$Directory
-    }
 }

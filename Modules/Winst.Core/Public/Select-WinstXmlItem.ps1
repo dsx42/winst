@@ -5,7 +5,7 @@ function Select-WinstXmlItem {
     .SYNOPSIS
         按普通字段路径和等值条件选择唯一 XML 节点。
     #>
-    param([System.Xml.XmlNode]$Node, [string]$Key = '', $Match = $null, [string]$Label = '记录')
+    param([System.Xml.XmlNode]$Node, [string]$Key, $Match, [string]$Label)
 
     if ($null -eq $Node) { throw ('XML ' + $Label + '的起点为空') }
     if ($null -ne $Match -and $Match -isnot [System.Collections.IDictionary] -and $Match -isnot [pscustomobject]) {

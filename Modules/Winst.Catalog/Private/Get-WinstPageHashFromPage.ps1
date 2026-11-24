@@ -7,7 +7,7 @@ function Get-WinstPageHashFromPage {
     .OUTPUTS
         [string] 摘要（未声明 / 无需提取时为空串）
     #>
-    param($Item, [string]$Html, [string]$Url, [string]$PageUrl, $Result, [string]$BrowserPageHash = '')
+    param($Item, [string]$Html, [string]$Url, [string]$PageUrl, $Result, [string]$BrowserPageHash)
 
     # files[].hashFrom: "page" —— 优先按文件名在页面条目内就近提取（如 NTriver ISO 列表）；
     # 摘要随上游换包而变，写死进清单反而在下次更新后校验失败。

@@ -14,7 +14,7 @@ function Test-WinstReadOnlyCommand {
     .OUTPUTS
         [bool]
     #>
-    param([string]$Name = '')
+    param([string]$Name)
 
     $text = ([string]$Name).Trim()
     if (-not $text) { return $false }

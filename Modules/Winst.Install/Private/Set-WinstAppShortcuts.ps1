@@ -25,8 +25,8 @@ function Set-WinstAppShortcuts {
         [Parameter(Mandatory = $true)]$Plan,
         [Parameter(Mandatory = $true)][string]$InstallDir,
         [switch]$ExistingOnly,
-        [string[]]$OwnedShortcuts = @(),
-        [hashtable]$Context = $null
+        [string[]]$OwnedShortcuts,
+        [hashtable]$Context
     )
 
     $applied = @()

@@ -25,14 +25,14 @@ function Resolve-WinstInstallDecision {
         [switch]$DryRun,
         [switch]$Offline,
         [switch]$FreshMain,
-        [string]$PlanFreshState = '',
+        [string]$PlanFreshState,
         [switch]$VersionFromCachedPackage,
-        [int]$CompanionDownloadCount = 0,
+        [int]$CompanionDownloadCount,
         [switch]$CompanionsOnly,
         $PrimaryFilePlan,
         [switch]$IsDownloadType,
         $Ledger,
-        [string]$SourceName = ''
+        [string]$SourceName
     )
 
     $deferVersionDecision = $false

@@ -39,8 +39,6 @@ namespace Winst
 
         public static object Get(string name)
         {
-            if (string.IsNullOrEmpty(name)) { return null; }
-
             lock (Gate)
             {
                 object value;
@@ -51,8 +49,6 @@ namespace Winst
 
         public static void Set(string name, object value)
         {
-            if (string.IsNullOrEmpty(name)) { return; }
-
             lock (Gate)
             {
                 Values[name] = value;
@@ -61,28 +57,23 @@ namespace Winst
 
         public static bool Contains(string name)
         {
-            if (string.IsNullOrEmpty(name)) { return false; }
-
             lock (Gate)
             {
                 return Values.ContainsKey(name);
             }
         }
 
-        public static bool Remove(string name)
+        public static void Remove(string name)
         {
-            if (string.IsNullOrEmpty(name)) { return false; }
-
             lock (Gate)
             {
-                return Values.Remove(name);
+                Values.Remove(name);
             }
         }
 
         public static async System.Threading.Tasks.Task<string> CaptureAsync(
             System.IO.StreamReader reader, int limit, bool tail)
         {
-            if (limit <= 0) { throw new ArgumentOutOfRangeException("limit"); }
             var buffer = new char[4096];
             var text = new System.Text.StringBuilder();
             bool overflow = false;

@@ -12,7 +12,7 @@ function New-WinstPlanCommandList {
     .OUTPUTS
         @( [ordered]@{ exe; args; timeoutSec; requireAdmin } )
     #>
-    param($Commands, [string]$Version, [string]$Field = '命令')
+    param($Commands, [string]$Version, [string]$Field)
 
     $list = @()
     $index = 0

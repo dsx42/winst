@@ -13,7 +13,7 @@ function Get-WinstBrowserClickedLink {
         若调用方传入 HashClickSpecs（软件源 source.hashClick）且 WantPageHash，取址成功后再按该序列点控件，
         从可见文案读唯一十六进制摘要（见 Get-WinstBrowserPageHash）。
     .OUTPUTS
-        @{ Ok; DownloadUrls; Html; PageHash; Error; Engine; Notes }
+        @{ Ok; DownloadUrls; Html; PageHash; Error; Notes }
     #>
     param(
         [hashtable]$Context,
@@ -21,15 +21,14 @@ function Get-WinstBrowserClickedLink {
         [Parameter(Mandatory = $true)]$ClickSpecs,
         [switch]$WantHtml,
         [switch]$WantPageHash,
-        $HashClickSpecs = @(),
-        [int]$TimeoutSec = 90
+        $HashClickSpecs
     )
 
-    $result = @{ Ok = $false; DownloadUrls = @(); Html = ''; PageHash = ''; Error = ''; Engine = ''; Notes = @() }
+    $result = @{ Ok = $false; DownloadUrls = @(); Html = ''; PageHash = ''; Error = ''; Notes = @() }
     $steps = @($ClickSpecs)
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
-    $overallDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+    $overallDeadline = [DateTime]::UtcNow.AddSeconds(90)
 
     $userAgent = ''
     $headers = Get-WinstBrowserHeaders
@@ -45,9 +44,8 @@ function Get-WinstBrowserClickedLink {
                 Write-Host ('  [verbose] 用系统浏览器点击下载按钮取地址 {0}{1}' -f $Url, $note) -ForegroundColor DarkGray
             }
 
-            $session = New-WinstDevToolsSession -ProxyUrl $proxyUrl -UserAgent $userAgent -TimeoutSec $TimeoutSec -Deadline $overallDeadline
+            $session = New-WinstDevToolsSession -ProxyUrl $proxyUrl -UserAgent $userAgent -TimeoutSec 90 -Deadline $overallDeadline
             if (-not $session.Ok) { $lastError = [string]$session.Error; continue }
-            $result.Engine = [string]$session.Engine
 
             Start-WinstDevToolsNavigation -Session $session -Url $Url
 

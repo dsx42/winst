@@ -22,10 +22,10 @@ function Add-WinstVersionItem {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Result,
-        [string]$Version = '',
-        [string]$Detail = '',
+        [string]$Version,
+        [string]$Detail,
         [string]$RecordKey = '',
-        [string]$GroupKey = ''
+        [string]$GroupKey
     )
 
     if (-not $Version) { return }

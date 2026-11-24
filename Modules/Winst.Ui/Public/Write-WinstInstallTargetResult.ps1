@@ -8,12 +8,8 @@ function Write-WinstInstallTargetResult {
         失败时**必须有原因**：Error 与 Message 都为空说明流程在某处静默返回了失败，
         这里补一句兜底说明，避免界面上只看到「失败 1」却没有任何线索。
 
-        `-Quiet`（内嵌在依赖处理 / 更新流程里时）什么都不打印：那些调用方会自己转述结果，
-        这里再打一遍只会让同一屏出现两份措辞。
     #>
-    param($Install, [bool]$SkipReasonShown, [switch]$Quiet)
-
-    if ($Quiet) { return }
+    param($Install, [bool]$SkipReasonShown)
 
     if ($Install.Cancelled) {
         Write-Host ('  已取消: {0}' -f $Install.Message) -ForegroundColor DarkGray

@@ -12,10 +12,9 @@ function Read-WinstCommandLine {
     .OUTPUTS
         @{ Options; Command; Arguments; Error }
     #>
-    param([string[]]$Tokens, [hashtable]$InitialOptions = $null)
+    param([string[]]$Tokens)
 
     $options = New-WinstCliOptions
-    if ($InitialOptions) { foreach ($key in @($InitialOptions.Keys)) { $options[$key] = $InitialOptions[$key] } }
     $command = ''
     $rest = @()
     $optionKeys = @{ '--install-root' = 'InstallRoot'; '--pkg-dir' = 'PkgDir'; '--proxy' = 'Proxy' }

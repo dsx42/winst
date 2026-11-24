@@ -10,7 +10,7 @@ function Test-WinstOldVersionsEqual {
     .OUTPUTS
         [bool]
     #>
-    param($A = @(), $B = @())
+    param($A, $B)
 
     $left = @($A)
     $right = @($B)

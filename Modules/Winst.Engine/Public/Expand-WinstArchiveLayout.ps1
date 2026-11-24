@@ -11,7 +11,7 @@ function Expand-WinstArchiveLayout {
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$ArchivePath,
         [Parameter(Mandatory = $true)][string]$DestDir,
-        $StripTopDir = $true,
+        $StripTopDir,
         [string[]]$ExtractFiles = @(),
         [string]$SevenZipPath = ''
     )

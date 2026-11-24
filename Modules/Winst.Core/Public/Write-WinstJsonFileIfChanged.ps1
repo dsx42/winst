@@ -10,11 +10,10 @@ function Write-WinstJsonFileIfChanged {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)]$InputObject,
-        [int]$Depth = 12
+        [Parameter(Mandatory = $true)]$InputObject
     )
 
-    $content = ConvertTo-WinstJson -InputObject $InputObject -Depth $Depth
+    $content = ConvertTo-WinstJson -InputObject $InputObject -Depth 12
     if (Test-Path -LiteralPath $Path -PathType Leaf) {
         $existingText = [IO.File]::ReadAllText($Path)
         if ([string]::Equals($existingText, $content, [StringComparison]::Ordinal)) { return $false }

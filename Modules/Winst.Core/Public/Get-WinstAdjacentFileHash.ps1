@@ -31,7 +31,7 @@ function Get-WinstAdjacentFileHash {
             $parent = $null
             $preferred = $null
             if ($open.Count) { $parent = $open[$open.Count - 1]; $preferred = $parent.Preferred }
-            $node = @{ Start = $tag.Index; OpenEnd = $tag.Index + $tag.Length; End = -1; ClosedAt = $Text.Length
+            $node = @{ OpenEnd = $tag.Index + $tag.Length; End = -1; ClosedAt = $Text.Length
                 Name = $tagName; Parent = $parent; Preferred = $preferred }
             if ($tagName -in @('tr', 'li', 'article', 'p')) { $node.Preferred = $node }
             $containers.Add($node)

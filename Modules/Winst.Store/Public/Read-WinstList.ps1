@@ -9,7 +9,7 @@ function Read-WinstList {
         同一 id 只保留第一次出现；无法识别的行计入 BadLines（保存时会丢弃，调用方需提示）。
         文件不存在时返回成功 + 空清单（便于「新建」场景）。
     .OUTPUTS
-        @{ Ok; Error; Exists; Entries = @( @{ Id; Version; Raw } ); CommentLines; BadLines }
+        @{ Ok; Error; Exists; Entries = @( @{ Id; Version } ); CommentLines; BadLines }
     #>
     param([Parameter(Mandatory = $true)][string]$Path, [switch]$CountOnly)
 
@@ -44,7 +44,7 @@ function Read-WinstList {
             if (-not $CountOnly) {
                 $version = ''
                 if ($pos -ge 0) { $version = $trimmed.Substring($pos + 2).Trim() }
-                $entries.Add([ordered]@{ Id = $id; Version = $version; Raw = $trimmed })
+                $entries.Add([ordered]@{ Id = $id; Version = $version })
             }
         }
     } catch {

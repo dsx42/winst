@@ -18,13 +18,12 @@ function Confirm-WinstSingleInstance {
 
         未放行且抢不到锁时返回 Allowed = $false，调用方应打印提示并直接退出。
     .OUTPUTS
-        @{ Allowed; Skipped; OwnerPid; OwnerPath; OwnerStartedAt; LockPath }
+        @{ Allowed; OwnerPid; OwnerPath; OwnerStartedAt; LockPath }
     #>
-    param([string[]]$Arguments = @(), $Parsed = $null)
+    param($Parsed)
 
     $result = @{
         Allowed        = $false
-        Skipped        = $false
         OwnerPid       = 0
         OwnerPath      = ''
         OwnerStartedAt = ''
@@ -33,11 +32,12 @@ function Confirm-WinstSingleInstance {
         Error          = ''
     }
 
-    if ($env:WINST_NO_LOCK -eq '1') { $result.Allowed = $true; $result.Skipped = $true; return $result }
-    if (Test-WinstReadOnlyInvocation -Arguments $Arguments -Parsed $Parsed) { $result.Allowed = $true; $result.Skipped = $true; return $result }
+    if ($env:WINST_NO_LOCK -eq '1' -or (Test-WinstReadOnlyInvocation -Parsed $Parsed)) {
+        $result.Allowed = $true
+        return $result
+    }
 
     # 没取得锁就不能进入可能写入数据的业务逻辑。
-    $lock = $null
     try {
         $lock = Enter-WinstInstanceLock
     } catch {

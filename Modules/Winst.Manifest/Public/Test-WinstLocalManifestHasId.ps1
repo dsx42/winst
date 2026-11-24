@@ -11,7 +11,7 @@ function Test-WinstLocalManifestHasId {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Id,
-        [hashtable]$Lookup = @{}
+        [hashtable]$Lookup
     )
 
     $pkgDir = ''
@@ -26,7 +26,7 @@ function Test-WinstLocalManifestHasId {
             continue
         }
         try {
-            $read = Read-WinstJsonFileCached -ParsedOnly -Path $path
+            $read = Read-WinstJsonFileCached -Path $path
             if (-not $read.Ok) { throw $read.Error }
             if ($read.Empty) { throw '清单内容为空' }
             $entries = @(Get-ManifestEntries -Manifest $read.Value)

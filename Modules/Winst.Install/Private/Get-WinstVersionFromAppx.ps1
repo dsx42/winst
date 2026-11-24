@@ -13,8 +13,8 @@ function Get-WinstVersionFromAppx {
     #>
     param(
         $Detect,
-        [string]$Kind = '',
-        $Between = @(),
+        [string]$Kind,
+        $Between,
         [hashtable]$Result
     )
 

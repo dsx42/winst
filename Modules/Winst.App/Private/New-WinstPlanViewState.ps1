@@ -9,15 +9,15 @@ function New-WinstPlanViewState {
     #>
     param(
         $Plan,
-        [int]$Index = 0,
-        [int]$Total = 0,
-        [string]$SourceName = '',
-        [string]$InstallRoot = '',
-        [string]$PkgDir = '',
-        [string]$DesktopDir = '',
-        [string]$StartMenuDir = '',
-        [string]$InstalledVersion = '',
-        [string]$InstalledDir = ''
+        [int]$Index,
+        [int]$Total,
+        [string]$SourceName,
+        [string]$InstallRoot,
+        [string]$PkgDir,
+        [string]$DesktopDir,
+        [string]$StartMenuDir,
+        [string]$InstalledVersion,
+        [string]$InstalledDir
     )
 
     $id = Get-EntryString -Entry $Plan -Key 'id'

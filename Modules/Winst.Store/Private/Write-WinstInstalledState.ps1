@@ -25,7 +25,6 @@ function Write-WinstInstalledState {
             $cache[$path] = @{
                 Stamp    = $stamp
                 State    = @{ SchemaVersion = (Get-WinstStateSchemaVersion); Installed = $normalized }
-                Migrated = $false
                 NeedSave = $false
             }
         } else {

@@ -5,7 +5,7 @@ function New-SourceResolveResult {
     .SYNOPSIS
         构造来源解析的统一返回契约。
     #>
-    param([string]$Kind = '')
+    param([string]$Kind)
 
     return @{
         Ok      = $false

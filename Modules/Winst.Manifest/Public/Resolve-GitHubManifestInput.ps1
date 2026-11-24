@@ -25,9 +25,6 @@ function Resolve-GitHubManifestInput {
         return $result
     }
 
-    $repo = ''
-    $manifestUrl = ''
-
     if ($text -notmatch '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
         # 简写：用户名/仓库（允许尾部 .git 与斜杠）
         if ($text -match '^([^/\s]+)/([^/\s]+?)(?:\.git)?/?$') {

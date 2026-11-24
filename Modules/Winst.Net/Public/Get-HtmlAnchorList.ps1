@@ -22,7 +22,6 @@ function Get-HtmlAnchorList {
             Class = (Get-HtmlAttributeValue -Attributes $attrs -Name 'class').Trim()
             Id    = (Get-HtmlAttributeValue -Attributes $attrs -Name 'id').Trim()
             Text  = ConvertTo-HtmlText -Html $m.Groups[2].Value
-            Raw   = $m.Value
         })
     }
     return $result.ToArray()

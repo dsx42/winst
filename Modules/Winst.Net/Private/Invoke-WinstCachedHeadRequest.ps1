@@ -5,14 +5,14 @@ function Invoke-WinstCachedHeadRequest {
     .SYNOPSIS
         执行一次 HEAD，只在请求条件相同的探测之间复用成功响应。
     #>
-    param([string]$Uri, [hashtable]$Headers, [int]$TimeoutSec, [string]$Proxy, [string]$RequestKey)
+    param([string]$Uri, [hashtable]$Headers, [string]$Proxy, [string]$RequestKey)
 
     # 按实际代理尝试缓存，调用方仍独立判断失败时是否换代理。
-    $key = 'head-response|' + (Get-WinstHeadCacheKey -RequestKey $RequestKey -TimeoutSec $TimeoutSec -ProxyAttempts $Proxy)
+    $key = 'head-response|' + (Get-WinstHeadCacheKey -RequestKey $RequestKey -ProxyAttempts $Proxy)
     $cached = Get-WinstHttpCacheEntry -Key $key
     if ($cached) { return $cached }
 
-    $params = New-WinstHttpRequestParameters -Uri $Uri -Method 'Head' -TimeoutSec $TimeoutSec -Headers $Headers -Proxy $Proxy
+    $params = New-WinstHttpRequestParameters -Uri $Uri -Method 'Head' -TimeoutSec 20 -Headers $Headers -Proxy $Proxy
     $response = Invoke-WebRequest @params
     $head = @{ Headers = $response.Headers; FinalUri = [string]$response.BaseResponse.ResponseUri.AbsoluteUri }
     Set-WinstHttpCacheEntry -Key $key -Entry $head

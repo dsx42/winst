@@ -9,7 +9,7 @@ function Invoke-WinstUpdateEntry {
     #>
     param([hashtable]$Context, [string]$Id, $Ledger, $RowById, [switch]$Check, [switch]$DownloadOnly,
         [switch]$Force, [switch]$Yes, [switch]$Quiet, [switch]$FilesOnly,
-        [switch]$ForceSystemItems, [switch]$AllTargets, [string]$SourceName = '', [hashtable]$SourceLookup = @{})
+        [switch]$ForceSystemItems, [switch]$AllTargets, [string]$SourceName, [hashtable]$SourceLookup)
 
     $installedVersion = Get-EntryString -Entry $ledger -Key 'version'
     $displayName = $Id
@@ -150,11 +150,12 @@ function Invoke-WinstUpdateEntry {
     $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $chosen -InstalledVersion $installedVersion -Ledger $ledger
     $latest = [string]$snap.Latest
     $entryResult.Latest = $latest
-    if ($snap.VersionFromPackage) {
-        if ((-not $latest -or -not $snap.Comparable) -and ($Check -or ($AllTargets -and -not $Force -and -not $DownloadOnly))) {
-            $entryResult.Action = 'unknown'
-            $verdict = Get-WinstUpdateVerdict -VersionFromPackage $true -RemoteFresh $snap.RemoteFresh `
-                -BestVersion $latest -CurrentVersion $installedVersion
+    $entryResult.LatestSource = [string]$snap.LatestSource
+    if ($snap.VersionFromPackage -and (-not $latest -or -not $snap.Comparable)) {
+        $verdict = Get-WinstUpdateVerdict -VersionFromPackage $true -RemoteFresh $snap.RemoteFresh `
+            -BestVersion $latest -CurrentVersion $installedVersion
+        if ($Check -or ($AllTargets -and -not $Force -and -not $DownloadOnly -and -not $verdict.HasUpdate)) {
+            $entryResult.Action = if ($verdict.HasUpdate) { 'check' } else { 'unknown' }
             $entryResult.Message = [string]$verdict.Hint
             if (-not $Quiet) { Write-Host ('  {0}: {1}。' -f $displayName, $entryResult.Message) -ForegroundColor DarkYellow }
             return $entryResult
@@ -165,8 +166,6 @@ function Invoke-WinstUpdateEntry {
         if (-not $Quiet) { Write-Host ('  {0}: 无法比较版本（{1}），按软件源里的定义更新。' -f $displayName, $entryResult.Message) -ForegroundColor DarkYellow }
         return $entryResult
     }
-    $entryResult.LatestSource = [string]$snap.LatestSource
-
     if ($Check) {
         Write-WinstUpdateCheckEntry -Context $Context -Plan $chosen['Plan'] -Snap $snap -EntryResult $entryResult `
             -InstalledVersion $installedVersion -DisplayName $displayName -Quiet:$Quiet
@@ -175,7 +174,7 @@ function Invoke-WinstUpdateEntry {
 
     Invoke-WinstUpdateExecuteEntry -Context $Context -Id $Id -Row $row -Ledger $ledger -Snap $snap `
         -EntryResult $entryResult -InstalledVersion $installedVersion -DisplayName $displayName `
-        -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes -Quiet:$Quiet `
+        -DownloadOnly:$DownloadOnly -Force:$Force -Yes:$Yes `
         -FilesOnly:$FilesOnly -ForceSystemItems:$ForceSystemItems
 
     return $entryResult

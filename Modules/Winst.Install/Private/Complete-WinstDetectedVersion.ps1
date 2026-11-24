@@ -22,12 +22,11 @@ function Complete-WinstDetectedVersion {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Result,
-        $RewriteRules = @()
+        $RewriteRules
     )
 
     $rules = @($RewriteRules)
-    $items = @()
-    if ($null -ne $Result['Versions']) { $items = $Result['Versions'] }
+    $items = $Result['Versions']
     if ($items.Count -eq 0 -and (Get-EntryString -Entry $Result -Key 'Version')) {
         $items = @([ordered]@{
             Version   = (Get-EntryString -Entry $Result -Key 'Version')
@@ -46,7 +45,6 @@ function Complete-WinstDetectedVersion {
             $rewritten = Get-WinstRewrittenVersion -Version $version -Rules $rules
             if ($rewritten) { $version = [string]$rewritten }
         }
-        if (-not $version) { continue }
         # 去重按「版本号 + 产品键」：不同产品（VC++ 2019 / 2022）常常同号，不能互相吞掉
         $groupKey = (Get-EntryString -Entry $item -Key 'GroupKey').Trim()
         $dedupeKey = ('{0}|{1}' -f $version, $groupKey)

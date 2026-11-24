@@ -9,7 +9,7 @@ function Get-WinstJavaExecutable {
         新开的窗口才有 PATH，这里兜住「同一进程里接着用」的场景）→ PATH 上的 java.exe。
         找不到返回空串，由调用方报出「需要 java」的提示。
     #>
-    param([hashtable]$Context = $null)
+    param([hashtable]$Context)
 
     $candidates = @()
     try { $javaHome = [string]$env:JAVA_HOME } catch { $javaHome = '' }
