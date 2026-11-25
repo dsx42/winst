@@ -58,13 +58,21 @@ function Remove-WinstCachedPackage {
             return $result
         }
 
+        $stage = Join-WinstPath $dir 'winst-download'
+        $tasks = Join-WinstPath $stage '.tasks'
+        if (Test-Path -LiteralPath $tasks -PathType Container) {
+            Assert-WinstSafeWritePath -Path $tasks -Directory
+            if (Get-ChildItem -LiteralPath $tasks -File -Force -ErrorAction Stop | Select-Object -First 1) {
+                throw ('下载任务尚未释放，请先恢复下载或在 FluxDown 中核实并清除对应任务记录：' + $tasks)
+            }
+        }
         $fileCount = 0
         if (Test-Path -LiteralPath $dir -PathType Container) {
             $fileCount = @(Get-ChildItem -LiteralPath $dir -File -ErrorAction Stop).Count
         }
         $cacheRead = Read-WinstCacheIndex -PkgDir $Context.PkgDir
         if (-not $cacheRead.CanSave) { $result.Error = $cacheRead.Error; return $result }
-        if (-not $AllowMissing -and $fileCount -eq 0 -and -not $cacheRead.Index.Contains($Id)) {
+        if (-not $AllowMissing -and $fileCount -eq 0 -and -not $cacheRead.Index.Contains($Id) -and -not (Test-Path -LiteralPath $stage -PathType Container)) {
             $result.FailureKind = 'Parameter'
             $result.Error = ('没有找到「{0}」的已下载{1}。' -f $Id, $PackageNoun)
             return $result

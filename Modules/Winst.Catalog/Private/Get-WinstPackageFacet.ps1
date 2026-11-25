@@ -22,7 +22,7 @@ function Get-WinstPackageFacet {
         $hint = $verdict.Hint
         $hasUpdate = $verdict.HasUpdate
     }
-    $versionText = '未知'
+    $versionText = '缓存版本未知'
     if ($CacheVersion) { $versionText = $CacheVersion }
 
     return [ordered]@{

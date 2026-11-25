@@ -122,10 +122,10 @@ function Resolve-XmlSource {
         $hash = ''
         if ($fileSpec.HashXPath) { $hash = Get-WinstXmlValue -Node $fileRecord -XPath $fileSpec.HashXPath }
         $dest = Get-WinstFileDest -Item $item -Index ($i + 1) -Result $result
-        $ownVersion = ($i -eq 0)
-        if (-not $fileSpec.UrlXPath) { $ownVersion = [bool]$fileVersion.Own }
+        $sourceVersion = ''
+        if (-not $fileSpec.UrlXPath) { $sourceVersion = $fileVersion.SourceVersion }
         $files += New-ResolvedFileFromDeclaration -Item $item -Url $downloadUri.AbsoluteUri -Version $fileVersion.Version `
-            -Dest $dest -HashOverride $hash -MainFile:($i -eq 0) -OwnVersion:$ownVersion
+            -Dest $dest -HashOverride $hash -MainFile:($i -eq 0) -SourceVersion $sourceVersion
     }
     $probe = Test-WinstManifestUrlOrNote -Context $Context -Url $files[0].url `
         -Skip (Get-EntryBool -Entry $source -Key 'skipExistsCheck') `

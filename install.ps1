@@ -31,7 +31,7 @@ try {
     $null = New-Item -ItemType Directory -Path $winstInstallRoot -Force
 
     # ---------------------------------------------------------------- 1. 下载
-    Write-Host '  正在下载 winst …' -ForegroundColor Gray
+    Write-Host '  正在下载 winst.zip（大小未知）｜HTTP 引导下载' -ForegroundColor Gray
     $null = Invoke-WebRequest -Uri $winstInstallArchiveUrl -OutFile $winstInstallZip -UseBasicParsing
 
     $winstInstallSize = (Get-Item -LiteralPath $winstInstallZip -ErrorAction Stop).Length

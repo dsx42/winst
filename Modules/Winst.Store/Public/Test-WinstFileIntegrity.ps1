@@ -14,9 +14,8 @@ function Test-WinstFileIntegrity {
         ActualHash = 按期望算法算出的实际摘要；IndexHash = 该文件的 sha256（缓存索引统一存 sha256；期望算法就是 sha256 时与 ActualHash 相同）。
     #>
     param(
-        [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$FilePath,
-        $FileDecl
+        [Parameter(Mandatory = $true)]$Expected
     )
 
     $result = @{
@@ -25,13 +24,6 @@ function Test-WinstFileIntegrity {
         ChecksumHashFile = ''; ChecksumHashFrom = ''
     }
 
-    $expected = Get-WinstExpectedHash -Context $Context -FileName (Split-Path -Leaf $FilePath) -FileDecl $FileDecl -IgnoreCachedHash
-    if (-not $expected.Ok) {
-        $result.Ok = $false
-        $result.Error = $expected.Error
-        $result.Network = [bool]$expected.Network
-        return $result
-    }
     if ($expected.Skipped) {
         $result.IndexHash = Get-WinstFileHash -Path $FilePath
         if (-not $result.IndexHash) {

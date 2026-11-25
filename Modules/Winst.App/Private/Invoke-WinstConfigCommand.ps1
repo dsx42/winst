@@ -56,24 +56,37 @@ function Invoke-WinstConfigCommand {
         if ($sub -eq 'list') { Write-Section 'winst config list' }
         else { $keys = @($key) }
         Write-Host ''
+        if ('fluxdownApi' -in $keys -or 'fluxdownToken' -in $keys) { $flux = Get-WinstFluxSettings -Config $Context.Config }
         foreach ($one in $keys) {
-            $tag = Get-ConfigTag -Context $Context -Key $one
-            $display = Get-ConfigValue -Config $Context.Config -Key $one
-            if ($one -in @('installRoot','pkgDir') -and $tag -notin @('[默认]','[自定义]')) { $display = $Context[$one] }
+            if ($one -eq 'fluxdownToken') { $tag = $flux.TokenTag; $display = $flux.TokenDisplay }
+            elseif ($one -eq 'fluxdownApi') { $tag = $flux.AddressTag; $display = $flux.Address }
+            else {
+                $tag = Get-ConfigTag -Context $Context -Key $one
+                $display = Get-ConfigValue -Config $Context.Config -Key $one
+                if ($one -in @('installRoot','pkgDir') -and $tag -notin @('[默认]','[自定义]')) { $display = $Context[$one] }
+            }
             Write-Host ('  {0} = {1}    {2}' -f $one, $display, $tag) -ForegroundColor Gray
         }
         return 0
     }
 
     if ($sub -eq 'reset') {
-        if ($key -ne 'proxy') {
-            Write-Host '  reset 只支持 proxy；其它配置请用 config set。' -ForegroundColor Yellow
+        if ($key -notin @('proxy','fluxdownApi','fluxdownToken')) {
+            Write-Host '  reset 支持 proxy、fluxdownApi 和 fluxdownToken。' -ForegroundColor Yellow
             return 1
         }
-        if (Set-ConfigValue -Context $Context -Key 'proxy' -DisplayName '代理' -Value '') { return 0 }
+        if (Set-ConfigValue -Context $Context -Key $key -DisplayName $key -Value '') { return 0 }
         return 1
     }
 
+    if ($key -eq 'fluxdownToken') {
+        if ($tokens.Count -gt 2) {
+            Write-Host '  请运行 winst config set fluxdownToken，并按提示隐藏输入。' -ForegroundColor Yellow
+            return 1
+        }
+        if (Read-WinstFluxTokenSetting -Context $Context) { return 0 }
+        return 1
+    }
     if ($tokens.Count -lt 3) {
         Write-Host ''
         Write-Host ('  用法: winst config set {0} <value>' -f $key) -ForegroundColor Yellow

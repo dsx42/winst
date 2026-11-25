@@ -10,15 +10,12 @@ function Set-WinstCacheIndexEntry {
         不必为判断缓存是否可用而重算整包哈希。
         FileMeta 记录每个文件的实际地址 / 本次版本 / 校验器基线 / 大小与时间，
         供文件级新鲜度判定（files[].refresh）使用。
-        未指定 DownloadedAt 时取当前文件记账中最新的下载时间；文件无下载时间则沿用已有条目，
-        不因缓存检查、安装或套件复制而记录一次下载。
+        downloadedAt 随主包下载更新，旧索引缺少逐文件时间时沿用条目时间。
     #>
     param(
         [Parameter(Mandatory = $true)]$Index,
         [Parameter(Mandatory = $true)][string]$Id,
         [string]$Version,
-        [string]$VersionFile,
-        $VersionRule,
         [string]$BundleSource,
         [string[]]$Files,
         $Hashes,
@@ -28,15 +25,9 @@ function Set-WinstCacheIndexEntry {
     )
 
     if (-not $DownloadedAt) {
-        $latest = [datetime]::MinValue
-        foreach ($fileName in @($Files)) {
-            $meta = Get-WinstFileMeta -Entry @{ fileMeta = $FileMeta } -FileName $fileName
-            $stamp = [string]$meta.DownloadedAt
-            $parsed = [datetime]::MinValue
-            if ($stamp -and [datetime]::TryParse($stamp, [ref]$parsed) -and $parsed -gt $latest) {
-                $latest = $parsed
-                $DownloadedAt = $stamp
-            }
+        if ($Files.Count) {
+            $mainMeta = Get-WinstFileMeta -Entry @{ fileMeta = $FileMeta } -FileName $Files[0]
+            $DownloadedAt = [string]$mainMeta.DownloadedAt
         }
         if (-not $DownloadedAt -and $Index.Contains($Id)) {
             $DownloadedAt = Get-EntryString -Entry $Index[$Id] -Key 'downloadedAt'
@@ -55,10 +46,6 @@ function Set-WinstCacheIndexEntry {
         manifestHashes = $ManifestHashes
         fileMeta       = $FileMeta
         downloadedAt   = $DownloadedAt
-    }
-    if ($VersionFile -and $Version) {
-        $Index[$Id]['versionFile'] = $VersionFile
-        if ($null -ne $VersionRule) { $Index[$Id]['versionRule'] = $VersionRule }
     }
     if ($BundleSource) { $Index[$Id]['bundleSource'] = $BundleSource }
 }

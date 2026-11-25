@@ -17,6 +17,7 @@ function Set-WinstFileValidatorDecision {
 
     # auto / check / ttl（到期）：发一次 HEAD 取校验器，与索引记账比对
     $validators = Get-WinstRemoteValidators -Context $Context -Uri ([string]$Plan['Url'])
+    if ($null -ne $validators.Size) { $Plan['Size'] = $validators.Size }
     $unavailable = ''
     if (-not $validators.Ok) {
         $unavailable = [string]$validators.Error

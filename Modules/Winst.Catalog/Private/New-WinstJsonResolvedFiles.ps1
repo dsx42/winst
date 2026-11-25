@@ -79,7 +79,7 @@ function New-WinstJsonResolvedFiles {
         $fileUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
         Assert-WinstHttpUrl -Url $fileUrl
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
-            -OwnVersion ([bool]$fileVersion.Own) `
+            -SourceVersion $fileVersion.SourceVersion `
             -Url $fileUrl
     }
 

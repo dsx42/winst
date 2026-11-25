@@ -24,7 +24,7 @@ function Get-WinstConfig {
                 $value = $prop.Value
                 if ($null -eq $value -or $value -is [array] -or $value -is [System.Collections.IDictionary] -or $value -is [System.Management.Automation.PSCustomObject]) { throw ('配置项类型不合法：' + $key) }
                 if ($defaults[$key] -is [string] -and $value -isnot [string]) { throw ('配置项必须是字符串：' + $key) }
-                if ($key -eq 'proxy' -and -not ([string]$value).Trim()) { $defaults[$key] = ''; continue }
+                if ($key -in @('proxy','fluxdownApi','fluxdownToken') -and -not ([string]$value).Trim()) { $defaults[$key] = ''; continue }
                 $converted = ConvertTo-WinstConfigValue -Current $defaults[$key] -Text ([string]$value)
                 if (-not $converted.Ok) { throw ($key + '：' + $converted.Error) }
                 $defaults[$key] = $converted.Value

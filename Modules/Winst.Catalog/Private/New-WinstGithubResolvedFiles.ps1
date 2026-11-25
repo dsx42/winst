@@ -74,8 +74,7 @@ function New-WinstGithubResolvedFiles {
             $assetName = $matched[0]
             $url = Expand-GitHubFileUrl -Repo $Repo -Tag $ChosenTag -FileName $assetName
             Assert-WinstHttpUrl -Url $url
-            $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Name $assetName -Dest $dest `
-                -OwnVersion ([bool]($index -eq 1) -or [bool]$fileVersion.Own)
+            $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Name $assetName -Dest $dest
             continue
         }
 
@@ -111,8 +110,7 @@ function New-WinstGithubResolvedFiles {
         }
         if ($urlProbe.Note) { $Result.Notes += [string]$urlProbe.Note }
 
-        $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Dest $dest `
-            -OwnVersion ([bool]($index -eq 1))
+        $files += New-ResolvedFileFromDeclaration -Item $item -Url $url -Version $fileVersion.Version -Dest $dest
     }
 
     return @{ Error = ''; Files = $files; MissingFile = $false }

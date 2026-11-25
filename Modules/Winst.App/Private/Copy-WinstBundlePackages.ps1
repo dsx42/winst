@@ -55,6 +55,16 @@ function Copy-WinstBundlePackages {
             Assert-WinstDistinctIds -Ids @($source.Name, $id)
             $sourceFiles = @($item['CacheFiles'])
             $sourceVersion = [string]$item['CacheVersion']
+            $plan = $item['PlanEntry']['Plan']
+            if (-not $DryRun -and -not $sourceVersion -and (Get-EntryBool -Entry $plan -Key 'versionFromPackage')) {
+                $versionInput = Get-WinstPackageVersionInput -Plan $plan
+                $sourceVersion = Read-WinstPackageVersion -Context $Context -Plan $plan -PkgDir $sourceDir -InputName $versionInput.Name
+                Save-WinstCacheIndex -PkgDir $sourceRoot -UpdateIds @($id) -Update {
+                    param($index)
+                    if ($index.Contains($id)) { $index[$id]['version'] = $sourceVersion }
+                    else { Set-WinstCacheIndexEntry -Index $index -Id $id -Version $sourceVersion -Files $sourceFiles }
+                }
+            }
             $target = Get-Item -LiteralPath $targetIdDir -Force -ErrorAction SilentlyContinue
             if ($target -and $target.Name -cne $id) {
                 Assert-WinstDistinctIds -Ids @($target.Name, $id)
@@ -106,13 +116,6 @@ function Copy-WinstBundlePackages {
             }
 
             if (-not $DryRun) {
-                $versionFile = ''
-                $versionRule = $null
-                $plan = $item['PlanEntry']['Plan']
-                if ($sourceVersion -and (Get-EntryBool -Entry $plan -Key 'versionFromPackage')) {
-                    $versionFile = (Get-WinstPackageVersionInput -Plan $plan).Name
-                    $versionRule = Get-WinstPackageVersionRule -Plan $plan
-                }
                 if ($changed.Count) {
                     if ($targetEntry) {
                         # 文件替换到一半时，索引不能继续证明旧内容。
@@ -137,27 +140,28 @@ function Copy-WinstBundlePackages {
                     Set-WinstCacheIndexEntry -Index $index -Id $id -Version $sourceVersion -Files $sourceFiles `
                         -Hashes $hashes -ManifestHashes $manifestHashes -FileMeta $fileMeta `
                         -DownloadedAt (Get-EntryString -Entry $sourceEntry -Key 'downloadedAt') `
-                        -BundleSource ([string]$item['PlanEntry']['Source']) `
-                        -VersionFile $versionFile -VersionRule $versionRule
+                        -BundleSource ([string]$item['PlanEntry']['Source'])
                 }
             }
 
             $name = [string]$item['DisplayName']
+            $versionText = $sourceVersion
+            if (-not $versionText) { $versionText = '缓存版本未知' }
             if ($changed.Count) {
                 $copied++
                 if ($replacing) {
                     if (-not $oldVersion) { $oldVersion = '未知版本' }
                     $action = '已替换旧目录'
                     if ($DryRun) { $action = '将替换旧目录' }
-                    Write-Host ('  {0}: {1}（{2} -> {3}，{4} 个文件）' -f $action, $name, $oldVersion, $sourceVersion, $changed.Count) -ForegroundColor Gray
+                    Write-Host ('  {0}: {1}（{2} -> {3}，{4} 个文件）' -f $action, $name, $oldVersion, $versionText, $changed.Count) -ForegroundColor Gray
                 } else {
                     $action = '已复制'
                     if ($DryRun) { $action = '将复制' }
-                    Write-Host ('  {0}: {1}（{2}，{3} 个文件）-> {4}' -f $action, $name, $sourceVersion, $changed.Count, $targetIdDir) -ForegroundColor Gray
+                    Write-Host ('  {0}: {1}（{2}，{3} 个文件）-> {4}' -f $action, $name, $versionText, $changed.Count, $targetIdDir) -ForegroundColor Gray
                 }
             } else {
                 $skipped++
-                Write-Host ('  跳过（目标文件内容相同）: {0} {1}' -f $name, $sourceVersion) -ForegroundColor DarkGray
+                Write-Host ('  跳过（目标文件内容相同）: {0} {1}' -f $name, $versionText) -ForegroundColor DarkGray
             }
         } catch {
             $errors += ('{0}: {1}' -f $id, $_.Exception.Message)

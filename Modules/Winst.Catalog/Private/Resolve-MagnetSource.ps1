@@ -63,7 +63,7 @@ function Resolve-MagnetSource {
         $size = $null
         $xl = Get-MagnetParameter -Uri $uri -Name 'xl'
         $bytes = 0L
-        if ($xl -and [long]::TryParse($xl, [ref]$bytes)) { $size = $bytes }
+        if ($xl -match '\A[0-9]+\z' -and [long]::TryParse($xl, [ref]$bytes)) { $size = $bytes }
 
         $dest = Get-WinstFileDest -Item $item -Index $index -Result $result
         $files += New-ResolvedFileFromDeclaration -Item $item -Url $uri -Dest $dest -Name $fileName -Size $size

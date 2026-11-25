@@ -34,21 +34,17 @@ function Set-WinstPlanRemoteFresh {
     $compared = 0
     $changed = $false
     $checksumUnavailable = $false
-    $header = Get-EntryString -Entry $file -Key 'hashHeader'
+    $headers = Get-WinstPageDownloadHeaders -Context $Context -Plan $Plan -SourceName $Plan.manifestOrigin -Id $id -Index 0 -Url $url
     $hasDeclaredChecksum = [bool]((Get-EntryString -Entry $file -Key 'hash').Trim() -or
         (Get-EntryString -Entry $file -Key 'hashFile').Trim())
 
-    if ($header -or $hasDeclaredChecksum) {
+    if ($hasDeclaredChecksum) {
         try {
-            if ($header) {
-                $expectedHash = Get-WinstRemoteHeader -Context $Context -Uri $url -Name $header
-            } else {
-                $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $file -CachedMeta $meta `
-                    -FileUrl $url -FileVersion (Get-EntryString -Entry $file -Key 'version') `
-                    -IgnoreCachedHash:(-not $sameOrigin -or $criteria -contains 'checksum')
-                if (-not $expected.Ok -or $expected.Skipped) { throw '没有可用于比较的远端摘要' }
-                $expectedHash = [string]$expected.Hash
-            }
+            $expected = Get-WinstExpectedHash -Context $Context -FileName $name -FileDecl $file -CachedMeta $meta `
+                -FileUrl $url -FileVersion (Get-EntryString -Entry $file -Key 'version') `
+                -IgnoreCachedHash:(-not $sameOrigin -or $criteria -contains 'checksum')
+            if (-not $expected.Ok -or $expected.Skipped) { throw '没有可用于比较的远端摘要' }
+            $expectedHash = [string]$expected.Hash
             $algorithm = Get-HashAlgorithmFromDigestLength -Length $expectedHash.Length
             if (-not $algorithm -or $expectedHash -notmatch '^[0-9a-fA-F]+$') { throw '远端摘要格式无效' }
             if ($algorithm -eq 'SHA256') { $actual = $recordedHash }
@@ -63,10 +59,11 @@ function Set-WinstPlanRemoteFresh {
     # 完整摘要默认直接判定内容；显式 HTTP 判据仍与声明摘要组合比较。
     # hashFile 默认复用匹配声明指纹的期望摘要，显式 checksum 才强制重新请求。
     $httpCriteria = @($criteria | Where-Object { $_ -ne 'checksum' })
-    $evaluateHttp = -not $compareInfo.IsDefault -or -not ($header -or $hasDeclaredChecksum)
+    $evaluateHttp = -not $compareInfo.IsDefault -or -not $hasDeclaredChecksum
     if ($evaluateHttp -and $httpCriteria.Count -gt 0 -and $sameOrigin) {
-        $validators = Get-WinstRemoteValidators -Context $Context -Uri $url
+        $validators = Get-WinstRemoteValidators -Context $Context -Uri $url -Headers $headers
         if ($validators.Ok) {
+            if ($null -ne $validators.Size) { $file['size'] = $validators.Size }
             $localSize = $null
             try { $localSize = (Get-Item -LiteralPath $target -Force -ErrorAction Stop).Length } catch { }
             # 缺少旧实体标识不能证明远端变化；解析时只比较已有基线，下载层可选择重取建基线。

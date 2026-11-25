@@ -3,43 +3,62 @@
 function Save-WinstFileWithHttp {
     <#
     .SYNOPSIS
-        用 Invoke-WebRequest 下载文件（引擎包 / winst 自身更新包；软件包走下载引擎）。
-    .DESCRIPTION
-        属于「下载类」请求：`proxyMode = download-direct` 时先直连、失败再走代理。
-    .OUTPUTS
-        @{ Ok; Error }
+        下载引擎首次引导时，经指定连接将文件直接下载到本次暂存位置。
     #>
-    param(
-        [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Uri,
-        [Parameter(Mandatory = $true)][string]$OutFile
-    )
+    param([uri]$Uri, [string]$OutFile, [hashtable]$Headers, [string]$ProxyUrl)
 
-    $result = @{ Ok = $false; Error = '' }
-    $dir = Split-Path -Parent $OutFile
-    if ($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
-        $null = New-Item -ItemType Directory -Path $dir -Force -ErrorAction SilentlyContinue
-    }
-
-    $attempts = @(Get-WinstProxyAttempts -Context $Context -Download)
-    $lastError = ''
-    foreach ($currentProxy in $attempts) {
-        $tempPath = '{0}.part-{1}' -f $OutFile, ([Guid]::NewGuid().ToString('N').Substring(0, 6))
-        try {
-            $params = New-WinstHttpRequestParameters -Uri $Uri -OutFile $tempPath -TimeoutSec 900 -Proxy $currentProxy
-            $null = Invoke-WebRequest @params
-            if (Test-Path -LiteralPath $tempPath -PathType Leaf) {
-                Move-Item -LiteralPath $tempPath -Destination $OutFile -Force
-                $result.Ok = $true
-                return $result
+    $response = $null
+    $file = $null
+    $received = 0L
+    $kind = 'Other'
+    try {
+        # PowerShell 5.1 的 IWR -OutFile 遇到响应提前结束也可能成功，需要核对同一响应的长度。
+        $request = [Net.WebRequest]::Create($Uri)
+        $request.Timeout = 900000
+        if ($ProxyUrl) { $request.Proxy = New-Object Net.WebProxy($ProxyUrl) }
+        if ($Headers['Referer']) { $request.Referer = $Headers['Referer'] }
+        if ($Headers['User-Agent']) { $request.UserAgent = $Headers['User-Agent'] }
+        if ($Headers['Cookie']) {
+            $request.CookieContainer = New-Object Net.CookieContainer
+            foreach ($pair in ($Headers['Cookie'] -split ';\s*')) {
+                $parts = $pair -split '=', 2
+                if ($parts.Count -ne 2) { throw '下载请求的 Cookie 格式无效' }
+                $cookie = New-Object Net.Cookie($parts[0].Trim(), $parts[1], '/')
+                $request.CookieContainer.Add($Uri, $cookie)
             }
-            $lastError = '下载完成后没有生成文件'
-        } catch {
-            $lastError = $_.Exception.Message
-        } finally {
-            if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
         }
+        $response = $request.GetResponse()
+        $stream = $response.GetResponseStream()
+        $kind = 'Disk'
+        $file = [IO.File]::Open($OutFile, 'Create', 'Write', 'None')
+        $buffer = New-Object byte[] 65536
+        while ($true) {
+            $kind = 'Other'
+            if ($received -gt 0) { $kind = 'Interrupted' }
+            $count = $stream.Read($buffer, 0, $buffer.Length)
+            if ($count -eq 0) { break }
+            $kind = 'Disk'
+            $file.Write($buffer, 0, $count)
+            $received += $count
+        }
+        if ($response.ContentLength -ge 0 -and $received -ne $response.ContentLength) {
+            throw ('响应提前结束，收到 {0} 字节，预期 {1} 字节' -f $received, $response.ContentLength)
+        }
+        $kind = 'Disk'
+        $file.Close()
+        return @{ Ok = $true }
+    } catch {
+        $cause = $_.Exception
+        while ($cause.InnerException -and $cause -isnot [Net.WebException]) { $cause = $cause.InnerException }
+        if ($cause -is [Net.WebException]) {
+            if ($cause.Response -and ([int]$cause.Response.StatusCode) -in @(401, 403)) { $kind = 'Auth' }
+            elseif ($cause.Response) { $kind = 'Http' }
+            elseif ($cause.Status -in @('NameResolutionFailure', 'ProxyNameResolutionFailure', 'ConnectFailure', 'Timeout') -and $received -eq 0) { $kind = 'Connect' }
+            if ($cause.Response) { $cause.Response.Close() }
+        }
+        return @{ Ok = $false; FailureKind = $kind; Error = $_.Exception.Message }
+    } finally {
+        if ($file) { $file.Dispose() }
+        if ($response) { $response.Close() }
     }
-    $result.Error = $lastError
-    return $result
 }

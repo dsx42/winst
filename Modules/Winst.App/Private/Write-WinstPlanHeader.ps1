@@ -16,9 +16,8 @@ function Write-WinstPlanHeader {
         Write-Host '   清单有误' -ForegroundColor Red
     }
 
-    $versionLineText = $View.VersionText
-    if ($View.VersionNeedsConfirm -and $View.Version) { $versionLineText = ('{0}（取包后确认）' -f $View.Version) }
-    Write-Host ('    类型: {0}    版本: {1}' -f (Get-PlanTypeText -Type $View.Type), $versionLineText) -ForegroundColor Gray
+    Write-Host ('    类型: {0}    版本: {1}' -f (Get-PlanTypeText -Type $View.Type), $View.VersionText) -ForegroundColor Gray
+    if ($View.CacheText) { Write-Host ('    ' + $View.CacheText) -ForegroundColor DarkGray }
 
     $description = Get-EntryString -Entry $Plan -Key 'description'
     if ($description) {
@@ -27,10 +26,7 @@ function Write-WinstPlanHeader {
 
     # 已装版本与更新提示；同时给出当前装在哪
     if ($View.InstalledVersion) {
-        if ($View.VersionNeedsConfirm -and $View.Version) {
-            # 远端有新包 / 没比出结论：目标版本要等重新取包才知道，别把缓存里那份写成「将更新到」
-            Write-Host ('    ↑ 本机已安装 {0}，将重新取包核对版本（缓存里的包是 {1}，取自包内文件信息）' -f $View.InstalledVersion, $View.Version) -ForegroundColor DarkYellow
-        } elseif ($IsUpgrade) {
+        if ($IsUpgrade) {
             Write-Host ('    ↑ 本机已安装 {0}，将更新到 {1}' -f $View.InstalledVersion, $View.VersionText) -ForegroundColor Green
         } else {
             Write-Host ('    本机已安装: {0}' -f $View.InstalledVersion) -ForegroundColor DarkGray

@@ -11,7 +11,7 @@ function Set-WinstInstallLedger {
     #>
     param([hashtable]$Context, [string]$Id, [string]$Type, $Plan, [string]$InstallDir,
         [string]$Version, [string]$SourceName, $SystemItems, $AppliedFiles, $OldVersions, $AppliedFileRules,
-        $AppliedFileVersions, $CompanionVersionBaseline)
+        $AppliedFileVersions)
 
     $existingEnv = @()
     $existingPath = @()
@@ -65,7 +65,6 @@ function Set-WinstInstallLedger {
         appliedFiles     = $AppliedFiles
         appliedFileVersions = $AppliedFileVersions
         appliedFileRules = $AppliedFileRules
-        companionVersionBaseline = $CompanionVersionBaseline
         # 本机并存的低版本：安装器升级后旧版本可能仍在系统里，记下来供界面提醒清理
         oldVersions      = @(ConvertTo-WinstLedgerOldVersions -OldVersions $OldVersions)
         # 卸载操作快照：软件源以后删掉这个软件也能照常卸载

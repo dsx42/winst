@@ -7,7 +7,7 @@ function Get-WinstPageIframeAnchors {
     .OUTPUTS
         @{ Anchors; Html; Matched }
     #>
-    param($Context, $Source, [string]$PageUrl, [string]$Html, $Anchors, $LinkSpec, $Result, $HrefRule)
+    param($Context, $Source, [string]$PageUrl, [string]$Html, $Anchors, $LinkSpec, $Result, $HrefRule, [Collections.ArrayList]$Sessions)
 
     $html = $Html
     $anchors = @($Anchors)
@@ -21,7 +21,7 @@ function Get-WinstPageIframeAnchors {
     }
     $iframeUrls = @(Get-DistinctValues -Values $iframeUrls) | Select-Object -First 3
     foreach ($iframeUrl in $iframeUrls) {
-        $iframePage = Get-SourcePageHtml -Context $Context -Source $Source -PageUrl $iframeUrl -Label 'iframe 页面'
+        $iframePage = Get-SourcePageHtml -Context $Context -Source $Source -PageUrl $iframeUrl -Label 'iframe 页面' -Sessions $Sessions
         if (-not $iframePage.Ok) {
             $Result.Notes += ('未能打开 iframe 页面 {0}：{1}' -f $iframeUrl, $iframePage.Error)
             continue
@@ -31,9 +31,10 @@ function Get-WinstPageIframeAnchors {
         foreach ($anchor in @($iframePage.Anchors)) {
             $href = ([string]$anchor['Href']).Trim()
             if (-not $href -or $href -match '^(?i)(javascript:|mailto:|#)') { continue }
-            try { $href = ([Uri]::new([Uri]$iframeUrl, $href)).AbsoluteUri } catch { }
+            try { $href = ([Uri]::new([Uri]$iframePage.BaseUrl, $href)).AbsoluteUri } catch { }
             $copy = Copy-WinstObjectShallow -InputObject $anchor
             $copy['Href'] = $href
+            $copy['Session'] = $iframePage.Session
             $anchors += $copy
         }
         $Result.Notes += ('主页面没有命中下载链接，已跟随 iframe（{0}）' -f $iframeUrl)

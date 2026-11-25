@@ -60,6 +60,7 @@ function Initialize-WinstState {
     }
 
     $comparers = @{
+        WinstPageDownloadHeaders = [StringComparer]::Ordinal
         WinstHttpCache = [StringComparer]::Ordinal
         WinstJsonCache = [StringComparer]::OrdinalIgnoreCase
         WinstPackageHashCache = [StringComparer]::OrdinalIgnoreCase

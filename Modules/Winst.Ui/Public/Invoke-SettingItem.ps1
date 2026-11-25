@@ -14,12 +14,14 @@ function Invoke-SettingItem {
         [string]$DisplayName,
         [Parameter(Mandatory = $true)]
         [string]$CurrentDisplay,
+        [string]$CurrentTag,
         [string]$Hint,
         [scriptblock]$Validator = $null
     )
 
     Write-Section $DisplayName
-    Write-Host ('  当前值: {0}  {1}' -f $CurrentDisplay, (Get-ConfigTag -Context $Context -Key $Key)) -ForegroundColor Gray
+    if (-not $CurrentTag) { $CurrentTag = Get-ConfigTag -Context $Context -Key $Key }
+    Write-Host ('  当前值: {0}  {1}' -f $CurrentDisplay, $CurrentTag) -ForegroundColor Gray
     if ($Hint) {
         Write-Host ('  说明:   {0}' -f $Hint) -ForegroundColor DarkGray
     }
@@ -33,7 +35,7 @@ function Invoke-SettingItem {
     }
 
     $value = ([string]$raw).Trim()
-    if ($Key -eq 'proxy' -and $value -eq '-') { $value = '' }
+    if ($Key -in @('proxy','fluxdownApi') -and $value -eq '-') { $value = '' }
     if ($Validator -and $value) {
         try { $ok = [bool](& $Validator $value) } catch { $ok = $false }
         if (-not $ok) {

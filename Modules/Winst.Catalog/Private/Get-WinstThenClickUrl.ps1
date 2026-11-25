@@ -7,7 +7,7 @@ function Get-WinstThenClickUrl {
     .OUTPUTS
         @{ Ok; Error; Url; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, [string]$IntermediateUrl, $FileRule, $Item, $Result)
+    param($Context, $Source, [string]$PageUrl, [string]$IntermediateUrl, $FileRule, $Item, $Result, [Collections.ArrayList]$Sessions)
 
     # 两跳取址：link 命中的是「中间页」地址（如 NTriver 的镜像页：列表页上只有
     # 文件名 + SHA-256 + 镜像页链接，真正的下载地址要在镜像页上点 Download 按钮才生成）——
@@ -17,7 +17,7 @@ function Get-WinstThenClickUrl {
     $hashClickSteps = @(Get-EntryArray -Entry $Source -Key 'hashClick')
     $wantPageHash = ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page') -and $hashClickSteps.Count -gt 0)
     $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $IntermediateUrl -ClickSpecs @(Get-EntryArray -Entry $Source -Key 'thenClick') `
-        -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps
+        -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps -Sessions $Sessions
     foreach ($note in @($clicked.Notes)) { if ($note) { $Result.Notes += $note } }
     if (-not $clicked.Ok) {
         return @{ Ok = $false; Error = ('已在 {1} 上找到中间页地址 {0}，但打开它点按钮取下载地址失败：{2}' -f $IntermediateUrl, $PageUrl, $clicked.Error); Url = ''; PageHash = '' }
@@ -32,5 +32,5 @@ function Get-WinstThenClickUrl {
     if ($thenUrls.Count -gt 1) {
         $Result.Notes += ('点击中间页后浏览器发起了 {0} 个下载，已取第一个' -f $thenUrls.Count)
     }
-    return @{ Ok = $true; Error = ''; Url = [string]$thenUrls[0]; PageHash = [string]$clicked.PageHash }
+    return @{ Ok = $true; Session = $clicked.Session; Error = ''; Url = [string]$thenUrls[0]; PageHash = [string]$clicked.PageHash }
 }

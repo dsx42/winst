@@ -26,7 +26,7 @@ function Get-WinstInstalledFacet {
             $chosen = Get-WinstDefaultUpdateSource -Context $Context -Row $Row -Ledger $Ledger -InstalledVersion $version -Lookup $Lookup
             $state = 'unknown'
             if ($chosen) {
-                $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $chosen -InstalledVersion $version -Ledger $Ledger
+                $snap = Get-WinstUpdateEntrySnapshot -Chosen $chosen -InstalledVersion $version
                 $latest = $snap.Latest
                 $latestSource = $snap.LatestSource
                 $verdict = Get-WinstUpdateVerdict -BestVersion $latest -CurrentVersion $version -BestSource $latestSource `

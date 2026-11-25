@@ -183,7 +183,7 @@ function Resolve-ListingSource {
         $fileUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
         Assert-WinstHttpUrl -Url $fileUrl
         $files += New-ResolvedFileFromDeclaration -Item $item -Version $fileVersion.Version -Dest $dest `
-            -OwnVersion ([bool]$fileVersion.Own) -Url $fileUrl
+            -SourceVersion $fileVersion.SourceVersion -Url $fileUrl
     }
 
     $result.Ok = $true

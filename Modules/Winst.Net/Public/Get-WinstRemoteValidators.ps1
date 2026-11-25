@@ -14,13 +14,15 @@ function Get-WinstRemoteValidators {
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Uri
+        [Parameter(Mandatory = $true)][string]$Uri,
+        [hashtable]$Headers
     )
 
     $result = @{ Ok = $false; ETag = ''; LastModified = ''; Size = $null; Headers = @{}; Error = '' }
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
-    $requestHeaders = Get-WinstBrowserHeaders
+    $requestHeaders = $Headers
+    if (-not $requestHeaders -or -not $requestHeaders.Count) { $requestHeaders = Get-WinstBrowserHeaders }
     $requestKey = Get-WinstHttpCacheKey -Uri $Uri -Headers $requestHeaders -Method 'Head'
     $cacheKey = 'validators|' + (Get-WinstHeadCacheKey -RequestKey $requestKey -ProxyAttempts $attempts)
     $cached = Get-WinstHttpCacheEntry -Key $cacheKey
@@ -36,8 +38,7 @@ function Get-WinstRemoteValidators {
             }
             $result.ETag = ([string]$result.Headers['ETag']).Trim()
             $result.LastModified = ([string]$result.Headers['Last-Modified']).Trim()
-            $length = 0L
-            if ([long]::TryParse([string]$result.Headers['Content-Length'], [ref]$length)) { $result.Size = $length }
+            $result.Size = $head.Size
             $result.Ok = $true
             break
         } catch {

@@ -20,7 +20,7 @@ function Resolve-PageSource {
         第 2 条起 = 配套文件：写成带 {version} 的完整地址（url）+ dest，与其它来源一致。
         本函数只做编排，校验 / 取址 / 版本 / 落位各由独立函数承担。
     #>
-    param([hashtable]$Context, $Entry)
+    param([hashtable]$Context, $Entry, [Collections.ArrayList]$Sessions)
 
     $result = New-SourceResolveResult -Kind 'page'
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
@@ -45,21 +45,22 @@ function Resolve-PageSource {
     $declared = @($spec.Declared)
     $fileRule = $spec.FileRule
 
-    $pageHeaders = Get-WinstBrowserHeaders
     if ($null -ne $spec.ClickSpec) {
         $click = Get-WinstPageClickedUrl -Context $Context -Source $source -PageUrl $pageUrl -ClickSpec $spec.ClickSpec `
-            -FileRule $fileRule -Item $item -Result $result
+            -FileRule $fileRule -Item $item -Result $result -Sessions $Sessions
         if (-not $click.Ok) { $result.Error = $click.Error; return $result }
         $html = [string]$click.Html
         $downloadUrl = [string]$click.Url
         $browserPageHash = [string]$click.PageHash
+        $session = $click.Session
     } else {
         $link = Get-WinstPageLinkUrl -Context $Context -Source $source -PageUrl $pageUrl -LinkSpec $spec.LinkSpec -HrefRule $spec.HrefRule `
-            -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Item $item -Result $result
+            -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Item $item -Result $result -Sessions $Sessions
         if (-not $link.Ok) { $result.Error = $link.Error; return $result }
         $html = [string]$link.Html
         $downloadUrl = [string]$link.Url
         $browserPageHash = [string]$link.PageHash
+        $session = $link.Session
     }
 
     $pageHash = Get-WinstPageHashFromPage -Item $item -Html $html -Url $downloadUrl -PageUrl $pageUrl -Result $result `
@@ -71,18 +72,19 @@ function Resolve-PageSource {
     if ($versionResult.Error) { $result.Error = $versionResult.Error; return $result }
     $result.Version = [string]$versionResult.Version
 
-    # 页面上的链接可能已失效，探测一次以便尽早发现（同样带浏览器式请求头，见上）
-    $skipCheck = Get-EntryBool -Entry $source -Key 'skipExistsCheck'
-    $urlProbe = Test-WinstManifestUrlOrNote -Context $Context -Url $downloadUrl -Skip $skipCheck -Headers $pageHeaders `
-        -MissingError ('下载页给出的地址不存在（HTTP 404）: {0}；可能是页面上的链接已失效' -f $downloadUrl)
-    if (-not $urlProbe.Ok) { $result.Error = [string]$urlProbe.Error; return $result }
-    if ($urlProbe.Note) { $result.Notes += [string]$urlProbe.Note }
-
     $filesResult = New-WinstPageResolvedFiles -Context $Context -Source $source -Item $item -Declared $declared `
         -DownloadUrl $downloadUrl -Version $result.Version -PageHash $pageHash -Result $result
     if ($filesResult.Error) { $result.Error = $filesResult.Error; return $result }
 
-    $result.Ok = $true
     $result.Files = @($filesResult.Files)
+    if ($session) {
+        $result.Headers = @(foreach ($file in $result.Files) {
+            $url = [string]$file['url']
+            Get-WinstBrowserFileHeaders -Session $session -Url $url
+            $request = $session.RequestHeaders[$url]
+            if ($request -and $null -ne $request['Size']) { $file['size'] = $request['Size'] }
+        })
+    }
+    $result.Ok = $true
     return $result
 }

@@ -39,12 +39,19 @@ function New-WinstCatalogAppPlan {
     $plan = Complete-WinstInstallPlan -Plan $plan -Entry $Entry -Version $versionState.Version -Notes $versionState.Notes
     if (-not $plan.ok) { return $plan }
 
-    # package 来源按 compare 比较远端与缓存文件，结论存入解析锁；可能读取 HTTP 校验器或摘要。
-    # （remoteFresh：changed / unchanged / unknown）——各列表 / 详情据此提示「远端有新包」，
-    # 展示时只读锁；判据不可比时记 unknown。
-    if ([bool]$plan['versionFromPackage']) {
+    if ($kind -eq 'page') {
+        $headers = $resolve['Headers']
+        $plan['download']['browser'] = ($null -ne $headers)
+        if ($null -ne $headers) {
+            $key = $Context.PkgDir, $ManifestOrigin, $plan['id'] -join [char]0
+            $records = @(for ($i = 0; $i -lt $headers.Count; $i++) {
+                @{ Url = $plan.download.files[$i].url; Headers = $headers[$i] }
+            })
+            (Get-WinstState -Name WinstPageDownloadHeaders)[$key] = $records
+        }
+    }
+    if ($plan['versionFromPackage']) {
         Set-WinstPlanRemoteFresh -Plan $plan -Context $Context
     }
-
     return $plan
 }

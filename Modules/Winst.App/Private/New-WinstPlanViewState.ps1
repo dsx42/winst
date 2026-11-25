@@ -9,6 +9,8 @@ function New-WinstPlanViewState {
     #>
     param(
         $Plan,
+        $CacheEntry,
+        [switch]$UseCacheVersion,
         [int]$Index,
         [int]$Total,
         [string]$SourceName,
@@ -29,13 +31,20 @@ function New-WinstPlanViewState {
     $packageNoun = '安装包'
     if ($isDownloadPlanType) { $packageNoun = '软件包' }
 
-    $version = Get-EntryString -Entry $Plan -Key 'version'
-    $versionText = $version
-    if (-not $versionText) { $versionText = '未知' }
-    # 版本号取自「缓存里那份包」：远端无新包（remoteFresh unchanged）
-    # 时缓存里那份就是软件源当前这一份，版本号即确认值；远端有新包 / 没比出结论时才标「取包后确认」
-    $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
-    $versionNeedsConfirm = ($versionFromPackage -and ([string](Get-EntryString -Entry $Plan -Key 'remoteFresh')) -ine 'unchanged')
+    $cacheVersion = Get-EntryString -Entry $CacheEntry -Key 'version'
+    $versionText = Get-EntryString -Entry $Plan -Key 'version'
+    if ($UseCacheVersion) {
+        $versionText = $cacheVersion
+        if (-not $versionText) { $versionText = '缓存版本未知' }
+    } elseif (Get-EntryBool -Entry $Plan -Key 'versionFromPackage') {
+        $versionText = Get-WinstRemoteFreshTargetText -Fresh (Get-EntryString -Entry $Plan -Key 'remoteFresh') -FallbackVersion $cacheVersion
+    } elseif (-not $versionText) { $versionText = '未知' }
+
+    $cacheText = ''
+    if ($CacheEntry -and -not $UseCacheVersion) {
+        if ($cacheVersion) { $cacheText = '缓存版本 ' + $cacheVersion }
+        else { $cacheText = '缓存版本未知' }
+    }
 
     # 安装目录一律以 id 命名
     $installDir = ''
@@ -64,9 +73,8 @@ function New-WinstPlanViewState {
         IsDownloadType     = $isDownloadPlanType
         PackageNoun        = $packageNoun
         Ok                 = [bool](Get-EntryBool -Entry $Plan -Key 'ok')
-        Version            = $version
+        CacheText          = $cacheText
         VersionText        = $versionText
-        VersionNeedsConfirm = $versionNeedsConfirm
         InstallDir         = $installDir
         InstallRoot        = $InstallRoot
         PkgTarget          = $pkgTarget

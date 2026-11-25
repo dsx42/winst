@@ -9,7 +9,7 @@ function Show-WinstPlanDetail {
         [Parameter(Mandatory = $true)][hashtable]$Context,
         [Parameter(Mandatory = $true)]$Plan,
         [string]$SourceName,
-        $StateRead, $Ledger, [switch]$IsUpgrade
+        $StateRead, $Ledger, [switch]$IsUpgrade, [switch]$UseCacheVersion
     )
 
     $shortcutDirs = Get-WinstPlanShortcutDirectories
@@ -20,5 +20,5 @@ function Show-WinstPlanDetail {
     Show-ResolvedAppPlan -Plan $Plan -SourceName $SourceName `
         -InstallRoot $Context.InstallRoot -PkgDir $Context.PkgDir `
         @shortcutDirs `
-        -InstalledVersion $installedVersion -InstalledDir $installedDir -IsUpgrade:$IsUpgrade -Context $Context -StateRead $StateRead
+        -InstalledVersion $installedVersion -InstalledDir $installedDir -IsUpgrade:$IsUpgrade -UseCacheVersion:$UseCacheVersion -Context $Context -StateRead $StateRead
 }

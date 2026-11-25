@@ -17,6 +17,8 @@ function Get-WinstConfigDefaults {
         manifestTTLHours = 24
         proxy            = ''
         proxyMode        = 'auto'
+        fluxdownApi       = ''
+        fluxdownToken     = ''
         # 已登记软件更新 / 重装时跳过环境变量与 PATH，避免改写同族软件的共享变量；
         # 已存在的快捷方式仍校验并修正。首次安装补齐缺失项。
         updateFilesOnly  = $true

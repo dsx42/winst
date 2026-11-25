@@ -30,13 +30,15 @@ function Resolve-WinstPlanVersion {
     }
     if ($rewrite.Rules.Count -gt 0) { $Plan['sourceVersionRewrite'] = @($rewrite.Rules) }
 
-    # 取版规则和改写规则均匹配时，索引里的版本已经归一。
+    # 下载前可用登记版本展开安装模板，远端可用版本另按文件新鲜度判断。
     $versionFromPackage = Test-EntryVersionFromPackage -Entry $Entry
     if ($versionFromPackage) {
         $Plan['versionFromPackage'] = $true
         if ($PackageVersionSpec) { $Plan['packageVersion'] = $PackageVersionSpec }
-        if (-not $version) {
-            $version = Get-WinstCachedPackageVersion -Context $Context -Plan $Plan
+        if (-not $version -and $Context.PkgDir) {
+            $id = [string]$Plan['id']
+            $index = (Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($id)).Index
+            $version = Get-EntryString -Entry $index[$id] -Key 'version'
             if ($version) {
                 $Plan['version'] = $version
                 $Plan['versionFromCache'] = $true

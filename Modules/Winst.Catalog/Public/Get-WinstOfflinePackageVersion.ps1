@@ -3,7 +3,7 @@
 function Get-WinstOfflinePackageVersion {
     <#
     .SYNOPSIS
-        按选定计划的主包与取版文件读取本地缓存版本。
+        离线计划可复用主包时返回索引登记的版本。
     #>
     param([hashtable]$Context, $Plan, $CacheIndex, $FilePlans)
 
@@ -15,13 +15,5 @@ function Get-WinstOfflinePackageVersion {
     }
     if (-not $FilePlans.Count) { return '' }
     if ($FilePlans[0].NeedDownload) { return '' }
-    if (-not (Get-EntryBool -Entry $plan -Key 'versionFromPackage')) { return [string]$FilePlans[0].CachedVersion }
-
-    $versionInput = Get-WinstPackageVersionInput -Plan $plan
-    if (-not $versionInput -or $FilePlans[$versionInput.Index].NeedDownload) { return '' }
-    $cached = Get-WinstCachedPackageVersion -Context $Context -MainFilePlan $FilePlans[0] -Plan $plan -Entry $CacheIndex[$Id] -Offline
-    if ($cached) { return $cached }
-    $read = Get-WinstPackageDerivedVersion -Context $Context -PkgDir (Join-WinstPath $Context.PkgDir $Id) -Plan $plan -FileName $versionInput.Name
-    if ($read.Ok) { return $read.Version }
-    return ''
+    return Get-EntryString -Entry $CacheIndex[$id] -Key 'version'
 }

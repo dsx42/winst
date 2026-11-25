@@ -3,82 +3,85 @@
 function Update-WinstPackageCacheIndex {
     <#
     .SYNOPSIS
-        写回缓存索引：版本 + 文件名 + 每个包文件的校验码与 fileMeta（写回前重读，避免抹掉引擎中途更新）。
+        在索引锁内登记已完成的文件。全部完成后按清单裁剪旧记录。
     #>
-    param([hashtable]$Context, [string]$Id, $Plans, $PrevEntry, [string]$Version, [string]$VersionFile, $VersionRule, $DownloadedNames)
+    param([hashtable]$Context, [string]$Id, $FilePlan, [string[]]$PlanNames,
+        [string]$Version, [switch]$Downloaded, [switch]$Complete)
 
-    $indexNames = @()
-    $indexHashes = New-WinstOrdinalDictionary -IgnoreCase
-    $indexManifestHashes = New-WinstOrdinalDictionary -IgnoreCase
-    # fileMeta：每个文件的实际地址 / 本次版本 / 校验器基线 / 大小与时间——
-    # 先继承索引里已有的记账（本次没重新确认的文件保留原值），再按本次解析与确认结果更新
-    $indexFileMeta = Copy-WinstFileMeta -FileMeta (Get-EntryValue -Entry $PrevEntry -Key 'fileMeta' -Default $null)
-    $stampNow = (Get-Date).ToString('s')
-    foreach ($filePlan in @($Plans)) {
-        $name = [string]$filePlan['Name']
-        if (-not $name) { continue }
-        $wasDownloaded = @($DownloadedNames) -contains $name
-        if ($indexNames -notcontains $name) { $indexNames += $name }
-        $hash = $filePlan['IndexHash']
-        if (-not $hash) { $hash = Get-WinstPackageFileHash -Path $filePlan['Target'] }
-        if ($hash) { $indexHashes[$name] = $hash.ToLowerInvariant() }
-        $filePlan['IndexHash'] = $hash
-        $algorithm = [string]$filePlan['ExpectedAlgorithm']
-        if ($algorithm -and $algorithm -ne 'SHA256') {
-            $manifestHash = [string]$filePlan['ManifestHash']
-            if ($manifestHash) {
-                Set-WinstManifestHash -Container $indexManifestHashes -FileName $name -Algorithm $algorithm -Hash $manifestHash
-            }
-        }
+    $name = [string]$FilePlan['Name']
+    $hash = [string]$FilePlan['IndexHash']
+    if (-not $hash) { $hash = Get-WinstPackageFileHash -Path $FilePlan['Target'] }
+    if (-not $hash) { throw ('无法计算缓存文件摘要：{0}' -f $name) }
+    $FilePlan['IndexHash'] = $hash
+    $size = (Get-Item -LiteralPath $FilePlan['Target'] -Force -ErrorAction Stop).Length
 
-        $size = $null
-        $path = [string]$filePlan['Target']
-        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
-            try { $size = (Get-Item -LiteralPath $path -Force).Length } catch { $size = $null }
-        }
-        $downloadedAt = ''
-        if ($wasDownloaded) { $downloadedAt = $stampNow }
-        $checkedAt = [string]$filePlan['CheckedAt']
-        if (-not $checkedAt -and $downloadedAt) { $checkedAt = $downloadedAt }
-        $validatorArgs = @{}
-        $origin = [string]$filePlan['ManifestOrigin']
-        if ($origin -and ($wasDownloaded -or $filePlan['ExpectedHash'])) {
-            # 切换来源时重建这条记账，避免将旧来源的 HTTP 基线写到当前来源名下。
-            if ($indexFileMeta.Contains($name) -and $indexFileMeta[$name]['manifestOrigin'] -cne $origin) {
-                $indexFileMeta.Remove($name)
-            }
-            $validatorArgs['ManifestOrigin'] = $origin
-        }
-        if ($filePlan['CheckedAt']) {
-            $validatorArgs['ETag'] = [string]$filePlan['ValidatorETag']
-            $validatorArgs['LastModified'] = [string]$filePlan['ValidatorLastModified']
-        }
-        Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name @validatorArgs `
-            -Url ([string]$filePlan['Url']) -SourceVersion ([string]$filePlan['FileVersion']) -Size $size `
-            -DownloadedAt $downloadedAt -LastCheckedAt $checkedAt
-        if ([string]$filePlan['ChecksumMetadataAction'] -eq 'replace') {
-            # 指纹只绑定这一文件在下载声明中的版本。
-            $checksumFingerprint = ''
-            if ($filePlan['ChecksumHashFile']) {
-                $checksumFingerprint = Get-WinstChecksumDeclarationFingerprint -FileName $name `
-                    -HashFile ([string]$filePlan['ChecksumHashFile']) -HashFrom ([string]$filePlan['ChecksumHashFrom']) `
-                    -FileUrl ([string]$filePlan['Url']) -FileVersion ([string]$filePlan['FileVersion'])
-            }
-            Set-WinstFileMetaValue -Container $indexFileMeta -FileName $name `
-                -ExpectedHash ([string]$filePlan['ExpectedHash']) -ExpectedAlgorithm ([string]$filePlan['ExpectedAlgorithm']) `
-                -ChecksumHashFile ([string]$filePlan['ChecksumHashFile']) -ChecksumHashFrom ([string]$filePlan['ChecksumHashFrom']) `
-                -ChecksumFingerprint $checksumFingerprint
-        }
-    }
-    # 本次不需要的文件连记账一起清掉
-    foreach ($metaKey in @($indexFileMeta.Keys)) {
-        if ($indexNames -notcontains [string]$metaKey) { $indexFileMeta.Remove($metaKey) }
-    }
     Save-WinstCacheIndex -PkgDir $Context.PkgDir -UpdateIds @($Id) -Update {
         param($index)
-        $bundleSource = Get-EntryString -Entry $index[$Id] -Key 'bundleSource'
-        $mainOrigin = Get-EntryString -Entry $indexFileMeta[$indexNames[0]] -Key 'manifestOrigin'
+        $entry = $index[$Id]
+        $names = $PlanNames
+        if (-not $Complete) {
+            $names = @(Get-EntryArray -Entry $entry -Key 'files')
+            if ($name -ieq $PlanNames[0]) { $names = @($name) + @($names -ne $name) }
+            elseif ($names -notcontains $name) { $names += $name }
+        }
+        $hashes = Get-EntryValue -Entry $entry -Key 'hashes'
+        $manifestHashes = Get-EntryValue -Entry $entry -Key 'manifestHashes'
+        $fileMeta = Get-EntryValue -Entry $entry -Key 'fileMeta'
+        if ($null -eq $hashes) { $hashes = New-WinstOrdinalDictionary -IgnoreCase }
+        if ($null -eq $manifestHashes) { $manifestHashes = New-WinstOrdinalDictionary -IgnoreCase }
+        if ($null -eq $fileMeta) { $fileMeta = New-WinstOrdinalDictionary -IgnoreCase }
+
+        $hashes[$name] = $hash.ToLowerInvariant()
+        $algorithm = [string]$FilePlan['ExpectedAlgorithm']
+        if ($algorithm -and $algorithm -ne 'SHA256' -and $FilePlan['ManifestHash']) {
+            Set-WinstManifestHash -Container $manifestHashes -FileName $name -Algorithm $algorithm -Hash $FilePlan['ManifestHash']
+        }
+        $fields = @{ Size = $size }
+        $origin = [string]$FilePlan['ManifestOrigin']
+        if ($Downloaded) {
+            $fields['DownloadedAt'] = (Get-Date).ToString('s')
+            $fields['LastCheckedAt'] = $fields['DownloadedAt']
+            $fields['SourceVersion'] = [string]$FilePlan['FileVersion']
+            $fields['Url'] = [string]$FilePlan['Url']
+            $fields['ManifestOrigin'] = $origin
+        } elseif ($FilePlan['ExpectedHash'] -and $origin -and
+                (-not $fileMeta.Contains($name) -or $fileMeta[$name]['manifestOrigin'] -cne $origin)) {
+            $fields['ManifestOrigin'] = $origin
+            $fields['Url'] = [string]$FilePlan['Url']
+            $fields['SourceVersion'] = [string]$FilePlan['FileVersion']
+            $fields['ETag'] = ''
+            $fields['LastModified'] = ''
+        }
+        if ($FilePlan['CheckedAt']) {
+            $fields['ETag'] = [string]$FilePlan['ValidatorETag']
+            $fields['LastModified'] = [string]$FilePlan['ValidatorLastModified']
+            $fields['LastCheckedAt'] = [string]$FilePlan['CheckedAt']
+        }
+        if ([string]$FilePlan['ChecksumMetadataAction'] -eq 'replace') {
+            $fields['ExpectedHash'] = [string]$FilePlan['ExpectedHash']
+            $fields['ExpectedAlgorithm'] = $algorithm
+            $fields['ChecksumHashFile'] = [string]$FilePlan['ChecksumHashFile']
+            $fields['ChecksumHashFrom'] = [string]$FilePlan['ChecksumHashFrom']
+            $fields['ChecksumFingerprint'] = ''
+            if ($fields['ChecksumHashFile']) {
+                $fields['ChecksumFingerprint'] = Get-WinstChecksumDeclarationFingerprint -FileName $name `
+                    -HashFile $fields['ChecksumHashFile'] -HashFrom $fields['ChecksumHashFrom'] `
+                    -FileUrl ([string]$FilePlan['Url']) -FileVersion ([string]$FilePlan['FileVersion'])
+            }
+        }
+        Set-WinstFileMetaValue -Container $fileMeta -FileName $name @fields
+
+        if ($Complete) {
+            foreach ($map in @($hashes, $manifestHashes, $fileMeta)) {
+                foreach ($key in @($map.Keys)) {
+                    if ($names -notcontains $key) { $map.Remove($key) }
+                }
+            }
+        }
+        $bundleSource = Get-EntryString -Entry $entry -Key 'bundleSource'
+        $mainOrigin = Get-EntryString -Entry $fileMeta[$names[0]] -Key 'manifestOrigin'
         if ($bundleSource -and $mainOrigin) { $bundleSource = $mainOrigin }
-        Set-WinstCacheIndexEntry -Index $index -Id $Id -BundleSource $bundleSource -Version $Version -VersionFile $VersionFile -VersionRule $VersionRule -Files $indexNames -Hashes $indexHashes -ManifestHashes $indexManifestHashes -FileMeta $indexFileMeta
+        Set-WinstCacheIndexEntry -Index $index -Id $Id -Version $Version -BundleSource $bundleSource `
+            -Files $names -Hashes $hashes -ManifestHashes $manifestHashes -FileMeta $fileMeta
     }
 }

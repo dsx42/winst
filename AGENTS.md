@@ -35,7 +35,7 @@ Manifest    Core、Version
 Store       Core、Version、Net、System
 Browser     Core、Net
 Engine      Core、Net、Store、Version
-Catalog     Core、Net、Browser、Version、Manifest、Store、Engine
+Catalog     Core、Net、Browser、Version、Manifest、Store
 Install     Core、Ui、Version、Manifest、Store、System、Net、Engine、Catalog
 App         Core、Ui、Version、Manifest、Store、Install、Catalog
 ```

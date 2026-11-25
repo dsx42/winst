@@ -7,12 +7,12 @@ function Get-WinstPageLinkUrl {
     .OUTPUTS
         @{ Ok; Error; Url; Html; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Item, $Result, $HrefRule)
+    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Item, $Result, $HrefRule, [Collections.ArrayList]$Sessions)
 
     # 抓页面：缺省走 IWR + 浏览器式请求头（部分站点按 UA 拒绝自动化请求）；声明 fetchWith: browser 时
     # 改用系统自带的 Microsoft Edge 抓取——IWR / curl 在客户端特征层面被整体拒绝的站点只能用这条路，
     # 但页面给出的地址（如 filezilla CDN 带签名的 zip 链接）下载引擎照常能下
-    $page = Get-SourcePageHtml -Context $Context -Source $Source -PageUrl $PageUrl -Label '下载页'
+    $page = Get-SourcePageHtml -Context $Context -Source $Source -PageUrl $PageUrl -Label '下载页' -Sessions $Sessions
     if (-not $page.Ok) {
         return @{ Ok = $false; Error = [string]$page.Error; Url = ''; Html = ''; PageHash = '' }
     }
@@ -27,8 +27,8 @@ function Get-WinstPageLinkUrl {
 
     # 跟随 iframe：主页面没有任何命中时才抓取页面里声明的 iframe 页面并入后重新匹配
     if ($matchedAnchors.Count -eq 0) {
-        $iframe = Get-WinstPageIframeAnchors -Context $Context -Source $Source -PageUrl $PageUrl -Html $html `
-            -Anchors $anchors -LinkSpec $LinkSpec -HrefRule $HrefRule -Result $Result
+        $iframe = Get-WinstPageIframeAnchors -Context $Context -Source $Source -PageUrl $page.BaseUrl -Html $html `
+            -Anchors $anchors -LinkSpec $LinkSpec -HrefRule $HrefRule -Result $Result -Sessions $Sessions
         $anchors = @($iframe.Anchors)
         $html = [string]$iframe.Html
         $matchedAnchors = @($iframe.Matched)
@@ -37,13 +37,17 @@ function Get-WinstPageLinkUrl {
         return @{ Ok = $false; Error = ('在下载页 {1} 上没有找到符合条件（{0}）的下载按钮；可能是页面结构变更，需要更新软件源' -f (Format-LinkSpec -Spec $LinkSpec), $PageUrl); Url = ''; Html = $html; PageHash = '' }
     }
 
+    $sessionByUrl = New-WinstOrdinalDictionary
     $absoluteUrls = @()
     foreach ($anchor in $matchedAnchors) {
         $href = ([string]$anchor['Href']).Trim()
         if (-not $href) { continue }
         if ($href -match '^(?i)(javascript:|mailto:|#)') { continue }
         $absolute = $href
-        try { $absolute = ([Uri]::new([Uri]$PageUrl, $href)).AbsoluteUri } catch { $absolute = $href }
+        try { $absolute = ([Uri]::new([Uri]$page.BaseUrl, $href)).AbsoluteUri } catch { $absolute = $href }
+        if (-not $sessionByUrl.Contains($absolute)) {
+            $sessionByUrl[$absolute] = Get-EntryValue $anchor 'Session' -Default $page.Session
+        }
         $absoluteUrls += $absolute
     }
     $absoluteUrls = @(Get-DistinctValues -Values $absoluteUrls)
@@ -62,6 +66,7 @@ function Get-WinstPageLinkUrl {
     }
 
     $downloadUrl = [string]$absoluteUrls[0]
+    $session = $sessionByUrl[$downloadUrl]
     $pageHash = ''
     if ($null -ne $ThenClickSpec -or $null -ne $ThenLinkSpec) {
         try { Assert-WinstHttpUrl -Url $downloadUrl }
@@ -70,20 +75,22 @@ function Get-WinstPageLinkUrl {
 
     if ($null -ne $ThenClickSpec) {
         $thenClick = Get-WinstThenClickUrl -Context $Context -Source $Source -PageUrl $PageUrl -IntermediateUrl $downloadUrl `
-            -FileRule $FileRule -Item $Item -Result $Result
+            -FileRule $FileRule -Item $Item -Result $Result -Sessions $Sessions
         if (-not $thenClick.Ok) { return @{ Ok = $false; Error = [string]$thenClick.Error; Url = ''; Html = $html; PageHash = '' } }
         $downloadUrl = [string]$thenClick.Url
+        $session = $thenClick.Session
         $pageHash = [string]$thenClick.PageHash
     }
 
     if ($null -ne $ThenLinkSpec) {
         $thenLink = Get-WinstThenLinkUrl -Context $Context -Source $Source -TransitUrl $downloadUrl -ThenLinkSpec $ThenLinkSpec `
-            -FileRule $FileRule -Result $Result
+            -FileRule $FileRule -Result $Result -Sessions $Sessions
         if (-not $thenLink.Ok) { return @{ Ok = $false; Error = [string]$thenLink.Error; Url = ''; Html = $html; PageHash = '' } }
         $downloadUrl = [string]$thenLink.Url
+        $session = $thenLink.Session
     }
 
     try { Assert-WinstHttpUrl -Url $downloadUrl }
     catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = $html; PageHash = '' } }
-    return @{ Ok = $true; Error = ''; Url = $downloadUrl; Html = $html; PageHash = $pageHash }
+    return @{ Ok = $true; Session = $session; Error = ''; Url = $downloadUrl; Html = $html; PageHash = $pageHash }
 }

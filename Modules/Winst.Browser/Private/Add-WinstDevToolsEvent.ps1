@@ -43,7 +43,31 @@ function Add-WinstDevToolsEvent {
         'Network.requestWillBeSent' {
             $request = Get-EntryValue $params 'request'
             $url = Get-EntryString $request 'url'
+            $id = Get-EntryString $params 'requestId'
+            # 同一个请求 ID 的重定向按顺序上报 ExtraInfo，事件可能早于 requestWillBeSent。
+            $hop = [int]$Session.RequestHop[$id]
+            if (Get-EntryBool $params 'redirectHasExtraInfo') { $hop++ }
+            $Session.RequestHop[$id] = $hop
+            $Session.RequestHeaders[$url] = @{ Id = $id; Hop = $hop; Headers = $request.headers }
             if ($url -match '(?i)\.(exe|msi|cab|zip|7z|rar|dmg|deb|rpm|pkg|msix|appx|jar|apk)(\?|$)') { $null = $Session.Requests.Add($url) }
+        }
+        'Network.requestWillBeSentExtraInfo' {
+            $id = Get-EntryString $params 'requestId'
+            if (-not $Session.ExtraHeaders.ContainsKey($id)) { $Session.ExtraHeaders[$id] = New-Object Collections.ArrayList }
+            $null = $Session.ExtraHeaders[$id].Add((Get-EntryValue $params 'headers'))
+        }
+        'Network.responseReceived' {
+            $response = Get-EntryValue $params 'response'
+            $url = Get-EntryString $response 'url'
+            $headers = Get-EntryValue $response 'headers'
+            $request = $Session.RequestHeaders[$url]
+            if ($request -and $request.Id -ceq (Get-EntryString $params 'requestId')) {
+                $request['Size'] = Get-WinstResponseFileSize -StatusCode $response.status `
+                    -ContentLength (Get-EntryString $headers 'Content-Length') -ContentRange (Get-EntryString $headers 'Content-Range')
+            }
+            if ((Get-EntryString $params 'type') -eq 'Document') {
+                $Session.ReferrerPolicies[$url] = Get-EntryString $headers 'Referrer-Policy'
+            }
         }
         'Page.loadEventFired' { $Session.LoadEventFired = $true }
     }

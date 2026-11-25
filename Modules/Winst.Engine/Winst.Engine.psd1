@@ -5,7 +5,7 @@
     Author               = 'winst'
     CompanyName          = 'winst'
     Copyright            = '(c) winst'
-    Description          = '下载与解压引擎（低层）：FluxDown CLI 调用、7-Zip 解压路由、stripTopDir/extractFiles、包内结构读版本。不感知软件源。'
+    Description          = '下载与解压引擎（低层）：FluxDown 服务与 CLI 取包、7-Zip 解压路由、stripTopDir/extractFiles、包内结构读版本。不感知软件源。'
     PowerShellVersion    = '5.1'
     CompatiblePSEditions = @('Desktop')
 

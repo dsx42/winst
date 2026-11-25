@@ -60,17 +60,14 @@ function Invoke-WinstCapturedCommand {
             finally { $p.StandardOutput.Close() }
         }
         if ($NoTimeout) {
-            $p.WaitForExit()
+            # 定期返回 PowerShell，让 Ctrl+C 能中止等待并进入 finally。
+            while (-not $p.WaitForExit(250)) { }
             $finished = $true
         } else {
             $finished = $p.WaitForExit($TimeoutMs)
         }
         if (-not $finished) {
             $result.TimedOut = $true
-            # 连同它启动的下级进程一起结束：残留进程会继续写控制台、抢键盘（Rufus 的控制台入口正是这种）
-            try { $null = & taskkill.exe /PID $p.Id /T /F 2>&1 } catch { }
-            try { $p.Kill() } catch { }
-            try { $null = $p.WaitForExit(3000) } catch { }
             $result.Error = ('命令超时（{0} 秒）: {1} {2}' -f [int]($TimeoutMs / 1000), $FilePath, $Arguments)
             return $result
         }
@@ -86,7 +83,15 @@ function Invoke-WinstCapturedCommand {
         }
         try { if ($errTask.Wait(2000)) { $result.ErrText = [string]$errTask.Result } } catch { }
     } finally {
-        try { $p.Dispose() } catch { }
+        if (-not $p.HasExited) {
+            try { $null = & taskkill.exe /PID $p.Id /T /F 2>&1 } catch { }
+            if (-not $p.HasExited) {
+                try { $p.Kill() }
+                catch { if (-not $p.HasExited) { $result.Error += ('；终止进程失败：{0}' -f $_.Exception.Message) } }
+            }
+            if (-not $p.WaitForExit(3000)) { $result.Error += ('；未能确认进程 {0} 已退出' -f $p.Id) }
+        }
+        $p.Dispose()
     }
     return $result
 }

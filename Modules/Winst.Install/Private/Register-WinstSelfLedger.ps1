@@ -45,7 +45,7 @@ function Register-WinstSelfLedger {
     }
 
     $version = (Get-WinstProductVersion)
-    if ($Resolved -and $SourceVersion) { $version = $SourceVersion }
+    if ($Resolved) { $version = $SourceVersion }
     $uninstall = ConvertTo-WinstUninstallSnapshot -Block $null
     $manifestOrigin = ''
     if ($Plan) {

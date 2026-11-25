@@ -13,7 +13,7 @@
 
 ## 下载与网络
 
-- 软件包下载使用 FluxDown-CLI。提示引擎不可用时，先检查软件源与引擎安装结果；不要把元数据 GET 成功等同于引擎下载成功。
+- 下载提示会显示正在使用的 FluxDown 桌面服务或独立 CLI。希望在桌面查看任务时，开启 FluxDown 管理 API，核对 `winst config list` 的地址并在设置菜单输入与桌面一致的 Token。服务失联时，按提示的任务 ID 或暂存路径在原服务中核对。
 - 代理不通时检查 `winst config get proxy` 与 `proxyMode`。`winst config reset proxy` 清除 winst 的显式代理；默认 HTTP 请求仍继承系统代理/PAC，off 不强制绕过系统代理。
 - 带签名的下载地址可能过期；下载失败后会重新解析并重试一次，持续失败时刷新对应来源并查看 verbose 输出。
 - 404/410 通常表示地址不存在；响应明确带 `Cf-Mitigated: challenge` 时表示站点挑战，不能据此确认文件缺失。浏览器能下载不代表所有自动化通道都能通过挑战。

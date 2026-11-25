@@ -8,8 +8,7 @@ function Initialize-WinstInstallContext {
         把「软件定义里有什么」「主包要不要重新取」「缓存里哪些文件可以复用」「本机装没装」四件事一次算清，
         供后续决策矩阵 / 下载 / 安装各段直接使用。Error 非空时调用方应立即返回该结果。
     .OUTPUTS
-        @{ Error; Plan; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; Files; VersionFile;
-           VersionFromCachedPackage; PlanFreshState; FreshMain; IsDownloadType; PrevEntry;
+        @{ Error; Plan; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; Files; PlanFreshState; IsDownloadType; PrevEntry;
            Plans; NeedDownload; CompanionNames; CompanionsOnly; Ledger }
     #>
     param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$RequireCurrent, [switch]$Quiet)
@@ -48,16 +47,15 @@ function Initialize-WinstInstallContext {
 
     # versionFromPackage（清单里是 source.versionFrom: "package"）：清单 / 接口都拿不到版本号时，从已下载的主包文件信息里取
     $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
-    $versionFromCachedPackage = $false
     # 解析锁里的远端新鲜度结论：versionFromPackage 条目据此决定「主包要不要重新取」——
     # unchanged（远端无新包）时缓存里那份就是软件源当前这一份，安装 / 更新直接沿用缓存、按缓存版本决策；
-    # changed（远端有新包）/ unknown（文件比较没有结论）才重新取包；明确的下载操作（DownloadOnly）始终重新下载
+    # changed（远端有新包）/ unknown（文件比较没有结论）才重新取包
     $options = Get-WinstState -Name WinstOptions
     $offline = [bool]($options -and $options.Offline)
     $planFreshState = ''
     if (-not $offline) { $planFreshState = Get-EntryString -Entry $Plan -Key 'remoteFresh' }
     $unchangedMainHash = ''
-    if ($versionFromPackage -and -not $DownloadOnly -and $planFreshState -ieq 'unchanged') {
+    if ($versionFromPackage -and $planFreshState -ieq 'unchanged') {
         $unchangedMainHash = Get-EntryString -Entry $Plan -Key 'remoteFreshHash'
     }
     $freshMainReason = ''
@@ -85,21 +83,13 @@ function Initialize-WinstInstallContext {
         RequireCurrent = $RequireCurrent
     }
     $plans = @(Get-WinstPackageFilePlans @planArgs -Index $index)
-    $versionFile = ''
-    if ($versionFromPackage) {
-        $versionInput = Get-WinstPackageVersionInput -Plan $Plan
-        if (-not $versionInput) { return @{ Error = '未找到有效的包内取版文件' } }
-        $versionFile = $versionInput.Name
+    if (-not $plans[0]['NeedDownload']) {
+        $version = Get-EntryString -Entry $prevEntry -Key 'version'
+    } elseif ($versionFromPackage) {
         $version = ''
-        if (-not $plans[0]['NeedDownload'] -and -not $plans[$versionInput.Index]['NeedDownload']) {
-            $version = Get-WinstCachedPackageVersion -Context $Context -MainFilePlan $plans[0] -Plan $Plan -Entry $prevEntry -MainHash $unchangedMainHash -Offline:$offline
-            $versionFromCachedPackage = [bool]$version
-        }
-    } elseif ($offline -and -not $plans[0]['NeedDownload'] -and $plans[0]['CachedVersion']) {
-        $version = [string]$plans[0]['CachedVersion']
     }
-    if ($offline -and -not $isDownloadType -and $version) {
-        try { $Plan = Get-WinstOfflineInstallPlan -Context $Context -Plan $Plan -CachedVersion $version }
+    if (-not $isDownloadType -and -not $plans[0]['NeedDownload'] -and $version) {
+        try { $Plan = Get-WinstCachedInstallPlan -Context $Context -Plan $Plan -CachedVersion $version }
         catch { return @{ Error = $_.Exception.Message } }
         $install = Get-EntryValue -Entry $Plan -Key 'install'
     }
@@ -107,7 +97,6 @@ function Initialize-WinstInstallContext {
     $needDownload = $false
     # 注意：循环变量不能叫 $plan——PowerShell 变量名不区分大小写，会覆盖参数 $Plan（软件清单条目）
     foreach ($filePlan in $plans) { if ($filePlan['NeedDownload']) { $needDownload = $true; break } }
-    $freshMain = $versionFromPackage -and -not $offline -and (-not $unchangedMainHash -or $plans[0]['NeedDownload'])
     $companionNames = @()
     $companionsOnly = $false
 
@@ -122,8 +111,7 @@ function Initialize-WinstInstallContext {
     return @{
         Error = ''; Plan = $Plan; Id = $id; DisplayName = $displayName; Type = $type; Version = $version
         InstallDir = $installDir; PkgDir = $pkgDir; Install = $install; Files = $files
-        VersionFile = $versionFile; VersionFromCachedPackage = $versionFromCachedPackage
-        PlanFreshState = $planFreshState; FreshMain = $freshMain
+        PlanFreshState = $planFreshState
         IsDownloadType = $isDownloadType; PrevEntry = $prevEntry; Plans = $plans; NeedDownload = $needDownload
         CompanionNames = $companionNames
         CompanionsOnly = $companionsOnly; Ledger = $ledger

@@ -9,7 +9,7 @@ function New-WinstFilePlanEntry {
     #>
     param($File, [string]$Url, [string]$Name, [int]$FileIndex)
 
-    # 只有「这个文件自己的版本」才参与版本优先判定与索引记账：主包恒有；附加文件只有声明
+    # 只有「这个文件自己的版本」才参与版本优先判定与索引记账：主包取软件源提供的版本；附加文件只有声明
     # versionListUrl 并独立取版时才有，其余跟随主包版本的记录只用于地址模板展开。
     # 旧解析锁里没有 versionOwned：主包按「有自身版本」处理，附加文件按「跟随主包版本」处理。
     $ownedValue = Get-EntryValue -Entry $File -Key 'versionOwned' -Default $null
@@ -23,8 +23,8 @@ function New-WinstFilePlanEntry {
         Name                  = $Name
         Target                = ''
         Decl                  = $File
+        Size                  = Get-EntryValue -Entry $File -Key 'size'
         FileVersion           = $fileVersion
-        CachedVersion         = ''
         Compare               = [string](Get-EntryString -Entry $File -Key 'compare')
         NeedDownload          = $true
         Reason                = ''

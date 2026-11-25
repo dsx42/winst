@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 
-function Get-WinstOfflineInstallPlan {
+function Get-WinstCachedInstallPlan {
     <#
     .SYNOPSIS
         已知主包与解析锁版本不同时，取同来源清单定义，用缓存版本展开完整的执行步骤。
@@ -8,8 +8,13 @@ function Get-WinstOfflineInstallPlan {
     param([hashtable]$Context, $Plan, [string]$CachedVersion)
 
     $version = Get-EntryString -Entry $Plan -Key 'version'
-    if (-not $CachedVersion -or $CachedVersion -ieq 'unknown' -or -not $version -or $version -ieq 'unknown' -or
-            $version -ceq $CachedVersion) { return $Plan }
+    if ($version -ceq $CachedVersion) { return $Plan }
+    # 未知版本下能成功生成的执行步骤不含版本占位符。
+    if (-not $version) {
+        $copy = Copy-WinstObjectShallow -InputObject $Plan
+        $copy['version'] = $CachedVersion
+        return $copy
+    }
 
     $id = Get-EntryString -Entry $Plan -Key 'id'
     $origin = Get-EntryString -Entry $Plan -Key 'manifestOrigin'
@@ -59,5 +64,5 @@ function Get-WinstOfflineInstallPlan {
         $candidate = Complete-WinstInstallPlan -Plan $copy -Entry $definition -Version $CachedVersion -Notes @()
         if ($candidate.ok) { return $candidate }
     }
-    throw ('无法离线安装 {0}：主包缓存版本为 {1}，解析锁版本为 {2}，没有匹配缓存版本的完整安装计划。' -f $id, $CachedVersion, $version)
+    throw ('无法安装 {0}：主包缓存版本为 {1}，解析锁版本为 {2}，没有匹配缓存版本的完整安装计划。' -f $id, $CachedVersion, $version)
 }

@@ -21,7 +21,8 @@ function Get-WinstBrowserPageHtmlByDevTools {
     param(
         [hashtable]$Context,
         [Parameter(Mandatory = $true)][string]$Url,
-        [Parameter(Mandatory = $true)][datetime]$Deadline
+        [Parameter(Mandatory = $true)][datetime]$Deadline,
+        [Collections.ArrayList]$Sessions
     )
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
@@ -58,6 +59,12 @@ function Get-WinstBrowserPageHtmlByDevTools {
             }
 
             $result.Html = $html
+            if ($null -ne $Sessions) {
+                $result.BaseUrl = Get-WinstDevToolsValue -Session $session -Expression 'document.baseURI'
+                $result.Session = $session
+                $null = $Sessions.Add($session)
+                $session = $null
+            }
             $result.Ok = $true
             $lastError = ''
             break

@@ -6,7 +6,7 @@ function Invoke-WinstAppInstall {
         安装（或仅下载）单个软件：检测 → 下载 → 解压 / 安装 → 复制改名 → 环境 → 命令 → 检测 → 台账。
     .DESCRIPTION
         按七个阶段执行；`download` 类条目只下载不安装、不写台账。
-        普通软件包下载走 FluxDown CLI；下载引擎自身的安装包直接 HTTP 取包，避免重复引导。
+        软件包由 FluxDown 取包；缺少可用服务与 CLI 时允许直接 HTTP 引导下载引擎。
         `versionFromPackage` 条目在「本机已装、软件源里又拿不到版本号」时不直接跳过：先取包，
         再按包内文件信息得到的版本补做决策矩阵。
         `-FilesOnly`（仅更新文件）跳过阶段 ④ 的写入：环境变量 / PATH 不动、快捷方式只修正已存在的，
@@ -67,11 +67,8 @@ function Invoke-WinstAppInstall {
         $pkgDir = [string]$info.PkgDir
         $install = $info.Install
         $files = @($info.Files)
-        $versionFile = [string]$info.VersionFile
-        $versionFromPackage = [bool]$versionFile
-        $versionFromCachedPackage = [bool]$info.VersionFromCachedPackage
+        $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
         $planFreshState = [string]$info.PlanFreshState
-        $freshMain = [bool]$info.FreshMain
         $isDownloadType = [bool]$info.IsDownloadType
         $prevEntry = $info.PrevEntry
         $plans = @($info.Plans)
@@ -84,8 +81,7 @@ function Invoke-WinstAppInstall {
         $null = Set-WinstState -Name WinstInstallingAppIds -Value ($previousInstallingIds + @($id))
         $decision = Resolve-WinstInstallDecision -Context $Context -Plan $Plan -Type $type -Install $install -InstallDir $installDir `
             -Id $id -DisplayName $displayName -Version $version -Result $result -Quiet:$Quiet -Force:$Force -DryRun:$dryRun -Offline:$offline `
-            -FreshMain:$freshMain -PlanFreshState $planFreshState `
-            -VersionFromCachedPackage:$versionFromCachedPackage -CompanionDownloadCount $companionDownloadCount `
+            -PlanFreshState $planFreshState -CompanionDownloadCount $companionDownloadCount `
             -CompanionsOnly:$companionsOnly -PrimaryFilePlan $plans[0] -IsDownloadType:$isDownloadType -Ledger $ledger -SourceName $SourceName
         if ($decision.Return) { return $decision.Result }
         $deferVersionDecision = [bool]$decision.Defer
@@ -116,6 +112,10 @@ function Invoke-WinstAppInstall {
             } else {
                 $result.Message = ('（预览）将{0} {1}（安装包已在缓存里，不需要下载）' -f $previewAction, $displayName)
             }
+            if (-not $plans[0]['NeedDownload']) {
+                $cacheLabel = if ($version) { '缓存版本 ' + $version } else { '缓存版本未知' }
+                $result.Message += ('（{0}）' -f $cacheLabel)
+            }
             if ($companionOnlyUpdate) {
                 # 主包没变、只有附加文件要更新：预览说清「只动这几个文件」，别让用户以为要重装
                 $result.Message = ('（预览）{0} 主包无变化，将只更新 {1} 个附加文件（不重装）' -f $displayName, $companionDownloadCount)
@@ -125,53 +125,45 @@ function Invoke-WinstAppInstall {
 
         # —— 逐文件下载（含离线特例 / 引擎引导 / 失效地址重试 / 完整性校验）——
         $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $plans -PkgDir $pkgDir -Id $id `
-            -DisplayName $displayName -SourceName $SourceName -Version $version -Offline:$offline -Quiet:$Quiet -PrevEntry $prevEntry
+            -DisplayName $displayName -SourceName $SourceName -Plan $Plan -Offline:$offline -Quiet:$Quiet -PrevEntry $prevEntry
         if (-not $download.Ok) {
             $result.Error = [string]$download.Error
             $result.Network = [bool]$download.Network
+            $result.Cancelled = [bool]$download['Cancelled']
+            if ($result.Cancelled) { $result.Message = ('已取消下载 {0}' -f $displayName) }
             return $result
         }
+        $Plan = $download.Plan
+        $plans = @($download.Plans)
+        $files = @(Get-EntryArray -Entry $Plan.download -Key 'files')
+        $primaryPath = [string]$plans[0]['Target']
         $downloadedNames = @($download.Names)
-        $result.Downloaded = [bool]$download.Any
-
-        # 取版文件可以是主包，也可以是清单选中的附件。
-        try {
-            $version = Update-WinstPlanVersionFromPackage -Context $Context -Plan $Plan -PkgDir $pkgDir `
-                -InputName $versionFile -Version $version -Quiet:$Quiet
-        } catch {
-            $result.Error = $_.Exception.Message
-            return $result
+        if ($downloadedNames -contains $plans[0]['Name']) { $companionOnlyUpdate = $false }
+        $result.Downloaded = $downloadedNames.Count -gt 0
+        if (-not $Force -and $detected -and $detected -ine 'unknown' -and $version -cne $download.Version) {
+            $deferVersionDecision = $true
+        }
+        $version = [string]$download.Version
+        if (-not $isDownloadType) {
+            try { $Plan = Get-WinstCachedInstallPlan -Context $Context -Plan $Plan -CachedVersion $version }
+            catch { $result.Error = $_.Exception.Message; return $result }
+            $install = Get-EntryValue -Entry $Plan -Key 'install'
         }
 
-        # 版本确认后才清理旧包。
-        Remove-WinstObsoletePackages -Context $Context -Id $id -Plans $plans -DownloadedAny ([bool]$download.Any)
-
+        Remove-WinstObsoletePackages -Context $Context -Id $id -Plans $plans -DownloadedAny $result.Downloaded
         $landingNames = @(($info.CompanionNames + $downloadedNames) | Select-Object -Unique)
-        # 缓存索引：版本 + 文件名 + 每个包文件的校验码与 fileMeta
-        $versionRule = if ($versionFromPackage) { Get-WinstPackageVersionRule -Plan $Plan }
-        Update-WinstPackageCacheIndex -Context $Context -Id $id -Plans $plans -PrevEntry $prevEntry `
-            -Version $version -VersionFile $versionFile -VersionRule $versionRule -DownloadedNames $downloadedNames
-
         if (-not $primaryPath -or -not (Test-Path -LiteralPath $primaryPath -PathType Leaf)) {
             $result.Error = ('安装包不在缓存里：{0}' -f $displayName)
             return $result
         }
 
-        $downloadedMain = $null
-        if ($downloadedNames -contains $plans[0]['Name']) { $downloadedMain = $plans[0] }
-        if ($versionFromPackage -and ($downloadedMain -or -not $versionFromCachedPackage)) {
-            Update-WinstLockAfterDownload -Context $Context -SourceName $SourceName -Plan $Plan -Version $version -DownloadedMain $downloadedMain
+        if ($versionFromPackage -and $downloadedNames -contains $plans[0]['Name']) {
+            Update-WinstLockAfterDownload -Context $Context -SourceName $SourceName -Plan $Plan -DownloadedMain $plans[0]
         }
 
-        # 仅附件更新按已确认的范围落位；完整安装才按实际取得的版本补做决策。
-        if (-not $companionOnlyUpdate -and $versionFromPackage -and $detected -and $detected -ine 'unknown' -and -not $Force -and $version -ne $info.Version) {
-            $deferVersionDecision = $true
-        }
         if ($deferVersionDecision) {
-            $mainVersion = Get-WinstMainUpdateVersion -Ledger $ledger -Plan $Plan -SourceName $SourceName -Version $version `
-                -InstalledVersion $detected -MainHash $plans[0]['IndexHash']
             $deferred = Resolve-WinstDeferredDecision -Context $Context -Plan $Plan -Type $type -Install $install -InstallDir $installDir `
-                -Id $id -DisplayName $displayName -Version $mainVersion -Detected $detected -Result $result -Ledger $ledger `
+                -Id $id -DisplayName $displayName -Version $version -Detected $detected -Result $result -Ledger $ledger `
                 -CompanionDownloadCount $companionDownloadCount -Quiet:$Quiet -SourceName $SourceName
             if ($deferred.Return) { return $deferred.Result }
             $companionOnlyUpdate = [bool]$deferred.CompanionOnly
@@ -186,9 +178,7 @@ function Invoke-WinstAppInstall {
             # 仅下载类型的软件包里没有可安装的东西，措辞用「软件包」；-DownloadOnly 的普通软件仍叫「安装包」
             $packageNoun = '安装包'
             if ($type -eq 'download') { $packageNoun = '软件包' }
-            # 版本号取自主包文件信息的条目：刚取到的包已经给出了版本号，一并说明（用户下载这类包就是为了知道版本）
-            $versionNote = ''
-            if ($versionFromPackage -and $version) { $versionNote = ('（版本 {0}）' -f $version) }
+            $versionNote = if ($version) { '（版本 {0}）' -f $version } else { '（缓存版本未知）' }
             # 报实际落地的那个文件（$primaryPath 已在上方校验存在），版本说明跟在路径之后
             $result.Message = ('{0} 的{1}已下载到 {2}{3}' -f $displayName, $packageNoun, $primaryPath, $versionNote)
             return $result
@@ -278,19 +268,12 @@ function Invoke-WinstAppInstall {
         $final = Get-WinstInstallFinalVersion -Context $Context -Plan $Plan -InstallDir $installDir `
             -Version $version -Ledger $ledger -Quiet:$Quiet
         $finalVersion = [string]$final.Version
-        $companionVersionBaseline = $null
-        $fileRule = Get-EntryString -Entry (Get-EntryValue -Entry $Plan -Key 'packageVersion') -Key 'file'
-        if ($fileRule -and $versionFile -and $versionFile -ine $plans[0]['Name'] -and $plans[0]['IndexHash']) {
-            $companionVersionBaseline = @{
-                source = $SourceName; fileRule = $fileRule; mainHash = $plans[0]['IndexHash']; installedVersion = $finalVersion
-            }
-        }
         # 系统项失败时也要登记已经落地的部分，以便卸载时回收。
         try {
             Set-WinstInstallLedger -Context $Context -Id $id -Type $type -Plan $Plan `
                 -InstallDir $installDir -Version $finalVersion -SourceName $SourceName `
                 -SystemItems $system.Items -AppliedFiles $appliedFiles -AppliedFileRules $landing.Rules -AppliedFileVersions $appliedFileVersions `
-                -CompanionVersionBaseline $companionVersionBaseline -OldVersions @($final.OldVersions)
+                -OldVersions @($final.OldVersions)
         } catch {
             if ($system.Error) {
                 $result.Error = ('{0}（且写入安装台账失败：{1}）' -f [string]$system.Error, $_.Exception.Message)

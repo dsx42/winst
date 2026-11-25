@@ -3,10 +3,10 @@
 function Install-WinstEngine {
     <#
     .SYNOPSIS
-        引导安装引擎条目（FluxDown-CLI / 7-Zip-CLI）：IWR 下载 → 解压落地 → 写台账与缓存索引；
+        引导安装引擎条目（FluxDown-CLI / 7-Zip-CLI）：下载 → 解压落地 → 写台账与缓存索引；
         `-ForceUpdate` 时引擎已存在也重新下载覆盖。
     .DESCRIPTION
-        引擎引导包与 winst 自身包是仅有的两处允许用 Invoke-WebRequest 下载的地方；
+        引擎引导包在本机服务不可用且缺少 CLI 时使用 HTTP 下载。
         引擎专用目录按 portable 管理；无法直接解压 7-Zip 引导包时可能安装完整的系统 7-Zip。
         7-Zip 引导包有旧引擎时直接用旧引擎解压；没有时先尝试 tar，再借助系统安装版解压。
         找不到可用系统安装时用 /S 静默运行已下载的 EXE，安装结束后用系统 7-Zip 解压引导包并交付。
@@ -65,12 +65,15 @@ function Install-WinstEngine {
     try { $packageLock = Enter-WinstPackageLock -PkgDir $Context.PkgDir -Id $planId }
     catch { $result.Error = $_.Exception.Message; return $result }
     try {
-        # ① 下载（引擎引导例外：IWR）+ 缓存索引 + 旧包清理
+        # ① 取包+ 缓存索引 + 旧包清理
         $download = Invoke-WinstEngineDownload -Context $Context -Id $Id -Plan $plan -PlanId $planId -Quiet:$Quiet
         if (-not $download.Ok) {
             $result.Error = [string]$download.Error
             return $result
         }
+
+        try { $plan = Get-WinstCachedInstallPlan -Context $Context -Plan $download.Plan -CachedVersion $download.Version }
+        catch { $result.Error = $_.Exception.Message; return $result }
 
         # ② 解压 ③ 复制 / 改名
         $layout = Expand-WinstEnginePackage -Context $Context -Id $Id -Plan $plan -InstallDir $installDir `

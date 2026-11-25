@@ -3,167 +3,150 @@
 function Invoke-WinstPackageDownloadLoop {
     <#
     .SYNOPSIS
-        逐个文件取包：按取包计划复用缓存；缺失 / 需重取则下载（含离线特例、引擎引导、失效地址重试）。
-    .OUTPUTS
-        成功时含 Ok、Names、Any；失败时含 Ok、Error、Network。
+        按清单逐个校验、复用或替换缓存包，并将已完成文件及主包版本写入索引。
     #>
-    param([hashtable]$Context, $Plans, [string]$PkgDir, [string]$Id, [string]$DisplayName, [string]$SourceName,
-        [string]$Version, [switch]$Offline, [switch]$Quiet, [switch]$DirectHttp, $PrevEntry)
+    param([hashtable]$Context, $Plan, $Plans, [string]$PkgDir, [string]$Id, [string]$DisplayName,
+        [string]$SourceName, [switch]$Offline, [switch]$Quiet, [switch]$Bootstrap, $PrevEntry)
 
     $downloadedNames = @()
-    $downloadedAny = $false
-    $DirectHttp = $DirectHttp -or ($Id -ceq (Get-WinstDownloadEngineId))
-    $engineReady = $DirectHttp
-    $fileSeq = -1
-    foreach ($filePlan in @($Plans)) {
-        $fileSeq++
-        $url = [string]$filePlan['Url']
-        $name = [string]$filePlan['Name']
-        $target = [string]$filePlan['Target']
-        if (-not $name -or -not $target -or -not $url) {
-            return @{ Ok = $false; Error = ('下载信息不完整（{0}）' -f $DisplayName); Network = $false }
-        }
-        # refresh 取值写错之类只在 --verbose 提示，不占正常输出
-        if ($filePlan['Notice'] -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
-            Write-Host ('  [verbose] {0}' -f [string]$filePlan['Notice']) -ForegroundColor DarkGray
-        }
-        # Hint：拿不到校验器时「本次按已缓存处理」这类必须让用户看见的一行
-        if ($filePlan['Hint'] -and -not $Quiet) {
-            Write-Host ('    提示: {0}' -f [string]$filePlan['Hint']) -ForegroundColor DarkYellow
-        }
+    $retries = @{}
+    $Bootstrap = $Bootstrap -or ($Id -ceq (Get-WinstDownloadEngineId))
+    $engineChecked = $false
+    if (-not $SourceName) { $SourceName = Get-EntryString -Entry $Plan -Key 'manifestOrigin' }
+    :downloadPlan while ($true) {
+        $planNames = @($Plans | ForEach-Object { $_['Name'] })
+        $version = Get-EntryString -Entry $PrevEntry -Key 'version'
+        $fromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
 
-        if ($filePlan['ValidationError']) {
-            return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); Network = [bool]$filePlan['ValidationNetwork'] }
-        }
-
-        if (-not $filePlan['NeedDownload']) {
-            continue
-        }
-
-        if ($filePlan['Reason'] -and -not $Quiet) {
-            Write-Host ('    {0}: {1}' -f $name, $filePlan['Reason']) -ForegroundColor DarkYellow
-        }
-        if ($Offline) {
-            # 离线时不能拿「当前运行的脚本」顶替安装包：缓存里的目标名是清单声明的文件名
-            # （winst 是 winst.zip，type: portable），把 winst.ps1 的内容写进 winst.zip 会让后续
-            # 解压必然失败（7z / tar / .NET ZIP 都打不开），报错却是「包损坏」。
-            # 离线安装 winst 自身请走 Install-WinstSelf 的本地包分支：
-            #     winst install winst --from <winst.zip 或已解压目录>
-            $offlineError = ('离线缺包：{0} 的安装包不在缓存里。请在联网机器上刷新缓存（bundle pack / update --download-only）后重试。' -f $DisplayName)
-            if ($Id -ieq 'winst') {
-                $offlineError = ('离线缺包：{0} 的安装包不在缓存里。离线安装 winst 自身请用 winst install winst --from <winst.zip 或已解压目录>。' -f $DisplayName)
-            }
-            if (Test-Path -LiteralPath $target -PathType Leaf) {
-                $offlineError = ('离线缓存无法验证：{0} 的现有安装包未通过当前完整性规则；文件已保留，请在联网机器上刷新缓存后重试。' -f $DisplayName)
-            }
-            return @{
-                Ok = $false; Network = $true
-                Error = $offlineError
+        $versionInput = $null
+        if ($fromPackage -and (-not $version -or $Plans[0]['NeedDownload'])) {
+            $versionInput = Get-WinstPackageVersionInput -Plan $Plan
+            if (-not $versionInput -or $versionInput.Index -ge $Plans.Count) {
+                return @{ Ok = $false; Error = '未找到有效的包内取版文件'; Network = $false }
             }
         }
-        $hadTarget = Test-Path -LiteralPath $target -PathType Leaf
-        if (-not $engineReady) {
-            $engine = Confirm-WinstDownloadEngine -Context $Context -Quiet:$Quiet
-            if (-not $engine.Ok) {
-                return @{ Ok = $false; Error = ('下载引擎不可用：{0}' -f $engine.Error); Network = $true }
-            }
-            $engineReady = $true
-            # 引导下载引擎时可能已把本包一并取下（引擎引导包与目标包常是同一个文件），避免重复下载
-            if (-not $hadTarget -and (Test-Path -LiteralPath $target -PathType Leaf)) {
-                $recheck = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl']
-                if ($recheck.Ok) {
-                    Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $recheck
-                    $downloadedNames += $name
-                    continue
+        $order = @(0..($Plans.Count - 1))
+        # 新主包需要新版取版附件时，先换附件，确保中断后不会从旧附件补读新主包版本。
+        if ($versionInput -and $versionInput.Index -gt 0 -and $Plans[$versionInput.Index]['NeedDownload']) {
+            $hasOldInput = Test-Path -LiteralPath $Plans[$versionInput.Index]['Target'] -PathType Leaf
+            if (-not $version -and $hasOldInput -and (Test-Path -LiteralPath $Plans[0]['Target'] -PathType Leaf)) {
+                # 先登记旧主包，避免只换了取版附件就中断时，下次把新附件的版本补给旧主包。
+                try {
+                    $version = Read-WinstPackageVersion -Context $Context -Plan $Plan -PkgDir $PkgDir -InputName $versionInput.Name -Quiet:$Quiet
+                } catch {
+                    if (-not $Plans[0]['NeedDownload']) { return @{ Ok = $false; Error = $_.Exception.Message; Network = $false } }
+                    Write-Verbose ('旧附件无法补读版本，将先替换主包，再从新附件取版。{0}' -f $_.Exception.Message)
                 }
-            }
-        }
-
-        # 同卷暂存并校验成功后才替换缓存，刷新失败保留原来的离线副本。
-        $commitTarget = $target
-        $downloadDir = Join-WinstPath $PkgDir ('winst-download-' + [guid]::NewGuid().ToString('N'))
-        try {
-            Assert-WinstSafeWritePath -Path $commitTarget
-            Assert-WinstSafeWritePath -Path $downloadDir
-            $null = New-Item -ItemType Directory -Path $downloadDir -ErrorAction Stop
-            $target = Join-WinstPath $downloadDir $name
-            if (-not $Quiet) { Write-Host ('    正在下载 {0} …' -f $name) -ForegroundColor Gray }
-            if ($DirectHttp) {
-                $dl = Save-WinstFileWithHttp -Context $Context -Uri $url -OutFile $target
-            } else {
-                $dl = Invoke-WinstPackageDownload -Context $Context -Url $url -DestDir $downloadDir -FileName $name
-            }
-            if (-not $dl.Ok) {
-                # 带时效的地址过期后必然下载失败：
-                # 重新解析该条目的来源、用新地址再试一次。只认「同一个文件」（名字与版本都要对得上），
-                # 免得软件源已经换了新版本时把新版本当成目标版本下载；只试一次，不写回解析锁。
-                $live = Get-WinstLiveResolvedFileUrl -Context $Context -Id $Id -PreferSource $SourceName -Index $fileSeq -FileName $name
-                $retryUrl = ''
-                if ($live.Ok -and $live.Url -and ([string]$live.Url -cne $url) -and ([string]$live.Name -ieq $name)) {
-                    $sameVersion = $true
-                    if ([string]$live.Version -and $Version) {
-                        $sameVersion = ((Compare-WinstVersion -A ([string]$live.Version) -B $Version) -eq 0)
-                    }
-                    if ($sameVersion) { $retryUrl = [string]$live.Url }
-                }
-                if ($retryUrl) {
-                    if (-not $Quiet) { Write-Host '    下载地址可能已失效，已重新从软件源取回下载地址，正在重试 …' -ForegroundColor DarkYellow }
-                    if ($DirectHttp) {
-                        $retryDl = Save-WinstFileWithHttp -Context $Context -Uri $retryUrl -OutFile $target
-                    } else {
-                        $retryDl = Invoke-WinstPackageDownload -Context $Context -Url $retryUrl -DestDir $downloadDir -FileName $name
-                    }
-                    if ($retryDl.Ok) {
-                        $dl = $retryDl
-                        $url = $retryUrl
-                    } else {
-                        $dl = @{ Ok = $false; Error = ('{0}；重新解析软件源后重试仍失败：{1}' -f $dl.Error, $retryDl.Error) }
-                    }
-                } elseif ((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
-                    if ($live.Ok) {
-                        Write-Host ('  [verbose] 重新解析软件源后地址没有变化（或已换版本），不重试: {0}' -f [string]$live.Name) -ForegroundColor DarkGray
-                    } else {
-                        Write-Host ('  [verbose] 重新解析软件源失败：{0}' -f [string]$live.Error) -ForegroundColor DarkGray
+                if ($version -and $Plans[0]['NeedDownload']) {
+                    Save-WinstCacheIndex -PkgDir $Context.PkgDir -UpdateIds @($Id) -Update {
+                        param($index)
+                        if ($index.Contains($Id)) { $index[$Id]['version'] = $version }
+                        else { Set-WinstCacheIndexEntry -Index $index -Id $Id -Version $version -Files @($planNames[0], $versionInput.Name) }
                     }
                 }
-                if (-not $dl.Ok) {
-                    return @{ Ok = $false; DownloadFailed = $true; Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error); Network = $true }
-                }
+                if (-not $Plans[0]['NeedDownload']) { $versionInput = $null }
             }
-            $adopt = Resolve-WinstDownloadedFile -Dir $downloadDir -Name $name
-            if ([string]$adopt.Note -and -not $Quiet) { Write-Host ('    {0}' -f [string]$adopt.Note) -ForegroundColor DarkYellow }
-            if (-not [string]$adopt.Path) {
-                return @{ Ok = $false; Error = ('下载完成后没有找到文件：{0}（{1}）' -f $target, [string]$adopt.Error); Network = $false }
-            }
-            if ($dl['Retried'] -and -not $Quiet) {
-                Write-Host '    多段并发下载失败，已改用单连接重试并成功。' -ForegroundColor DarkYellow
-            }
-            $check = Test-WinstFileIntegrity -Context $Context -FilePath $target -FileDecl $filePlan['Decl']
-            if (-not $check.Ok) {
-                # 刚下载的包校验不通过：删掉坏包并报错（软件源里的包本身有问题）
-                Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
-                return @{ Ok = $false; Error = ('{0} 校验失败：{1}' -f $name, $check.Error); Network = [bool]$check.Network }
-            }
-            Clear-WinstReplacedPackageRecord -PkgDir $Context.PkgDir -Id $Id -Entry $PrevEntry -FilePlan $filePlan -Url $url -IndexHash $check.IndexHash
-            Assert-WinstSafeWritePath -Path $commitTarget
-            if (Test-Path -LiteralPath $commitTarget -PathType Leaf) {
-                [IO.File]::Replace($target, $commitTarget, [System.Management.Automation.Language.NullString]::Value)
-            } else {
-                [IO.File]::Move($target, $commitTarget)
-            }
-            $filePlan['Url'] = $url
-            Set-WinstFilePlanIntegrityFromCheck -FilePlan $filePlan -Check $check
-            $downloadedNames += $name
-            $downloadedAny = $true
-        } catch {
-            return @{ Ok = $false; Error = ('下载缓存写入失败：{0}' -f $_.Exception.Message); Network = $false }
-        } finally {
-            if (Test-Path -LiteralPath $downloadDir -PathType Container) {
-                try { Clear-WinstInstallDir -Dir $downloadDir }
-                catch { Write-Warning ('下载临时目录未能清理：{0}（{1}）' -f $downloadDir, $_.Exception.Message) }
+            if ($Plans[0]['NeedDownload'] -and $hasOldInput -and $version) {
+                $order = @($versionInput.Index) + @($order -ne $versionInput.Index)
             }
         }
+        $mainReady = $false
+        foreach ($fileSeq in $order) {
+            $filePlan = $Plans[$fileSeq]
+            $url = [string]$filePlan['Url']
+            $name = [string]$filePlan['Name']
+            $target = [string]$filePlan['Target']
+            if (-not $name -or -not $target -or -not $url) {
+                return @{ Ok = $false; Error = ('下载信息不完整（{0}）' -f $DisplayName); Network = $false }
+            }
+            # refresh 取值写错之类只在 --verbose 提示，不占正常输出
+            if ($filePlan['Notice'] -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
+                Write-Host ('  [verbose] {0}' -f [string]$filePlan['Notice']) -ForegroundColor DarkGray
+            }
+            # Hint：拿不到校验器时「本次按已缓存处理」这类必须让用户看见的一行
+            if ($filePlan['Hint'] -and -not $Quiet) {
+                Write-Host ('    提示: {0}' -f [string]$filePlan['Hint']) -ForegroundColor DarkYellow
+            }
+
+            if ($filePlan['ValidationError']) {
+                return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); Network = [bool]$filePlan['ValidationNetwork'] }
+            }
+
+            $received = $null
+            if ($filePlan['NeedDownload']) {
+                if ($Offline) {
+                    $offlineError = ('离线缺包：{0} 的安装包不在缓存里。请在联网机器上刷新缓存（bundle pack / update --download-only）后重试。' -f $DisplayName)
+                    if ($Id -ieq 'winst') {
+                        $offlineError = ('离线缺包：{0} 的安装包不在缓存里。离线安装 winst 自身请用 winst install winst --from <winst.zip 或已解压目录>。' -f $DisplayName)
+                    }
+                    if (Test-Path -LiteralPath $target -PathType Leaf) {
+                        $offlineError = ('离线缓存无法验证：{0} 的现有安装包未通过当前完整性规则；文件已保留，请在联网机器上刷新缓存后重试。' -f $DisplayName)
+                    }
+                    return @{
+                        Ok = $false; Network = $true
+                        Error = $offlineError
+                    }
+                }
+                if (-not $Quiet -and $filePlan['Reason']) {
+                    Write-Host ('    {0}: {1}' -f $name, $filePlan['Reason']) -ForegroundColor DarkYellow
+                }
+                if (-not $Bootstrap -and -not $engineChecked -and (Get-WinstEngineExe -Context $Context -Id (Get-WinstDownloadEngineId))) {
+                    $engine = Confirm-WinstDownloadEngine -Context $Context -Quiet:$Quiet
+                    if (-not $engine.Ok) {
+                        return @{ Ok = $false; Error = ('下载引擎不可用：{0}' -f $engine.Error); Network = $true }
+                    }
+                    $engineChecked = $true
+                }
+                if (-not $retries.ContainsKey($fileSeq)) { $retries[$fileSeq] = @{ Attempts = 0 } }
+                $received = Receive-WinstPackageFile -Plan $Plan -Retry $retries[$fileSeq] -Context $Context -FilePlan $filePlan -FileSeq $fileSeq -PkgDir $PkgDir `
+                    -Id $Id -SourceName $SourceName -PrevEntry $PrevEntry -Bootstrap:$Bootstrap -Quiet:$Quiet
+                if ($received['RefreshPlan']) {
+                    $Plan = $received.RefreshPlan
+                    $read = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($Id)
+                    $PrevEntry = $read.Index[$Id]
+                    $Plans = @(Get-WinstPackageFilePlans -Context $Context -Index $read.Index -Id $Id -Files $Plan.download.files `
+                        -ManifestOrigin $SourceName -RequireCurrent)
+                    # 本次重试需要从头取当前文件，即使同名正式缓存仍然存在。
+                    $Plans[$fileSeq]['NeedDownload'] = $true
+                    continue downloadPlan
+                }
+                if (-not $received.Ok) { return $received }
+                $downloadedNames += $name
+            }
+
+            if ($fileSeq -eq 0) {
+                $mainReady = $true
+                if ($filePlan['NeedDownload']) {
+                    $version = ''
+                    if (-not $fromPackage) { $version = Get-EntryString -Entry $Plan -Key 'version' }
+                }
+            }
+            try {
+                try {
+                    # 取版文件若已通过复用判定，主包就绪时即可登记；需下载的附件则等该文件到手。
+                    if ($mainReady -and $versionInput -and
+                            (-not $Plans[$versionInput.Index]['NeedDownload'] -or $downloadedNames -contains $versionInput.Name)) {
+                        $version = Read-WinstPackageVersion -Context $Context -Plan $Plan -PkgDir $PkgDir -InputName $versionInput.Name -Quiet:$Quiet
+                        $versionInput = $null
+                    }
+                } finally {
+                    Update-WinstPackageCacheIndex -Context $Context -Id $Id -FilePlan $filePlan -PlanNames $planNames `
+                        -Version $version -Downloaded:($filePlan['NeedDownload']) -Complete:($fileSeq -eq $order[-1])
+                }
+            } catch {
+                return @{ Ok = $false; Error = ('缓存登记失败：{0}' -f $_.Exception.Message); Network = $false }
+            }
+            if ($received -and $received['CleanupError']) {
+                return @{ Ok = $false; Error = $received.CleanupError; Network = $false }
+            }
+        }
+
+        try { Clear-WinstEmptyDownloadStage -PkgDir $PkgDir }
+        catch {
+            return @{ Ok = $false; Network = $false
+                Error = ('文件已就绪：{0}。下载暂存清理失败（{1}）：{2}' -f (($Plans | ForEach-Object { $_['Target'] }) -join '、'), (Join-WinstPath $PkgDir 'winst-download'), $_.Exception.Message) }
+        }
+        return @{ Ok = $true; Names = @($downloadedNames | Where-Object { $planNames -contains $_ } | Select-Object -Unique)
+            Version = $version; Plan = $Plan; Plans = $Plans }
     }
-
-    return @{ Ok = $true; Names = $downloadedNames; Any = $downloadedAny }
 }

@@ -85,10 +85,6 @@ function Get-WinstFilePlan {
         $offlineDecl = $File
         if ($Entry -and -not $verifyOrigin) {
             if ($meta.Url) { $plan['Url'] = $meta.Url }
-            $indexedFiles = @(Get-EntryArray -Entry $Entry -Key 'files')
-            if ($FileIndex -eq 0 -and $indexedFiles.Count -and $indexedFiles[0] -ieq $name) {
-                $plan['CachedVersion'] = Get-EntryString -Entry $Entry -Key 'version'
-            }
             if ($sameOrigin) {
                 if ($meta.ExpectedHash -and $meta.SourceVersion -cne $plan['FileVersion']) {
                     if ($meta.ChecksumHashFile) {

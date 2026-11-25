@@ -13,7 +13,7 @@ function Show-WinstCachedDetail {
     Write-WinstDetailHeader -Item $Item
 
     # 已下载的安装包：版本 / 大小 / 文件（安装或更新时缓存命中就直接使用，不重复下载）
-    Write-Host ('    已下载包 : 版本 {0}' -f [string]$Item['CacheVersionText']) -NoNewline -ForegroundColor Gray
+    Write-Host ('    已下载包 : {0}' -f [string]$Item['CacheVersionText']) -NoNewline -ForegroundColor Gray
     Write-Host ('    {0}（{1} 个文件）' -f [string]$Item['CacheSizeText'], [int]$Item['CacheFileCount']) -ForegroundColor Gray
     Write-Host ('    存放位置 : {0}' -f [string]$Item['CacheDir']) -ForegroundColor Gray
     Write-WinstCacheFileList -Item $Item

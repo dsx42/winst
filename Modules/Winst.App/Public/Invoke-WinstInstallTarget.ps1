@@ -72,10 +72,13 @@ function Invoke-WinstInstallTarget {
     $result.Source = $sourceName
 
     $options = Get-WinstState -Name WinstOptions
-    if ($options -and $options.Offline -and -not $DownloadOnly -and (Get-EntryString -Entry $plan -Key 'type') -ne 'download') {
+    $offline = [bool]($options -and $options.Offline)
+    if ($offline) {
         try {
             $cachedVersion = Get-WinstOfflinePackageVersion -Context $Context -Plan $plan
-            $plan = Get-WinstOfflineInstallPlan -Context $Context -Plan $plan -CachedVersion $cachedVersion
+            if ($cachedVersion -and -not $DownloadOnly -and (Get-EntryString -Entry $plan -Key 'type') -ne 'download') {
+                $plan = Get-WinstCachedInstallPlan -Context $Context -Plan $plan -CachedVersion $cachedVersion
+            }
         } catch {
             $result.Error = $_.Exception.Message
             return $result
@@ -104,9 +107,10 @@ function Invoke-WinstInstallTarget {
             # 本机已装版本 / 软件源版本：决定提示是「安装」还是「更新到 x.y ↑」
             $installedVersion = Get-EntryString -Entry $ledgerNow -Key 'version'
             $fromPackage = Get-EntryBool -Entry $plan -Key 'versionFromPackage'
-            if ($fromPackage) {
-                $installLedger = if (-not $downloadMode) { $ledgerNow }
-                $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $entry -InstalledVersion $installedVersion -Ledger $installLedger
+            if ($offline) {
+                $planVersion = $cachedVersion
+            } elseif ($fromPackage) {
+                $snap = Get-WinstUpdateEntrySnapshot -Chosen $entry -InstalledVersion $installedVersion
                 $planVersion = $snap.Latest
             } else {
                 $planVersion = Get-EntryString -Entry $plan -Key 'version'
@@ -116,7 +120,7 @@ function Invoke-WinstInstallTarget {
                 if ((Compare-WinstVersion -A $planVersion -B $installedVersion) -gt 0) { $isUpgrade = $true }
             }
 
-            Show-WinstPlanDetail -Context $Context -Plan $plan -SourceName $sourceName -StateRead $stateRead -Ledger $ledgerNow -IsUpgrade:$isUpgrade
+            Show-WinstPlanDetail -Context $Context -Plan $plan -SourceName $sourceName -StateRead $stateRead -Ledger $ledgerNow -IsUpgrade:$isUpgrade -UseCacheVersion:$offline
             if ($isDownloadPlan) {
                 Write-Host '    这是「仅下载软件包」类型的软件：只下载软件包到安装包位置，不安装到电脑。' -ForegroundColor DarkGray
                 $ignoredOptions = @()
@@ -150,7 +154,7 @@ function Invoke-WinstInstallTarget {
             }
             $companionOnlyPrompt = [bool]($companionInfo -and $companionInfo.CompanionsOnly)
 
-            if ($fromPackage) {
+            if ($fromPackage -and -not $offline) {
                 $targetText = Get-WinstRemoteFreshTargetText -Fresh $snap.RemoteFresh -FallbackVersion $planVersion
                 Write-Host ('    上次刷新软件源：{0}' -f $targetText) -ForegroundColor DarkGray
             }

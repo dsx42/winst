@@ -59,9 +59,27 @@ function Get-WinstSearchCatalog {
         $row = $groups[$id]
         if (-not $row['Name']) { $row['Name'] = (Get-EntryString -Entry $app -Key 'name') }
         if (-not $row['Description']) { $row['Description'] = (Get-EntryString -Entry $app -Key 'description') }
+        $version = Get-EntryString -Entry $app -Key 'version'
+        if ((Get-EntryBool -Entry $app -Key 'versionFromPackage') -or (Get-EntryBool -Entry $app -Key 'versionFromCache')) {
+            $version = ''
+            if ((Get-EntryString -Entry $app -Key 'remoteFresh') -eq 'unchanged') {
+                # 锁中的比较结论只适用于当时的主包，版本从当前索引读。
+                $entry = (Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($id)).Index[$id]
+                $files = @(Get-EntryArray -Entry $entry -Key 'files')
+                $hash = Get-EntryString -Entry $app -Key 'remoteFreshHash'
+                if ($hash -and $files.Count -and (Test-WinstSafePathSegment -Name $files[0]) -and
+                        (Get-WinstRecordedHash -Entry $entry -FileName $files[0]) -ieq $hash -and
+                        (Test-Path -LiteralPath (Join-WinstPath (Join-WinstPath $Context.PkgDir $id) $files[0]) -PathType Leaf)) {
+                    $version = Get-EntryString -Entry $entry -Key 'version'
+                } else {
+                    $app = Copy-WinstObjectShallow -InputObject $app
+                    $app['remoteFresh'] = 'unknown'
+                }
+            }
+        }
         $row['Sources'] += @{
             Source  = [string]$item['Source']
-            Version = (Get-EntryString -Entry $app -Key 'version')
+            Version = $version
             Ok      = (Get-EntryBool -Entry $app -Key 'ok')
             Error   = (Get-EntryString -Entry $app -Key 'error')
             Plan    = $app

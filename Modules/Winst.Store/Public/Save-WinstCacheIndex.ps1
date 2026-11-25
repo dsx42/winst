@@ -63,6 +63,7 @@ function Save-WinstCacheIndex {
         Assert-WinstDistinctIds -Ids @($index.Keys)
         if ($changed) {
             Write-FileAtomic -Path $path -Content (ConvertTo-WinstJson -InputObject $index -Depth 8)
+            Reset-WinstCatalogCache
         } else {
             # 即使无需落盘，锁内重读也可能看到了同戳的外部更新。
             Clear-WinstJsonCache -Path $path

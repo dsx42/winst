@@ -14,13 +14,28 @@ function Set-ConfigValue {
         [Parameter(Mandatory = $true)]
         [string]$DisplayName,
         [Parameter(Mandatory = $true)]
-        [AllowEmptyString()][string]$Value,
+        [AllowEmptyString()]$Value,
         [switch]$Quiet
     )
 
     $current = Get-ConfigValue -Config $Context.Config -Key $Key
-    $converted = ConvertTo-WinstConfigValue -Current $current -Text $Value
-    if ($Key -eq 'proxy' -and -not $Value.Trim()) { $converted = @{ Ok = $true; Value = ''; Error = '' } }
+    if ($Key -eq 'fluxdownToken' -and $Value -is [securestring]) {
+        try { $valueToSave = ConvertFrom-SecureString $Value -ErrorAction Stop }
+        catch {
+            Write-Host '  当前用户无法加密 FluxDown Token，未做修改。' -ForegroundColor Yellow
+            return $false
+        }
+        $converted = @{ Ok = $true; Value = $valueToSave }
+    } elseif ($Key -in @('proxy','fluxdownApi','fluxdownToken') -and -not $Value.Trim()) {
+        $converted = @{ Ok = $true; Value = '' }
+    } elseif ($Key -eq 'fluxdownToken') {
+        $converted = @{ Ok = $false; Error = '请通过隐藏输入设置 FluxDown Token' }
+    } elseif ($Key -eq 'fluxdownApi') {
+        $address = ConvertTo-WinstFluxAddress $Value.Trim()
+        $converted = @{ Ok = [bool]$address; Value = $address; Error = '地址必须是本机回环 HTTP(S) 根地址' }
+    } else {
+        $converted = ConvertTo-WinstConfigValue -Current $current -Text $Value
+    }
     if (-not $converted.Ok) {
         Write-Host ''
         Write-Host ('  输入无效：{0}，未做修改。' -f $converted.Error) -ForegroundColor Yellow
@@ -87,7 +102,11 @@ function Set-ConfigValue {
 
     Write-Host ''
     Write-Host ('  已保存到: {0}' -f $configPath) -ForegroundColor Green
-    if ($Key -eq 'updateFilesOnly') {
+    if ($Key -in @('fluxdownApi','fluxdownToken')) {
+        $flux = Get-WinstFluxSettings -Config $nextConfig
+        $display = if ($Key -eq 'fluxdownToken') { $flux.TokenDisplay } else { $flux.Address }
+        Write-Host ('  {0}: {1}' -f $DisplayName, $display) -ForegroundColor Gray
+    } elseif ($Key -eq 'updateFilesOnly') {
         Write-Host ('  {0}: {1}' -f $DisplayName, (Format-UpdateFilesOnlyDisplay -Value $converted.Value)) -ForegroundColor Gray
     } elseif ($Key -eq 'proxyMode') {
         Write-Host ('  {0}: {1}' -f $DisplayName, (Format-ProxyModeDisplay -Value $converted.Value)) -ForegroundColor Gray

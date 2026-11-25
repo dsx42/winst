@@ -15,9 +15,8 @@ function Get-WinstCompanionFileVersion {
         解析出的版本只作用于本文件的地址展开，不影响主包版本与其它文件。
         只支持 url 模板定位的文件（github 的 file / json 的 urlKey 地址不由模板拼出，不适用）。
     .OUTPUTS
-        @{ Ok; Version; Own; Error; Notes }
-        Own = 版本是否由本文件独立解析（$true 仅当声明了 versionListUrl 并解析成功）；
-              走「跟随主包版本」时为 $false，此时 Version 只是主包版本，不能当这个文件自己的版本记录 / 比较。
+        @{ Ok; Version; SourceVersion; Error; Notes }
+        Version 用于展开本文件的地址。SourceVersion 是版本列表中命中的原始版本，跟随主包时为空。
     #>
     param(
         [hashtable]$Context,
@@ -30,10 +29,10 @@ function Get-WinstCompanionFileVersion {
     $listTemplate = (Get-EntryString -Entry $Item -Key 'versionListUrl').Trim()
     if (-not $listTemplate) {
         $fallback = Get-SourceFileVersion -Item $Item -Version $MainVersion
-        return @{ Ok = [bool]$fallback.Ok; Version = [string]$fallback.Version; Own = $false; Error = [string]$fallback.Error; Notes = @() }
+        return @{ Ok = [bool]$fallback.Ok; Version = [string]$fallback.Version; SourceVersion = ''; Error = [string]$fallback.Error; Notes = @() }
     }
 
-    $result = @{ Ok = $false; Version = ''; Own = $true; Error = ''; Notes = @() }
+    $result = @{ Ok = $false; Version = ''; SourceVersion = ''; Error = ''; Notes = @() }
 
     $locator = Get-SourceFileLocator -Item $Item
     if ($locator.Error) { $result.Error = $locator.Error; return $result }
@@ -113,6 +112,7 @@ function Get-WinstCompanionFileVersion {
         if ($probed -ge 8) { break }
         $fileVersion = Get-SourceFileVersion -Item $Item -Version $candidate
         if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
+        $result.SourceVersion = $candidate
         $probed++
         $probeUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
         if ($BaseUri) { $probeUrl = ([Uri]::new($BaseUri, $probeUrl)).AbsoluteUri }

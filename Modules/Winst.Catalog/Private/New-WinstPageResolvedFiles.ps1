@@ -36,7 +36,7 @@ function New-WinstPageResolvedFiles {
         }
         $extraDest = Get-EntryString -Entry $extra -Key 'dest'
         $resolvedFiles += New-ResolvedFileFromDeclaration -Item $extra -Url $extraUrl -Version $extraVersion.Version `
-            -Dest $extraDest -OwnVersion ([bool]$extraVersion.Own)
+            -Dest $extraDest -SourceVersion $extraVersion.SourceVersion
     }
 
     return @{ Error = ''; Files = $resolvedFiles }

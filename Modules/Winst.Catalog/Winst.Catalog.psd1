@@ -27,7 +27,6 @@
     #   Winst.Version
     #   Winst.Manifest
     #   Winst.Store
-    #   Winst.Engine
 
     PrivateData = @{
         PSData = @{

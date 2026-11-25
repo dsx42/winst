@@ -3,7 +3,7 @@
 function New-ResolvedFileItem {
     <#
     .SYNOPSIS
-        构造解析锁中的下载文件条目（文件名缺省从 URL 推导；size 仅 magnet 源按 xl 提供）。
+        构造解析锁中的下载文件条目（文件名缺省从 URL 推导，磁力链接可按 xl 提供大小）。
     #>
     param(
         [string]$Url,

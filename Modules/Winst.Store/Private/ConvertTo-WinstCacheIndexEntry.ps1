@@ -53,11 +53,7 @@ function ConvertTo-WinstCacheIndexEntry {
         fileMeta       = $fileMeta
         downloadedAt   = $downloadedAt
     }
-    foreach ($field in @('versionFile', 'bundleSource')) {
-        $value = Get-EntryString -Entry $Entry -Key $field
-        if ($value) { $result[$field] = $value }
-    }
-    $rule = Get-EntryValue -Entry $Entry -Key 'versionRule'
-    if ($null -ne $rule) { $result['versionRule'] = $rule }
+    $source = Get-EntryString -Entry $Entry -Key 'bundleSource'
+    if ($source) { $result['bundleSource'] = $source }
     return $result
 }

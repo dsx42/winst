@@ -9,7 +9,7 @@ function Test-WinstFileVersionPriorBranch {
         ETag 或 Last-Modified 漂移导致同版本重复下载。文件显式声明 refresh 时按声明处理。
         FreshMain 表示版本仅来自缓存包、尚未确认远端是否变化，不能用这个版本命中缓存。
 
-        只认文件自身版本：主包恒有；附加文件只有声明 files[].versionListUrl 并由该文件独立解析出
+        只认文件自身版本：主包取软件源提供的版本；附加文件只有声明 files[].versionListUrl 并由该文件独立解析出
         版本时才有（跟随主包版本的附加文件 FileVersion 为空）——否则主包一升版就会把内容没变的
         附加文件误判成「版本已变化」重新下载。
     .OUTPUTS

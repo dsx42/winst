@@ -174,7 +174,7 @@ function Invoke-WinstInstallCommand {
                 $ledger = Get-WinstInstalledApp -State $state -Id $id
             }
             if ($ledger) { $installedVersion = Get-EntryString -Entry $ledger -Key 'version' }
-            $targetRow = Sort-WinstRowSources -Lookup $sourceLookup -Context $Context -Row $row -InstalledVersion $installedVersion -Ledger $ledger
+            $targetRow = Sort-WinstRowSources -Lookup $sourceLookup -Context $Context -Row $row -InstalledVersion $installedVersion
             if ($sourceName) {
                 $selected = @($targetRow['Sources'] | Where-Object { [string]$_['Source'] -ieq $sourceName })
                 if ($selected.Count -eq 0 -or -not $selected[0]['Ok'] -or -not $selected[0]['Plan']) {

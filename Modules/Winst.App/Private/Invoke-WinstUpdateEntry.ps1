@@ -147,7 +147,7 @@ function Invoke-WinstUpdateEntry {
         return $entryResult
     }
 
-    $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $chosen -InstalledVersion $installedVersion -Ledger $ledger
+    $snap = Get-WinstUpdateEntrySnapshot -Chosen $chosen -InstalledVersion $installedVersion
     $latest = [string]$snap.Latest
     $entryResult.Latest = $latest
     $entryResult.LatestSource = [string]$snap.LatestSource

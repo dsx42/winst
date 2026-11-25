@@ -43,6 +43,10 @@ function New-WinstDevToolsSession {
         Downloads   = (New-Object System.Collections.ArrayList)
         Requests    = (New-Object System.Collections.ArrayList)
         LoadEventFired = $false
+        RequestHop = @{}
+        RequestHeaders = (New-WinstOrdinalDictionary)
+        ExtraHeaders = @{}
+        ReferrerPolicies = (New-WinstOrdinalDictionary)
         FrameId     = ''
         Frames      = (New-WinstOrdinalDictionary)
         Deadline    = $Deadline

@@ -74,6 +74,20 @@ function Invoke-SettingsMenu {
                 ) `
                 -Hint '多个同族软件共存时（如 jdk8 / jdk21 / jdk25 都声明 JAVA_HOME）建议用「只更新文件」。'
         }
+        '8' = {
+            param($ctx)
+            $flux = Get-WinstFluxSettings -Config $ctx.Config
+            Invoke-SettingItem -Context $ctx -Key 'fluxdownApi' -DisplayName 'FluxDown API 地址' `
+                -CurrentDisplay $flux.Address -CurrentTag $flux.AddressTag `
+                -Hint '输入本机回环 HTTP(S) 根地址，例如 http://127.0.0.1:17800，输入 - 清除显式设置。'
+        }
+        '9' = {
+            param($ctx)
+            Write-Section 'FluxDown API Token'
+            $action = Read-Host '  1 设置或更换，2 清除 winst 保存的 Token（直接回车取消）'
+            if ($action -eq '1') { $null = Read-WinstFluxTokenSetting -Context $ctx }
+            elseif ($action -eq '2') { $null = Set-ConfigValue -Context $ctx -Key 'fluxdownToken' -DisplayName 'FluxDown API Token' -Value '' }
+        }
     }
 
     $result = Invoke-MenuLoop -Render $render -Context $Context `

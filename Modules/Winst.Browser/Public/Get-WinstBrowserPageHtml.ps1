@@ -33,11 +33,15 @@ function Get-WinstBrowserPageHtml {
     #>
     param(
         [hashtable]$Context,
-        [Parameter(Mandatory = $true)][string]$Url
+        [Parameter(Mandatory = $true)][string]$Url,
+        [Collections.ArrayList]$Sessions
     )
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
     $deadline = [datetime]::UtcNow.AddSeconds(60)
+    if ($null -ne $Sessions) {
+        return Get-WinstBrowserPageHtmlByDevTools -Context $Context -Url $Url -Deadline $deadline -Sessions $Sessions
+    }
     # 提权与否决定先走哪条通道（见上方说明）：提权进程里 --dump-dom 的 stdout 是空的，先试它只会白等一轮
     try {
         $isElevated = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole(

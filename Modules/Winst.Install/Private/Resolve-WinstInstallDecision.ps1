@@ -24,9 +24,7 @@ function Resolve-WinstInstallDecision {
         [switch]$Force,
         [switch]$DryRun,
         [switch]$Offline,
-        [switch]$FreshMain,
         [string]$PlanFreshState,
-        [switch]$VersionFromCachedPackage,
         [int]$CompanionDownloadCount,
         [switch]$CompanionsOnly,
         $PrimaryFilePlan,
@@ -58,28 +56,15 @@ function Resolve-WinstInstallDecision {
     }
 
     if ($detected -and $detected -ine 'unknown') {
-        if (-not $FreshMain -and -not $PrimaryFilePlan['NeedDownload'] -and ($Offline -or $PlanFreshState -ieq 'unchanged') -and
-                (Get-EntryValue -Entry $Ledger -Key 'companionVersionBaseline')) {
-            if (-not $PrimaryFilePlan['IndexHash']) {
-                $PrimaryFilePlan['IndexHash'] = Get-WinstPackageFileHash -Path $PrimaryFilePlan['Target']
-            }
-            $Version = Get-WinstMainUpdateVersion -Ledger $Ledger -Plan $Plan -SourceName $SourceName -Version $Version `
-                -InstalledVersion $detected -MainHash $PrimaryFilePlan['IndexHash']
-        }
         $hasTarget = [bool]$Version
         $cmp = 0
         if ($hasTarget) { $cmp = Compare-WinstVersion -A $detected -B $Version }
 
-        # versionFromPackage：版本号只能靠现取的包得到（软件源里没有版本号；缓存里那份不代表软件源当前这一份）。
-        # 本机已装、又没有 --force 时不在这里下结论：先取包（主包不沿用缓存），取到后按包内文件信息补做一次矩阵。
-        # 推迟决策只在「主包确实要重新取」时有意义（远端有新包 / 没比出结论）：取到后按包内版本补做矩阵；
-        # unchanged（远端无新包）时缓存版本就是目标版本，直接按矩阵下结论，不重取也不推迟
-        $deferVersionDecision = [bool](-not $Force -and ($FreshMain -or (-not $hasTarget -and (Get-EntryBool -Entry $Plan -Key 'versionFromPackage'))))
+        # 包内取版且目标版本尚未登记时，待取包阶段给出读数后再比较。
+        $deferVersionDecision = -not $Force -and -not $hasTarget -and (Get-EntryBool -Entry $Plan -Key 'versionFromPackage')
         if ($deferVersionDecision -and -not $Quiet) {
             if ($PlanFreshState -ieq 'changed') {
                 Write-Host ('  {0} 本机已安装 {1}；远端有新包（文件比较），将重新下载安装包、取包后核对版本。' -f $DisplayName, $detected) -ForegroundColor DarkYellow
-            } elseif ($VersionFromCachedPackage) {
-                Write-Host ('  {0} 本机已安装 {1}；无法确认远端文件是否变化，将重新取包核对版本（缓存里的包是 {2}，取自包内文件信息）。' -f $DisplayName, $detected, $Version) -ForegroundColor DarkYellow
             } else {
                 Write-Host ('  {0} 本机已安装 {1}；软件源里没有版本号（版本号取自主包文件信息），先取包核对版本再决定。' -f $DisplayName, $detected) -ForegroundColor DarkYellow
             }
@@ -126,8 +111,10 @@ function Resolve-WinstInstallDecision {
             return (Complete-WinstInstallSkip -Result $Result -Version $detected `
                 -Message ('{0} 本机已安装 {1}，比软件源里的 {2} 更新{3}' -f $DisplayName, $detected, $Version, (Get-WinstForceHint -Kind 'downgrade')))
         } elseif (-not $hasTarget -and -not $Force -and -not $deferVersionDecision) {
+            $unknown = '软件源里没有可用版本信息'
+            if (-not $PrimaryFilePlan['NeedDownload']) { $unknown = '缓存版本未知' }
             return (Complete-WinstInstallSkip -Result $Result -Version $detected `
-                -Message ('{0} 已安装（{1}），但软件源里没有可用版本信息{2}' -f $DisplayName, $detected, (Get-WinstForceHint -Kind 'continue')))
+                -Message ('{0} 已安装（{1}），但{2}{3}' -f $DisplayName, $detected, $unknown, (Get-WinstForceHint -Kind 'continue')))
         }
     } elseif ($detect.Found -and -not $Force) {
         $Result.Ok = $true

@@ -3,7 +3,7 @@
 function Invoke-WinstEngineDownload {
     <#
     .SYNOPSIS
-        ① 引擎自动引导下载（直接 HTTP）：逐文件下载 + 校验 + 写缓存索引 + 清理旧包。
+        ① 引擎自动引导下载：逐文件下载 + 校验 + 写缓存索引 + 清理旧包。
     .OUTPUTS
         成功时返回 Ok、PrimaryPath，失败时返回 Ok、Error。
     #>
@@ -23,15 +23,12 @@ function Invoke-WinstEngineDownload {
     # 缓存里已有需要的包（且校验码一致 / 新鲜度判定命中）就跳过下载，不重复下载
     $plans = @(Get-WinstPackageFilePlans -Context $Context -Index $index -Id $PlanId -ManifestOrigin (Get-EntryString -Entry $Plan -Key 'manifestOrigin') -Files $files)
     $pkgDir = Join-WinstPath $Context.PkgDir $PlanId
-    $version = Get-EntryString -Entry $Plan -Key 'version'
     $sourceName = Get-EntryString -Entry $Plan -Key 'manifestOrigin'
     $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $plans -PkgDir $pkgDir -Id $PlanId -DisplayName $Id `
-        -SourceName $sourceName -Version $version -PrevEntry $previousEntry -DirectHttp -Quiet:$Quiet
+        -SourceName $sourceName -Plan $Plan -PrevEntry $previousEntry -Bootstrap -Quiet:$Quiet
     if (-not $download.Ok) { return $download }
 
-    Update-WinstPackageCacheIndex -Context $Context -Id $PlanId -Plans $plans -PrevEntry $previousEntry `
-        -Version $version -DownloadedNames $download.Names
-    Remove-WinstObsoletePackages -Context $Context -Id $PlanId -Plans $plans -DownloadedAny ([bool]$download.Any)
+    Remove-WinstObsoletePackages -Context $Context -Id $PlanId -Plans $download.Plans -DownloadedAny ($download.Names.Count -gt 0)
 
-    return @{ Ok = $true; PrimaryPath = $plans[0]['Target'] }
+    return @{ Ok = $true; PrimaryPath = $download.Plans[0]['Target']; Plan = $download.Plan; Version = $download.Version }
 }

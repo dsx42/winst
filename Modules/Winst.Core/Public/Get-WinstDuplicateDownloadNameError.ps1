@@ -13,6 +13,9 @@ function Get-WinstDuplicateDownloadNameError {
         if (-not $name) { $name = Get-FileNameFromUrl -Url (Get-EntryString -Entry $file -Key 'url') }
         $name = ([string]$name).Trim()
         if (-not $name) { continue }
+        if ($name -in @('winst-download', '.tasks', '.local') -or $name -like '*.fdownloading') {
+            return ('下载文件名与下载暂存路径冲突：{0}，请在清单中指定其它 name。' -f $name)
+        }
         if ($names.ContainsKey($name)) {
             return ('下载文件名重复：{0}；source.files 的产物必须使用不同文件名（不区分大小写），请修正 name 并刷新软件源。' -f $name)
         }

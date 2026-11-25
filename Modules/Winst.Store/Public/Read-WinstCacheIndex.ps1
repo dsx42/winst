@@ -7,7 +7,7 @@ function Read-WinstCacheIndex {
     .OUTPUTS
         @{ Index; Changed; Error; CanSave }
     .DESCRIPTION
-        重建时版本未知（记空串），并按文件的最后写入时间填 downloadedAt；目录已不存在的索引条目
+        重建时版本和下载时间均留空；目录已不存在的索引条目
         在本次读取中清除（Changed 为 $true 时调用方应回写）。
         整份文件读不出来才算「损坏」：单条记录解析失败只按该 id 目录内的文件重建这一条，
         不牵连其余记录；判定损坏时先把原文件另存为 winst.json.bak 再交给调用方覆盖，
@@ -36,7 +36,6 @@ function Read-WinstCacheIndex {
     # 缓存命中可省去全量 JSON 解析，但仍需核对目录是否还在（外部删目录后不能沿用旧结果）。
     # 写入侧 Save-WinstCacheIndex 走 Write-FileAtomic 自动失效；索引文件被删除 / 重建时时间戳变化，同样自动失效。
     $cacheKey = 'cache-index|' + $path
-    # 注意：变量名不能叫 $stamp —— 别处 $stamp 表示「下载时间」（见 New-WinstCacheIndexEntryFromDir），容易混淆
     $indexFileStamp = Get-WinstFileStamp -Path $path
     $cache = Get-WinstState -Name WinstJsonCache
     $cachedIndex = $cache[$cacheKey]

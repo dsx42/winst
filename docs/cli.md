@@ -210,9 +210,13 @@ winst config list
 winst config get <key>
 winst config set <key> <value>
 winst config reset proxy
+winst config set fluxdownToken
+winst config reset fluxdownToken
 ```
 
 不带子命令等价于 `config list`。`set` 会校验并转换布尔、数字等配置值，写入 `<数据目录>\config.json`。`reset proxy` 清除 winst 显式代理；设置菜单的代理项输入 `-` 执行相同操作，回车仍为取消。HTTP 默认请求继承系统代理/PAC，`proxyMode=off` 不强制禁用系统代理。配置项见 [data-files.md](data-files.md#configjson)。
+
+`config set fluxdownApi <地址>` 设置本机管理服务根地址。`config set fluxdownToken` 单独提示隐藏输入 Token。`config reset fluxdownApi` 或 `config reset fluxdownToken` 清除对应的 winst 配置。设置菜单也支持更换和清除 Token。`config list` 和 `get` 显示实际生效的地址，Token 仅显示设置状态。
 
 ## 退出码
 
@@ -251,7 +255,7 @@ winst config reset proxy
 - 「检查更新」会列出可更新的软件，以及无法比较或检查失败的原因。软件源刷新失败时，按现有缓存显示结果并提示远端检查未完成。输入编号可选中软件更新，`u` 更新全部可更新项，回车或 `b` 返回。更新后回到结果页，显示本轮成功和失败的数量，以及仍可更新的软件。
 - 管理软件源：编号进入详情，`r` 刷新、`d` 删除（内置源与本地清单不可删）；直接输入 GitHub 仓库或清单地址可添加，`c` 从剪贴板读取地址，`a` 刷新全部
 - 管理安装清单：编号查看后可编辑或删除；直接输入文件名可新建或编辑
-- 设置：安装位置、安装包位置、代理、代理模式、下载后清理旧包、软件源刷新间隔、更新方式
+- 设置：安装位置、安装包位置、代理、代理模式、FluxDown 管理地址与 Token、下载后清理旧包、软件源刷新间隔、更新方式
 - 卸载匹配页与安装清单编辑支持多选；已装软件、缓存和软件列表默认单选。支持多选的页面可输入 `1 3 5`；`b` 返回，`q` 退出；支持关键字过滤的页面会显示提示
 - 菜单与命令行执行同一套业务逻辑；唯一只在菜单里提供的是「已装软件」详情里的 `o` 清理本机并存的旧版本
 

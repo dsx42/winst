@@ -63,10 +63,12 @@
 | `Winst.Manifest` | 源列表、清单缓存、本地清单识别、sidecar 元数据 |
 | `Winst.Store` | 安装台账与读缓存、缓存索引、安装包与文件级状态、摘要与完整性、清单文件读写 |
 | `Winst.Browser` | 系统 Edge 无头抓页与 CDP 点击取址（`fetchWith: browser` / `source.click`） |
-| `Winst.Engine` | FluxDown CLI 下载、7-Zip 解压、`stripTopDir` / `extractFiles`、包内结构派生版本 |
+| `Winst.Engine` | FluxDown 本机服务和独立 CLI 下载、7-Zip 解压、`stripTopDir` / `extractFiles`、包内结构派生版本 |
 | `Winst.Catalog` | 各来源解析器、解析计划、源刷新与解析锁、依赖闭包、聚合视图与详情数据 |
 | `Winst.Install` | 安装决策、payload 落地、系统项、版本检测、台账写入、卸载、修复、引擎与自身更新 |
 | `Winst.App` | 命令行解析与分发、菜单编排、页面装配、离线套装、退出码 |
+
+FluxDown 管理 API 的路由和错误响应由 `Winst.Engine` 的 `Invoke-WinstFluxApi` 维护，任务编辑的 RPC 握手与兼容版本范围由 `Set-WinstFluxTaskRequest` 维护。默认回环地址及配置优先级由 `Winst.Core` 的 `Get-WinstFluxSettings` 维护，默认值见[数据文件](data-files.md#configjson)。
 
 ## 模块结构与加载
 

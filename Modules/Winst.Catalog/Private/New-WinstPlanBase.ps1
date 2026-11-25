@@ -46,6 +46,11 @@ function New-WinstPlanBase {
         $sourceRepo = [string]$Resolve.Repo
         $sourceTag = [string]$Resolve.Tag
         $version = [string]$Resolve.Version
+        if ($Resolve.Ok -and $fileList.Count) {
+            # 主包登记来源给出的版本原值，地址模板可能用过另一种写法。
+            $fileList[0]['version'] = $version
+            $fileList[0]['versionOwned'] = [bool]$version
+        }
     }
 
     $plan = [ordered]@{

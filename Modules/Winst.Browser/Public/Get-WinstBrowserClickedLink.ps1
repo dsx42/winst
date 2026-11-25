@@ -21,7 +21,8 @@ function Get-WinstBrowserClickedLink {
         [Parameter(Mandatory = $true)]$ClickSpecs,
         [switch]$WantHtml,
         [switch]$WantPageHash,
-        $HashClickSpecs
+        $HashClickSpecs,
+        [Collections.ArrayList]$Sessions
     )
 
     $result = @{ Ok = $false; DownloadUrls = @(); Html = ''; PageHash = ''; Error = ''; Notes = @() }
@@ -126,6 +127,9 @@ function Get-WinstBrowserClickedLink {
 
             $result.DownloadUrls = @(Get-DistinctValues -Values @($session.Downloads))
             $result.Notes += ('下载地址由系统浏览器（{0}）点击页面按钮取得。' -f [string]$session.Engine)
+            $result.Session = $session
+            $null = $Sessions.Add($session)
+            $session = $null
             $result.Ok = $true
             $lastError = ''
             break

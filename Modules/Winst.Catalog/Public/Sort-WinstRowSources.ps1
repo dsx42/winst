@@ -15,8 +15,7 @@ function Sort-WinstRowSources {
         $Row,
         [string]$InstalledVersion,
         [hashtable]$Lookup,
-        [string]$OriginName = '',
-        $Ledger
+        [string]$OriginName = ''
     )
 
     if (-not $Row) { return $Row }
@@ -34,7 +33,7 @@ function Sort-WinstRowSources {
         @{ Expression = {
             if (-not $InstalledVersion -or $InstalledVersion -ieq 'unknown') { return 0 }
             if ($_['Ok'] -and $_['Plan']) {
-                $snap = Get-WinstUpdateEntrySnapshot -Context $Context -Chosen $_ -InstalledVersion $InstalledVersion -Ledger $Ledger
+                $snap = Get-WinstUpdateEntrySnapshot -Chosen $_ -InstalledVersion $InstalledVersion
                 if ($snap.Cmp -gt 0) { return 0 }
                 if ($snap.RemoteFresh -ieq 'changed') { return 1 }
             }

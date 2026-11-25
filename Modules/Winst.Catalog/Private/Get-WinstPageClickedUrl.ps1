@@ -7,7 +7,7 @@ function Get-WinstPageClickedUrl {
     .OUTPUTS
         @{ Ok; Error; Url; Html; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, $ClickSpec, $FileRule, $Item, $Result)
+    param($Context, $Source, [string]$PageUrl, $ClickSpec, $FileRule, $Item, $Result, [Collections.ArrayList]$Sessions)
     try { Assert-WinstHttpUrl -Url $PageUrl -Label 'source.pageUrl' }
     catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = ''; PageHash = '' } }
 
@@ -31,7 +31,7 @@ function Get-WinstPageClickedUrl {
     $wantPageHash = ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page') -and $hashClickSteps.Count -gt 0)
     $wantPageHtml = ([bool]$clickVersionKey -and @('header', 'json') -notcontains $clickVersionFrom) -or ($clickVersionFrom -eq 'page') -or ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page'))
 
-    $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $PageUrl -ClickSpecs $clickSteps -WantHtml:$wantPageHtml -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps
+    $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $PageUrl -ClickSpecs $clickSteps -WantHtml:$wantPageHtml -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps -Sessions $Sessions
     foreach ($note in @($clicked.Notes)) { if ($note) { $Result.Notes += $note } }
     if (-not $clicked.Ok) {
         return @{ Ok = $false; Error = [string]$clicked.Error; Url = ''; Html = ''; PageHash = '' }
@@ -52,5 +52,5 @@ function Get-WinstPageClickedUrl {
     if ($clickUrls.Count -eq 0) { return @{ Ok = $false; Error = '点击后没有取得下载地址'; Url = ''; Html = $html; PageHash = $pageHash } }
     try { Assert-WinstHttpUrl -Url ([string]$clickUrls[0]) }
     catch { return @{ Ok = $false; Error = $_.Exception.Message; Url = ''; Html = $html; PageHash = $pageHash } }
-    return @{ Ok = $true; Error = ''; Url = [string]$clickUrls[0]; Html = $html; PageHash = $pageHash }
+    return @{ Ok = $true; Session = $clicked.Session; Error = ''; Url = [string]$clickUrls[0]; Html = $html; PageHash = $pageHash }
 }

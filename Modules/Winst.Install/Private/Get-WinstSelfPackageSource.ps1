@@ -9,18 +9,12 @@
     1. release 压缩包（常规路径）
            清单里 id "winst" 条目的 files[0]：GitHub release 资产，固定名 winst.zip、不带版本号
            （releases/latest/download/winst.zip 永远指向最新版）
-       用 Invoke-WebRequest（Save-WinstFileWithHttp）下载，
-       并按 files[0].hashFile 声明的 .zip.sha512 校验。
+       通过下载引擎取包，并按 files[0].hashFile 声明的 .zip.sha512 校验。
 
     2. 当前运行树（脚本 + Modules + 启动器 + LICENSE；仅用于引导首次安装）
            $script:WinstScriptPath
        取不到压缩包时使用：离线，或仓库还没有发布任何版本。
        更新不得回退到它，否则「更新」会静默重装同一版本。
-
-    为什么 winst 自己用 Invoke-WebRequest
-    --------------------------------------
-    这段运行的时候下载引擎还不一定存在——安装 winst 的过程正是安装引擎的过程。
-    引擎自身的引导出于同样原因有相同的豁免。
 
     .OUTPUTS
         @{ Ok; Error; ArchivePath; FallbackSourcePath; Resolved;
@@ -89,13 +83,13 @@ function Get-WinstSelfPackageSource {
             $prevEntry = $null
             if ($cacheRead.Index.Contains($selfId)) { $prevEntry = $cacheRead.Index[$selfId] }
             $packagePlans = @(Get-WinstPackageFilePlans -Context $Context -Index $cacheRead.Index -Id $selfId -ManifestOrigin $sourceName `
-                -Files @($files[0]))
+                -Files $files)
             $download = Invoke-WinstPackageDownloadLoop -Context $Context -Plans $packagePlans -PkgDir $pkgDir -Id $selfId `
-                -DisplayName $selfId -SourceName $sourceName -Version $sourceVersion -PrevEntry $prevEntry -DirectHttp
+                -DisplayName $selfId -SourceName $sourceName -Plan $plan -PrevEntry $prevEntry -Bootstrap
             if ($download.Ok) {
-                Update-WinstPackageCacheIndex -Context $Context -Id $selfId -Plans $packagePlans `
-                    -PrevEntry $prevEntry -Version $sourceVersion -DownloadedNames $download.Names
-                $result.ArchivePath = [string]$packagePlans[0]['Target']
+                $result.Plan = $download.Plan
+                $result.SourceVersion = $download.Version
+                $result.ArchivePath = [string]$download.Plans[0]['Target']
                 $result.Resolved = $true
                 $result.Ok = $true
                 return $result

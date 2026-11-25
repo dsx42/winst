@@ -7,9 +7,9 @@ function Get-SourcePageHtml {
     .OUTPUTS
         @{ Ok; Html; Anchors; Notes; Error }
     #>
-    param([hashtable]$Context, $Source, [string]$PageUrl, [string]$Label)
+    param([hashtable]$Context, $Source, [string]$PageUrl, [string]$Label, [Collections.ArrayList]$Sessions)
 
-    $result = @{ Ok = $false; Html = ''; Anchors = @(); Notes = @(); Error = '' }
+    $result = @{ Ok = $false; Session = $null; Html = ''; BaseUrl = $PageUrl; Anchors = @(); Notes = @(); Error = '' }
     try { Assert-WinstHttpUrl -Url $PageUrl -Label $Label }
     catch { $result.Error = $_.Exception.Message; return $result }
     if (-not $PageUrl) {
@@ -26,12 +26,14 @@ function Get-SourcePageHtml {
     }
 
     if ($fetchWith -eq 'browser') {
-        $browserPage = Get-WinstBrowserPageHtml -Context $Context -Url $PageUrl
+        $browserPage = Get-WinstBrowserPageHtml -Context $Context -Url $PageUrl -Sessions $Sessions
         if (-not $browserPage.Ok) {
             $result.Error = ('无法用系统浏览器打开{0} {1}：{2}' -f $Label, $PageUrl, $browserPage.Error)
             return $result
         }
         $result.Ok = $true
+        $result.Session = $browserPage['Session']
+        if ($browserPage['BaseUrl']) { $result.BaseUrl = $browserPage.BaseUrl }
         $result.Html = [string]$browserPage.Html
         $result.Anchors = @(Get-HtmlAnchorList -Html $result.Html)
         $result.Notes += ('{0}由系统浏览器（{1}）抓取。' -f $Label, [string]$browserPage.Engine)
@@ -45,6 +47,7 @@ function Get-SourcePageHtml {
         return $result
     }
     $result.Ok = $true
+    if ($response.FinalUri) { $result.BaseUrl = $response.FinalUri }
     $result.Html = [string]$response.Content
     $result.Anchors = @($response.Links)
     return $result

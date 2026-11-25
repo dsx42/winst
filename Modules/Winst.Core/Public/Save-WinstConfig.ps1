@@ -5,7 +5,7 @@ function Save-WinstConfig {
     .SYNOPSIS
         把配置写回 config.json（UTF-8 无 BOM；临时文件 + 重命名原子写）。
     .DESCRIPTION
-        按固定键序写出全部键；只写这几个键，config.json 里手工加过的其它键不保留。
+        按固定键序写出支持的配置。FluxDown 仅保存显式设置的值。
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -24,6 +24,10 @@ function Save-WinstConfig {
         proxy            = $Config['proxy']
         proxyMode        = $Config['proxyMode']
         updateFilesOnly  = $Config['updateFilesOnly']
+    }
+
+    foreach ($key in @('fluxdownApi', 'fluxdownToken')) {
+        if ($Config[$key]) { $ordered[$key] = $Config[$key] }
     }
 
     # 与清单 / 解析锁同一序列化口径（还原 & < > ' 的 \uXXXX 转义，保证代理地址等原样可读）

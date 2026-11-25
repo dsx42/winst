@@ -12,6 +12,7 @@ function Set-WinstFilePlanValidators {
     # 首次下载建基线时要求至少取到一项；FreshMain 口径只要求 Ok（与拆分前一致）
     if ($RequireFields -and -not $validators.ETag -and -not $validators.LastModified -and $null -eq $validators.Size) { return }
 
+    if ($null -ne $validators.Size) { $Plan['Size'] = $validators.Size }
     $Plan['ValidatorETag'] = [string]$validators.ETag
     $Plan['ValidatorLastModified'] = [string]$validators.LastModified
     $Plan['CheckedAt'] = (Get-Date).ToString('s')
