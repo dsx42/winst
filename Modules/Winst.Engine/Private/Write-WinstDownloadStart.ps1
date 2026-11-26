@@ -6,5 +6,5 @@ function Write-WinstDownloadStart {
     if ($Quiet) { return }
     $action = '下载'
     if ($Resume) { $action = '续传' }
-    Write-Host ('    正在{0} {1}（{2}）｜{3}' -f $action, $FileName, $SizeText, $Mode) -ForegroundColor Gray
+    Write-Host ('    [{0}] 正在{1} {2}（{3}）｜{4}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $action, $FileName, $SizeText, $Mode) -ForegroundColor Gray
 }

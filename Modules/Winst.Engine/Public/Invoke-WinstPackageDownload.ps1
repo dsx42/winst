@@ -6,7 +6,7 @@ function Invoke-WinstPackageDownload {
         尝试下载一次。优先使用本机服务，服务未接单时可独立运行 CLI，缺少 CLI 时允许引导下载。
     #>
     param([hashtable]$Context, [string]$Url, [string]$DestDir, [string]$FileName,
-        [hashtable]$Headers, [string]$ProxyUrl, [string]$Version, [string]$ExpectedHash,
+        [hashtable]$Headers, [string]$ProxyUrl, [string]$Version, [string]$SourceName, [string]$PackageVersion, [string]$ExpectedHash,
         [switch]$Restart, [switch]$Bootstrap, [string]$SizeText = '大小未知', [switch]$Quiet)
 
     $uri = $null
@@ -24,7 +24,7 @@ function Invoke-WinstPackageDownload {
         Clear-WinstInstallDir -Dir $failedDir -AllowedRoot $DestDir -Strict
         $service = Invoke-WinstFluxServiceDownload -Url $Url -DestDir $DestDir -FileName $FileName `
             -Headers $Headers -ProxyUrl $ProxyUrl -Version $Version -ExpectedHash $ExpectedHash -Restart:$Restart `
-            -Config $Context.Config -SizeText $SizeText -Quiet:$Quiet
+            -SourceName $SourceName -PackageVersion $PackageVersion -Config $Context.Config -SizeText $SizeText -Quiet:$Quiet
         if (-not $service['FallbackReason']) { return $service }
 
         $exe = Get-WinstEngineExe -Context $Context -Id (Get-WinstDownloadEngineId)
@@ -45,15 +45,13 @@ function Invoke-WinstPackageDownload {
             Write-WinstDownloadStart $FileName $SizeText 'HTTP 引导下载' -Quiet:$Quiet
             $target = Join-WinstPath $workDir $FileName
             $result = Save-WinstFileWithHttp -Uri $Url -OutFile $target -Headers $Headers -ProxyUrl $ProxyUrl
-            $result.WorkDir = $workDir
             if ($result.Ok) { $result.Path = $target }
         }
-        if ($result['WorkDir']) {
-            $result.FailedDir = $failedDir
-            if (-not $result.Ok) {
-                $retained = Reject-WinstPackageDownload $result
-                $result.Error = '{0}，暂存位置 {1}' -f $result.Error, $retained
-            }
+        $result.WorkDir = $workDir
+        $result.FailedDir = $failedDir
+        if (-not $result.Ok) {
+            $retained = Reject-WinstPackageDownload -Download $result -DestDir $DestDir
+            $result.Error = '{0}，下载文件保留在 {1}' -f $result.Error, $retained
         }
         return $result
     } catch {

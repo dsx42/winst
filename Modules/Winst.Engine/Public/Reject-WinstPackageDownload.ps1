@@ -1,12 +1,12 @@
 ﻿#Requires -Version 5.1
 
 function Reject-WinstPackageDownload {
-    param([hashtable]$Download)
+    param([hashtable]$Download, [string]$DestDir)
 
     if ($Download['Record']) {
         $record = $Download.Record
-        $record | Add-Member -NotePropertyName rejected -NotePropertyValue $true -Force
-        Write-FileAtomic -Path $Download.RecordPath -Content (ConvertTo-Json $record -Compress)
+        $record['rejected'] = $true
+        Set-WinstDownloadTaskRecord $DestDir $Download.FileName $record
         return $Download.Path
     }
     # 仅将已确认停止写入的本地下载标记为可清理。

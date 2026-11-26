@@ -22,7 +22,7 @@ function Install-WinstFilePayload {
         $null = New-Item -ItemType Directory -Path $InstallDir -Force -ErrorAction SilentlyContinue
     }
     $fileTarget = Join-WinstPath $InstallDir $fileName
-    $fileTemp = Join-WinstPath $InstallDir ('.winst-new-' + [Guid]::NewGuid().ToString('N').Substring(0, 8) + '.tmp')
+    $fileTemp = Join-WinstPath $InstallDir ('.winst-new-' + [Guid]::NewGuid().ToString('N').Substring(0, 8) + [IO.Path]::GetExtension($fileName))
     try {
         Assert-WinstSafeWritePath -Path $fileTarget
         Assert-WinstSafeWritePath -Path $fileTemp

@@ -29,7 +29,7 @@ function Get-WinstProductVersion {
     [OutputType([string])]
     param()
 
-    return '2026.11.25'
+    return '2026.11.26'
 }
 
 function Get-WinstOfficialManifestUrl {

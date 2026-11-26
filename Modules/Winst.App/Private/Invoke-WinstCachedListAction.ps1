@@ -7,7 +7,7 @@ function Invoke-WinstCachedListAction {
     .OUTPUTS
         [bool] 是否执行了动作（需要重新载入列表）
     #>
-    param([hashtable]$Context, $Item, [string]$Text)
+    param([hashtable]$Context, $Item, [string]$Text, $Recovery)
 
     $inCatalog = [bool]$Item['InCatalog']
     $isDownloadType = ([string]$Item['Type'] -eq 'download')
@@ -38,7 +38,16 @@ function Invoke-WinstCachedListAction {
     }
 
     if ($Text -eq 'x') {
-        if (-not $canDownloadPackage) {
+        if ($Recovery -and $Recovery.Action) {
+            $retry = Restore-WinstCachedDownload -Context $Context -Id ([string]$Item['Id'])
+            if ($retry.Action -in @('Continue', 'Redownload')) {
+                Invoke-WinstDownloadUpdates -Context $Context -Items @($Item) -Download -Retry
+            } elseif ($retry.Message) {
+                $color = 'Yellow'
+                if ($retry.Changed -and -not $retry.Action) { $color = 'Green' }
+                Write-Host ('  {0}' -f $retry.Message) -ForegroundColor $color
+            }
+        } elseif (-not $canDownloadPackage) {
             if ($isDownloadType) { Write-Host '  这个软件包已经是最新的，不需要重新下载。' -ForegroundColor DarkYellow }
             else { Write-Host '  这个安装包已经是最新的，不需要重新下载。' -ForegroundColor DarkYellow }
         } else {
@@ -47,7 +56,7 @@ function Invoke-WinstCachedListAction {
         return $true
     }
 
-    if ($Text -eq 'd') {
+    if ($Text -eq 'd' -and $Item['CacheFileCount']) {
         # 与「软件列表 → x」共用同一套删除流程（展示内容 → 确认 → 删除）
         Remove-WinstSoftwareCachedPackage -Context $Context -Item $Item
         return $true

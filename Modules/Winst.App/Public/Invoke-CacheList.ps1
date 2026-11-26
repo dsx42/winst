@@ -47,17 +47,29 @@ function Invoke-CacheList {
             return
         } else {
             $item = $items[[int]$pick.Index]
-            Show-WinstCachedDetail -Context $Context -Item $item
+            $recovery = $null
+            if ($item['HasDownloadStage']) {
+                $id = [string]$item['Id']
+                $recovery = Restore-WinstCachedDownload -Context $Context -Id $id
+                if ($recovery.Changed) {
+                    $reloaded = Get-WinstCachedListItems -Context $Context -Silent
+                    if (-not $reloaded.Ok) { return }
+                    $items = @($reloaded.Items)
+                    $item = $items | Where-Object { $_['Id'] -ceq $id } | Select-Object -First 1
+                    if (-not $item) { continue }
+                }
+            }
+            Show-WinstCachedDetail -Context $Context -Item $item -Recovery $recovery
             $packageTarget = [string]$item['BestVersion']
             if ((Get-WinstRowRemoteFreshState -Row $item['Row']) -ieq 'changed') {
                 $packageTarget = Get-WinstRemoteFreshTargetText -Fresh 'changed'
             }
-            Show-WinstCachedActionMenu -Item $item -PackageTarget $packageTarget
+            Show-WinstCachedActionMenu -Item $item -PackageTarget $packageTarget -Recovery $recovery
 
             $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
             if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return }
 
-            $acted = Invoke-WinstCachedListAction -Context $Context -Item $item -Text $text
+            $acted = Invoke-WinstCachedListAction -Context $Context -Item $item -Text $text -Recovery $recovery
             if (-not $acted) { continue }   # 回车 / 其它 = 返回列表
         }
 

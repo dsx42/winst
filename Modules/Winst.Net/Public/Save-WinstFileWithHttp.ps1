@@ -48,15 +48,18 @@ function Save-WinstFileWithHttp {
         $file.Close()
         return @{ Ok = $true }
     } catch {
+        $statusCode = 0
         $cause = $_.Exception
         while ($cause.InnerException -and $cause -isnot [Net.WebException]) { $cause = $cause.InnerException }
         if ($cause -is [Net.WebException]) {
-            if ($cause.Response -and ([int]$cause.Response.StatusCode) -in @(401, 403)) { $kind = 'Auth' }
-            elseif ($cause.Response) { $kind = 'Http' }
+            if ($cause.Response -is [Net.HttpWebResponse]) {
+                $kind = 'Http'
+                $statusCode = [int]$cause.Response.StatusCode
+            }
             elseif ($cause.Status -in @('NameResolutionFailure', 'ProxyNameResolutionFailure', 'ConnectFailure', 'Timeout') -and $received -eq 0) { $kind = 'Connect' }
             if ($cause.Response) { $cause.Response.Close() }
         }
-        return @{ Ok = $false; FailureKind = $kind; Error = $_.Exception.Message }
+        return @{ Ok = $false; FailureKind = $kind; StatusCode = $statusCode; Error = $_.Exception.Message }
     } finally {
         if ($file) { $file.Dispose() }
         if ($response) { $response.Close() }

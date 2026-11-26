@@ -7,14 +7,23 @@ function Show-WinstCachedDetail {
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
-        [Parameter(Mandatory = $true)]$Item
+        [Parameter(Mandatory = $true)]$Item,
+        $Recovery
     )
 
     Write-WinstDetailHeader -Item $Item
 
     # 已下载的安装包：版本 / 大小 / 文件（安装或更新时缓存命中就直接使用，不重复下载）
-    Write-Host ('    已下载包 : {0}' -f [string]$Item['CacheVersionText']) -NoNewline -ForegroundColor Gray
-    Write-Host ('    {0}（{1} 个文件）' -f [string]$Item['CacheSizeText'], [int]$Item['CacheFileCount']) -ForegroundColor Gray
+    if ($Item['CacheFileCount']) {
+        Write-Host ('    已下载包 : {0}    {1}（{2} 个文件）' -f $Item['CacheVersionText'], $Item['CacheSizeText'], $Item['CacheFileCount']) -ForegroundColor Gray
+    } else {
+        Write-Host '    已下载包 : 未下载' -ForegroundColor Gray
+    }
+    if ($Recovery -and $Recovery.Message) {
+        $color = 'Yellow'
+        if ($Recovery.Changed -and -not $Recovery.Action) { $color = 'Green' }
+        Write-Host ('    下载情况 : {0}' -f $Recovery.Message) -ForegroundColor $color
+    }
     Write-Host ('    存放位置 : {0}' -f [string]$Item['CacheDir']) -ForegroundColor Gray
     Write-WinstCacheFileList -Item $Item
 

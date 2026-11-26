@@ -16,7 +16,8 @@ function Invoke-WinstDownloadUpdates {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
         $Items,
-        [switch]$Download
+        [switch]$Download,
+        [switch]$Retry
     )
 
     $targets = @($Items)
@@ -107,7 +108,7 @@ function Invoke-WinstDownloadUpdates {
                 $targetVersionText = '最新版'
             }
             Write-Host ('  —— {0} 更新{1}到 {2}（来自 {3}）——' -f $name, $packageNoun, $targetVersionText, [string]$chosen['Source']) -ForegroundColor Cyan
-            $one = Invoke-WinstAppInstall -Context $Context -Plan $chosen['Plan'] -SourceName ([string]$chosen['Source']) -DownloadOnly -Quiet
+            $one = Invoke-WinstAppInstall -Context $Context -Plan $chosen['Plan'] -SourceName ([string]$chosen['Source']) -DownloadOnly -RequireCurrent:$Retry -Quiet:(-not $Retry)
             if ($one.Ok) {
                 $downloaded++
                 if ($one.Message) { Write-Host ('  {0}' -f $one.Message) -ForegroundColor Green }

@@ -62,8 +62,19 @@ function Remove-WinstCachedPackage {
         $tasks = Join-WinstPath $stage '.tasks'
         if (Test-Path -LiteralPath $tasks -PathType Container) {
             Assert-WinstSafeWritePath -Path $tasks -Directory
-            if (Get-ChildItem -LiteralPath $tasks -File -Force -ErrorAction Stop | Select-Object -First 1) {
-                throw ('下载任务尚未释放，请先恢复下载或在 FluxDown 中核实并清除对应任务记录：' + $tasks)
+            foreach ($file in Get-ChildItem -LiteralPath $tasks -File -Force -ErrorAction Stop) {
+                if ($file.Name -ne ($Id + '.json')) {
+                    Assert-WinstSafeWritePath -Path $file.FullName
+                    $json = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8 -ErrorAction Stop
+                    try { $old = $json | ConvertFrom-Json -ErrorAction Stop }
+                    catch {
+                        # 原子写入中断可能留下半份 JSON；同后缀的有效旧任务仍须保护。
+                        if ($file.Name -match '\.tmp-[0-9a-f]{8}$') { continue }
+                        throw
+                    }
+                    if (-not (Get-EntryString $old 'address') -or -not (Get-EntryString $old 'computer')) { continue }
+                }
+                throw ('下载任务尚未释放，请先恢复下载或确认原任务已停止后清理记录：' + $file.FullName)
             }
         }
         $fileCount = 0

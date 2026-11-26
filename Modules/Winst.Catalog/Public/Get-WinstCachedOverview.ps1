@@ -5,7 +5,7 @@ function Get-WinstCachedOverview {
     .SYNOPSIS
         读取已下载的安装包，产出「已下载包」视图（菜单与 CLI `winst list --cached` 共用）。
     .DESCRIPTION
-        以安装包位置下实际含文件的 id 目录生成列表，读取缓存索引中的包版本，
+        以安装包位置下含正式包或下载暂存目录的 id 生成列表，读取缓存索引中的包版本，
         并合并安装台账与软件清单信息。读取时对索引的校对只作用于内存。
     .OUTPUTS
         @{ Ok; Error; Warning; Items }
@@ -53,7 +53,7 @@ function Get-WinstCachedOverview {
 
         $items.Add((New-WinstCachedItem -Context $Context -SourceLookup $sourceLookup -Id $idText -CacheDir ([string]$cacheInfo['Path']) `
             -CacheFiles @($cacheInfo['Files']) -CacheSizeBytes ([long]$cacheInfo['SizeBytes']) `
-            -CacheVersion $cacheVersion -Ledger $ledger -Row $row -CacheIndex $cacheIndex))
+            -HasDownloadStage:$cacheInfo.HasDownloadStage -CacheVersion $cacheVersion -Ledger $ledger -Row $row -CacheIndex $cacheIndex))
     }
 
     # 用 @() 包住函数调用：PowerShell 里「函数返回空数组」到调用方会变成 $null，

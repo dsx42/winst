@@ -3,14 +3,13 @@
 function Receive-WinstPackageFile {
     <#
     .SYNOPSIS
-        按文件重试，在任务目录中校验产物后原子发布到缓存。
+        下载文件并按失败原因刷新链接、等待重试，成功后交给缓存发布流程。
     #>
     param([hashtable]$Context, $Plan, $FilePlan, [string]$PkgDir, [string]$Id, [string]$SourceName,
-        [int]$FileSeq, $PrevEntry, [hashtable]$Retry, [switch]$Bootstrap, [switch]$Quiet)
+        [int]$FileSeq, [hashtable]$Retry, [switch]$Bootstrap, [switch]$Quiet)
 
     $name = [string]$FilePlan['Name']
     $url = [string]$FilePlan['Url']
-    $commitTarget = [string]$FilePlan['Target']
     $downloadDir = Join-WinstPath $PkgDir 'winst-download'
     try {
         Assert-WinstSafeWritePath -Path $downloadDir -Directory
@@ -20,8 +19,8 @@ function Receive-WinstPackageFile {
             $headers = $Retry['Headers']
             $Retry.Remove('Headers')
         }
-        $refresh = $null -eq $headers
-        $afterFailure = $false
+        $refresh = $null -eq $headers -or [bool]$Retry['Refresh']
+        $Retry.Remove('Refresh')
         $version = Get-EntryString -Entry $FilePlan['Decl'] -Key 'version'
         $expected = $Retry['Expected']
         $Retry.Remove('Expected')
@@ -31,101 +30,99 @@ function Receive-WinstPackageFile {
         }
         $proxies = @(Get-WinstProxyAttempts -Context $Context -Download)
         while ($true) {
+            $timer = [Diagnostics.Stopwatch]::StartNew()
+            $sizeText = Format-WinstDownloadSizeText -Size $FilePlan['Size']
+            $dl = $null
             if ($refresh) {
-                $live = Get-WinstLiveResolvedFileUrl -Context $Context -Id $Id -PreferSource $SourceName -Index $FileSeq -FileName $name
-                if (-not $live.Ok) { return @{ Ok = $false; Error = ('重新解析 {0} 失败：{1}' -f $name, $live.Error); Network = $true } }
-                $freshHash = Get-WinstExpectedHash -Context $Context -FileName $live.Name -FileDecl $live.File -IgnoreCachedHash
-                if (-not $freshHash.Ok) { return $freshHash }
-
-                # 只有文件身份明确时才能将旧分段用于新的请求。
-                $sameFile = $expected -and $name -ieq $live.Name -and $version -ceq $live.Version -and
-                    $Plan.version -ceq $live.Plan.version -and $expected.Hash -ieq $freshHash.Hash -and
-                    ($url -ceq $live.Url -or ($version -and $expected.Hash))
-                if (-not $sameFile) {
-                    if ($name -ine $live.Name) {
-                        Reset-WinstPackageDownload -DestDir $downloadDir -FileName $name -Config $Context.Config
+                try {
+                    $live = Get-WinstLiveResolvedFileUrl -Context $Context -Id $Id -PreferSource $SourceName -Index $FileSeq -FileName $name
+                    if (-not $live.Ok) { throw $live.Error }
+                    $freshHash = Get-WinstExpectedHash -Context $Context -FileName $live.Name -FileDecl $live.File -IgnoreCachedHash
+                    if (-not $freshHash.Ok) {
+                        if (-not $freshHash.Network) { return $freshHash }
+                        throw $freshHash.Error
                     }
-                    $Retry['Restart'] = $afterFailure
-                    $Retry['Headers'] = $live.Headers
-                    $Retry['Expected'] = $freshHash
-                    return @{ Ok = $false; RefreshPlan = $live.Plan }
+                } catch {
+                    $dl = @{ Ok = $false; FailureKind = 'Resolve'; Error = ('刷新下载链接失败：{0}' -f $_.Exception.Message) }
                 }
-                $expected = $freshHash
-                $headers = $live.Headers
-                $url = $live.Url
-                $FilePlan['Decl'] = $live.File
-                $FilePlan['Size'] = $live.Size
+                if (-not $dl) {
+                    # 链接改变时用非空来源摘要确认文件身份，声明的版本也须匹配。
+                    $sameFile = $expected -and $name -ieq $live.Name -and $version -ceq $live.Version -and
+                        $Plan.version -ceq $live.Plan.version -and $expected.Hash -ieq $freshHash.Hash -and
+                        ($url -ceq $live.Url -or $expected.Hash)
+                    if (-not $sameFile) {
+                        $Retry['Restart'] = [bool]$Retry['Restart'] -or ($expected -and $Retry['Attempts'] -gt 0)
+                        $Retry['Headers'] = $live.Headers
+                        $Retry['Expected'] = $freshHash
+                        return @{ Ok = $false; RefreshPlan = $live.Plan }
+                    }
+                    $expected = $freshHash
+                    $headers = $live.Headers
+                    $url = $live.Url
+                    $FilePlan['Decl'] = $live.File
+                    if ($null -ne $live.Size) {
+                        $FilePlan['Size'] = $live.Size
+                        $sizeText = Format-WinstDownloadSizeText -Size $live.Size
+                    }
+                }
             }
-            if ($Retry['Attempts'] -ge 4) { throw ('{0} 已达到每个文件最多三次重试的限制' -f $name) }
-            $proxy = $proxies[[Math]::Min([int]$Retry['Attempts'], $proxies.Count - 1)]
-            $request = @{
-                Context = $Context; Url = $url; DestDir = $downloadDir; FileName = $name
-                Headers = $headers; ProxyUrl = $proxy; Version = $version; ExpectedHash = $expected.Hash
-                Restart = [bool]$Retry['Restart']; Bootstrap = $Bootstrap
-                SizeText = Format-WinstDownloadSizeText -Size $FilePlan['Size']; Quiet = $Quiet
-            }
-            $dl = Invoke-WinstPackageDownload @request
-            if ($dl['FailureKind'] -eq 'MissingEngine') {
-                $engine = Confirm-WinstDownloadEngine -Context $Context -Quiet:$Quiet
-                if (-not $engine.Ok) { return @{ Ok = $false; Error = ('下载引擎不可用：{0}' -f $engine.Error); Network = $true } }
+            if (-not $dl) {
+                $proxy = $proxies[[Math]::Min([int]$Retry['Attempts'], $proxies.Count - 1)]
+                $request = @{
+                    Context = $Context; Url = $url; DestDir = $downloadDir; FileName = $name
+                    Headers = $headers; ProxyUrl = $proxy; Version = $version; ExpectedHash = $expected.Hash
+                    SourceName = $SourceName; PackageVersion = [string]$Plan.version
+                    Restart = [bool]$Retry['Restart']; Bootstrap = $Bootstrap
+                    SizeText = $sizeText; Quiet = $Quiet
+                }
+                $timer.Restart()
                 $dl = Invoke-WinstPackageDownload @request
+                if ($dl['FailureKind'] -eq 'MissingEngine') {
+                    $engine = Confirm-WinstDownloadEngine -Context $Context -Quiet:$Quiet
+                    if (-not $engine.Ok) { return @{ Ok = $false; Error = ('下载引擎不可用：{0}' -f $engine.Error); Network = $true } }
+                    $timer.Restart()
+                    $dl = Invoke-WinstPackageDownload @request
+                }
+                $Retry.Remove('Restart')
             }
-            if ($dl['FailureKind'] -eq 'RefreshSource') {
-                # 记录的旧任务与当前地址身份不符，重新取址成功前保留现场。
-                $refresh = $true
-                $afterFailure = $true
-                $Retry['Restart'] = $true
-                continue
+            $timer.Stop()
+            $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+            $attempt = '下载'
+            if ($Retry['Attempts'] -gt 0) { $attempt = '第 {0} 次重试' -f $Retry['Attempts'] }
+            $summary = '[{0}] {1}（{2}）{3}耗时 {4:F1} 秒' -f $stamp, $name, $sizeText, $attempt, $timer.Elapsed.TotalSeconds
+            if ($dl.Ok) {
+                if (-not $Quiet) { Write-Host ('    {0}，传输完成。' -f $summary) -ForegroundColor Gray }
+                break
             }
-            $Retry['Attempts']++
-            $Retry.Remove('Restart')
-            if ($dl.Ok) { break }
 
             $kind = $dl['FailureKind']
-            $pageQuery = $Plan.download.kind -eq 'page' -and ([uri]$url).Query.Length -gt 1
-            $canRetry = ($kind -eq 'Interrupted') -or ($kind -eq 'Connect' -and -not $Retry['Connect']) -or
-                ($kind -eq 'Auth' -and $pageQuery -and -not $Retry['Auth'])
-            if (-not $canRetry -or $Retry['Attempts'] -ge 4) {
-                return @{ Ok = $false; DownloadFailed = $kind -in @('Interrupted','Connect','Auth','Http')
-                    Error = ('下载 {0} 失败：{1}' -f $name, $dl.Error)
+            $errorText = $dl.Error
+            $http = $kind -eq 'Http'
+            $missing = $http -and $dl['StatusCode'] -eq 404
+            if ($missing) { $errorText = '文件不存在（HTTP 404）。{0}' -f $dl.Error }
+            elseif ($http -and $dl['StatusCode']) { $errorText = '文件服务器返回 HTTP {0}。{1}' -f $dl['StatusCode'], $dl.Error }
+            $retryable = ($http -and -not $missing) -or $kind -in @('Resolve','RefreshSource','Interrupted') -or
+                ($kind -eq 'Connect' -and -not $Retry['Connect'])
+            if (-not $retryable -or $Retry['Attempts'] -ge 3) {
+                return @{ Ok = $false; DownloadFailed = $kind -in @('Interrupted','Connect','Http')
+                    Error = ('{0}，{1}' -f $summary, $errorText)
                     Cancelled = $kind -eq 'Cancelled'; Network = $kind -notin @('Disk','Cancelled','Other') }
             }
-            $Retry[$kind] = $true
-            $afterFailure = $true
-            $refresh = $pageQuery -and $kind -in @('Interrupted','Auth')
-            if (-not $Quiet) { Write-Host ('    {0}，正在重试 {1}（{2}/3）…' -f $dl.Error, $name, $Retry['Attempts']) -ForegroundColor DarkYellow }
+            if ($kind -eq 'Connect') { $Retry['Connect'] = $true }
+            if ($kind -eq 'RefreshSource') { $Retry['Restart'] = $true }
+            $refresh = $http -or $kind -in @('RefreshSource','Resolve') -or
+                ($kind -eq 'Interrupted' -and $Plan.download.kind -eq 'page' -and ([uri]$url).Query.Length -gt 1)
+            $Retry['Attempts']++
+            $delay = 2 * $Retry['Attempts']
+            if (-not $Quiet) {
+                $next = '重试下载'
+                if ($refresh) { $next = '刷新下载链接并重试' }
+                Write-Host ('    {0}，{1}。{2} 秒后{3}（{4}/3）。' -f $summary, $errorText, $delay, $next, $Retry['Attempts']) -ForegroundColor DarkYellow
+            }
+            Start-Sleep -Seconds $delay
         }
 
-        $target = $dl.Path
-        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { throw ('下载完成后没有找到文件：' + $target) }
-        Assert-WinstSafeWritePath -Path $target
-        $check = Test-WinstFileIntegrity -FilePath $target -Expected $expected
-        if (-not $check.Ok) {
-            $retained = Reject-WinstPackageDownload -Download $dl
-            return @{ Ok = $false; Error = ('{0} 校验失败：{1}。暂存位置：{2}' -f $name, $check.Error, $retained); Network = $false }
-        }
-
-        Clear-WinstReplacedPackageRecord -PkgDir $Context.PkgDir -Id $Id -Entry $PrevEntry -Name $name -Main:($FileSeq -eq 0)
-        Assert-WinstSafeWritePath -Path $commitTarget
-        if (Test-Path -LiteralPath $commitTarget -PathType Leaf) {
-            [IO.File]::Replace($target, $commitTarget, [System.Management.Automation.Language.NullString]::Value)
-        } else {
-            [IO.File]::Move($target, $commitTarget)
-        }
-        if ($FilePlan['Url'] -cne $url) {
-            $FilePlan['CheckedAt'] = ''
-            $FilePlan['ValidatorETag'] = ''
-            $FilePlan['ValidatorLastModified'] = ''
-        }
-        if (-not $FilePlan['CheckedAt']) {
-            Set-WinstFilePlanValidators -Plan $FilePlan -Context $Context -Uri $url -RequireFields
-        }
-        $FilePlan['Url'] = $url
-        Set-WinstFilePlanIntegrityFromCheck -FilePlan $FilePlan -Check $check
-        $result = @{ Ok = $true }
-        try { Complete-WinstPackageDownload -Download $dl -DestDir $downloadDir }
-        catch { $result['CleanupError'] = ('文件已发布到 {0}，暂存清理失败：{1}' -f $commitTarget, $_.Exception.Message) }
-        return $result
+        return (Publish-WinstPackageFile -Context $Context -FilePlan $FilePlan -Plan $Plan -SourceName $SourceName -Download $dl -Expected $expected -Url $url -DestDir $downloadDir)
     } catch {
         return @{ Ok = $false; Error = ('下载 {0} 失败：{1}' -f $name, $_.Exception.Message); Network = $false }
     }

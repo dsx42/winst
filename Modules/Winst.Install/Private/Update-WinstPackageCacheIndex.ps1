@@ -31,6 +31,10 @@ function Update-WinstPackageCacheIndex {
         if ($null -eq $manifestHashes) { $manifestHashes = New-WinstOrdinalDictionary -IgnoreCase }
         if ($null -eq $fileMeta) { $fileMeta = New-WinstOrdinalDictionary -IgnoreCase }
 
+        if ($Downloaded) {
+            $null = $manifestHashes.Remove($name)
+            $null = $fileMeta.Remove($name)
+        }
         $hashes[$name] = $hash.ToLowerInvariant()
         $algorithm = [string]$FilePlan['ExpectedAlgorithm']
         if ($algorithm -and $algorithm -ne 'SHA256' -and $FilePlan['ManifestHash']) {

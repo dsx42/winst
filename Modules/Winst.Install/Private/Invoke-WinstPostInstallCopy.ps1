@@ -49,6 +49,9 @@ function Invoke-WinstPostInstallCopy {
         }
         try {
             if (Get-EntryBool -Entry $rule -Key 'move') {
+                if (-not $source.PSIsContainer -and [IO.Path]::GetExtension($toPath) -ieq '.exe' -and $source.Extension -ine '.exe') {
+                    throw ('不能将 {0} 改名为 .exe 文件' -f $source.Name)
+                }
                 Move-Item -LiteralPath $source.FullName -Destination $toPath -Force -ErrorAction Stop
             } else {
                 Copy-Item -LiteralPath $source.FullName -Destination $toPath -Force -ErrorAction Stop

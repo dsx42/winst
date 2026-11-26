@@ -24,6 +24,7 @@ function New-WinstCachedItem {
         [string]$CacheDir,
         [string[]]$CacheFiles,
         [long]$CacheSizeBytes,
+        [switch]$HasDownloadStage,
         [string]$CacheVersion,
         $Ledger,
         $Row,
@@ -33,17 +34,16 @@ function New-WinstCachedItem {
 
     $facts = Get-WinstRowViewFacts -Id $Id -Row $Row -Ledger $Ledger
 
-    # 索引版本已经在取包后归一化，展示时不再重复应用来源改写规则。
-
     $installedFacet = Get-WinstInstalledFacet -Context $Context -Lookup $SourceLookup -Ledger $Ledger -Row $Row
-    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -Evaluate
+    $packageFacet = Get-WinstPackageFacet -Facts $facts -CacheVersion $CacheVersion -Evaluate:($CacheFiles.Count -gt 0)
 
     return [ordered]@{
         CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id $Id -Plan (Get-EntryValue -Entry $facts.Chosen -Key 'Plan') -Ledger $Ledger -CacheIndex $CacheIndex)
         Id                  = $Id
         DisplayName         = [string]$facts.DisplayName
         Group               = [string]$facts.Group
-        CacheVersionText    = [string]$packageFacet.VersionText
+        HasDownloadStage    = [bool]$HasDownloadStage
+        CacheVersionText    = if ($CacheFiles.Count) { [string]$packageFacet.VersionText } else { '未下载' }
         CacheDir            = $CacheDir
         CacheFiles          = @($CacheFiles)
         CacheFileCount      = @($CacheFiles).Count

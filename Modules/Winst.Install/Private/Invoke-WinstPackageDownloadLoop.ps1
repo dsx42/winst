@@ -6,15 +6,32 @@ function Invoke-WinstPackageDownloadLoop {
         按清单逐个校验、复用或替换缓存包，并将已完成文件及主包版本写入索引。
     #>
     param([hashtable]$Context, $Plan, $Plans, [string]$PkgDir, [string]$Id, [string]$DisplayName,
-        [string]$SourceName, [switch]$Offline, [switch]$Quiet, [switch]$Bootstrap, $PrevEntry)
+        [string]$SourceName, [switch]$Offline, [switch]$Quiet, [switch]$Bootstrap, $PrevEntry, [switch]$Inspect)
 
     $downloadedNames = @()
     $retries = @{}
+    $downloadDir = Join-WinstPath $PkgDir 'winst-download'
     $Bootstrap = $Bootstrap -or ($Id -ceq (Get-WinstDownloadEngineId))
     $engineChecked = $false
     if (-not $SourceName) { $SourceName = Get-EntryString -Entry $Plan -Key 'manifestOrigin' }
     :downloadPlan while ($true) {
+        $records = Get-WinstDownloadTaskRecords -DestDir $downloadDir
+        foreach ($file in $Plans) {
+            $pending = $records.Contains($file.Name)
+            if (-not $pending -and $file.Name -and (Test-Path -LiteralPath $downloadDir -PathType Container)) {
+                $failed = Join-WinstPath (Join-WinstPath (Join-WinstPath $downloadDir '.local') $file.Name) 'failed'
+                $pending = Test-Path -LiteralPath $failed -PathType Container
+            }
+            if ($pending) { $file['NeedDownload'] = $true }
+        }
         $planNames = @($Plans | ForEach-Object { $_['Name'] })
+        if (-not $Inspect -and -not $Offline) {
+            foreach ($oldName in $records.Keys) {
+                if ($oldName -notin $planNames) {
+                    $null = Remove-WinstObsoleteDownloadRecord -DestDir $downloadDir -FileName $oldName -Record $records[$oldName] -Config $Context.Config
+                }
+            }
+        }
         $version = Get-EntryString -Entry $PrevEntry -Key 'version'
         $fromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
 
@@ -68,12 +85,30 @@ function Invoke-WinstPackageDownloadLoop {
                 Write-Host ('    提示: {0}' -f [string]$filePlan['Hint']) -ForegroundColor DarkYellow
             }
 
-            if ($filePlan['ValidationError']) {
+            if ($filePlan['ValidationError'] -and -not $records.Contains($name)) {
                 return @{ Ok = $false; Error = ('{0} 无法验证缓存：{1}' -f $name, $filePlan['ValidationError']); Network = [bool]$filePlan['ValidationNetwork'] }
             }
 
             $received = $null
-            if ($filePlan['NeedDownload']) {
+            if ($records.Contains($name)) {
+                $received = Restore-WinstPackageFile -Context $Context -FilePlan $filePlan -Plan $Plan -SourceName $SourceName `
+                    -Record $records[$name] -DestDir $downloadDir -Offline:$Offline
+                if (-not $received.Ok) {
+                    if ($Inspect -or $received.Action -in @('Move','Register') -or $Offline) {
+                        $received['Changed'] = $downloadedNames.Count -gt 0
+                        return $received
+                    }
+                    if (-not $retries.ContainsKey($fileSeq)) {
+                        $retries[$fileSeq] = @{ Attempts = 0; Refresh = $true; Restart = $received.Action -eq 'Redownload' }
+                    }
+                    $received = $null
+                }
+            }
+            if ($filePlan['NeedDownload'] -and -not $received) {
+                if ($Inspect) {
+                    return @{ Ok = $false; Changed = $downloadedNames.Count -gt 0; Network = $false
+                        Action = 'Redownload'; Error = ('{0} 未下载完成。' -f $name) }
+                }
                 if ($Offline) {
                     $offlineError = ('离线缺包：{0} 的安装包不在缓存里。请在联网机器上刷新缓存（bundle pack / update --download-only）后重试。' -f $DisplayName)
                     if ($Id -ieq 'winst') {
@@ -99,7 +134,7 @@ function Invoke-WinstPackageDownloadLoop {
                 }
                 if (-not $retries.ContainsKey($fileSeq)) { $retries[$fileSeq] = @{ Attempts = 0 } }
                 $received = Receive-WinstPackageFile -Plan $Plan -Retry $retries[$fileSeq] -Context $Context -FilePlan $filePlan -FileSeq $fileSeq -PkgDir $PkgDir `
-                    -Id $Id -SourceName $SourceName -PrevEntry $PrevEntry -Bootstrap:$Bootstrap -Quiet:$Quiet
+                    -Id $Id -SourceName $SourceName -Bootstrap:$Bootstrap -Quiet:$Quiet
                 if ($received['RefreshPlan']) {
                     $Plan = $received.RefreshPlan
                     $read = Read-WinstCacheIndex -PkgDir $Context.PkgDir -Ids @($Id)
@@ -111,8 +146,8 @@ function Invoke-WinstPackageDownloadLoop {
                     continue downloadPlan
                 }
                 if (-not $received.Ok) { return $received }
-                $downloadedNames += $name
             }
+            if ($received) { $downloadedNames += $name }
 
             if ($fileSeq -eq 0) {
                 $mainReady = $true
@@ -134,17 +169,26 @@ function Invoke-WinstPackageDownloadLoop {
                         -Version $version -Downloaded:($filePlan['NeedDownload']) -Complete:($fileSeq -eq $order[-1])
                 }
             } catch {
-                return @{ Ok = $false; Error = ('缓存登记失败：{0}' -f $_.Exception.Message); Network = $false }
+                return @{ Ok = $false; Changed = [bool]$received; Action = 'Register'; Error = ('{0} 缓存登记失败：{1}' -f $name, $_.Exception.Message); Network = $false }
             }
-            if ($received -and $received['CleanupError']) {
-                return @{ Ok = $false; Error = $received.CleanupError; Network = $false }
+            if ($received) {
+                try { Complete-WinstPackageDownload -Download $received.Download -DestDir $downloadDir }
+                catch {
+                    return @{ Ok = $false; Changed = $true; Network = $false; Action = 'Register'
+                        Error = ('{0} 已存入缓存，清理下载记录失败：{1}' -f $name, $_.Exception.Message) }
+                }
             }
         }
 
-        try { Clear-WinstEmptyDownloadStage -PkgDir $PkgDir }
+        try {
+            if (Test-Path -LiteralPath $downloadDir -PathType Container) {
+                $null = Remove-WinstReplacedDownloadFiles -DestDir $downloadDir -Config $Context.Config -FileNames $planNames
+                Clear-WinstEmptyDownloadStage -PkgDir $PkgDir -DownloadComplete
+            }
+        }
         catch {
             return @{ Ok = $false; Network = $false
-                Error = ('文件已就绪：{0}。下载暂存清理失败（{1}）：{2}' -f (($Plans | ForEach-Object { $_['Target'] }) -join '、'), (Join-WinstPath $PkgDir 'winst-download'), $_.Exception.Message) }
+                Error = ('文件已就绪：{0}。下载目录清理失败（{1}）：{2}' -f (($Plans | ForEach-Object { $_['Target'] }) -join '、'), (Join-WinstPath $PkgDir 'winst-download'), $_.Exception.Message) }
         }
         return @{ Ok = $true; Names = @($downloadedNames | Where-Object { $planNames -contains $_ } | Select-Object -Unique)
             Version = $version; Plan = $Plan; Plans = $Plans }

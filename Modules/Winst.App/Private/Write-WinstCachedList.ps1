@@ -50,7 +50,7 @@ function Write-WinstCachedList {
     if ($packageUpdatable -gt 0) { $notes += ('{0} 个安装包可以更新' -f $packageUpdatable) }
     if ($installedUpdatable -gt 0) { $notes += ('{0} 个已装软件可以升级' -f $installedUpdatable) }
     if ($notes.Count -gt 0) { Write-Host ('  其中 {0}。' -f ($notes -join '，')) -ForegroundColor Green }
-    Write-Host ('  共 {0} 个已下载的安装包，{1} 个已安装。' -f $items.Count, $installedCount) -ForegroundColor DarkGray
+    Write-Host ('  共 {0} 个软件，{1} 个已安装。' -f $items.Count, $installedCount) -ForegroundColor DarkGray
     Write-Host '  安装 / 更新: winst install <id>    删除: winst clean <id>' -ForegroundColor DarkGray
     Write-Host '  「仅下载」类型: winst download <id> 下载 / 更新软件包，winst clean <id> 删除软件包' -ForegroundColor DarkGray
     return 0

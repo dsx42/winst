@@ -5,10 +5,7 @@ function Show-WinstCachedRows {
     .SYNOPSIS
         展示已下载的安装包。
     .DESCRIPTION
-        每条三行（列表只给结论、细节留给详情页）：
-          第 1 行：名称（id）+ 已下载包版本 · 大小 · 文件数；
-          第 2 行：本机安装情况（未安装 / 已安装 x.y + 已装能否升级，升级到哪个版本、来自哪个源）；
-          第 3 行：安装包能否更新 + 软件源里各来源的版本（全部来源并排）。
+        每个软件一行，有下载暂存目录时提示进入详情查看。
         存在可更新的安装包 / 可升级的已装软件时，列表下方提供两个批量选项（由调用方执行）：
         `d) 下载全部更新包`、`u) 升级已装软件`。统计信息在列表顶部与底部各给一份。
     .OUTPUTS
@@ -34,7 +31,7 @@ function Show-WinstCachedRows {
     # 统计信息（列表顶部与底部各给一份）
     $packageNoun = '安装包'
     if ($downloadTypeCount -gt 0 -and $downloadTypeCount -eq $items.Count) { $packageNoun = '软件包' }
-    $summaryText = ('共 {0} 个已下载的{1}' -f $items.Count, $packageNoun)
+    $summaryText = ('共 {0} 个软件' -f $items.Count)
     $summaryColor = 'DarkGray'
     $summaryNotes = @()
     if ($packageUpdatable -gt 0) { $summaryNotes += ('{0} 个{1}可更新' -f $packageUpdatable, $packageNoun) }

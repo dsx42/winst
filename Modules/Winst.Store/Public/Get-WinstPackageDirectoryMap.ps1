@@ -3,9 +3,9 @@
 function Get-WinstPackageDirectoryMap {
     <#
     .SYNOPSIS
-        扫描安装包位置下实际含文件的 id 目录，返回路径、文件和字节数。
+        扫描安装包位置下含正式文件的 id 目录；缓存列表也包含仍有下载暂存目录的软件。
     #>
-    param([string]$PkgDir, [string[]]$Ids)
+    param([string]$PkgDir, [string[]]$Ids, [switch]$IncludeDownloadStage)
 
     $map = New-WinstOrdinalDictionary
     if (-not $PkgDir -or -not (Test-Path -LiteralPath $PkgDir -PathType Container)) { return $map }
@@ -24,9 +24,11 @@ function Get-WinstPackageDirectoryMap {
             [string]$file.Name
             $size += [long]$file.Length
         })
-        if ($names.Count -eq 0) { continue }
+        $hasStage = $IncludeDownloadStage -and (Test-Path -LiteralPath (Join-WinstPath $dir.FullName 'winst-download') -PathType Container)
+        if ($names.Count -eq 0 -and -not $hasStage) { continue }
         $map[[string]$dir.Name] = [ordered]@{
             Path      = [string]$dir.FullName
+            HasDownloadStage = $hasStage
             Files     = $names
             SizeBytes = $size
         }

@@ -3,24 +3,31 @@
 function Clear-WinstEmptyDownloadStage {
     <#
     .SYNOPSIS
-        在条目锁内收起空的下载暂存目录，提示仍需核实的任务和断点。
+        在条目锁内清理空下载目录。全部文件登记成功后，再清除被取代的旧文件。
     #>
-    param([string]$PkgDir)
+    param([string]$PkgDir, [switch]$DownloadComplete)
 
     $stage = Join-WinstPath $PkgDir 'winst-download'
     if (-not (Test-Path -LiteralPath $stage -ErrorAction Stop)) { return }
     Assert-WinstSafeWritePath -Path $stage -Directory
     $tasks = Join-WinstPath $stage '.tasks'
     $local = Join-WinstPath $stage '.local'
+    if ($DownloadComplete) {
+        Assert-WinstSafeWritePath -Path $tasks -Directory
+        Clear-WinstInstallDir -Dir (Join-WinstPath $tasks 'replaced') -AllowedRoot $stage -Strict
+    }
     $containers = @()
     foreach ($path in @($tasks, $local)) {
         if (-not (Test-Path -LiteralPath $path -PathType Container -ErrorAction Stop)) { continue }
         Assert-WinstSafeWritePath -Path $path -Directory
         if ($path -eq $local) {
             foreach ($dir in Get-ChildItem -LiteralPath $local -Directory -Force -ErrorAction Stop) {
-                if (-not (Test-Path -LiteralPath (Join-WinstPath $tasks $dir.Name) -ErrorAction Stop)) {
-                    $containers += $dir.FullName
+                if ($DownloadComplete) {
+                    Assert-WinstSafeWritePath -Path $dir.FullName -Directory
+                    # failed 仅存放已退出的本地下载，新计划可能使用了不同文件名。
+                    Clear-WinstInstallDir -Dir (Join-WinstPath $dir.FullName 'failed') -AllowedRoot $local -Strict
                 }
+                $containers += $dir.FullName
             }
         }
         $containers += $path
@@ -34,7 +41,7 @@ function Clear-WinstEmptyDownloadStage {
         } elseif ($path -in @($tasks, $stage)) {
             foreach ($child in $children) {
                 if ($child.FullName -ne $tasks) {
-                    Write-Warning ('保留待核实的下载暂存：' + $child.FullName)
+                    Write-Warning ('已保留下载文件：' + $child.FullName)
                 }
             }
         }
