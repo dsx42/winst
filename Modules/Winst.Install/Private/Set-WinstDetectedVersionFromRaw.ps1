@@ -3,17 +3,10 @@
 function Set-WinstDetectedVersionFromRaw {
     <#
     .SYNOPSIS
-        把「检测到的原始文本」按识别规则转成版本号并写进检测结果（六种 detect.method 共用）。
+        按识别规则从原始文本提取版本号，写入检测结果。
     .DESCRIPTION
-        六种 detect.method 共用这四步：Get-WinstVersionFromText → 兜底 Get-WinstFirstVersionLike →
-        写 Detail → 命中才写 Ok/Version。兜底条件用 -Fallback 显式表达：
-          whenNoKind（默认）：只有未声明 versionKind / versionBetween 时才兜底
-                              （registry / fileVersion / jsonFile / appx / cli 用）
-          always            ：无条件兜底（markerFile 用：标记文件内容常常就是版本号本身）
-
-        用来记录「多个版本实例」的检测方（fileVersion / markerFile / jsonFile / registry）**不直接用
-        返回值里的 Ok / Version 作为最终结论**，而是把命中值交给 Add-WinstVersionItem 逐个累积，
-        最后由 Complete-WinstDetectedVersion 挑最新版本；单值检测方（appx / cli）直接用返回值。
+        jsonFile、appx、cliVersion 使用 whenNoKind：未声明识别规则时，取第一个像版本号的字符串。
+        markerFile 使用 always：识别规则没有提取到版本号时，也会在文件内容中查找版本号。
     .OUTPUTS
         无（原地写 $Result 的 Ok / Version / Detail）
     #>

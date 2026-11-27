@@ -79,8 +79,8 @@ function Invoke-WinstOldVersionCleanup {
         $restartInitiated = Get-EntryBool -Entry $run -Key 'RestartInitiated'
         $removedCount++
         Write-Host ('      已移除旧版本 {0}。' -f $version) -ForegroundColor Green
-        foreach ($cleaned in @($run.Cleaned)) {
-            $notes += ('顺带清理了一条失效的安装记录（卸载程序已不存在），版本 {0}' -f $version)
+        if ($run.CleanedCount -gt 0) {
+            $notes += ('版本 {0} 的卸载程序已不存在，已清理 {1} 条安装记录。' -f $version, $run.CleanedCount)
         }
     }
     # 刷新系统快照：注册表卸载项 / 应用包都变了，后续检测必须重读

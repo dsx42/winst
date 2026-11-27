@@ -7,16 +7,15 @@ function Get-WinstVisibleListItems {
     .DESCRIPTION
         菜单的三个列表页（已装软件 / 已下载包 / 软件列表）共用：列表太长时用户可直接输入软件名
         过滤，命中后仍按 1..N 输入编号选择——调用方用 Indexes 把编号换回原数组下标，
-        因此「过滤后选中的仍是同一项」。$Filter 为空时原样返回（下标 0..N-1）。
+        因此「过滤后选中的仍是同一项」。
     .OUTPUTS
         @{ Visible = @(项); Indexes = @(原下标) }
     #>
     param($Items, [string]$Filter)
 
     $all = @($Items)
-    $keyword = $Filter.Trim()
     $indexes = @(for ($i = 0; $i -lt $all.Count; $i++) {
-        if ($keyword -and -not (Test-WinstListItemKeyword -Item $all[$i] -Keyword $keyword)) { continue }
+        if (-not (Test-WinstListItemKeyword -Item $all[$i] -Keyword $Filter)) { continue }
         $i
     })
     return @{ Visible = @($all[$indexes]); Indexes = $indexes }

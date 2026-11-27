@@ -24,7 +24,6 @@ function Show-WinstUninstallPlan {
         # 按名称规则卸载会命中同名的全部记录：新旧两版一起被卸掉，这里必须提前说清
         Write-Host ('    并存的旧版本: {0}（卸载会一并移除；只想清旧的请用「已装软件」详情的 o)）' -f $oldText) -ForegroundColor DarkYellow
     }
-    Write-Host ('    卸载动作来源: {0}' -f (@($Targets['Sources']) -join ' + ')) -ForegroundColor DarkGray
     foreach ($note in @($Targets['Notes'])) {
         Write-Host ('    提示: {0}' -f $note) -ForegroundColor DarkYellow
     }
@@ -39,11 +38,12 @@ function Show-WinstUninstallPlan {
         }
     }
 
+    Write-Host ('    卸载动作来源: {0}' -f (@($Targets['Sources']) -join ' + ')) -ForegroundColor DarkGray
     if ([bool]$Targets['IsSelf']) {
         Write-Host '    winst 自身：删除安装目录里的脚本副本与启动器 winst.cmd' -ForegroundColor Gray
         Write-Host '    数据目录（软件源设置、已下载的安装包）保留，可自行删除' -ForegroundColor DarkGray
     } elseif ([bool]$Targets['External'] -and [string]$Targets['Method'] -eq 'record-only') {
-        Write-Host '    该软件不是 winst 安装的，软件源里也没有卸载定义：只移除安装记录，不删除程序本身，也不改动系统设置' -ForegroundColor Yellow
+        Write-Host '    只移除安装记录，保留程序文件和系统设置。' -ForegroundColor Yellow
         return
     } elseif ([string]$Targets['Method'] -eq 'registry') {
         Write-Host '    运行该软件自带的卸载程序（按安装记录里的名称规则在系统安装记录里实时查找）' -ForegroundColor Gray

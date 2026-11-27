@@ -33,8 +33,8 @@ function Resolve-ManifestApps {
             $plan = New-WinstCatalogAppPlan -ManifestOrigin $ManifestOrigin -Entry $entry -Context $Context
         } catch {
             $reason = $_.Exception.Message
-            $plan = (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry @{ id = $id; name = $displayName
-                type = (Get-EntryString -Entry $entry -Key 'type'); description = (Get-EntryString -Entry $entry -Key 'description') }).Plan
+            $plan = New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry @{ id = $id; name = $displayName
+                type = (Get-EntryString -Entry $entry -Key 'type'); description = (Get-EntryString -Entry $entry -Key 'description') }
             $plan['error'] = $reason
         }
         $plan['resolvedAt'] = $resolvedNow

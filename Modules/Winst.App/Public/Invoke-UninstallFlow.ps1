@@ -19,8 +19,6 @@ function Invoke-UninstallFlow {
 
     Write-Section '卸载软件'
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     while ($true) {
         Write-Host ''
         Write-Host '  输入软件名称（可只写片段，多个用空格分隔）直接卸载；卸载完一个可继续输入下一个；直接回车返回主菜单。' -ForegroundColor DarkGray
@@ -43,8 +41,7 @@ function Invoke-UninstallFlow {
         }
         if ($overview.Warning) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor Yellow }
 
-        # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-        $items = @($overview.Items | Where-Object { $null -ne $_ })
+        $items = $overview.Items
         if ($items.Count -eq 0) {
             Write-Host ''
             Write-Host '  安装记录里还没有已安装的软件，没有可以卸载的内容。' -ForegroundColor Yellow

@@ -9,7 +9,7 @@ function New-WinstPageResolvedFiles {
     #>
     param($Context, $Source, $Item, $Declared, [string]$DownloadUrl, [string]$Version, [string]$PageHash, $Result)
 
-    $resolvedFiles = @(New-ResolvedFileFromDeclaration -Item $Item -Url $DownloadUrl -Version $Version -MainFile -HashOverride $PageHash)
+    $resolvedFiles = @(New-ResolvedFileFromDeclaration -Item $Item -Url $DownloadUrl -Version $Version -HashOverride $PageHash)
     if ($PageHash) {
         # hashFrom: "page" 是提取指令不是校验算法：解析结果里已带上提取到的 hash，把指令清掉，
         # 免得下游把它当校验文件算法处理

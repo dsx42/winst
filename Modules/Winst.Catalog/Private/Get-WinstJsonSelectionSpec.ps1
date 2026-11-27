@@ -7,12 +7,6 @@ function Get-WinstJsonSelectionSpec {
     #>
     param($Source, [string]$Label)
 
-    foreach ($pair in @(Get-WinstEntryPairs -Entry $Source)) {
-        $key = [string]$pair[0]
-        if (@('versionKey', 'versionFilter', 'sort') -contains $key -and $pair[1] -isnot [string]) {
-            return @{ Error = ($Label + ' 的 ' + $key + ' 必须是字符串') }
-        }
-    }
     $versionKey = (Get-EntryString -Entry $Source -Key 'versionKey').Trim()
     $filterText = (Get-EntryString -Entry $Source -Key 'versionFilter').Trim()
     $sort = (Get-EntryString -Entry $Source -Key 'sort').Trim().ToLowerInvariant()

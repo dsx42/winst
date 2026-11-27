@@ -18,13 +18,10 @@ function New-ResolvedFileFromDeclaration {
         [string]$Name = '',
         [string]$Dest = '',
         $Size = $null,
-        [switch]$MainFile,
         [string]$HashOverride = '',
         [string]$HashFileOverride = '',
         [string]$SourceVersion
     )
-
-    if ($MainFile) { $Dest = '' }
 
     # name 对全部来源生效：解析器没给固定名时取 files[] 里的 name（支持 {version}），
     # 用于地址里带不出来文件名的场合（如 download.php?file=… 这类跳转地址）

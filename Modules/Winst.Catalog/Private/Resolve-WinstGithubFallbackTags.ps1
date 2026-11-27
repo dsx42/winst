@@ -18,8 +18,7 @@ function Resolve-WinstGithubFallbackTags {
 
     $releaseItems = @($Releases)
     if ($releaseItems.Count -eq 0) { $releaseItems = @(Get-GitHubReleaseListTags -Context $Context -Repo $Repo) }
-    $chosenKey = Get-WinstVersionSortKey -Version $ChosenTag
-    if (-not $chosenKey) { return @() }
+    if ($ChosenTag -notmatch '^[^+]*\d') { return @() }
     $allowPrerelease = [bool]$ReleaseTagPrefix
     foreach ($item in $releaseItems) {
         if ((Get-EntryString -Entry $item -Key 'Tag') -ceq $ChosenTag) {
@@ -39,8 +38,7 @@ function Resolve-WinstGithubFallbackTags {
         if (-not $tag -or $tag -ceq $ChosenTag -or -not $seen.Add($tag)) { continue }
         if (-not $allowPrerelease -and (Get-EntryBool -Entry $item -Key 'Prerelease')) { continue }
         if ($ReleaseTagPrefix -and -not $tag.StartsWith($ReleaseTagPrefix, [StringComparison]::OrdinalIgnoreCase)) { continue }
-        $key = Get-WinstVersionSortKey -Version $tag
-        if (-not $key) { continue }
+        if ($tag -notmatch '^[^+]*\d') { continue }
         $candidateVersion = $tag
         if ($ReleaseTagPrefix) {
             $candidateVersion = $candidateVersion.Substring($ReleaseTagPrefix.Length)

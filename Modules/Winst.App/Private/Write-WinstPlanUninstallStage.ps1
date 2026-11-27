@@ -33,10 +33,6 @@ function Write-WinstPlanUninstallStage {
         'appx' {
             $uninstallLines += ('从系统的应用包记录里移除（名称规则: {0}）' -f (Get-EntryString -Entry $uninstall -Key 'name'))
         }
-        'clean-cache' {
-            if ($View.PkgTarget) { $uninstallLines += ('删除已下载的安装包: {0}' -f ($View.PkgTarget + '\')) }
-            else { $uninstallLines += '删除已下载的安装包' }
-        }
         default { $uninstallLines += '按软件自身的方式卸载' }
     }
     $commandDir = $View.InstalledDir

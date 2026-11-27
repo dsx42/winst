@@ -23,7 +23,7 @@ function Get-WinstInstallDirRecords {
         $matchId = ''
         if ($Plan.Contains($dirId)) {
             $matchId = $dirId
-        } elseif ($CiId.ContainsKey($dirId)) {
+        } elseif ($CiId.Contains($dirId)) {
             $matchId = [string]$CiId[$dirId]
             if (-not $matchId) {
                 Write-Host ('  跳过目录 {0}：多个清单 id 仅大小写不同，无法确定归属。' -f $dir.FullName) -ForegroundColor Yellow

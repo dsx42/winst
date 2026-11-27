@@ -23,8 +23,6 @@ function Invoke-UpdateCheck {
 
     Write-Section '检查更新'
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     $refresh = Update-WinstCheckSources -Context $Context
 
     $round = 0

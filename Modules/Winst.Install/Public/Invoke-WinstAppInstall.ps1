@@ -66,7 +66,6 @@ function Invoke-WinstAppInstall {
         $installDir = [string]$info.InstallDir
         $pkgDir = [string]$info.PkgDir
         $install = $info.Install
-        $files = @($info.Files)
         $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
         $planFreshState = [string]$info.PlanFreshState
         $isDownloadType = [bool]$info.IsDownloadType

@@ -3,7 +3,7 @@
 function Get-WinstMainProgram {
     <#
     .SYNOPSIS
-        条目的主程序相对路径（portable = mainExe；exe = 主包落位文件 / 改名结果）。
+        从 portable 或 file 类型的安装计划读取主程序相对路径 install.mainExe。
     #>
     param($Plan)
 

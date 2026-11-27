@@ -38,7 +38,7 @@ function ConvertTo-WinstInstalledEntry {
     if (-not $result['managed']) { $result['managed'] = 'winst' }
 
     # 同一软件在本机并存的其它版本（低于 version）：供「已装软件」提醒用户清理旧版本。
-    # recordKey 是该版本的移除入口（registry = 卸载键路径，appx = 包全名），空 = 无法单独移除。
+    # recordKey 记录该版本的注册表卸载键路径，留空表示无法单独移除。
     foreach ($item in @(Get-EntryArray -Entry $Entry -Key 'oldVersions')) {
         $oldVersion = Get-EntryString -Entry $item -Key 'version'
         if (-not $oldVersion) { continue }

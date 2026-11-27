@@ -16,18 +16,13 @@ function Get-WinstVersionFromText {
     #>
     param([string]$Text, [string]$Kind, $Between)
 
-    $value = [string]$Text
-    # 先按标记截取、再按识别器提取（两者都声明时可组合；只声明其一时与旧行为一致，见 Get-VersionFromSourceText）
+    # 两者都声明时，先截取，再按识别器提取。
     if ($Between -and @($Between).Count -gt 0) {
-        $r = Get-VersionBetween -Spec $Between -Text $value
+        $r = Get-VersionBetween -Spec $Between -Text $Text
         if (-not $r.Ok) { return '' }
-        $value = [string]$r.Value
+        if (-not $Kind) { return $r.Value }
+        $Text = $r.Value
     }
-    if ($Kind) { return (Get-VersionValue -Text $value -Kind $Kind) }
-    # 只声明了 versionBetween（截取出来的那一段就是版本）、没有识别器的，按截取结果返回
-    if ($Between -and @($Between).Count -gt 0) { return $value.Trim() }
-
-    $trimmed = $value.Trim()
-    if (-not $trimmed) { return '' }
-    return (Format-WinstBareVersionValue -Text $trimmed)
+    if ($Kind) { return (Get-VersionValue -Text $Text -Kind $Kind) }
+    return (Format-WinstBareVersionValue -Text $Text)
 }

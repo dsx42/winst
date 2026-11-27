@@ -7,7 +7,7 @@ function New-WinstGithubResolvedFiles {
     .DESCRIPTION
         失败分两类，调用方要区别对待：
 
-        - `MissingFile = $true`：这个发布里**确实没有**需要的文件（`file` 通配没命中，或拼出的地址 404）。
+        - `MissingFile = $true`：这个发布里**确实没有**需要的文件（`file` 通配没命中，或拼出的地址找不到文件）。
           上游常常是先把 release 建好、再分批上传资产，因此这属于「换个发布可能就有」，
           调用方可以退回更早的发布再试。
         - `MissingFile = $false`：其它失败（读不到资产列表、版本占位符无法展开、配置写错），
@@ -32,7 +32,6 @@ function New-WinstGithubResolvedFiles {
         if ($locator.File) {
             $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $Source -MainVersion $Version
             if (-not $fileVersion.Ok) { return @{ Error = [string]$fileVersion.Error; Files = $files; MissingFile = $false } }
-            foreach ($listedNote in @($fileVersion.Notes)) { $Result.Notes += [string]$listedNote }
 
             $rule = New-MatchRule -Rule (Get-MatchRuleText -Rule $locator.File -Version $fileVersion.Version -Tag $ChosenTag) -Kind '文件名'
             if (-not $rule.Ok) { return @{ Error = [string]$rule.Error; Files = $files; MissingFile = $false } }
@@ -96,15 +95,10 @@ function New-WinstGithubResolvedFiles {
             $url = Expand-GitHubFileUrl -Repo $Repo -Tag $ChosenTag -FileName $url
         }
 
-        # 404 时只说明「这个发布里没有该文件」：不把该发布包含的上百个文件名一并拼进报错
-        # （那还要再抓一次资产列表），否则界面上会刷屏。
-        $urlProbe = Test-WinstManifestUrlOrNote -Context $Context -Url $url -Skip $skipCheck -MissingError {
-            ('最新版本 {0} 里还没有这个文件（可能还在上传，稍后刷新重试）: {1}；请检查文件名或地址模板是否写错' -f $ChosenTag, $url)
-        }
+        $urlProbe = Test-WinstManifestUrlOrNote -Context $Context -Url $url -Skip $skipCheck `
+            -MissingError ('这个地址找不到文件：{0}。最新版本 {1} 可能还在上传，请稍后刷新重试，并检查文件名或地址模板是否写错。' -f $url, $ChosenTag)
         if (-not $urlProbe.Ok) {
-            # 只有「清单只写了文件名、地址由 winst 拼成」时 404 才可能是「这个发布还没上传这个文件」，
-            # 换个发布也许就有；清单自己写了完整地址模板时 404 更可能是模板写错，
-            # 退回旧版本只会掩盖真正的配置问题。
+            # 只写文件名时可以尝试旧发布，完整地址模板写错时直接报告。
             $locatorWasFileName = -not (Test-UrlText -Text $locator.Url)
             return @{ Error = [string]$urlProbe.Error; Files = $files; MissingFile = $locatorWasFileName }
         }

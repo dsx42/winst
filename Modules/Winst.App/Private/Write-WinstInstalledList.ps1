@@ -23,8 +23,7 @@ function Write-WinstInstalledList {
     }
     if ($overview.Warning) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor Yellow }
 
-    # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-    $items = @($overview.Items | Where-Object { $null -ne $_ })
+    $items = $overview.Items
     Write-Host ''
     if ($items.Count -eq 0) {
         Write-Host '  安装记录里还没有已安装的软件。' -ForegroundColor Yellow

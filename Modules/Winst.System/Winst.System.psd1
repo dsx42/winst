@@ -5,7 +5,7 @@
     Author               = 'winst'
     CompanyName          = 'winst'
     Copyright            = '(c) winst'
-    Description          = '操作系统集成原语：注册表卸载项、Appx 包、环境变量、PATH、快捷方式、进程快照、目录删除。'
+    Description          = '操作系统集成原语：注册表卸载项、Appx 包、环境变量、PATH、快捷方式、进程快照。'
     PowerShellVersion    = '5.1'
     CompatiblePSEditions = @('Desktop')
 

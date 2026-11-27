@@ -106,8 +106,7 @@ function Set-WinstScriptLocation {
         指向模块文件而不是 winst.ps1，因此由调用方显式传入。
 
     .PARAMETER ScriptPath
-        正在运行的 winst.ps1 完整路径。从命令字符串执行时可能为空，
-        此时目录仍会被记录。
+        正在运行的 winst.ps1 完整路径。
 
     .PARAMETER Directory
         winst.ps1 所在目录（「脚本目录」）。

@@ -35,7 +35,6 @@ function Complete-WinstInstallPlan {
         if ($detectResult.Error) { $plan['error'] = $detectResult.Error; return $plan }
         $detectBlock = $detectResult.Block
     }
-    $shortcutName = ''
 
     # ② 解压 / 安装 与 ⑦ 卸载
     if ($type -eq 'installer') {
@@ -55,8 +54,7 @@ function Complete-WinstInstallPlan {
             -FileList $fileList -CopyList $copyList -Desktop $desktop -StartMenu $startMenu
         $installBlock = $portable.Install
         foreach ($note in @($portable.Notes)) { $notes += $note }
-        $shortcutName = [string]$portable.ShortcutName
-        $uninstallBlock = New-WinstPortableUninstallBlock -EnvMap $envMap -PathList $pathList -ShortcutName $shortcutName
+        $uninstallBlock = New-WinstPortableUninstallBlock -EnvMap $envMap -PathList $pathList -ShortcutName $portable.ShortcutName
     }
 
     if ($detectBlock['method'] -eq 'fileVersion' -and -not (Get-EntryString -Entry $detectBlock -Key 'pathGlob')) {

@@ -34,7 +34,7 @@ function Invoke-WinstInfoCommand {
 
     # 按需刷新这个软件的版本信息。
     # --force 走「强制刷新 + 只解析这一个 id」：调试本地清单时改完 manifest.json 立刻能看到结果，
-    # 否则 24 小时有效期内的 id 会直接沿用解析锁里的旧值（改了什么都要等到期才生效）。
+    # 在设置的有效期内，默认沿用解析锁里的值。
     if ($force) {
         $refresh = Update-WinstStaleSources -Context $Context -Force -OnlyIds @($id)
     } else {

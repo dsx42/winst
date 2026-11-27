@@ -34,17 +34,14 @@ function Invoke-WinstUninstallRegistryPayload {
         return @{ Abort = $false; Error = '' }
     }
 
-    if ($run.NeedRestart) {
-        $result.NeedRestart = $true
-        $RunState.Notes += '卸载程序提示需要重启电脑才能完成'
-    }
+    $result.NeedRestart = [bool]$run.NeedRestart
     if (Get-EntryBool -Entry $run -Key 'RestartInitiated') { return @{ Abort = $false; Error = '' } }
     Write-Host '    卸载程序已执行完成。' -ForegroundColor Gray
 
     # 回读系统安装记录：仍在 → 可能需重启才能完成
     Reset-WinstSystemCache
     if (Get-WinstRegistryEntryForPlan -Plan $uninstallPlan -InstallDir ([string]$Targets['InstallDir'])) {
-        $RunState.Notes += '系统安装记录里仍有该软件，可能需重启电脑后才会完全移除'
+        $RunState.Notes += '卸载后，系统安装记录里仍有这款软件。'
     }
 
     # 官方卸载器留下的目录默认保留，交互确认后才删除。

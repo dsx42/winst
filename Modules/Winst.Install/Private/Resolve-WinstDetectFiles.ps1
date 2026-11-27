@@ -15,7 +15,7 @@ function Resolve-WinstDetectFiles {
         注意：这里刻意用 Get-Item -Path 而不是 Get-ChildItem —— 前者支持清单里写的通配语义（含目录名通配），
         Get-ChildItem 不支持同样的语义。
     .OUTPUTS
-        @{ Ok; Files; HitCount }；未声明 pathGlob / 无命中时 Ok = $false
+        @{ Ok; Files }；未声明 pathGlob / 无命中时 Ok = $false
     #>
     param(
         [hashtable]$Context,
@@ -23,7 +23,7 @@ function Resolve-WinstDetectFiles {
         [string]$InstallDir
     )
 
-    $result = @{ Ok = $false; Files = @(); HitCount = 0 }
+    $result = @{ Ok = $false; Files = @() }
 
     $glob = Expand-PlanPlaceholders -Value (Get-EntryString -Entry $Detect -Key 'pathGlob') `
         -InstallDir $InstallDir -InstallRoot $Context.InstallRoot
@@ -43,6 +43,5 @@ function Resolve-WinstDetectFiles {
 
     $result.Ok = $true
     $result.Files = $files
-    $result.HitCount = $files.Count
     return $result
 }

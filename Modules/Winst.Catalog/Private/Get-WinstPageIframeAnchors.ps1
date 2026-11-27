@@ -3,14 +3,12 @@
 function Get-WinstPageIframeAnchors {
     <#
     .SYNOPSIS
-        主页面没有命中下载链接时，抓取页面里声明的 iframe（最多 3 个、去重）并合并锚点。
+        主页面没有命中下载链接时，抓取页面里声明的 iframe（最多 3 个、去重）并匹配其中的链接。
     .OUTPUTS
-        @{ Anchors; Html; Matched }
+        @{ Html; Matched }
     #>
-    param($Context, $Source, [string]$PageUrl, [string]$Html, $Anchors, $LinkSpec, $Result, $HrefRule, [Collections.ArrayList]$Sessions)
+    param($Context, $Source, [string]$PageUrl, [string]$Html, $LinkSpec, $Result, $HrefRule, [Collections.ArrayList]$Sessions)
 
-    $html = $Html
-    $anchors = @($Anchors)
     $matchedAnchors = @()
 
     $iframeUrls = @()
@@ -35,13 +33,10 @@ function Get-WinstPageIframeAnchors {
             $copy = Copy-WinstObjectShallow -InputObject $anchor
             $copy['Href'] = $href
             $copy['Session'] = $iframePage.Session
-            $anchors += $copy
+            if (Test-AnchorMatches -Anchor $copy -Spec $LinkSpec -HrefRule $HrefRule) { $matchedAnchors += $copy }
         }
         $Result.Notes += ('主页面没有命中下载链接，已跟随 iframe（{0}）' -f $iframeUrl)
     }
-    foreach ($anchor in $anchors) {
-        if (Test-AnchorMatches -Anchor $anchor -Spec $LinkSpec -HrefRule $HrefRule) { $matchedAnchors += $anchor }
-    }
 
-    return @{ Anchors = $anchors; Html = $html; Matched = $matchedAnchors }
+    return @{ Html = $html; Matched = $matchedAnchors }
 }

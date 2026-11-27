@@ -5,7 +5,7 @@ function Invoke-WinstDownloadUpdates {
     .SYNOPSIS
         批量下载更新包：把缓存里过期的安装包换成软件源里的最新版，只下载、不安装。
     .DESCRIPTION
-        供「已下载包」列表的 `x) 下载全部更新包` 与「软件列表 → 详情 → p) 下载软件包」使用
+        供「已下载包」列表的 `d) 下载全部更新包` 与「软件列表 → 详情 → p) 下载软件包」使用
         ：逐个 id 用**版本最高的可用来源**解析目标版本，复用安装流程的
         「仅下载」路径（`Invoke-WinstAppInstall -DownloadOnly`）把包写入安装包位置并更新缓存索引；
         不安装、不写台账、不落地任何系统项（download 类条目本就如此）。

@@ -23,7 +23,6 @@ function Add-WinstDependencyClosure {
         return
     }
     if ($State['Done'].Contains($Id)) { return }
-    if ($State['Visiting'].Contains($Id)) { return }
     $State['Visiting'][$Id] = $true
 
     foreach ($childId in @($map[$Id])) {

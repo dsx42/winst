@@ -35,7 +35,7 @@ function Get-WinstVersionFromFileVersion {
             -GroupKey (Get-WinstPathGroupKey -Path $file.FullName)
     }
 
-    if ($probe.HitCount -gt 1 -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
-        Write-Host ('  [verbose] 版本检测命中 {0} 个文件，取版本最高的那个' -f $probe.HitCount) -ForegroundColor DarkGray
+    if ($probe.Files.Count -gt 1 -and (Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).Verbose) {
+        Write-Host ('  [verbose] 版本检测命中 {0} 个文件，取版本最高的那个' -f $probe.Files.Count) -ForegroundColor DarkGray
     }
 }

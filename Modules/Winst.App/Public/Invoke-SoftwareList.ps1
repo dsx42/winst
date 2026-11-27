@@ -15,8 +15,6 @@ function Invoke-SoftwareList {
 
     Write-Section '软件列表'
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     # 超期软件源按有效期先刷新一次，列表里的「可更新」标注才是当前值（--offline 自动跳过、有效期内的源不动）
     $refresh = Update-WinstStaleSources -Context $Context
     Write-WinstRefreshErrors -Errors $refresh.Errors

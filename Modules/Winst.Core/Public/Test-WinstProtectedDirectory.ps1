@@ -6,7 +6,7 @@ function Test-WinstProtectedDirectory {
         判断路径是否是「绝不能递归删除」的系统 / 用户关键目录（盘根、Windows、System32、Program Files 等）。
     .DESCRIPTION
         递归删除前的最后一道闸：这些目录本身的删除一定是脏数据导致的（id 越界、台账被改、注册表路径被改）。
-        只做「整目录」判定——`C:\Program Files\MyApp` 这类正常安装目录不受影响。
+        Windows 目录及其子目录均受保护。Program Files 目录本身受保护，其中的普通软件目录可以卸载。
     .OUTPUTS
         [bool]
     #>

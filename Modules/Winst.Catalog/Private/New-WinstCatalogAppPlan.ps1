@@ -25,16 +25,15 @@ function New-WinstCatalogAppPlan {
     catch {
         $failure = New-SourceResolveResult -Kind $kind
         $failure.Error = $_.Exception.Message
-        return (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $failure).Plan
+        return (New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $failure)
     }
 
     $resolve = Resolve-WinstNormalizedAppSource -Context $Context -Entry $Entry
 
-    $base = New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $resolve
-    $plan = $base.Plan
-    if ($base.Error) { return $plan }
+    $plan = New-WinstPlanBase -ManifestOrigin $ManifestOrigin -Entry $Entry -Resolve $resolve
+    if ($plan.error) { return $plan }
 
-    $versionState = Resolve-WinstPlanVersion -Plan $plan -Entry $Entry -Context $Context -Notes $base.Notes -PackageVersionSpec $packageVersionSpec
+    $versionState = Resolve-WinstPlanVersion -Plan $plan -Entry $Entry -Context $Context -Notes $plan.notes -PackageVersionSpec $packageVersionSpec
     if ($versionState.Error) { return $plan }
     $plan = Complete-WinstInstallPlan -Plan $plan -Entry $Entry -Version $versionState.Version -Notes $versionState.Notes
     if (-not $plan.ok) { return $plan }

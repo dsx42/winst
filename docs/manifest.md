@@ -98,12 +98,12 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | 自定义源 | `用户名/仓库` | `manifest add` 添加，列表存在 `<pkgDir>\manifests\sources.json` | 需显式添加 |
 
 - 只支持 GitHub 仓库源。`manifest add` 接受 `用户名/仓库`、仓库页地址、清单 raw 地址
-- 添加时用真实请求校验（仓库不存在 / 没有 `manifest.json` / 内容非法都会明确报错，不写入源列表）
+- 添加时会读取仓库的 `manifest.json`。清单读不到或格式有误时，会添加失败。如果只是某些软件写错了，仍可添加这个源。添加后请看有多少款软件可用。
 - 源列表与清单缓存都存在 `<pkgDir>\manifests\` 下：多台机器共用同一 `pkgDir` 时，源配置一并共享
 
 ## 调试本地清单
 
-本地清单（`local`）改完不用加源、不用重启，但**每条软件的版本信息有 24 小时有效期**（`manifestTTLHours`）：
+修改本地清单（`local`）后可以直接使用。每款软件的版本信息默认保留 24 小时，可用 `manifestTTLHours` 调整。
 有效期内的 id 直接沿用解析锁里的旧值，改完清单立刻查看可能还是旧结果。按下面的顺序验证：
 
 | 目的 | 命令 |
@@ -141,21 +141,19 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 清单也兼容顶层数组 `[ {...} ]`、顶层单条目对象（含 `id`）。本地与远程正文均校验根结构与条目对象，`apps` 必须是数组，数组内每项必须含 `id`；空数组及 `{"apps":[]}` 表示空清单。错误对象、标量及其它结构明确报错，保留既有正文缓存与解析锁。
 
 - **纯 JSON**：清单文件与本文 JSON 示例均不写注释
-- **编码**：UTF-8（带不带 BOM 均可）；其它编码会导致解析失败并明确报错
+- 请保存为 UTF-8，带不带 BOM 均可。本地文件的 UTF-8 格式有错时会报错。从网上下载的清单也可以按服务器指定的编码读取。
 - winst 生成或改写的清单缓存和 `.list` 使用 UTF-8 无 BOM。`bundle pack` 原样复制本地软件源清单，按收包顺序生成目标 `.list`
 - `_manifestVersion` 只用于人看与排错，winst 不按它做兼容分支；改内置清单时要一起更新
 
 ## 写法与校验约定
 
-推荐把来源版本规则集中写为 `source.version`，每个下载文件的摘要规则集中写为 `source.files[].checksum`，卸载参数写为 `uninstall.args`。这些对象是作者配置，解析锁、安装台账中的内部字段不能直接复制到清单。
+推荐把来源版本规则集中写为 `source.version`，每个下载文件的摘要规则集中写为 `source.files[].checksum`，卸载参数写为 `uninstall.args`。这些写法需要 winst v2026.11.11 或更高版本。这些对象是作者配置，解析锁、安装台账中的内部字段不能直接复制到清单。
 
 - 条目及 `source`、`source.version`、`files[]`、`checksum`、`follow`、页面条件、`detect`、`shortcuts`、`uninstall`、复制规则、命令对象中的未知字段会报「不支持字段」，不会静默忽略拼写错误。`env` 的环境变量名与 `match` 的接口字段名由作者指定。
 - 声明为字符串的字段不能用数字、对象或 JSON `null` 代替。`version.key` 在 XML 中额外接受非空字符串数组；`version.between` 使用至多两个字符串组成的数组，空数组仅在允许该字段的来源和取版方式中按未配置处理；不适用位置仍报错。
 - 布尔字段推荐使用 JSON `true` / `false`；兼容 `"true"` / `"false"` / `"1"` / `"0"` / `"yes"` / `"no"` / `"on"` / `"off"` 及数字 `1` / `0`，不区分大小写；无法识别的值报错。`stripTopDir` 和 `addToPath` 另有下文说明的路径写法。
-- 已声明的 `postInstallCopy` 必须有非空 `from` 与 `to`；`postInstall` / `uninstall.commands` 的每项必须有非空 `exe`。省略整个功能或写空数组表示不用它，填写不完整的规则会报出字段路径与下标。
+- 在适用的条目类型中，`postInstallCopy` 的每项必须有非空 `from` 与 `to`，`postInstall` / `uninstall.commands` 的每项必须有非空 `exe`。省略整个功能或写空数组表示不用它，填写不完整的规则会报出字段路径与下标。
 - `source.version` 与任一分散的来源版本字段或根级 `version` 不能混写；同一文件的 `checksum` 与旧 `hash*` 字段不能混写；`uninstall.args` 与根级 `uninstallArgs` 不能混写。字段对应关系见「兼容字段对照」。
-
-推荐的嵌套写法需要使用支持本规范的 winst。发布第三方软件源前应先部署对应程序版本；旧客户端不保证能读取这些对象。
 
 ## 通用匹配规则
 
@@ -174,19 +172,13 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 
 `product:` 后用 `|` 分隔产品别名，每个别名会去掉首尾空白。示例 `product:微信|WeChat|Weixin` 接受「微信」「WeChat」「Weixin」「微信 4.2.0」，不接受「企业微信」「WeChat Work」「微信测试版」。版本后缀是至少一个空白字符，后接一个或多个以点分隔的数字段，如 `4`、`4.2.0`；版本前后不能额外夹带其它文字。`product:` 后没有名称、连续 `||`、末尾 `|` 或仅含空白的别名，均报「product: 预置规则的产品名不能为空」。`|` 只作分隔，名称自身含此字符时应使用 `re:` 自定义规则。
 
-例如，微信的注册表版本检测可写为：
-
-```json
-{
-  "detect": {"method": "registry", "name": "product:微信|WeChat|Weixin"}
-}
-```
+微信的注册表匹配示例见[版本检测](#版本检测detect)。
 
 ## 条目字段
 
 | 字段 | 默认值 | 说明 |
 |---|---|---|
-| `id` | 必填 | 单层目录名，**区分大小写**；但不允许与现有台账、缓存或目录中的 id 仅大小写不同，冲突时报错且不覆盖已有身份；不能为空、`.` / `..`、首尾空白、尾点、控制字符、Windows 文件名非法字符、保留设备名或超过 100 字符。绿色版安装目录 = `<installRoot>\<id>`，包目录 = `<pkgDir>\<id>` |
+| `id` | 必填 | 单层目录名，**区分大小写**；但不允许与现有台账、缓存或目录中的 id 仅大小写不同，冲突时报错且不覆盖已有身份；不能为空、`.` / `..`、首尾空白、尾点、控制字符、Windows 文件名非法字符、保留设备名或超过 100 字符。以 `-` 开头的 id 无法直接用于 `winst info`。绿色版安装目录 = `<installRoot>\<id>`，包目录 = `<pkgDir>\<id>` |
 | `name` | `= id` | 显示名；`installer` 未声明 `detect.name` 时也用它生成注册表匹配规则 |
 | `description` | 空 | 一句话说明，参与 `search` 的关键字匹配 |
 | `homepage` | 空 | 作者提供的项目主页元数据，接受字符串；不参与下载定位、版本检测或安装决策 |
@@ -204,10 +196,10 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `env` | `{}` | `portable` / `file` 的环境变量；必须为对象，值必须为字符串；`{installDir}` 展开为实际安装目录，`%VAR%` 原样写入；作用域按安装目录自动判定（`%USERPROFILE%` 下 → User，否则 Machine） |
 | `shortcuts` | 均为 `false` | `portable` / `file` 的 `desktop` / `startMenu`，目标为主程序；主程序是 `.ps1` 时自动生成同名 `.cmd` 启动器 |
 | `postInstallCopy` | `[]` | `portable` / `file`：安装目录内复制 / 改名（`move: true` 为移动），`from` / `to` 均为相对路径，`from` 支持 `*` / `?` 通配；缺少或空白 `from` / `to` 时报含规则下标的字段错误；`from` 无命中或命中多个即报错；移动文件到 `.exe` 路径时，来源扩展名须为 `.exe` |
-| `postInstall` | `[]` | `portable` / `file`：安装末尾执行的命令，非零退出视为安装失败；字段见下方「命令条目」 |
+| `postInstall` | `[]` | `portable` / `file`：安装末尾执行的命令。填写方式和成功退出码见[命令条目](#命令条目) |
 | `installArgs` | 空 | 仅 `installer`：静默安装参数；应用包安装不使用它；含未闭合双引号或控制字符时清单报错 |
 | `uninstallArgs` | 空 | `uninstall.args` 的根级兼容写法；不能与 `uninstall.args` 同写；应用包卸载不使用它 |
-| `installerExe` | 空 | 仅 `installer`：主包是压缩包时，先解压再运行包内这个安装程序（支持 `{version}` 与 `*` / `?`）；无命中或命中多个即报错；声明它时 `stripTopDir` 表示外层包的解压规则 |
+| `installerExe` | 空 | 仅 `installer`：主包是压缩包时，先解压再运行包内这个安装程序（支持 `{version}` 与 `*` / `?`）；无命中或命中多个即报错；声明它时 `stripTopDir` 表示外层包的解压规则。如果 ZIP 里装的是 MSIX，在 `detect` 里把 `method` 写成 `"appx"`，把 `name` 写成应用包名。这样卸载时才能找到它。 |
 | `processes` | `[]` | 进程名列表，见表后的「进程占用检测」；`download` 不安装，无需声明 |
 | `uninstall` | 空 | 卸载定义，见「卸载定义」；`download` 不使用 |
 | `detect` | `installer` → `registry`，其余 → `none`；省略对象、空对象和缺省 / 空 `method` 使用同一默认；关闭检测需显式 `method: "none"` | 已装版本检测，见「版本检测」；`download` 强制为 `none` |
@@ -215,7 +207,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 **不同类型忽略的字段**：
 
 - `installer` 忽略 `stripTopDir`（除非声明了 `installerExe`）、`portableMode`、`keep`、`mainExe`、`addToPath`、`env`、`shortcuts`、`postInstallCopy`、`postInstall` —— 安装位置与系统设置都由安装程序自己管理。写了会记一条提示，不会静默生效。
-- `download` 只保留下载来源与公共元数据；忽略全部安装、进程检测、系统设置、版本检测和卸载字段（`processes` / `stripTopDir` / `extractFiles` / `portableMode` / `keep` / `mainExe` / `addToPath` / `env` / `shortcuts` / `postInstallCopy` / `postInstall` / `installArgs` / `uninstall.args` / `installerExe` / `detect` / `uninstall`）。
+- `download` 只保留下载来源与公共元数据；忽略全部安装、进程检测、系统设置、版本检测和卸载字段（`processes` / `stripTopDir` / `extractFiles` / `portableMode` / `keep` / `mainExe` / `addToPath` / `env` / `shortcuts` / `postInstallCopy` / `postInstall` / `installArgs` / `uninstall.args` / `installerExe` / `detect` / `uninstall`）。仅下载的软件也会检查 `env` 里的值是不是文本。`postInstallCopy` 不用于这类软件，只填 `from` 也可能通过检查。
 - `file` 忽略 `stripTopDir`、`extractFiles`、`portableMode`、`keep` 和 `mainExe`。主程序 = 主包落位文件；`postInstallCopy` 中与主包文件名完全一致的 `from` 且 `move: true` 时，主程序取该规则的完整相对路径 `to`（如 `bin/tool.exe`），保留子目录；仅复制不改变主程序。
 
 ### 解压配置怎么选
@@ -330,12 +322,14 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 - `url` 可写完整地址，也可只写文件名（如 `"rufus-{version}.exe"`）→ 自动补全 `releases/download/<tag>/<文件名>`；逐个探测地址可用性
 - `file` 使用[通用匹配规则](#通用匹配规则) → 读该发布的资产列表再匹配；无命中即报错，多命中取第一个并提示
 
+未填 `releaseTag` 时，优先使用 `releases/latest`。读不到 `releases/latest` 时，选发布列表里版本最高的正式版。如果全是预发布版，就选第一项。按前缀筛选、读取发布信息或查找早期发布时，只查看最近两页发布记录。
+
 **最新发布里没有所需文件时退回更早的发布。** GitHub 上常见「release 已建好、资产还在分批上传」：这时 `releases/latest` 指向的发布里还没有安装包，但上一次发布的文件是可用的。判定为「这个发布里没有要的文件」后，逐个试更早的发布，用第一个确实含有该文件的发布（最多查最近 5 个），并在结果的 `notes` 里写明「最新发布 x 里还没有这个文件，已改用更早的发布 y」。
 
 候选与排序规则（都用网页通道，不消耗 API 配额）：
 
-- **候选来自 `releases` 列表页**，保留 tag、标题、正文和 `Pre-release` 标记。
-- **按版本号从高到低排，不按页面顺序**；初选与缺资产时的回退共用版本比较规则：相同数字版本的正式版高于预发布，预发布数字段按数值比较（`beta.10` 高于 `beta.2`），`+build` 不参与优先级。
+- 候选来自 `releases` 列表页，包含 tag、标题、正文和 `Pre-release` 标记。
+- 缺少文件时，按版本号从高到低尝试候选。相同数字版本的正式版高于预发布，预发布数字段按数值比较（`beta.10` 高于 `beta.2`），`+build` 不参与优先级。
 - 只保留版本**严格低于**所选发布且能够比较版本的候选，不自动尝试更高版本或无法确定先后的发布。
 - 未声明 `releaseTag` 且所选发布为正式版时，只回退正式发布；声明前缀或所选发布本身为预发布时，允许该范围内的预发布候选。
 
@@ -356,7 +350,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `releaseTitle` | 发布标题 | 必须写 `version.between` |
 | `releaseBody` | 发布正文 | 必须写 `version.between` |
 
-`releaseTag` 是 **tag 前缀**，用于把候选限定在该前缀的发布里（含预发布；在这些发布里按版本号取最高），适合一个仓库用不同前缀发布多条产品线的情况。前缀在生成版本号时会被去掉（`cli-v1.2.3` + 前缀 `cli-v` → 版本 `1.2.3`），因此 `{version}` 可直接用在 URL 模板里。不写则用 GitHub 自己认定的 `releases/latest`。
+`releaseTag` 是 **tag 前缀**，用于把候选限定在该前缀的发布里（含预发布；在这些发布里按版本号取最高），适合一个仓库用不同前缀发布多条产品线的情况。前缀在生成版本号时会被去掉（`cli-v1.2.3` + 前缀 `cli-v` → 版本 `1.2.3`），因此 `{version}` 可直接用在 URL 模板里。
 
 ### listing 源
 
@@ -428,7 +422,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 | `thenClick` | `link` 命中中转页后还要在浏览器里点按钮取址 | 必须搭配 `link`；不能与 `click` 同用；步骤数组每一步至少要一个条件 |
 | `files[0].checksum.click` | 取址成功后，在同一无头浏览器会话中点击控件并读取可见摘要 | 必须搭配 `click` 或 `thenClick`，且主包 `checksum.format` 必须是 `page`。步骤写法与 `click` 相同。未声明时不做额外点击 |
 
-`link` / `thenLink.link` / `click` / `thenClick` / `files[0].checksum.click` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 使用[通用匹配规则](#通用匹配规则)；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` / `files[0].checksum.click` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；`thenClick` 不必再单独声明 `fetchWith: "browser"`，但该值仍决定初始下载页和中转页的抓取方式。`files[0].checksum.click` 在取址成功拿到下载地址**之后**执行，不参与下载事件捕获——下载步骤仍写在 `click` / `thenClick` 里。
+`link` / `thenLink.link` / `click` / `thenClick` / `files[0].checksum.click` 的条件键只有 `class`、`id`、`text`、`href`。`class` / `id` / `text` 都是不区分大小写的子串匹配，`href` 使用[通用匹配规则](#通用匹配规则)；同一步写多个条件时必须全部满足。`source.link` 与 `thenLink.link` 的空对象 `{}`、所有条件都为空字符串，都会报 `source.link 至少要写一个条件` 或 `source.thenLink.link 至少要写一个条件`；`click` / `thenClick` / `files[0].checksum.click` 的任一步为空也同样报错。`click` 与 `thenClick` 实际执行都使用无头浏览器；使用 `thenClick` 时，`fetchWith` 决定怎样打开第一个下载页。后面的中转页总是用 Edge 打开。`files[0].checksum.click` 在取址成功拿到下载地址**之后**执行，不参与下载事件捕获——下载步骤仍写在 `click` / `thenClick` 里。
 
 `link` 在下载页无命中时会检查 iframe；候选项经过 `files[0].file` 过滤后取第一个。使用 `thenLink` 时，若声明 `thenLink.link`，最终地址只由它筛选，`files[0].file` 不再参与第二次筛选；未声明 `thenLink.link` 时才用 `files[0].file` 过滤中转页全部链接并取第一个。
 
@@ -440,7 +434,7 @@ winst 自身不含任何软件定义，全部条目来自软件源。三类来�
 4. 完全未声明版本字段与识别规则时可保留未知版本；声明的字段或规则取版失败时报错，不允许用条目固定版本兜底
 5. `version.from: "package"` → 页面 / 地址都不找版本，等主包下载后取；此时不能再写 `version.key` / `version.kind` / `version.between`
 
-`source.pageUrl` 必填。`files[0]` 是主包（只用于「挑哪一个」与校验）；第 2 条起是配套文件，写成带 `{version}` 的 `url` + `dest`。主包不能写 `url`（地址由页面提取），只能写 `file` 匹配规则（见[通用匹配规则](#通用匹配规则)）；主包 `dest` 忽略并提示。`skipExistsCheck` 默认 `false`，控制最终下载地址探测。
+`source.pageUrl` 必填。`files[0]` 是主包（只用于「挑哪一个」与校验）；第 2 项起是附件。`url` 可以是固定网址，也可以带 `{version}`。省略 `dest` 时，附件只保存在下载文件夹里。主包不能写 `url`（地址由页面提取），只能写 `file` 匹配规则（见[通用匹配规则](#通用匹配规则)）；主包 `dest` 忽略并提示。`skipExistsCheck` 默认 `false`，控制最终下载地址探测。
 
 主包使用 `files[0].checksum.format: "page"` 时，默认按文件名在页面条目内就近提取摘要，条目边界与 `digest` 相同。若摘要只在点击后的文案或弹层里出现，可搭配 `click` 或 `thenClick` 声明 `source.files[0].checksum.click`，步骤写法与 `click` 相同。取址成功后，浏览器在同一无头会话中执行 `checksum.click`，从可见文本中读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。摘要尚未出现或暂时不唯一时会限时重试。版本和就近摘要取自额外点击前的页面快照。校验优先采用就近提取的摘要，提取失败时采用点击取得的摘要。两种方式都未取得可用摘要时，报无法提取校验值。
 
@@ -604,10 +598,10 @@ XML 源使用普通字段路径定位元素和属性，再用 `match` 筛选记�
 - `files[].itemsKey` 可选，未配置时以父记录本身作为文件记录；配置后按该路径读取文件候选，再按本项 `match` 筛选唯一文件记录。它适用于主包和配套文件。
 - `source.version.key` / `version.xpath` 始终相对于父记录；`files[].urlKey` / `urlXPath` / `checksum.key` / `checksum.xpath` 相对于本项选中的文件记录。示例中的 `revision` 属于父包，`complete` 属于 Windows 归档。
 - 主包的 `urlKey` 与 `urlXPath` 必须二选一，配套文件也可用字面 `url`；`url`、`urlKey`、`urlXPath`、`file` 的定位方式互斥。XML 的 `urlKey` 不能配 `file`；JSON 主包的 `urlKey` + `file` 组合不受此限制。
-- `checksum.key` 与 `checksum.xpath` 可选，非空时互斥；配置后必须读取到唯一非空的十六进制摘要，长度只接受 32 / 40 / 64 / 128，分别按 MD5 / SHA1 / SHA256 / SHA512 校验。不读取 XML 中的算法属性，也不需要 `checksum.format`。`checksum` 对象只选一种摘要来源，不能与固定值、校验文件或响应头混写。Android 示例的 `checksum` 按摘要长度识别为 SHA1。
+- `checksum.key` 与 `checksum.xpath` 可选，不能同时声明。配置后必须读取到唯一非空的十六进制摘要，长度只接受 32 / 40 / 64 / 128，分别按 MD5 / SHA1 / SHA256 / SHA512 校验。不读取 XML 中的算法属性，也不需要 `checksum.format`。`checksum` 对象只选一种摘要来源，不能与固定值、校验文件或响应头混写。Android 示例的 `checksum` 按摘要长度识别为 SHA1。
 - XML 返回相对下载地址时按 `baseUrl` 拼接，缺少基址即报错；最终地址必须为绝对 HTTP(S) 地址，本地文件、UNC 路径或其它协议均不接受。配套文件的字面 `url` 也可配 `baseUrl` 写相对地址，版本占位符按本文件版本展开，还可配 `versionListUrl` 独立取版，候选下载地址在展开版本并按 `baseUrl` 补全后探测；`urlKey` / `urlXPath` 文件不能配置 `versionListUrl`。
 
-`apiUrl`、`itemsKey`、`itemsXPath`、`version.xpath`、`baseUrl`、文件项中的 `itemsKey` / `urlKey` / `urlXPath` / `checksum.key` / `checksum.xpath` 声明时必须为字符串；`version.key` 只接受字符串或非空字符串数组，数组每项均须非空字符串。数字、对象和 JSON `null` 不能代替这些字段。配置路径与 XPath 的首尾空白会去掉；必填项为空时报错，可选的文件 `itemsKey` / `checksum.key` / `checksum.xpath` 和 `baseUrl` 为空时按未配置处理。
+`apiUrl`、`itemsKey`、`itemsXPath`、`version.xpath`、`baseUrl`、文件项中的 `itemsKey` / `urlKey` / `urlXPath` / `checksum.key` / `checksum.xpath` 声明时必须为字符串；`version.key` 只接受字符串或非空字符串数组，数组每项均须非空字符串。数字、对象和 JSON `null` 不能代替这些字段。配置路径与 XPath 的首尾空白会去掉；必填项为空时报错，可选的文件 `itemsKey` 和 `baseUrl` 为空时按未配置处理。`checksum.key` 和 `checksum.xpath` 用到哪一项，就给它填上对应的非空路径或 XPath。用不到的可以省略。
 
 版本文本去首尾空白与单个 `v` / `V` 前缀后必须为有效完整版本，不接受首尾点或连续点；读取失败时报错。普通路径读取版本的每个字段都要求唯一，避免组合版本时悄悄使用重复字段中的第一项。
 
@@ -705,7 +699,8 @@ JSON 取值可为单个版本，也可为版本数组。候选先按 `version.fi
 | `{version}` | 本次解析出的版本；`source.follow.apiUrl` 使用首响应选中项的版本 | `source.follow.apiUrl`、`files[].url` / `file` / `name` / `checksum.value` / `checksum.file` / `versionListUrl`、`postInstallCopy.from` / `to`、`postInstall` / `uninstall.commands` 的 `exe` / `args`、`installArgs` / `uninstall.args` / `installerExe`、`uninstall.name`、`mainExe`、`keep`、`env` 的值、`addToPath`、`detect.name` / `versionKind` / `pathGlob` / `jsonKey` / `versionArgs` / `exe` |
 | `{versionMajor}` | 版本号按 `.` 切分的第一段（`2.57.1` → `2`） | 同上 |
 | `{versionMinor}` | 版本号按 `.` 切分的第二段（`2.6.5` → `6`）；版本不足两段时报错，不补零 | 同上 |
-| `{tag}` | GitHub release tag（按 URL 路径段转义） | github 源的 `files[].url` / `file` |
+| `{tag}` | 用标签原文匹配文件名。例如 `v1+2` 中的 `+` 匹配加号，在 `re:` 规则里也一样 | github 源的 `files[].file` |
+| `{tag}` | 按网址路径段编码。例如标签 `v1+2` 在下载网址里展开为 `v1%2B2` | github 源的 `files[].url` |
 | `{urlQuery:参数名}` | 本文件下载地址查询串里该参数的值 | `files[].checksum.file` |
 | `{installDir}` / `{installRoot}` | 实际路径 | `installArgs`、`env`、`addToPath`、`postInstall`、`uninstall.commands`、`detect.pathGlob` / `detect.exe`；`postInstallCopy` 只按安装目录内的相对路径使用 |
 | `%VAR%` | `env` / `addToPath` 中原样写入；执行命令前展开 | `env` / `addToPath` / `postInstall` / `uninstall.commands` |
@@ -739,13 +734,13 @@ direct / page 的版本文本识别先按 `version.between` 截取，再按 `ver
 ```json
 [
   {"from": "jdk8u{u}-b{b}", "to": "1.8.0_{u}-b{b}"},
-  {"stripPrefix": "jdk-"},
-  {"stripSuffix": "-beta"},
+  {"stripPrefix": "jdk-", "stripSuffix": "-beta"},
   {"pattern": "^v", "replace": ""}
 ]
 ```
 
 - 模板写法的 `{占位符}` 在 `from` 与 `to` 里同名对应；`to` 写空串 `""` 表示整段去掉
+- 同一条规则可先用 `stripPrefix` 去掉开头的文字，再用 `stripSuffix` 去掉末尾的文字。例如上面的规则把 `jdk-21-beta` 改为 `21`。
 - 正则写法的 `replace` 沿用 .NET 正则替换语法（`$1` / `${name}` 引用捕获组）
 - 单条规则匹配不上时保持原值；规则不保证幂等，只对相应阶段的原始读数应用一次
 - 声明了但没有任何有效规则、或一条规则里混用多种写法，清单报错
@@ -795,8 +790,6 @@ direct / page 的版本文本识别先按 `version.between` 截取，再按 `ver
 也可填写 `SHA256SUMS` 这类同目录文件名，格式默认 `sha256sums`。文件名按 URL 编码规则解释；解码后不能是 `.` / `..`，不能含 `/`、`\`、`:`、`?`、`#` 或控制字符，否则解析报错；不支持相对目录路径。非 HTTP(S) 的完整校验地址同样报错。`magnet` 下载地址不能作为补全基准，必须填写完整 HTTP(S) 校验地址；否则报「checksum.file 使用文件名时，本文件下载地址必须是绝对 HTTP(S) 地址」。校验文件不在同目录，或校验接口需要独立查询参数时，应填写完整地址；需要复用下载地址参数时可在完整地址中显式使用 `{urlQuery:参数名}`。文件名补全同样适用于兼容字段 `hashFile`，不适用于接口返回的 `checksum.fileKey` / `checksum.fileMatch` 地址。
 
 展开占位符后，固定摘要、响应头与接口取出的摘要必须是 32 / 40 / 64 / 128 位十六进制，分别代表 MD5 / SHA1 / SHA256 / SHA512；不接受其它长度或非十六进制字符。全部字段及适用位置见下一节。
-
-GitHub 需要检索发布列表（前缀筛选、元数据或旧发布回退）时只读取近期发布的前两页；未命中表示该检索范围内没有目标，不能据此断言仓库全部历史中不存在。按版本推断 tag 的候选请求不改变此检索范围。
 
 ### 不同来源怎样选记录
 
@@ -851,17 +844,19 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 
 | 取值 | 含义 |
 |---|---|
-| `sha256sums` | 逐行 `<摘要>  <文件名>`，按文件名匹配（默认） |
+| `sha256sums` | 逐行读取 `<摘要>  <文件名>`，按末级文件名匹配，忽略大小写。同名文件有不同摘要时报错（默认格式） |
 | `sha512sums` | 同上，SHA-512 |
 | `sha1sums` | 同上，SHA-1 |
 | `md5sums` | 同上，MD5 |
-| `sha256` | 文件里只有一串摘要（如 Maven 的 `.sha256`），不按文件名 |
-| `sha512` | 同上，SHA-512 |
-| `sha1` | 同上，SHA-1 |
-| `md5` | 同上，MD5 |
+| `sha256` | 取文件中第一串符合 SHA-256 长度的独立十六进制字符（64 位），用于检查安装包 |
+| `sha512` | 同上，取第一串 128 位十六进制字符 |
+| `sha1` | 同上，取第一串 40 位十六进制字符 |
+| `md5` | 同上，取第一串 32 位十六进制字符 |
 | `digest` | 按完整文件名字段或链接路径中的文件名匹配，在同一文本行或 HTML 条目内取后面最近的摘要；不接受其它文件名的前后缀命中。表格按整行处理，遇到另一安装包文件名停止。长度 32 / 40 / 64 / 128 分别为 MD5 / SHA-1 / SHA-256 / SHA-512；没有摘要或同一文件对应多个不同摘要时报错 |
 | `re:<正则>` | 自定义正则提取，命名组 `h` 或第 1 捕获组 |
 | `page` | 仅适用于 `page` 源的主包。声明 `source.files[0].checksum.click` 时须搭配 `click` 或 `thenClick`。取址成功后按该配置点击并从可见文案读取唯一的 32 / 40 / 64 / 128 位十六进制摘要。校验优先采用按 `digest` 相同条目边界就近提取的摘要，提取失败时采用点击取得的摘要。未声明 `checksum.click` 时只做就近提取。不能与 `checksum.value` 同写 |
+
+如果校验文件列出了多个安装包，请按文件名查找。例如，一份 SHA-256 文件里写了多个文件名，就用 `sha256sums`。
 
 未显式声明 `refresh`，且 `compare` 也未声明或为默认 `auto` 时，安装与仅下载操作均优先比较远端版本和该文件缓存记录的 `sourceVersion`：版本相同复用，版本不同重取，不受地址或 HTTP 校验器漂移影响。只有**这个文件自己的版本**参与该判定：主包使用上游明确提供的版本，从包内取版时留空；配套文件仅当声明 `versionListUrl` 并独立解析出版本时才有，其余跟随主包版本的配套文件不记录也不比较版本。两侧任一版本缺失、或版本仅来自尚未确认新鲜度的缓存包时，继续按地址、摘要与新鲜度规则判定；地址按完整字符串区分大小写比较，包括路径与查询参数。声明的摘要仍须满足校验规则；显式比较项不会被同版本快捷命中绕过。 联网制作完整套件时，同版本文件也会核对清单声明的远端判据。未声明摘要且无法核对时会重新下载。
 
@@ -887,7 +882,7 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 
 组合示例：`"compare": "lastModified,size"` 选择与无摘要时 `auto` 相同的字段，但显式写法要求执行比较；`"compare": "etag,size"` 选择 ETag 与大小。声明 `checksum.value` / `checksum.file` 时仍先校验摘要：默认 `auto` 在摘要一致后直接复用，显式 HTTP 判据则继续组合比较，即使包内取版主包在上次刷新时已确认为未变；`checksum.file` 默认可复用与当前声明指纹匹配的缓存期望摘要，显式 `checksum` 每次联网比较都重新读取校验文件。重新下载软件包时，重新获取已声明的外部校验文件，并以本次取得的摘要验证新包。能够取得的判据中任一变化即重取，一个都无法比较时按 `refresh` 的失败/TTL 策略处理，未成功确认不会刷新确认时间。任一无法识别的词都会使条目解析失败，不丢弃拼错的比较条件。
 
-安装包下载后，`winst.json` 同时保存远端期望摘要 `expectedHash` 和本地计算摘要 `hashes` / `manifestHashes`。离线时可复用同一软件源下与当前声明指纹匹配的远端期望摘要。已有缓存文件记录缺少来源名或来源名为空白时，按官方源 `dsx42/winst-manifest` 处理。比对优先使用已保存的本地实测摘要，缺少所需算法或已记录的文件时间、长度变化时才计算。在线发现不一致则重新下载，离线则保留原文件并报错；缺少匹配的远端期望摘要时需联网补取，离线明确报错。新下载的文件在写入缓存前按声明校验。
+安装包下载后，`winst.json` 同时保存远端期望摘要 `expectedHash` 和本地计算摘要 `hashes` / `manifestHashes`。离线时可复用同一软件源下与当前声明指纹匹配的远端期望摘要。已有缓存文件记录缺少来源名或来源名为空白时，按官方源 `dsx42/winst-manifest` 处理。检查安装包时，如果以前用同一种方法算过，winst 会直接使用保存的结果。手动替换了安装包，也要更新或清除它的缓存记录。在线发现不一致则重新下载，离线则保留原文件并报错；缺少匹配的远端期望摘要时需联网补取，离线明确报错。新下载的文件在写入缓存前按声明校验。
 
 期望摘要来自清单或缓存索引；同时修改文件与其期望摘要的人仍可伪造一致的结果。未声明校验的包按新鲜度规则处理。详细格式和复用条件见 [缓存索引](data-files.md#winstjson缓存索引)。
 
@@ -1143,6 +1138,6 @@ JSON 的 `match` 按不区分大小写的完整文本比较；XML 的 `match` �
 | `不支持的 portableMode` | 只接受 clean / overwrite，不把拼写错误当默认清理模式 |
 | `postInstallCopy[0].to 不能为空` | 复制规则缺必填目标路径；命令缺 exe 同样会明确报字段错误 |
 | `detect.exe 只对 cliVersion 有效` | 别的检测方式要用 `pathGlob` |
-| `软件源条目 id 不合法` | id 不是单层目录名（含 `/` `\` `..` 或超长） |
+| `软件源条目 id 不合法` | id 必须是合法的单层目录名，完整限制见[条目字段](#条目字段)。id 不能是 `.` 或 `..`，也不能以点结尾。中间有连续的点可以，例如 `one..two`。 |
 | `installArgs 含有控制字符或未闭合的双引号` | 参数模板必须引号配对 |
 | `软件源里的解压路径…不能包含上级目录（..）` | `extractFiles` / `stripTopDir` / `installerExe` / `postInstallCopy` 都不允许越界 |

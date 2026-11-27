@@ -16,7 +16,7 @@ function Set-WinstAppShortcuts {
 
         判断「指向对不对」见 Test-WinstShortcutMatches（目标程序 + 起始位置）。
         复用其它条目创建的链接时，台账路径与摘要均匹配才登记共享归属；用户链接不认领。
-        所有失败都写进 Notes 返回，不抛异常——快捷方式建不出来不该让整次安装失败。
+        读不到安装记录时会报错。创建快捷方式失败的原因写进 Notes 返回。
 
     .OUTPUTS
         @{ Applied; Notes; Hashes }

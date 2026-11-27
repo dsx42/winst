@@ -9,7 +9,7 @@ function Get-WinstCachedOverviewReady {
         只刷新有正式包或下载暂存目录的 id，随后读取缓存索引补齐版本信息；
         没有已下载包时零解析。
 
-        只准备数据，不打印页面：错误文案、空列表提示与「按回车返回」由调用方决定。
+        刷新失败时会显示原因。调用方负责展示列表和处理输入。
     .OUTPUTS
         @{ Ok; Error; Warning; Items }
     #>

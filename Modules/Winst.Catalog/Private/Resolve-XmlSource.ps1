@@ -125,11 +125,11 @@ function Resolve-XmlSource {
         $sourceVersion = ''
         if (-not $fileSpec.UrlXPath) { $sourceVersion = $fileVersion.SourceVersion }
         $files += New-ResolvedFileFromDeclaration -Item $item -Url $downloadUri.AbsoluteUri -Version $fileVersion.Version `
-            -Dest $dest -HashOverride $hash -MainFile:($i -eq 0) -SourceVersion $sourceVersion
+            -Dest $dest -HashOverride $hash -SourceVersion $sourceVersion
     }
     $probe = Test-WinstManifestUrlOrNote -Context $Context -Url $files[0].url `
         -Skip (Get-EntryBool -Entry $source -Key 'skipExistsCheck') `
-        -MissingError ('XML 接口给出的地址不存在（HTTP 404）：' + $files[0].url)
+        -MissingError ('这个地址找不到文件：' + $files[0].url)
     if (-not $probe.Ok) { $result.Error = $probe.Error; return $result }
     if ($probe.Note) { $result.Notes += $probe.Note }
     $result.Files = $files

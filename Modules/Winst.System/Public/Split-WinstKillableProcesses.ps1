@@ -5,9 +5,8 @@ function Split-WinstKillableProcesses {
     .SYNOPSIS
         把匹配到的进程分成「可自动结束」与「需用户确认」两组。
     .DESCRIPTION
-        Certain=$false 表示只是按进程名兜底匹配（可执行文件路径读不到，或不在安装目录下），
-        可能是用户自己开的同名程序；这类不能自动杀，必须让用户确认。
-        Certain=$true 是「路径确认位于该软件目录」或「进程名就是该软件主程序名」的进程。
+        只有已确认路径位于该软件目录下、且已取得启动时间的进程才允许自动关闭。
+        关闭前须再次核对进程路径和启动时间。其余进程需用户手动关闭。
     .OUTPUTS
         @{ Killable; Blocked }
     #>

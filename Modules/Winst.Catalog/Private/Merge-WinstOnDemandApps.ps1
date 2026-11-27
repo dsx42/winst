@@ -15,12 +15,12 @@ function Merge-WinstOnDemandApps {
 
     $previousApps = @()
     if ($Meta -and $Meta.HasApps) { $previousApps = @($Meta.Apps) }
-    $prevMap = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    $prevMap = New-WinstOrdinalDictionary
     foreach ($oldApp in $previousApps) {
         $oldId = Get-EntryString -Entry $oldApp -Key 'id'
-        if ($oldId -and -not $prevMap.ContainsKey($oldId)) { $prevMap[$oldId] = $oldApp }
+        if ($oldId -and -not $prevMap.Contains($oldId)) { $prevMap[$oldId] = $oldApp }
     }
-    $resolvedMap = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    $resolvedMap = New-WinstOrdinalDictionary
     foreach ($app in @($Apps)) {
         $id = Get-EntryString -Entry $app -Key 'id'
         if ($id) { $resolvedMap[$id] = $app }
@@ -28,8 +28,8 @@ function Merge-WinstOnDemandApps {
 
     $merged = @(foreach ($entry in @($Entries)) {
         $id = Get-EntryString -Entry $entry -Key 'id'
-        if ($id -and $resolvedMap.ContainsKey($id)) { $resolvedMap[$id] }
-        elseif ($id -and $prevMap.ContainsKey($id)) { $prevMap[$id] }
+        if ($id -and $resolvedMap.Contains($id)) { $resolvedMap[$id] }
+        elseif ($id -and $prevMap.Contains($id)) { $prevMap[$id] }
     })
     return @{ Apps = $merged; Resolved = $resolvedMap.Count }
 }

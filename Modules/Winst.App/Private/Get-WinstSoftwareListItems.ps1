@@ -3,7 +3,7 @@
 function Get-WinstSoftwareListItems {
     <#
     .SYNOPSIS
-        载入软件源概览并过滤空条目；空列表 / 失败时打印原因并等待回车。
+        载入软件源概览；空列表 / 失败时打印原因并等待回车。
     .OUTPUTS
         @{ Ok; Items }
     #>
@@ -19,8 +19,7 @@ function Get-WinstSoftwareListItems {
     }
     if ($overview.Warning -and -not $Silent) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor Yellow }
 
-    # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-    $items = @($overview.Items | Where-Object { $null -ne $_ })
+    $items = $overview.Items
     if ($items.Count -eq 0) {
         Write-Host ''
         Write-Host $EmptyText -ForegroundColor Yellow

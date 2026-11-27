@@ -58,9 +58,7 @@ function Show-WinstListContent {
         }
         if ([string]$item['PinnedVersion']) {
             $pinNote = Get-WinstListItemPinNote -Item $item
-            if ($pinNote.Text) {
-                Write-Host ('     提示: {0}' -f [string]$pinNote.Text) -ForegroundColor ([string]$pinNote.Color)
-            }
+            Write-Host ('     提示: {0}' -f [string]$pinNote.Text) -ForegroundColor ([string]$pinNote.Color)
         }
 
         $depLines = @(Get-WinstDependencyLines -Context $Context -Id ([string]$item['Id']) -Type ([string]$item['Type']) -StateRead $stateRead)

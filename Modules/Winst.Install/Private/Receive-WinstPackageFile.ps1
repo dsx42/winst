@@ -99,7 +99,7 @@ function Receive-WinstPackageFile {
             $errorText = $dl.Error
             $http = $kind -eq 'Http'
             $missing = $http -and $dl['StatusCode'] -eq 404
-            if ($missing) { $errorText = '文件不存在（HTTP 404）。{0}' -f $dl.Error }
+            if ($http -and $dl['StatusCode'] -in @(404, 410)) { $errorText = '这个地址找不到文件（HTTP {0}）：{1}。{2}' -f $dl['StatusCode'], $url, $dl.Error }
             elseif ($http -and $dl['StatusCode']) { $errorText = '文件服务器返回 HTTP {0}。{1}' -f $dl['StatusCode'], $dl.Error }
             $retryable = ($http -and -not $missing) -or $kind -in @('Resolve','RefreshSource','Interrupted') -or
                 ($kind -eq 'Connect' -and -not $Retry['Connect'])

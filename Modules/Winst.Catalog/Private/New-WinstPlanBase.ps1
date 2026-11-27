@@ -3,9 +3,7 @@
 function New-WinstPlanBase {
     <#
     .SYNOPSIS
-        生成解析锁条目的骨架：id / 名称 / 类型 / 分组 / 依赖，并做来源解析结果与类型的合法性校验。
-    .OUTPUTS
-        @{ Ok; Error; Plan; Notes }
+        生成含来源解析结果、提示和错误信息的安装计划。
     #>
     param(
         [string]$ManifestOrigin,
@@ -79,31 +77,26 @@ function New-WinstPlanBase {
 
     if (-not $id) {
         $plan['error'] = '软件源条目缺少 id'
-        return @{ Ok = $false; Error = $plan['error']; Plan = $plan; Notes = $notes }
+        return $plan
     }
     # id 会拼成 installRoot\<id> 与 pkgDir\<id>：必须在解析期就拒绝「不是单层目录名」的 id
     # （`..` / 绝对路径 / 非法字符），否则清单里的 id 能把安装、覆盖、递归删除引到安装目录之外。
     # 这里 fail-fast，而不是等安装时再靠路径护栏兜底 —— 那时目录可能已经被写过一半。
     if (-not (Test-WinstSafePathSegment -Name $id)) {
         $plan['error'] = ('软件源条目 id 不合法（必须是单层目录名，不能是 . / .. 或含非法字符）：{0}' -f $id)
-        return @{ Ok = $false; Error = $plan['error']; Plan = $plan; Notes = $notes }
+        return $plan
     }
 
     if (-not $Resolve -or -not $Resolve.Ok) {
         $message = '来源解析失败'
         if ($Resolve -and $Resolve.Error) { $message = [string]$Resolve.Error }
         $plan['error'] = $message
-        return @{ Ok = $false; Error = $message; Plan = $plan; Notes = $notes }
+        return $plan
     }
 
-    if (@('portable', 'installer', 'file', 'download') -notcontains $type) {
-        $plan['error'] = ('未知的条目类型: {0}' -f $type)
-        return @{ Ok = $false; Error = $plan['error']; Plan = $plan; Notes = $notes }
-    }
     if ($typeRaw -and $typeRaw -ne $type) {
-        $notes += ('软件源里的类型「{0}」已更名为「{1}」，本次按新名称处理' -f $typeRaw, $type)
-        $plan['notes'] = $notes
+        $plan['notes'] += ('软件源里的类型「{0}」已更名为「{1}」，本次按新名称处理' -f $typeRaw, $type)
     }
 
-    return @{ Ok = $true; Error = ''; Plan = $plan; Notes = $notes }
+    return $plan
 }

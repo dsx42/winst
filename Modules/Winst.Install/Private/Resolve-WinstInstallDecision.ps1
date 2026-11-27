@@ -71,7 +71,7 @@ function Resolve-WinstInstallDecision {
         }
 
         # 版本一致：跳过安装，由用户决定是否强制重装
-        if ($hasTarget -and $cmp -eq 0 -and -not $Force -and -not $deferVersionDecision) {
+        if ($hasTarget -and $cmp -eq 0 -and -not $Force) {
             $recordDir = $InstallDir
             if ($Type -eq 'installer') {
                 $recordDir = Get-EntryString -Entry $detect -Key 'Location'
@@ -102,12 +102,12 @@ function Resolve-WinstInstallDecision {
             return @{ Return = $false; Defer = $false; CompanionOnly = $true; Detected = $detected }
         }
 
-        if (-not $deferVersionDecision -and $hasTarget -and $cmp -lt 0) {
+        if ($hasTarget -and $cmp -lt 0) {
             # 软件源里是更新的版本 → 这是「更新」：直接安装（无需 --force）
             if (-not $Quiet) {
                 Write-Host ('  发现新版本：已安装 {0}  →  {1}  ↑' -f $detected, $Version) -ForegroundColor Green
             }
-        } elseif (-not $deferVersionDecision -and $hasTarget -and $cmp -gt 0 -and -not $Force) {
+        } elseif ($hasTarget -and $cmp -gt 0 -and -not $Force) {
             return (Complete-WinstInstallSkip -Result $Result -Version $detected `
                 -Message ('{0} 本机已安装 {1}，比软件源里的 {2} 更新{3}' -f $DisplayName, $detected, $Version, (Get-WinstForceHint -Kind 'downgrade')))
         } elseif (-not $hasTarget -and -not $Force -and -not $deferVersionDecision) {

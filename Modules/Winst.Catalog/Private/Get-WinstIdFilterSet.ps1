@@ -7,7 +7,7 @@ function Get-WinstIdFilterSet {
     #>
     param([string[]]$Ids)
 
-    $set = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    $set = New-WinstOrdinalDictionary
     foreach ($id in @($Ids)) {
         $text = [string]$id
         if ($text) { $set[$text] = $true }

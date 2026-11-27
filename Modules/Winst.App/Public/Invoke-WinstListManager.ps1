@@ -37,7 +37,7 @@ function Invoke-WinstListManager {
 
         # —— 输入编号：查看这份清单，随后可编辑 / 删除 ——
         $number = 0
-        if ($text -and [int]::TryParse($text, [ref]$number)) {
+        if ([int]::TryParse($text, [ref]$number)) {
             if ($files.Count -eq 0) {
                 Write-Host ''
                 Write-Host ('  现在还没有{0}，可直接输入文件名新建。' -f $kindText) -ForegroundColor Yellow

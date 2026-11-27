@@ -19,7 +19,7 @@ function Get-WinstPageAddressSpec {
         if ($locator.Url) {
             return @{ Error = '下载页来源的地址由页面自动提取，不能填写 url；如需在其中挑出指定的文件，请用 file（通配，如 "*.exe"）' }
         }
-        # 下载页来源只有主包一条：dest 同样无意义，走统一判定（有填写时记提示）
+        # 主包忽略 dest，有填写时记入提示。
         $null = Get-WinstFileDest -Item $item -Index 1 -Result $Result
 
         if ($locator.File) {

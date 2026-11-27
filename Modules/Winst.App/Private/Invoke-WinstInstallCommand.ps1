@@ -3,7 +3,8 @@
 function Invoke-WinstInstallCommand {
     <#
     .SYNOPSIS
-        CLI：winst install / download <id>...（下载统一走 FluxDown CLI，先展示执行计划再执行）。
+        winst install / download <id>... 先展示计划，再按计划安装或下载。
+        下载时优先使用 FluxDown 桌面程序，服务未接单时使用 FluxDown CLI。首次获取下载引擎时可由 winst 直接下载。
     .OUTPUTS
         [int] 退出码：0 成功 / 1 参数错误 / 2 网络失败 / 3 安装失败
     #>

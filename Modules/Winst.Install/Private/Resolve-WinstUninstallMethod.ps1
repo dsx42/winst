@@ -48,7 +48,7 @@ function Resolve-WinstUninstallMethod {
     $hasRecord = -not (Test-WinstUninstallSnapshotEmpty -Snapshot $RecordSnapshot)
     if ($hasRecord) { $sources += '安装记录（安装时保存）' }
     if ($HasManifest) { $sources += '软件源（当前定义）' }
-    if ($sources.Count -eq 0) { $sources += '没有卸载定义，按默认方式处理（删除安装目录 + 移除安装记录）' }
+    if ($sources.Count -eq 0) { $sources += '找不到这款软件的卸载信息。' }
 
     return @{ Method = $method; Notes = @($notes); Sources = @($sources) }
 }

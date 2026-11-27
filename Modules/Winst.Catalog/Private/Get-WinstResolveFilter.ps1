@@ -24,7 +24,7 @@ function Get-WinstResolveFilter {
     $cachedSet = Get-WinstIdFilterSet -Ids $cachedIds
     foreach ($entry in @($Entries)) {
         $id = Get-EntryString -Entry $entry -Key 'id'
-        if ($id -and -not $cachedSet.ContainsKey($id)) { $onlySet[$id] = $true }
+        if ($id -and -not $cachedSet.Contains($id)) { $onlySet[$id] = $true }
     }
     return $onlySet
 }

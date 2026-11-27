@@ -34,9 +34,8 @@ function Resolve-PageSource {
     $versionRule = Get-WinstVersionRule -Source $source
     if (-not $versionRule.Ok) { $result.Error = $versionRule.Error; return $result }
 
-    $versionOption = Get-WinstPageVersionOption -Source $source
-    if ($versionOption.Error) { $result.Error = $versionOption.Error; return $result }
-    $versionFrom = $versionOption.VersionFrom
+    $versionFrom = (Get-EntryString -Entry $source -Key 'versionFrom').Trim()
+    if (-not $versionFrom) { $versionFrom = 'url' }
 
     # files[] / link / click / thenClick / thenLink / hashClick 的写法校验
     $spec = Get-WinstPageAddressSpec -Source $source -Result $result

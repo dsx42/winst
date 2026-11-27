@@ -24,7 +24,7 @@ function Get-WinstRepairCatalog {
 
     $planLookup = New-WinstOrdinalDictionary
     $sourceLookup = New-WinstOrdinalDictionary
-    $ciIdLookup = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
+    $ciIdLookup = New-WinstOrdinalDictionary -IgnoreCase
     foreach ($item in $allApps) {
         $app = $item['App']
         if (-not (Get-EntryBool -Entry $app -Key 'ok')) { continue }
@@ -35,7 +35,7 @@ function Get-WinstRepairCatalog {
         if (-not $planLookup.Contains($id)) {
             $planLookup[$id] = $app
             $sourceLookup[$id] = [string]$item['Source']
-            if (-not $ciIdLookup.ContainsKey($id)) { $ciIdLookup[$id] = $id }
+            if (-not $ciIdLookup.Contains($id)) { $ciIdLookup[$id] = $id }
             else { $ciIdLookup[$id] = '' }
         }
     }

@@ -76,9 +76,11 @@ FluxDown 管理 API 的路由和错误响应由 `Winst.Engine` 的 `Invoke-Winst
 Modules\Winst.Store\
 ├── Winst.Store.psd1     元数据（版本、GUID、说明、依赖注释）
 ├── Winst.Store.psm1     加载器
-├── Public\*.ps1         导出函数，一个文件一个函数
+├── Public\*.ps1         导出函数
 └── Private\*.ps1        内部辅助，不导出
 ```
+
+通常每个文件里放一个函数。常量和状态可以分别集中在一个文件里。
 
 `.psm1` 通过共用的 `Modules/Import-WinstFunctionFiles.ps1` 依次点源 `Private\` 与 `Public\` 下的文件（按路径排序），再用 AST 从 `Public\` 收集函数名并 `Export-ModuleMember`。`build.ps1` 按相同顺序合并成 release 的 `Winst.psm1`，导出名单在构建期算好，同名函数会使构建失败。
 

@@ -9,7 +9,6 @@ function Expand-VersionPlaceholder {
     #>
     param([string]$Text, [string]$Version)
 
-    $text = [string]$Text
     if (-not [regex]::IsMatch($text, '\{version(Major|Minor)?\}')) { return $text }
 
     $versionText = $Version

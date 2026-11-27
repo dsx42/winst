@@ -3,7 +3,7 @@
 function Get-WinstPackageDerivedVersion {
     <#
     .SYNOPSIS
-        从「已下载的安装包」派生版本号的路由：声明 source.packageVersion 的条目用 7-Zip 读包内结构
+        从「已下载的安装包」派生版本号的路由：声明 source.version.package 的条目用 7-Zip 读包内结构
         （权威口径，文件版本信息不可信的安装包）；未声明的条目维持读主包文件信息。
     .DESCRIPTION
         按计划中的 sourceVersionRewrite 归一结果。

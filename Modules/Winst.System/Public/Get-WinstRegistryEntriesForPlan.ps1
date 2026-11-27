@@ -9,8 +9,7 @@ function Get-WinstRegistryEntriesForPlan {
         burn 引导包与内层 MSI 也会各留一条。只取一条会让「本机版本」停留在旧版本上，
         因此这里返回全部命中，由调用方按版本挑出最新的一条。
 
-        排序规则与原有单选规则一致：`InstallLocation` 等于预期安装目录的记录在前，
-        其余按 DisplayName 字典序——保证「实际安装目录」仍然取自和以前同一条记录。
+        InstallLocation 等于预期安装目录的记录在前，其余按 DisplayName 排序。
         版本高低由调用方用 Compare-WinstVersion 判断，不在这里按 DisplayVersion 排序：
         同一软件的多条记录可能用不同的版本号体系（MSI 的 80.x 与安装器的 10.x），
         按 DisplayVersion 排会选出错的记录。

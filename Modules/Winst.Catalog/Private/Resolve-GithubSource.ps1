@@ -11,7 +11,7 @@ function Resolve-GithubSource {
              · url  —— 完整地址模板（支持 {tag} 直接拼出），或**只写文件名**（winst 补全标准下载地址）；
              · file —— 文件名通配（如 "7z*-x64.exe"），需要先取该发布的文件列表再匹配。
           3. https://github.com/<repo>/releases/download/<tag>/<文件名>   → 真实下载地址
-        只写文件名 / 写完整模板时各做一次 HEAD 校验；404 即判定该发布里没有这个文件。
+        只写文件名 / 写完整模板时各做一次 HEAD 校验，服务器返回 404 或 410 即判定该发布里没有这个文件。
 
         **最新发布里没有需要的文件时退回更早的发布**：GitHub 上常见「release 已建好、资产还在分批上传」，
         此时 `releases/latest` 指向的发布里没有安装包，但上一次发布的文件是可用的。
@@ -75,7 +75,7 @@ function Resolve-GithubSource {
 
             # 回退成功：沿用这次的结果，并把「为什么不是最新发布」说清楚
             $result.Notes = @($commonNotes) + @($probe.Notes)
-            $result.Notes += ('最新发布 {0} 里还没有这个文件，已改用更早的发布 {1}（版本 {2}）' -f $chosenTag, $fallbackTag, [string]$retry.ResultVersion)
+            $result.Notes += ('{0} 已改用更早的发布 {1}（版本 {2}）。' -f $firstError, $fallbackTag, [string]$retry.ResultVersion)
             $result.Ok = $true
             $result.Tag = $fallbackTag
             $result.Version = [string]$retry.ResultVersion

@@ -10,12 +10,11 @@ function Get-WinstManifestPayload {
     param([hashtable]$Context, $Source, [string]$Url, [switch]$IsLocal,
         [string]$CachePath, [switch]$HasCache, [string]$CachedVersion, [switch]$Force)
 
-    $out = @{
-        Ok = $false; Message = ''; Network = $false; Content = ''; Entries = @(); TargetUrl = $Url
-        ManifestVersion = ''; ReusedFromCache = $false; WriteCache = $false
-    }
-
     if ($IsLocal) {
+        $out = @{
+            Ok = $false; Message = ''; Network = $false; Content = ''; Entries = @(); TargetUrl = $Url
+            ManifestVersion = ''; ReusedFromCache = $false; WriteCache = $false
+        }
         $local = Read-LocalManifestBundle -Source $Source
         foreach ($note in @($local.Notes)) {
             Write-Host ('  提示: {0}' -f $note) -ForegroundColor DarkYellow

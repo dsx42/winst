@@ -13,8 +13,6 @@ function Invoke-InstalledList {
 
     Write-Section '已装软件'
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     # 先读台账拿到要展示的软件，再按需刷新它们的版本信息（per-app TTL，--offline 自动跳过；
     # 展示集合全部有效时零解析、无提示，列表里的「可更新」标注才是当前值
     $ledgerIds = @(Get-WinstDisplayIds -Ids (Read-WinstInstalledKeys -Context $Context))
@@ -24,7 +22,7 @@ function Invoke-InstalledList {
 
     # 软件源刷新之后顺手刷新安装记录：
     # 按磁盘上的实际目录与注册表重新识别版本 / 安装位置并更正记录，列表才不会停留在过期数据上；
-    # 只写 state.json，不动任何文件与系统项；--dry-run 下整段跳过（预览模式不写盘）。
+    # 必要时同步更新已下载的安装包列表。预览模式跳过修复。
     # 进度提示说「读取」而不是「刷新」：这一步对用户来说就是开始读记录，改了什么会在随后的一行结论里说清楚。
     # RefreshIds 限定本页展示的已装软件：修复内部不再顺手把仅下载条目的版本也解析一遍
     if (-not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
@@ -43,8 +41,7 @@ function Invoke-InstalledList {
     }
     if ($overview.Warning) { Write-Host ('  提示: {0}' -f $overview.Warning) -ForegroundColor Yellow }
 
-    # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-    $items = @($overview.Items | Where-Object { $null -ne $_ })
+    $items = $overview.Items
     if ($items.Count -eq 0) {
         Write-Host ''
         Write-Host '  安装记录里还没有已安装的软件。' -ForegroundColor Yellow
@@ -135,8 +132,7 @@ function Invoke-InstalledList {
             Read-WinstPause -Text '  按回车键返回主菜单 …'
             return
         }
-        # Where-Object 过滤掉 $null 条目：列表函数一旦返回 $null，@() 会把它变成一个「空条目」→ 渲染时报错
-        $items = @($overview.Items | Where-Object { $null -ne $_ })
+        $items = $overview.Items
         if ($items.Count -eq 0) {
             Write-Host ''
             Write-Host '  安装记录里已经没有已安装的软件了。' -ForegroundColor DarkGray

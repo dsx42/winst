@@ -36,8 +36,6 @@ function Remove-RemoteManifest {
     if (-not $found) { $result.Message = ('软件源 "{0}" 不存在' -f $sourceName); return $result }
     if ($DryRun) { $result.Success = $true; $result.Message = ('预览：将删除软件源 "{0}"' -f $sourceName); return $result }
 
-    $null = Set-WinstState -Name WinstDependencyIndex -Value ($null)
-
     try {
         Write-ManifestSources -PkgDir $Context.PkgDir -Sources $newList
     } catch {

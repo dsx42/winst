@@ -12,7 +12,6 @@ function Expand-UrlQueryPlaceholder {
     #>
     param([string]$Text, [string]$Url)
 
-    $text = [string]$Text
     if (-not [regex]::IsMatch($text, '\{urlQuery:[^}]+\}')) { return $text }
 
     $values = New-WinstOrdinalDictionary

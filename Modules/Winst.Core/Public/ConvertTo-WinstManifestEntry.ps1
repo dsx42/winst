@@ -72,7 +72,6 @@ function ConvertTo-WinstManifestEntry {
     $from = (Get-EntryString -Entry $source -Key 'versionFrom').Trim().ToLowerInvariant()
     if ($from -and @('listing', 'json', 'xml', 'magnet') -contains $kind) { throw ('source.version.from 不适用于 ' + $kind + ' 来源') }
     $versionKeys = @('versionFrom', 'versionUrl', 'versionHeader', 'versionKey', 'versionXPath', 'versionKind', 'versionBetween', 'versionFilter', 'sort', 'packageVersion')
-    $allowedVersion = @()
     switch ($kind) {
         'listing' { $allowedVersion = @('versionKind', 'versionFilter', 'sort') }
         'json' { $allowedVersion = @('versionKey', 'versionKind', 'versionBetween', 'versionFilter', 'sort') }

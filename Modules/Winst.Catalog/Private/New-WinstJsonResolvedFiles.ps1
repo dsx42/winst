@@ -59,12 +59,12 @@ function New-WinstJsonResolvedFiles {
                 }
             }
             $urlProbe = Test-WinstManifestUrlOrNote -Context $Context -Url $DownloadUrl -Skip $skipCheck `
-                -MissingError ('JSON 接口给出的地址不存在（HTTP 404）: {0}；可能是接口里的地址已失效' -f $DownloadUrl)
+                -MissingError ('这个地址找不到文件：{0}；可能是接口里的地址已失效' -f $DownloadUrl)
             if (-not $urlProbe.Ok) { return @{ Error = [string]$urlProbe.Error; Files = $files } }
             if ($urlProbe.Note) { $Result.Notes += [string]$urlProbe.Note }
 
             $files += New-ResolvedFileFromDeclaration -Item $item -Url $DownloadUrl -Version $Version `
-                -HashOverride $hash -HashFileOverride $hashFile -MainFile
+                -HashOverride $hash -HashFileOverride $hashFile
             continue
         }
 

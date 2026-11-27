@@ -3,7 +3,7 @@
 function Get-WinstArchiveInnerVersion {
     <#
     .SYNOPSIS
-        按 source.packageVersion 规格用 7-Zip 读包内结构派生版本号。
+        按 source.version.package 规格用 7-Zip 读包内结构派生版本号。
     .DESCRIPTION
         流程：`7z l -slt` 列外层包 →（规格声明 inner 时）按通配取出第一个命中的内层压缩包、再列它 →
         按规格 path 通配命中第一条目路径（尾部分隔符表示只匹配目录） → 用 versionKind / versionBetween 从命中条目的**文件名**识别

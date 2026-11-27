@@ -55,21 +55,13 @@ function Get-WinstJsonSourceSpec {
         return @{ Error = '软件源里没有填写要下载的文件（source.files）' }
     }
     for ($i = 1; $i -lt $declared.Count; $i++) {
-        foreach ($pair in @(Get-WinstEntryPairs -Entry $declared[$i])) {
-            if (@('itemsKey', 'hashFileMatch') -contains [string]$pair[0]) {
-                return @{ Error = ('files[].' + [string]$pair[0] + ' 只支持 JSON 主包') }
-            }
-        }
+        if ($declared[$i].Contains('itemsKey')) { return @{ Error = 'files[].itemsKey 只支持 JSON 主包' } }
     }
     $hashFileRule = $null
     $hashFileMatch = (Get-EntryString -Entry $declared[0] -Key 'hashFileMatch').Trim()
     if ($hashFileMatch) {
         if (-not (Get-EntryString -Entry $declared[0] -Key 'itemsKey').Trim()) {
             return @{ Error = 'files[0].hashFileMatch 必须配合非空 itemsKey' }
-        }
-        if ((Get-EntryString -Entry $declared[0] -Key 'hashFile').Trim() -or
-                (Get-EntryString -Entry $declared[0] -Key 'hashFileKey').Trim()) {
-            return @{ Error = 'files[0].hashFileMatch 不能与 hashFile / hashFileKey 同时配置' }
         }
         $hashFileRule = New-MatchRule -Rule $hashFileMatch -Kind '校验文件名'
         if (-not $hashFileRule.Ok) { return @{ Error = [string]$hashFileRule.Error } }

@@ -13,8 +13,6 @@ function Invoke-WinstListShow {
     $kindText = (Get-WinstListKindText)
     Write-Section ('查看' + $kindText)
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     $targetPath = Resolve-WinstListTargetPath -Context $Context -Path $Path
     if (-not $targetPath) { return }
 

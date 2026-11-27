@@ -19,7 +19,6 @@ function Read-WinstList {
     $result.Exists = $true
 
     $seen = New-WinstOrdinalDictionary
-    # 逐行数组追加是 O(n²)：几千行的清单会明显变慢，统一改 List
     if (-not $CountOnly) {
         $entries = New-Object 'System.Collections.Generic.List[object]'
         $comments = New-Object 'System.Collections.Generic.List[string]'

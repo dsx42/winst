@@ -8,7 +8,7 @@ function Initialize-WinstInstallContext {
         把「软件定义里有什么」「主包要不要重新取」「缓存里哪些文件可以复用」「本机装没装」四件事一次算清，
         供后续决策矩阵 / 下载 / 安装各段直接使用。Error 非空时调用方应立即返回该结果。
     .OUTPUTS
-        @{ Error; Plan; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; Files; PlanFreshState; IsDownloadType; PrevEntry;
+        @{ Error; Plan; Id; DisplayName; Type; Version; InstallDir; PkgDir; Install; PlanFreshState; IsDownloadType; PrevEntry;
            Plans; NeedDownload; CompanionNames; CompanionsOnly; Ledger }
     #>
     param([hashtable]$Context, $Plan, [switch]$DownloadOnly, [switch]$RequireCurrent, [switch]$Quiet)
@@ -45,7 +45,7 @@ function Initialize-WinstInstallContext {
     $nameError = Get-WinstDuplicateDownloadNameError -Files $files
     if ($nameError) { return @{ Error = $nameError } }
 
-    # versionFromPackage（清单里是 source.versionFrom: "package"）：清单 / 接口都拿不到版本号时，从已下载的主包文件信息里取
+    # source.version.from 为 package 时从下载包取版，source.version.package.file 可指定从附件取版。
     $versionFromPackage = Get-EntryBool -Entry $Plan -Key 'versionFromPackage'
     # 解析锁里的远端新鲜度结论：versionFromPackage 条目据此决定「主包要不要重新取」——
     # unchanged（远端无新包）时缓存里那份就是软件源当前这一份，安装 / 更新直接沿用缓存、按缓存版本决策；
@@ -110,7 +110,7 @@ function Initialize-WinstInstallContext {
 
     return @{
         Error = ''; Plan = $Plan; Id = $id; DisplayName = $displayName; Type = $type; Version = $version
-        InstallDir = $installDir; PkgDir = $pkgDir; Install = $install; Files = $files
+        InstallDir = $installDir; PkgDir = $pkgDir; Install = $install
         PlanFreshState = $planFreshState
         IsDownloadType = $isDownloadType; PrevEntry = $prevEntry; Plans = $plans; NeedDownload = $needDownload
         CompanionNames = $companionNames

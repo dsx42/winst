@@ -3,7 +3,7 @@
 function New-WinstCliOptions {
     <#
     .SYNOPSIS
-        新建命令行的全局选项对象（与 $script:WinstOptions 同一结构）。
+        新建命令行全局选项。解析后的选项保存到 WinstOptions 状态项。
     #>
     return @{
         InstallRoot = ''

@@ -5,8 +5,7 @@ function Invoke-BundleInstall {
     .SYNOPSIS
         菜单「一键安装」：按安装清单批量安装。
     .DESCRIPTION
-        选安装清单（列出已有清单，或输入文件名 / 路径）→ 显示清单内容与每项状态
-        （已装 x.y / 已有安装包 / 需联网下载 / 软件源里没有）→ 确认后逐个安装。
+        输入安装清单的编号，确认后开始安装。
         安装复用 `Invoke-WinstInstallTarget`（含「已装同版本跳过、强制重装询问、缓存命中不重复下载、
         更新方式取设置」，与「安装软件」完全同一套决策），清单确认过一次后执行时不逐个询问。
         清单固定版本与可用版本不一致或可用版本未知时，提示用户选择继续或跳过。离线时核对缓存包。
@@ -14,8 +13,6 @@ function Invoke-BundleInstall {
     param([hashtable]$Context)
 
     Write-Section '一键安装'
-
-    if (-not (Assert-WinstContext $Context)) { return }
 
     $picked = Select-WinstListFile -Context $Context -NoCreate
     if (-not $picked.Ok) {

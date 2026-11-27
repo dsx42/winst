@@ -3,17 +3,13 @@
 function Select-WinstUrlByFileRule {
     <#
     .SYNOPSIS
-        按 files[0].file 的通配规则过滤候选地址（没有规则时原样返回）。
+        按 files[0].file 的通配规则过滤候选地址。
     .OUTPUTS
         [string[]]
     #>
-    param($Urls, $FileRule)
+    param($Urls, [Parameter(Mandatory = $true)]$FileRule)
 
-    $list = @($Urls)
-    if (-not $FileRule) { return $list }
-    $filtered = @()
-    foreach ($candidate in $list) {
-        if (Test-FileRuleMatchesLink -Rule $FileRule -Text $candidate) { $filtered += $candidate }
+    foreach ($candidate in $Urls) {
+        if (Test-FileRuleMatchesLink -Rule $FileRule -Text $candidate) { $candidate }
     }
-    return $filtered
 }

@@ -161,7 +161,7 @@ function Copy-WinstBundlePackages {
                 }
             } else {
                 $skipped++
-                Write-Host ('  跳过（目标文件内容相同）: {0} {1}' -f $name, $versionText) -ForegroundColor DarkGray
+                Write-Host ('  目标文件夹里已有 {0} {1} 的安装包，不用再复制。' -f $name, $versionText) -ForegroundColor DarkGray
             }
         } catch {
             $errors += ('{0}: {1}' -f $id, $_.Exception.Message)

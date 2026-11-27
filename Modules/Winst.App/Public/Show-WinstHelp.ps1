@@ -29,6 +29,7 @@ function Show-WinstHelp {
                 Write-Host '  用法: winst install <id> [<id>...] [--force] [--overwrite] [--keep a,b] [--source <名称>] [--kill]' -ForegroundColor Yellow
                 Write-Host '        [--files-only|--system-items] [--yes]   安装 / 更新软件（软件源里是更新版本时直接按更新安装，无需 --force）' -ForegroundColor Gray
                 Write-Host '    --source 只使用指定软件源。该源没有可用的安装计划时，当前软件安装失败。' -ForegroundColor Gray
+                Write-Host '    下载时优先使用 FluxDown 桌面程序，服务未接单时使用 FluxDown CLI。首次获取下载引擎时可由 winst 直接下载。' -ForegroundColor Gray
                 Write-Host '  用法: winst install winst --from <winst.zip|目录> [--force]' -ForegroundColor Yellow
                 Write-Host '    从本地安装包安装 winst 自身（版本相同则跳过，更新则替换文件并保留 lists\）；不走软件源、不联网。' -ForegroundColor Gray
             }
@@ -50,7 +51,7 @@ function Show-WinstHelp {
             }
             'repair'    {
                 Write-Host '  用法: winst repair' -ForegroundColor Yellow
-                Write-Host '    扫描本机，按软件源里的定义重建 / 校对安装记录（只写 state.json，不动任何文件与系统项）。' -ForegroundColor Gray
+                Write-Host '    检查这台电脑上装了哪些软件，修正安装记录。有需要时，也会更新已下载的安装包列表。' -ForegroundColor Gray
             }
             'manifest'  { Show-ManifestCliHelp }
             'bundle'    { Show-BundleCliHelp }

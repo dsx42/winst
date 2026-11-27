@@ -3,7 +3,8 @@
 function Test-WinstReadOnlyInvocation {
     <#
     .SYNOPSIS
-        根据正式命令行解析结果判断版本或帮助调用；无效参数不绕过实例锁。
+        另一份 winst 运行时，仍可用 -v、--version、version 查版本，用 -h、--help、-?、help、? 查看帮助。
+        判断只读取全局参数解析结果及命令名。命令自己的参数由分派时校验。
     #>
     param($Parsed)
 

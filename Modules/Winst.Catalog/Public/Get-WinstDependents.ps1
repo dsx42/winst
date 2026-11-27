@@ -24,9 +24,7 @@ function Get-WinstDependents {
     }
     $state = $stateRead.State
 
-    # 反向图：被依赖 id → 依赖它的 id 列表（按 Ordinal 去重）
-    # 用 Dictionary[string, List[string]]：线性查重 + 每次整体拷贝会在高频依赖的 id 上退化成 O(E·V)，
-    # 并产生大量临时数组
+    # 依赖索引已按软件去重，将每条依赖反向登记一次。
     $reverse = New-WinstOrdinalDictionary
     foreach ($appId in @($index['Deps'].Keys)) {
         foreach ($depId in @($index['Deps'][$appId])) {
@@ -34,8 +32,7 @@ function Get-WinstDependents {
             if (-not $reverse.Contains($depKey)) {
                 $reverse[$depKey] = New-Object 'System.Collections.Generic.List[string]'
             }
-            $reverseList = $reverse[$depKey]
-            if (-not $reverseList.Contains([string]$appId)) { $reverseList.Add([string]$appId) }
+            $reverse[$depKey].Add([string]$appId)
         }
     }
 

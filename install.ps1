@@ -74,7 +74,7 @@ try {
         throw ('winst install 失败（退出码 {0}）' -f $winstInstallExitCode)
     }
 
-    Write-Host '  完成。双击桌面或开始菜单的 winst 快捷方式即可打开。' -ForegroundColor Green
+    Write-Host '  打开安装 winst 的文件夹，双击 winst.cmd 即可启动。' -ForegroundColor Green
 } catch {
     Write-Host ''
     Write-Host ('  安装失败：{0}' -f $_.Exception.Message) -ForegroundColor Red

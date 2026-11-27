@@ -6,10 +6,8 @@ function Get-WinstRunningAppProcess {
         找出正在运行的、属于该软件安装目录的进程。
     .DESCRIPTION
         按进程可执行文件路径是否位于安装目录之下判定（避免误伤同名但别处的程序）；
-        路径读不到时（如以管理员运行）仅在进程名与主程序一致时才作为候选。
-        `Certain` 区分「路径确认」与「仅按名字兜底」：
-          - 路径确认在安装目录下 → $true，允许不询问就结束；
-          - 只按清单进程名 / 主程序名命中 → $false，要求用户手动关闭。
+        清单声明的进程名也用于匹配。读不到路径时，还会匹配主程序名。
+        Certain 为真表示已确认可执行文件位于该软件目录下，且已取得进程启动时间。
     .OUTPUTS
         @( @{ Id; Name; Path; StartedAt; Certain } )
     #>
@@ -57,7 +55,6 @@ function Get-WinstRunningAppProcess {
         if (-not $matched -and $declaredNames.Count -gt 0) {
             if ($nameBase -and ($declaredNames -contains $nameBase.ToLowerInvariant())) {
                 $matched = $true
-                $certain = $false
             }
         }
 
@@ -70,12 +67,8 @@ function Get-WinstRunningAppProcess {
         }
 
         if (-not $matched) { continue }
-        $exists = $false
-        foreach ($item in $result) { if ([int]$item['Id'] -eq $procId) { $exists = $true; break } }
-        if (-not $exists) {
-            $startedAt = Get-EntryValue -Entry $proc -Key 'StartedAt'
-            $result += [ordered]@{ Id = $procId; Name = [string]$proc['Name']; Path = $path; StartedAt = $startedAt; Certain = ($certain -and $null -ne $startedAt) }
-        }
+        $startedAt = Get-EntryValue -Entry $proc -Key 'StartedAt'
+        $result += [ordered]@{ Id = $procId; Name = [string]$proc['Name']; Path = $path; StartedAt = $startedAt; Certain = ($certain -and $null -ne $startedAt) }
     }
     return @($result)
 }

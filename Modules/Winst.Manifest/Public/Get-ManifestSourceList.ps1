@@ -5,7 +5,7 @@ function Get-ManifestSourceList {
     .SYNOPSIS
         返回全部软件源（本地清单 + 内置源 + 用户添加的 GitHub 仓库源）。
     .OUTPUTS
-        @( @{ name; kind（local|remote）; url; files[]; isLocal; isBuiltin } )
+        @( @{ name; url; files[]; isLocal; isBuiltin } )
     .DESCRIPTION
         软件源之间**没有覆盖关系**：本地清单、内置源与用户添加的源彼此独立，
         同一 id 出现在多个源时留待下载 / 安装时由用户选择来源。
@@ -26,7 +26,6 @@ function Get-ManifestSourceList {
     if ($localFiles.Count -gt 0) {
         $sources += [ordered]@{
             name      = (Get-WinstLocalManifestName)
-            kind      = 'local'
             url       = ''
             files     = $localFiles
             isLocal   = $true
@@ -42,7 +41,6 @@ function Get-ManifestSourceList {
         if ($name -ieq $officialName) { $hasOfficial = $true }
         $sources += [ordered]@{
             name      = $name
-            kind      = 'remote'
             url       = [string]$item['url']
             files     = @()
             isLocal   = $false
@@ -53,7 +51,6 @@ function Get-ManifestSourceList {
     if (-not $hasOfficial) {
         $officialEntry = [ordered]@{
             name      = $officialName
-            kind      = 'remote'
             url       = (Get-WinstOfficialManifestUrl)
             files     = @()
             isLocal   = $false

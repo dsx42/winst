@@ -8,7 +8,7 @@ function Confirm-WinstSingleInstance {
         为什么要拦：两次 winst 同时写同一份 state.json / winst.json / sources.json 时，
         后完成者会覆盖前者（写入是「临时文件 + 替换」的整份覆盖），并发装两个软件的结果是其中一条记录丢失。
         共享 Temp 也会相互覆盖暂存文件，因此同时申请数据目录锁和 Temp 锁。
-        锁用独占句柄实现（见 Enter-WinstInstanceLock），进程被强杀不会留下永久占用。
+        如果 winst 已经在运行，再打开一次时可以查看是哪个程序正在使用它。进程结束会释放锁。
 
         自动放行的两种情况：
         - `-v` / `--version` / `-h` / `--help` / `help`：只读、不碰数据文件，

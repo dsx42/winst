@@ -7,10 +7,10 @@ function Assert-WinstDistinctIds {
     #>
     param([string[]]$Ids)
 
-    $seen = New-Object 'System.Collections.Hashtable' ([StringComparer]::OrdinalIgnoreCase)
+    $seen = New-WinstOrdinalDictionary -IgnoreCase
     foreach ($id in @($Ids)) {
         if (-not $id) { continue }
-        if ($seen.ContainsKey($id) -and [string]$seen[$id] -cne $id) {
+        if ($seen.Contains($id) -and [string]$seen[$id] -cne $id) {
             throw ('软件 id「{0}」与「{1}」仅大小写不同，不能共用 Windows 安装 / 缓存目录；请为其中一个选择不同的 id。' -f $seen[$id], $id)
         }
         $seen[$id] = $id

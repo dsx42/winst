@@ -17,8 +17,7 @@ function Show-WinstInstalledRows {
         [string]$Prompt = '请选择',
         [string]$ItemNoun = '已安装软件',
         [switch]$AllowUpdateAll,
-        # 允许一次输入多个编号（如 1 3 5）：命中 Action = 'select-multi' + Indexes（原数组下标，按输入顺序）；
-        # 不传该开关时维持旧语义——多个编号提示「只能选一个」（卸载流程的多关键字命中列表用）
+        # 卸载页允许一次选择多个编号，Indexes 按输入顺序给出原数组下标。
         [switch]$AllowMultiSelect,
         [string]$Filter = ''
     )

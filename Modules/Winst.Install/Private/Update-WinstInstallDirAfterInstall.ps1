@@ -12,7 +12,6 @@ function Update-WinstInstallDirAfterInstall {
     # 回读系统安装记录，取实际安装目录：安装器可能装在 installRoot 之外，不能用 installRoot\id 假设。
     # 部分安装器由子进程稍后写安装记录，一时读不到就短暂重试几次，别把刚装好的软件记成「没有目录」。
     $assumedDir = $InstallDir
-    $actual = @{ Dir = ''; FromRegistry = $false }
     $detect = Get-EntryValue -Entry $Plan -Key 'detect'
     $useAppx = (Get-EntryString -Entry $detect -Key 'method') -ieq 'appx'
     for ($attempt = 1; $attempt -le 3; $attempt++) {

@@ -18,14 +18,14 @@ function Invoke-ManifestList {
 
     # 同 id 冲突提示：各软件源之间没有覆盖关系，同一 id 出现在多个源时留待下载 / 安装时选择来源
     # 只统计「可用」条目——解析失败的条目本来就装不了，不构成需要用户选择的冲突
-    $idSources = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    $idSources = New-WinstOrdinalDictionary
     foreach ($source in $sources) {
         $sourceName = [string]$source['name']
         foreach ($app in @(Get-ManifestResolvedApps -PkgDir $Context.PkgDir -Name $sourceName)) {
             if (-not (Get-EntryBool -Entry $app -Key 'ok')) { continue }
             $appId = Get-EntryString -Entry $app -Key 'id'
             if (-not $appId) { continue }
-            if (-not $idSources.ContainsKey($appId)) { $idSources[$appId] = @() }
+            if (-not $idSources.Contains($appId)) { $idSources[$appId] = @() }
             $idSources[$appId] = @($idSources[$appId] + $sourceName)
         }
     }

@@ -33,7 +33,7 @@ function Resolve-WinstNormalizedAppSource {
                     $headers = Get-WinstBrowserHeaders
                     if ($result['Headers']) { $headers = $result.Headers[0] }
                     $probe = Test-WinstManifestUrlOrNote -Context $Context -Url $url -Skip (Get-EntryBool $source 'skipExistsCheck') -Headers $headers `
-                        -MissingError ('下载页给出的地址不存在（HTTP 404）：{0}' -f $url)
+                        -MissingError ('这个地址找不到文件：{0}' -f $url)
                     if (-not $probe.Ok) { $result.Ok = $false; $result.Error = $probe.Error }
                     if ($probe.Note) { $result.Notes += $probe.Note }
                 }

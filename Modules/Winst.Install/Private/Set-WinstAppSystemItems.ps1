@@ -74,7 +74,6 @@ function Set-WinstAppSystemItems {
             $currentPath = Get-WinstEnvironmentValue -Name 'Path' -Scope $scope
             if ($null -eq $currentPath) { $currentPath = '' }
             $segments = @(Get-WinstPathSegments -Value $currentPath)
-            $changed = $false
             $pendingPath = @()
             foreach ($item in $pathItems) {
                 $text = [string]$item
@@ -88,9 +87,8 @@ function Set-WinstAppSystemItems {
                 if ($text.Contains(';')) { $pathText = '"' + $text + '"' }
                 $segments += $pathText
                 $pendingPath += [ordered]@{ path = $text; scope = $scope }
-                $changed = $true
             }
-            if ($changed) {
+            if ($pendingPath.Count -gt 0) {
                 Set-WinstEnvironmentVariableEx -Name 'Path' -Value ($segments -join ';') -Scope $scope -Changes $changes
                 $appliedPath = $pendingPath
             }

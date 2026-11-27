@@ -125,27 +125,26 @@ function Resolve-ListingSource {
     }
     $skipCheck = Get-EntryBool -Entry $source -Key 'skipExistsCheck'
     $version = ''
-    $tried = @()
+    $missing = @()
     # 一次刷新内，同一地址的缺失结论不受进程缓存剩余 TTL 影响。
     $missingUrls = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
     $maxProbes = 8
 
     foreach ($candidate in $ordered) {
-        if ($tried.Count -ge $maxProbes) { break }
+        if ($missing.Count -ge $maxProbes) { break }
         $normalized = Get-NormalizedVersionString -Value $candidate
         $mainVersion = Get-SourceFileVersion -Item $declared[0] -Version $normalized
         if (-not $mainVersion.Ok) { $result.Error = $mainVersion.Error; return $result }
         $probeUrl = Expand-VersionPlaceholder -Text $mainTemplate -Version $mainVersion.Version
         Assert-WinstHttpUrl -Url $probeUrl
 
-        $tried += $normalized
         if (-not $skipCheck) {
-            if ($missingUrls.Contains($probeUrl)) { continue }
-            $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context
+            $probe = if ($missingUrls.Contains($probeUrl)) { $false } else { Test-RemoteFileExists -Uri $probeUrl -Context $Context }
             if ($null -eq $probe) {
                 $result.Notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本记录。' -f $normalized)
             } elseif (-not $probe) {
                 $null = $missingUrls.Add($probeUrl)
+                $missing += ('版本 {0} 的这个地址找不到文件：{1}' -f $normalized, $probeUrl)
                 continue
             }
         }
@@ -154,13 +153,14 @@ function Resolve-ListingSource {
     }
 
     if (-not $version) {
-        $result.Error = ('版本列表页上的版本都没有可下载的安装包（已检查: {0}）；可能是安装包命名变化，需要更新软件源' -f ($tried -join '、'))
+        $result.Error = ('{0}。可能是安装包命名变化，需要更新软件源。' -f ($missing -join '。'))
         return $result
     }
 
     $result.Version = $version
-    if ($tried.Count -gt 1) {
-        $result.Notes += ('最新的 {0} 还没有可下载的正式安装包，已改用 {1}。' -f $tried[0], $version)
+    if ($missing.Count) {
+        $result.Notes += $missing
+        $result.Notes += ('最新的 {0} 还没有可下载的正式安装包，已改用 {1}。' -f $ordered[0], $version)
     } elseif ($ordered.Count -gt 1) {
         $result.Notes += ('版本列表页共找到 {0} 个版本，已选用最新的 {1}。' -f $ordered.Count, $version)
     }

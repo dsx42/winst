@@ -85,7 +85,7 @@ function Resolve-DirectSource {
     # 主包地址由清单的版本号 + 地址模板拼出，探测一次即可发现清单里写错的版本号或模板
     $skipCheck = Get-EntryBool -Entry $source -Key 'skipExistsCheck'
     $probe = Test-WinstManifestUrlOrNote -Context $Context -Url ([string]$files[0]['url']) -Skip $skipCheck `
-        -MissingError ('软件源里的下载地址不存在（HTTP 404）: {0}；请检查版本号或地址模板是否写错' -f $files[0]['url'])
+        -MissingError ('这个地址找不到文件：{0}；请检查版本号或地址模板是否写错' -f $files[0]['url'])
     if (-not $probe.Ok) { $result.Error = [string]$probe.Error; return $result }
     if ($probe.Note) { $result.Notes += [string]$probe.Note }
 

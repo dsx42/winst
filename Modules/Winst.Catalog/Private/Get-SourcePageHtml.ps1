@@ -12,18 +12,10 @@ function Get-SourcePageHtml {
     $result = @{ Ok = $false; Session = $null; Html = ''; BaseUrl = $PageUrl; Anchors = @(); Notes = @(); Error = '' }
     try { Assert-WinstHttpUrl -Url $PageUrl -Label $Label }
     catch { $result.Error = $_.Exception.Message; return $result }
-    if (-not $PageUrl) {
-        $result.Error = ('没有填写{0}地址（source.pageUrl）' -f $Label)
-        return $result
-    }
 
     # 缺省走 IWR + 浏览器式请求头（部分站点按 UA 拒绝自动化请求）；声明 fetchWith: browser 时改用系统自带的
     # Microsoft Edge 抓取——IWR / curl 在客户端特征层面被整体拒绝的站点只能用这条路
     $fetchWith = (Get-EntryString -Entry $Source -Key 'fetchWith').Trim().ToLowerInvariant()
-    if ($fetchWith -and $fetchWith -ne 'iwr' -and $fetchWith -ne 'browser') {
-        $result.Error = ('不认识的页面抓取方式「{0}」（source.fetchWith）；可用 iwr（缺省）或 browser' -f $fetchWith)
-        return $result
-    }
 
     if ($fetchWith -eq 'browser') {
         $browserPage = Get-WinstBrowserPageHtml -Context $Context -Url $PageUrl -Sessions $Sessions

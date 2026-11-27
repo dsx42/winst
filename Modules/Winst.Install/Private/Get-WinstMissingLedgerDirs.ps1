@@ -9,7 +9,6 @@ function Get-WinstMissingLedgerDirs {
     #>
     param($State)
 
-    # repair 只写 state.json：不删环境变量、不删快捷方式等任何文件；
     # 目录缺失 / 记录异常的软件请由用户按需「重新安装 / 更新 / 卸载」处理。
     $missingDirs = @()
     $installed = $State['Installed']

@@ -17,7 +17,7 @@ function Show-WinstListPickRows {
     #>
     param(
         $Rows,
-        [hashtable]$Selected,
+        [System.Collections.IDictionary]$Selected,
         [string]$Filter,
         [string]$Title
     )

@@ -3,12 +3,10 @@
 function Get-WinstDetectedVersionCore {
     <#
     .SYNOPSIS
-        版本检测的实际实现（未做 versionRewrite 归一，见上面的 Get-WinstDetectedVersion）。
+        按 detect.method 检测版本，按清单规则改写版本号并选出最新版本。
     .DESCRIPTION
-        只做分派：每种 detect.method 一个函数（registry / fileVersion / markerFile / jsonFile / appx / cliVersion），
-        各检测方式把命中的版本写进传入的结果对象；未命中时保持 Ok = $false。
-        能命中多个版本的检测方式（registry / fileVersion / markerFile / jsonFile / appx）累积到
-        `Result.Versions`，再由 Complete-WinstDetectedVersion 挑出最新版本、其余记为旧版本。
+        registry / fileVersion / markerFile / jsonFile 会累积检测到的版本，并将其余版本记入旧版本列表。
+        appx 选择一个匹配的软件包并读取其版本。cliVersion 从命令输出中识别版本。
     .OUTPUTS
         @{ Ok; Found; Version; Versions; OldVersions; Method; Detail; Note; QuerySucceeded }
     #>

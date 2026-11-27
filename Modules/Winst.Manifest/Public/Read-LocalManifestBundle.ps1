@@ -22,7 +22,7 @@ function Read-LocalManifestBundle {
         return $result
     }
 
-    $seen = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    $seen = New-WinstOrdinalDictionary
     $entries = New-Object 'System.Collections.Generic.List[object]'
 
     foreach ($item in $files) {
@@ -49,7 +49,7 @@ function Read-LocalManifestBundle {
 
         foreach ($entry in $fileEntries) {
             $id = Get-EntryString -Entry $entry -Key 'id'
-            if ($seen.ContainsKey($id)) {
+            if ($seen.Contains($id)) {
                 $result.Notes += ('{0} 里的 "{1}" 在前面已经出现过，已按先出现的定义为准' -f $fileName, $id)
                 continue
             }

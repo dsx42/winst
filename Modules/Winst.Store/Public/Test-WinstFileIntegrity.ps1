@@ -8,7 +8,7 @@ function Test-WinstFileIntegrity {
         比对算法由**期望摘要的长度**决定（32 / 40 / 64 / 128 位十六进制 → MD5 / SHA1 / SHA256 / SHA512）——
         Maven 这类站点只提供 .sha512，写死用 sha256 计算实际摘要必然对不上。
     .OUTPUTS
-        @{ Ok; Error; Network; Algorithm; ActualHash; ExpectedHash; IndexHash;
+        @{ Ok; Error; Algorithm; ActualHash; ExpectedHash; IndexHash;
            ChecksumHashFile; ChecksumHashFrom }
         Algorithm  = 实际比对用的算法（MD5 / SHA1 / SHA256 / SHA512，供缓存索引按算法记录摘要）；
         ActualHash = 按期望算法算出的实际摘要；IndexHash = 该文件的 sha256（缓存索引统一存 sha256；期望算法就是 sha256 时与 ActualHash 相同）。
@@ -19,7 +19,7 @@ function Test-WinstFileIntegrity {
     )
 
     $result = @{
-        Ok = $true; Error = ''; Network = $false; Algorithm = ''; ActualHash = ''
+        Ok = $true; Error = ''; Algorithm = ''; ActualHash = ''
         ExpectedHash = ''; IndexHash = ''
         ChecksumHashFile = ''; ChecksumHashFrom = ''
     }

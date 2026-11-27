@@ -9,7 +9,7 @@ function Test-WinstJsonValueEqual {
 
     if ([object]::ReferenceEquals($Left, $Right)) { return $true }
     if ($null -eq $Left -or $null -eq $Right) {
-        return ($null -eq $Left -and $null -eq $Right)
+        return $false
     }
     $leftObject = ($Left -is [System.Collections.IDictionary] -or $Left -is [pscustomobject])
     $rightObject = ($Right -is [System.Collections.IDictionary] -or $Right -is [pscustomobject])

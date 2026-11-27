@@ -50,7 +50,7 @@ function Show-WinstSoftwareRows {
 
             Write-WinstCompanionVersions -Item $item
             # —— 第 2 行：安装状态 ——
-            Write-WinstInstalledStateLine -Item $item -Label '安装:   '
+            Write-WinstInstalledStateLine -Item $item
 
             # —— 第 3 行：下载状态 ——
             Write-Host '     下载:   ' -NoNewline -ForegroundColor Gray

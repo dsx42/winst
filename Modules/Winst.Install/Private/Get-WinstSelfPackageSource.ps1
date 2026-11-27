@@ -12,7 +12,7 @@
        通过下载引擎取包，并按 files[0].hashFile 声明的 .zip.sha512 校验。
 
     2. 当前运行树（脚本 + Modules + 启动器 + LICENSE；仅用于引导首次安装）
-           $script:WinstScriptPath
+       备用启动脚本的位置从状态项 WinstScriptPath 读取。
        取不到压缩包时使用：离线，或仓库还没有发布任何版本。
        更新不得回退到它，否则「更新」会静默重装同一版本。
 

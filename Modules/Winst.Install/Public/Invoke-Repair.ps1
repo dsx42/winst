@@ -6,7 +6,7 @@ function Invoke-Repair {
         「修复安装记录」：扫描本机，按已加载清单重建 / 补全安装台账。
     .DESCRIPTION
         ① 扫描 installRoot 下**全部子目录**：目录名与清单 id 匹配的按该条目 detect 识别版本；
-           清单里没有对应条目的目录也照常登记（id = 目录名，version / type 留空）；
+           清单里没有对应条目的目录也照常登记（id 为目录名，version 为 unknown，type 留空）；
         ② 扫描注册表 Uninstall 键，与 installer 类型条目匹配（名称规则取 detect.name，缺省按条目
            name 推导）——安装版软件可能装在 installRoot 之外，命中即登记，installDir 取 InstallLocation；
         ②′ 扫描系统应用包记录（detect.method = appx 的条目，如 Windows App Runtime）：安装包是 .exe
@@ -17,7 +17,7 @@ function Invoke-Repair {
            清单里有、但本机未找到的软件不登记；
         ④ 已有记录（含与记录一致的）照样展示；目录缺失的台账条目只报告，不删除记录、不动系统项；
         ⑤ 校对安装包缓存索引 pkgDir\winst.json（缺失 / 损坏时重建，不删除任何文件）；
-        修复**只写 state.json**（与必要的索引重建）：不删环境变量、不删快捷方式等任何文件；
+        修复按扫描结果校对安装台账，保留现有文件和系统设置。
         安装异常请按需「重新安装 / 更新 / 卸载」处理（卸载会按台账登记回收系统项）。
         **措辞**：修复只做「记录 ↔ 磁盘实际」的校对，因此逐条只说「与记录一致 / 更正版本 / 补全版本 /
         软件源里没有这个软件（仅按目录登记）」，不出现「无需更新」——是否需要更新由「检查更新」与

@@ -65,7 +65,7 @@ function Invoke-WinstBundleInstallRun {
 
         if ([string]$item['PinnedVersion'] -and ([bool]$item['PinMismatch'] -or [bool]$item['PinUnknown'])) {
             $note = Get-WinstListItemPinNote -Item $item
-            if ($note.Text) { Write-Host ('  提示: {0}' -f [string]$note.Text) -ForegroundColor DarkYellow }
+            Write-Host ('  提示: {0}' -f [string]$note.Text) -ForegroundColor DarkYellow
             if ($Presentation -eq 'Menu') {
                 $pinSource = [string]$item['PinSource']
                 if ($PinAutoContinue) {

@@ -101,7 +101,7 @@ function Invoke-WinstUninstallCommand {
             continue
         }
         Write-Host ('  {0}' -f $one.Message) -ForegroundColor Green
-        if ($one.NeedRestart) { Write-Host '  提示: 卸载程序提示需要重启电脑才能完成。' -ForegroundColor DarkYellow }
+        if ($one.NeedRestart) { Write-Host '  请重启电脑，完成卸载。' -ForegroundColor DarkYellow }
         foreach ($note in @($one.Notes)) { Write-Host ('  提示: {0}' -f $note) -ForegroundColor DarkYellow }
         $okCount++
     }

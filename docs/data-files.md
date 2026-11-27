@@ -28,7 +28,7 @@
 - `pkgDir` 可指向 U 盘或 NAS，安装包、源列表和清单缓存随之一同共享。
   网络共享**只支持 UNC 路径**（`\\服务器\共享名\目录`），不支持映射盘符（`Z:\...`）：映射只在当前登录会话可见，winst 以管理员身份运行时往往访问不到。
   UNC 拒绝设备命名空间、空路径段、非法字符、`.` / `..` 及共享名或子路径段的尾点、尾空格；规范化失败会报错。共享名可带 `$`。配置、环境变量与命令行中的 UNC 路径使用相同校验。
-  共享需要认证时，在「设置 → 安装包位置」里先输入 UNC 路径，再按提示单独输入账号与密码（密码不回显）。账号处回车跳过认证；填写账号后密码必填，空密码会返回账号输入。winst 调用系统凭据管理器（cmdkey）认证，**认证成功才保存路径**，账号密码本身不写进 `config.json`、也不由 winst 保存。路径里不要写账号密码。
+  共享需要认证时，在「设置 → 安装包位置」里先输入 UNC 路径，再按提示单独输入账号与密码（密码不回显）。账号处回车跳过认证；填写账号后密码必填，空密码会返回账号输入。winst 先验证账号和密码，再让 Windows 保存登录信息。确认可以打开共享文件夹后，才保存它的位置。`config.json` 只记录路径。路径里不要写账号密码。
   系统错误 `1219` 表示对应服务器已有其它凭据的 SMB 会话，需手动处理该服务器的连接；winst 不清空其它共享连接。验证后临时 `IPC$` 会话清理失败时显示残留警告，即使凭据随后保存成功也保留该警告。
 - `installRoot` 只允许本地路径，拒绝 UNC 和网络映射盘；配置、环境变量和命令行覆盖都遵循此限制，只有 `pkgDir` 可以使用 UNC 共享。更改 `installRoot` 只对此后的安装生效：已装软件留在旧位置继续可用，改完会列出旧位置里已有的软件目录。安装记录跟着安装位置存放，新位置暂时是空的。
 - 新位置没有台账时，`winst repair` 会扫描安装目录、注册表和 Appx 记录来重建，进入「已装软件」也会执行修复扫描。
@@ -44,7 +44,7 @@
 | `pruneOldPackages` | bool | `true` | 新版本下载成功后删除同 id 目录中不在本次保留列表里的旧文件 |
 | `manifestTTLHours` | int | `24` | 软件源及逐条版本信息的缓存有效期（小时）；不大于 0 时逐条信息视为总过期 |
 | `proxy` | string | 空 | 代理地址 |
-| `fluxdownApi` | string | `http://127.0.0.1:17800` | FluxDown 本机管理服务的 HTTP(S) 根地址，可使用回环 IP 或 localhost |
+| `fluxdownApi` | string | `""` | FluxDown 本机管理服务的 HTTP(S) 根地址，可使用回环 IP 或 localhost。留空时，可以沿用 FluxDown 里设置的地址。如果环境变量和 FluxDown 里都没设置地址，就使用 `http://127.0.0.1:17800`。 |
 | `fluxdownToken` | string | 空 | Windows 当前用户的 DPAPI 密文。通过设置菜单或 `winst config set fluxdownToken` 隐藏输入，查询时仅显示「已设置」或「未设置」 |
 | `proxyMode` | string | `auto` | `auto` 系统默认连接失败再试配置的代理；`always` 使用配置的代理；`off` 只用系统默认连接（可能使用系统代理/PAC）；`download-direct` 下载先用系统默认连接、失败再用配置的代理，其它请求用配置的代理。当次显式传入非空 `--proxy` 时覆盖代理地址，且 `off` 按 `always` 处理。未配置代理地址时均使用系统默认连接 |
 | `updateFilesOnly` | bool | `true` | 更新已登记软件时只替换文件，不改环境变量和 PATH；已存在的快捷方式仍会校验并修正指向错误 |
@@ -62,7 +62,7 @@ pkgDir      : --pkg-dir > WINST_PKG_DIR > 脚本同目录已存在的 apps\ > �
 installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPROFILE%\winst
 ```
 
-首次设置和后续修改都会先用待保存的配置解析生效路径，写入成功后菜单才显示新的路径和来源。配置文件中的路径值为空时使用默认路径。脚本同目录存在 `apps\` 即优先作为包目录，这正是离线套装的零配置入口；可用参数或环境变量显式覆盖。
+首次设置和后续修改都会先用待保存的配置解析生效路径，写入成功后菜单才显示新的路径和来源。手动恢复默认文件夹时，请删除对应的设置项。如果把 `pkgDir` 或 `installRoot` 写成 `""`，这次运行会对所有设置使用默认值。脚本同目录存在 `apps\` 即优先作为包目录，这正是离线套装的零配置入口；可用参数或环境变量显式覆盖。
 
 ## state.json（安装台账）
 
@@ -86,7 +86,7 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
       "appliedShortcuts": [ "C:\\Users\\me\\Desktop\\Eclipse Temurin JDK 21.lnk" ],
       "appliedFiles": [ "colors\\Alabaster.icls" ],
       "appliedFileRules": {},
-      "oldVersions": [ { "version": "21.0.4", "detail": "系统安装记录: Microsoft Windows Desktop Runtime 21.0.4 (x64)", "recordKey": "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\...\\Uninstall\\{...}" } ],
+      "oldVersions": [ { "version": "21.0.4", "detail": "系统安装记录: Eclipse Temurin JDK with Hotspot 21.0.4+7 (x64)", "recordKey": "Registry64::HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{旧版 JDK 的产品代码}" } ],
       "uninstall": {
         "method": "portable-dir",
         "removeEnv": [ "JAVA_HOME" ],
@@ -104,7 +104,7 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
 要点：
 
 - `schemaVersion` 当前为 `2`。读取时一律归一化（与 `schemaVersion` 取值无关）：字符串形式的 `appliedEnv` / `appliedPath` 转为带 `scope` 的对象，字符串项按 `User` 处理；需要保存时由后续流程落盘。高于当前版本则拒绝继续，提示升级 winst。
-- JSON 无法解析时，先备份为 `state.json.bak-<时间戳>`，再在内存中重建空台账。备份失败会返回错误并停止写入，避免覆盖唯一副本；成功备份后的重建由后续保存落盘。
+- JSON 无法解析时，先备份为 `state.json.bak-<日期和时间>-<8个随机字符>`，再在内存中重建空台账。备份失败会返回错误并停止写入，避免覆盖唯一副本；成功备份后的重建由后续保存落盘。
 - `installedAt` 是首次安装时间，`updatedAt` 是最近一次通过条目级接口写入该记录的时间。修复扫描的整份合并保存不经过该接口，不会统一重写这两个时间戳。
 - `appliedEnv` 的 `name` / `scope` 标识实际写入项；`existed` 记录接管前变量是否存在，`previous` 保存当时原始值。再次完整更新保留同名称与作用域的首次恢复信息。旧记录缺少恢复字段时不猜测原值，卸载保留该变量并提示。`appliedPath` 只登记实际写入项；`appliedShortcuts` 还可登记经台账与摘要确认的共享链接。卸载时仍有其它软件使用的环境变量 / PATH，其清理登记移交给剩余软件；环境变量的已有共享登记沿用最早已知登记的恢复值。移交通过条目级写入保存，失败时保留原软件记录。repair 新扫描的条目不根据清单推导这些登记。
 - `appliedFileVersions` 保存实际落位附件的元数据快照，包括版本、ETag、修改时间、大小、校验摘要、`compare` 和落位所用包的实测 `sha256`。附件落位成功后提交快照，失败时保留此前的记录。
@@ -118,11 +118,11 @@ installRoot : --install-root > WINST_INSTALL_ROOT > 有效 config.json > %USERPR
 
 ### 条目级写入与读缓存
 
-安装、更新、引擎和 winst 自身记录、外部登记都通过 `Save-WinstInstalledAppEntry`：重读最新台账，只覆盖目标 id，沿用已有 `installedAt`，写入当前 `updatedAt`，最后整份原子落盘。这样可避免安装流程开始时的旧快照覆盖嵌套引擎或自更新流程刚写入的记录。修复扫描和卸载删除有各自的整份合并流程。
+安装、更新、引擎和 winst 自身记录、外部登记都通过 `Save-WinstInstalledAppEntry`：重读最新台账，只覆盖目标 id，沿用已有 `installedAt`，写入当前 `updatedAt`，最后整份原子落盘。这样可避免安装流程开始时的旧快照覆盖嵌套引擎或自更新流程刚写入的记录。卸载时先读最新的安装记录，只删掉当前软件。修复时把扫描结果合并到安装记录中再保存。
 
 `Read-WinstState` 按路径和文件戳（最后写入时间、长度）缓存解析并归一化后的台账：
 
-- 命中时仍先 stat，再返回 `Copy-WinstState` 的副本；外层字典和每个条目是新建对象，条目内数组及 `uninstall` 等嵌套对象按引用共享。
+- 命中文件戳时，`Copy-WinstState` 返回新的外层字典。默认逐条复制，条目内数组及 `uninstall` 等嵌套对象按引用共享。指定 `-ForEntryReplacement` 时整个条目按引用共享。
 - 因而不是深拷贝：写台账要整条替换（`Set-WinstInstalledApp`），不能就地修改 `appliedEnv` 或 `uninstall` 的元素，否则会污染缓存。
 - `Save-WinstState` 落盘后先失效相关系统缓存，再用刚写入的内容和新文件戳刷新台账缓存，因此随后读取能看到已落盘内容；外部改动通过文件戳失效。
 
@@ -238,7 +238,6 @@ vscode==1.96.0
   "versionFromPackage": false,
   "sourceVersion": "jdk-21.0.5+11",
   "sourceVersionRewrite": [ { "pattern": "^jdk-", "replace": "" } ],
-  "remoteFresh": "unchanged",
   "ok": true,
   "error": "",
   "notes": [],
@@ -284,7 +283,7 @@ E:\winst-kit\
 ├── manifest.json             脚本同目录存在时复制
 ├── manifests\                脚本同目录存在时复制
 ├── apps\                     安装包 + winst.json + manifests\
-└── lists\                    仅本次选中的清单
+└── lists\                    本次生成的安装清单，以前打包的清单也会保留
 ```
 
 - 收包顺序与写入目标套件的 `.list` 一致。前三项依次是 `7-Zip-CLI`、`FluxDown-CLI`、`winst`。其余软件先列传递依赖，再列依赖它的软件；每个 id 只出现一次，保留清单里的固定版本与无关软件的相对顺序。

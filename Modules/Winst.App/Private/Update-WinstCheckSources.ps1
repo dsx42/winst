@@ -29,13 +29,12 @@ function Update-WinstCheckSources {
     }
     Write-WinstRefreshErrors -Errors $refresh.Errors
 
-    # 软件源刷新之后紧接着读取安装记录（与「已装软件」页同一套扫描）：
-    # 升级判断必须建立在「刷新后的软件源 + 校对过的记录」上；只写 state.json，--dry-run 下整段跳过。
-    # RefreshIds 限定已装软件：修复内部不再把仅下载条目的版本也解析一遍
-    if (-not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {
-        Write-Host '  正在读取安装记录 …' -ForegroundColor Gray
-        $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds -SourcesReady
-    }
+    $options = Get-WinstState -Name WinstOptions
+    if ($options -and $options.DryRun) { return $refresh }
+
+    # 只刷新已装软件的版本信息，并按需校对安装记录和已下载的安装包列表。
+    Write-Host '  正在读取安装记录 …' -ForegroundColor Gray
+    $null = Invoke-Repair -Context $Context -Quiet -RefreshIds $ledgerIds -SourcesReady
 
     # 修复可能新登记了之前不在台账里的软件：这些软件的版本信息若已过期则按需补刷新
     # （非 Force 按需路径：只刷过期的，全部有效时零开销、无提示）。

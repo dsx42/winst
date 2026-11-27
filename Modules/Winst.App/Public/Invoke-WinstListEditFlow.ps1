@@ -23,8 +23,6 @@ function Invoke-WinstListEditFlow {
     $kindText = (Get-WinstListKindText)
     Write-Section ('编辑' + $kindText)
 
-    if (-not (Assert-WinstContext $Context)) { return $result }
-
     $refresh = Update-WinstStaleSources -Context $Context -Quiet
     Write-WinstRefreshErrors -Errors $refresh.Errors
 

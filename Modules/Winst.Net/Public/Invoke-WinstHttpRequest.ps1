@@ -3,7 +3,7 @@
 function Invoke-WinstHttpRequest {
     <#
     .SYNOPSIS
-        HTTP GET（元数据类请求）并返回结构化结果 @{ Content; Links; FinalUri }。
+        发送 HTTP GET 或 HEAD 元数据请求并返回结构化结果 @{ Content; Links; FinalUri }。
     .DESCRIPTION
         **元数据类**请求（清单 / 版本页 / 校验文件）：按 `proxyMode` 决定尝试序列。
         这类请求不属于「下载」，`proxyMode = download-direct` 时**只用代理**、不先试直连——
@@ -49,9 +49,9 @@ function Invoke-WinstHttpRequest {
                 $headerNote = ''
                 if ($Headers -and $Headers.Count -gt 0 -and $Headers.ContainsKey('User-Agent')) { $headerNote = '（浏览器式请求头）' }
                 if ($currentProxy) {
-                    Write-Host ('  [verbose] GET {0}（代理 {1}）{2}' -f $Uri, $currentProxy, $headerNote) -ForegroundColor DarkGray
+                    Write-Host ('  [verbose] {0} {1}（代理 {2}）{3}' -f $Method.ToUpperInvariant(), $Uri, $currentProxy, $headerNote) -ForegroundColor DarkGray
                 } else {
-                    Write-Host ('  [verbose] GET {0}{1}' -f $Uri, $headerNote) -ForegroundColor DarkGray
+                    Write-Host ('  [verbose] {0} {1}{2}' -f $Method.ToUpperInvariant(), $Uri, $headerNote) -ForegroundColor DarkGray
                 }
             }
 
@@ -79,7 +79,7 @@ function Invoke-WinstHttpRequest {
                 $preview = $text
                 if ($preview.Length -gt 120) { $preview = $preview.Substring(0, 120) + '…' }
                 $preview = $preview -replace '\s+', ' '
-                Write-Host ('  [verbose] 响应 {0} 字节，锚点 {1} 个：{2}' -f $text.Length, @($links | Where-Object { $null -ne $_ }).Count, $preview) -ForegroundColor DarkGray
+                Write-Host ('  [verbose] 响应 {0} 字符，锚点 {1} 个：{2}' -f $text.Length, @($links | Where-Object { $null -ne $_ }).Count, $preview) -ForegroundColor DarkGray
             }
 
             if (-not $NoCache) { Set-WinstHttpCacheEntry -Key $cacheKey -Entry @{ Content = $text; Links = $links; FinalUri = $finalUri } }

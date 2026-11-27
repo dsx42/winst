@@ -428,23 +428,15 @@ try {
 
     Write-Host ('  合并结果   : {0} 个导出函数，{1:N0} 个 UTF-16 代码单元' -f $bundle.PublicCount, $bundle.Text.Length) -ForegroundColor Gray
 
-    # ------------------------------------------------------ manifest 版本
+    # ------------------------------------------------------ 本地测试清单
     $manifestPath = Join-Path $repo 'manifest.json'
     if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
-        $catalogVersion = ''
         try {
             $manifestText = (New-Object Text.UTF8Encoding($false, $true)).GetString([IO.File]::ReadAllBytes($manifestPath)).TrimStart([char]0xFEFF)
             if (-not $manifestText.Trim()) { throw '文件为空' }
-            $catalog = $manifestText | ConvertFrom-Json -ErrorAction Stop
-
-            if ($null -ne $catalog -and $null -ne $catalog.PSObject.Properties['_manifestVersion']) {
-                $catalogVersion = [string]$catalog._manifestVersion
-            }
+            $null = $manifestText | ConvertFrom-Json -ErrorAction Stop
         } catch {
             throw ('本地测试清单无法解析：{0}：{1}' -f $manifestPath, $_.Exception.Message)
-        }
-        if ($catalogVersion -and $catalogVersion -ne $version) {
-            Write-Host ('  提示       : manifest.json 的 _manifestVersion 是 {0}（软件源目录自己的版本，只在改清单时更新）' -f $catalogVersion) -ForegroundColor DarkYellow
         }
     }
 }

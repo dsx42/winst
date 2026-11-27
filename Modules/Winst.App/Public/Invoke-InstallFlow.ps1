@@ -17,8 +17,6 @@ function Invoke-InstallFlow {
 
     Write-Section '安装软件'
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     while ($true) {
         $keyword = Read-Host '  请输入软件名称或关键字（多个用空格分隔，如「压缩 浏览器」；直接回车结束）'
         if ($null -eq $keyword -or -not ([string]$keyword).Trim()) {

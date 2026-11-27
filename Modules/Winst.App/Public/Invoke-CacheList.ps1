@@ -16,8 +16,6 @@ function Invoke-CacheList {
 
     Write-Section '已下载的安装包'
 
-    if (-not (Assert-WinstContext $Context)) { return }
-
     $loaded = Get-WinstCachedListItems -Context $Context
     if (-not $loaded.Ok) { return }
     $items = @($loaded.Items)

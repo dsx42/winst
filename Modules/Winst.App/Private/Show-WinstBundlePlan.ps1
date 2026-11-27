@@ -13,7 +13,7 @@ function Show-WinstBundlePlan {
     if ($copyItems.Count -eq 0) {
         Write-Host ''
         Write-Host '  没有任何可复制的安装包（清单里的软件都缺包），已取消。' -ForegroundColor Red
-        Write-Host '  可先在联网机器上把安装包取到本地（「软件列表 → d 一键下载」或「已下载包 → x 下载全部更新包」），再重新制作。' -ForegroundColor DarkGray
+        Write-Host '  请先在能上网的电脑上运行 winst download <软件ID>。下载完成后，再打包。' -ForegroundColor DarkGray
         return
     }
 

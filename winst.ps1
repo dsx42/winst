@@ -74,7 +74,7 @@ function Start-WinstElevatedEntry {
     }
 }
 
-# 元数据请求 / 下载走 TLS 1.2 以上；个别受限环境不允许修改，忽略即可。
+# 尝试启用 TLS 1.2。
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 } catch {

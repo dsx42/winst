@@ -17,7 +17,7 @@ function Invoke-WinstManifestResolve {
 
     if ($OnlySet) {
         $entries = @(foreach ($entry in $entries) {
-            if ($OnlySet.ContainsKey((Get-EntryString -Entry $entry -Key 'id'))) { $entry }
+            if ($OnlySet.Contains((Get-EntryString -Entry $entry -Key 'id'))) { $entry }
         })
         if ($entries.Count -eq 0) { return @{ Apps = @(); Succeeded = 0; Failed = 0 } }
         Write-Host ('  正在按需解析 {0} 个软件的最新版本 …' -f $entries.Count) -ForegroundColor Gray

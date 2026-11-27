@@ -98,7 +98,7 @@ function Invoke-WinstUpdateEntry {
 
     # 已安装版本未知时先尝试修复安装记录：用软件源里最新解析的检测定义重新识别一次并更正台账。
     # 只有 registry / appx 才有「按系统记录确认身份」这一步，其它检测方式重跑同一套规则没有意义；
-    # 修复只写台账（--dry-run 跳过）。修复失败保留查询结果，不以旧台账证明软件仍存在。
+    # 预览模式跳过修复。修复失败保留查询结果，不以旧台账证明软件仍存在。
     $installedVersionUnknown = (-not $installedVersion -or $installedVersion -ieq 'unknown')
     if ($installedVersionUnknown -and @('registry', 'appx') -contains $probeMethod -and
         -not [bool]((Get-WinstState -Name WinstOptions) -and (Get-WinstState -Name WinstOptions).DryRun)) {

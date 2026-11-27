@@ -8,7 +8,7 @@ function Invoke-WinstUpgradeAll {
         供「已装软件」列表的 `u) 全部更新` 与「已下载包」列表的 `u) 更新已装软件` 共用：
         更新方式取「设置 → 更新方式」（默认只更新文件，这里只展示不改设置），优先使用安装时的软件源，
         该源不可用或版本不比本机新时回退到有更新版本的来源。
-        逐项详情与确认由 `Invoke-WinstUpdateTargets` 内部的安装流程负责。
+        确认一次后，按顺序更新这些软件。
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,

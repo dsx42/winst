@@ -15,7 +15,7 @@ function Merge-WinstFailedAppResults {
         return @{ Apps = $apps; Succeeded = $Succeeded; Failed = $Failed; Retained = 0 }
     }
 
-    $previous = New-Object 'System.Collections.Hashtable' ([StringComparer]::Ordinal)
+    $previous = New-WinstOrdinalDictionary
     foreach ($oldApp in @($Meta.Apps)) {
         $oldId = Get-EntryString -Entry $oldApp -Key 'id'
         if ($oldId) { $previous[$oldId] = $oldApp }
@@ -28,7 +28,7 @@ function Merge-WinstFailedAppResults {
     foreach ($app in $apps) {
         $id = Get-EntryString -Entry $app -Key 'id'
         $isOk = Get-EntryBool -Entry $app -Key 'ok'
-        if (-not $isOk -and $id -and $previous.ContainsKey($id) -and (Get-EntryBool -Entry $previous[$id] -Key 'ok')) {
+        if (-not $isOk -and $id -and $previous.Contains($id) -and (Get-EntryBool -Entry $previous[$id] -Key 'ok')) {
             $oldApp = $previous[$id]
             $reason = Get-EntryString -Entry $app -Key 'error'
             $kept = Copy-WinstObjectShallow -InputObject $oldApp

@@ -107,39 +107,33 @@ function Get-WinstCompanionFileVersion {
     # 从新到旧逐个校验最终地址（目录可能先于文件出现，与 listing 源同一口径）
     $ordered = @(Sort-VersionList -Versions $candidates)
     $skipCheck = Get-EntryBool -Entry $Source -Key 'skipExistsCheck'
-    $probed = 0
+    $missing = @()
     foreach ($candidate in $ordered) {
-        if ($probed -ge 8) { break }
+        if ($missing.Count -ge 8) { break }
         $fileVersion = Get-SourceFileVersion -Item $Item -Version $candidate
         if (-not $fileVersion.Ok) { $result.Error = $fileVersion.Error; return $result }
         $result.SourceVersion = $candidate
-        $probed++
         $probeUrl = Expand-VersionPlaceholder -Text $locator.Url -Version $fileVersion.Version
         if ($BaseUri) { $probeUrl = ([Uri]::new($BaseUri, $probeUrl)).AbsoluteUri }
         Assert-WinstHttpUrl -Url $probeUrl
-        if ($skipCheck) {
-            $result.Ok = $true
-            $result.Version = $fileVersion.Version
-            return $result
-        }
-        # FinalUriMustContain：SourceForge 这类站点对不存在的文件不回 404，而是重定向回文件根目录
-        # 返回 200 HTML——校验最终地址仍带着本候选的版本段，才能可靠地退到下一个候选
-        $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context -FinalUriMustContain $fileVersion.Version
-        if ($null -eq $probe) {
-            $result.Notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本采用。' -f $fileVersion.Version)
-            $result.Ok = $true
-            $result.Version = $fileVersion.Version
-            return $result
-        }
-        if ($probe) {
-            if ($ordered[0] -ine $fileVersion.Version) {
-                $result.Notes += ('版本列表页上最新的 {0} 还没有可用的安装包，已改用 {1}。' -f $ordered[0], $fileVersion.Version)
+        if (-not $skipCheck) {
+            # 有些站点会将不存在的文件重定向到项目首页，最终地址必须含有候选版本。
+            $probe = Test-RemoteFileExists -Uri $probeUrl -Context $Context -FinalUriMustContain $fileVersion.Version
+            if ($null -eq $probe) {
+                $result.Notes += ('未能确认 {0} 的安装包是否可以下载（服务器未回应校验请求），已按该版本采用。' -f $fileVersion.Version)
+            } elseif (-not $probe) {
+                $missing += ('版本 {0} 的这个地址找不到文件：{1}' -f $candidate, $probeUrl)
+                continue
             }
-            $result.Ok = $true
-            $result.Version = $fileVersion.Version
-            return $result
         }
+        if ($missing.Count) {
+            $result.Notes += $missing
+            $result.Notes += ('版本列表页上最新的 {0} 还没有可用的安装包，已改用 {1}。' -f $ordered[0], $fileVersion.Version)
+        }
+        $result.Ok = $true
+        $result.Version = $fileVersion.Version
+        return $result
     }
-    $result.Error = ('版本列表页 {0} 上校验过的 {1} 个候选（如 {2}）都没有可用的安装包地址；可能是附加包尚未发布，或地址模板写错' -f $listUrl, $probed, (@($ordered | Select-Object -First 3) -join '、'))
+    $result.Error = ('版本列表页 {0} 上已检查 {1} 个候选。{2}。可能是附加包尚未发布，或地址模板写错。' -f $listUrl, $missing.Count, ($missing -join '。'))
     return $result
 }

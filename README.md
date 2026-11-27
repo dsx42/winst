@@ -10,7 +10,7 @@ Windows 软件包管理器（Windows PowerShell 5.1）：下载、安装、更�
 - **软件源与数据分离**：脚本只含逻辑，软件定义全在清单里（内置源、自定义 GitHub 源、本地清单）
 - **离线优先**：取包前先查本地缓存，未命中且允许联网才下载
 - **多种下载来源**：固定直链、GitHub Releases、版本列表页、详情页、JSON 接口、XML 接口、磁力链接
-- **多种条目类型**：绿色版（解压）、安装版（静默安装）、单文件、仅下载
+- **多种条目类型**：绿色版（解压）、安装版（运行软件自带的安装程序）、单文件、仅下载
 - **识别已有安装**：检测并登记外部软件；更新和卸载的具体动作按实际计划确认，见 [CLI](docs/cli.md#uninstall)
 - **可修复的台账**：`state.json` 损坏或丢失可扫描重建；批量操作单条失败不影响其余
 
@@ -74,9 +74,8 @@ rem 卸载（id 区分大小写）；清理旧版本安装包；扫描本机并�
 winst uninstall Rufus
 winst clean
 winst repair
-rem 按安装清单批量安装；制作 U 盘离线套装
+rem 按安装清单批量安装
 winst bundle install setup.list
-winst bundle pack setup.list E:\
 rem 查看配置项；全部命令
 winst config list
 winst help
@@ -84,9 +83,17 @@ winst help
 
 全局参数（写在命令前后都行）：`--pkg-dir`、`--install-root`、`--proxy`、`--offline`、`--dry-run`、`--yes` / `-y`、`--verbose`。完整命令与选项见 [docs/cli.md](docs/cli.md)。
 
+### 制作 U 盘离线套装
+
+第一次打包时，请新建一个空文件夹存放离线安装文件。下次打包到同一位置时，原来的 `Modules` 文件夹和 `LICENSE` 文件会被替换。
+
+```bat
+winst bundle pack setup.list E:\winst-kit
+```
+
 ## 配置
 
-`winst config list` 查看，`winst config set <key> <value>` 写入 `%USERPROFILE%\.winst\config.json`：
+`winst config list` 查看当前配置。`winst config set <key> <value>` 把设置保存到当前数据文件夹里的 `config.json`。见本页的[数据位置](#数据位置)。
 
 配置项的默认值和完整说明见 [数据文件：config.json](docs/data-files.md#configjson)。代理模式支持 `auto`、`always`、`off`、`download-direct`；清除 winst 显式代理使用 `winst config reset proxy`，设置菜单也可输入 `-` 清除。
 

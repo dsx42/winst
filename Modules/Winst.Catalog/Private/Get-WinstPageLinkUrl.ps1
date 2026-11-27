@@ -17,19 +17,17 @@ function Get-WinstPageLinkUrl {
         return @{ Ok = $false; Error = [string]$page.Error; Url = ''; Html = ''; PageHash = '' }
     }
     $html = [string]$page.Html
-    $anchors = @($page.Anchors)
     if ($page.Notes.Count -gt 0) { $Result.Notes += $page.Notes }
 
     $matchedAnchors = @()
-    foreach ($anchor in $anchors) {
+    foreach ($anchor in $page.Anchors) {
         if (Test-AnchorMatches -Anchor $anchor -Spec $LinkSpec -HrefRule $HrefRule) { $matchedAnchors += $anchor }
     }
 
-    # 跟随 iframe：主页面没有任何命中时才抓取页面里声明的 iframe 页面并入后重新匹配
+    # 主页面没有任何命中时，从内嵌页面继续查找。
     if ($matchedAnchors.Count -eq 0) {
         $iframe = Get-WinstPageIframeAnchors -Context $Context -Source $Source -PageUrl $page.BaseUrl -Html $html `
-            -Anchors $anchors -LinkSpec $LinkSpec -HrefRule $HrefRule -Result $Result -Sessions $Sessions
-        $anchors = @($iframe.Anchors)
+            -LinkSpec $LinkSpec -HrefRule $HrefRule -Result $Result -Sessions $Sessions
         $html = [string]$iframe.Html
         $matchedAnchors = @($iframe.Matched)
     }

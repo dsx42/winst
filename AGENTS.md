@@ -59,7 +59,8 @@ App         Core、Ui、Version、Manifest、Store、Install、Catalog
 - 跨模块状态只走 `Get/Set/Test/Remove-WinstState`；`Initialize-WinstState` 必须先执行，新增状态项同时加到初始化里（StrictMode 2 下未初始化取成员会抛）。
 - `Set-WinstState` 返回存入值：赋值要写 `$null = Set-WinstState ...`，否则返回值漏进输出流。
 - 进程内缓存挂在状态项上，写入方负责失效：写文件走 `Write-FileAtomic`（自动清 JSON 缓存），写台账 / 索引后调对应 `Reset-*`。
-- 台账走条目级写入 `Save-WinstInstalledAppEntry`（重读 → 只覆盖这一条 → 盖章 → 原子落盘）；**不要**拿流程开始时的 `$state` 整份回写（中途可能自动装引擎 / winst）。唯一例外：`Invoke-Repair` 用 `Save-WinstRepairState` 整份写回。缓存索引同理（`Update-WinstPackageCacheIndex` 写回前重读）。
+- 新增或替换安装记录用 `Save-WinstInstalledAppEntry`，重读台账后只更新当前软件，盖章并原子落盘。**不要**把安装流程开始时的 `$state` 整份回写，以免覆盖中途自动安装引擎或 winst 的记录。
+- 卸载时，`Remove-WinstUninstallLedgerEntry` 先读最新的安装记录，只删掉当前软件再保存。修复时，`Invoke-Repair` 把扫描结果合并到安装记录中，再用 `Save-WinstRepairState` 保存。缓存索引由 `Update-WinstPackageCacheIndex` 在写回前重读。
 - `Read-WinstState` 命中缓存时返回副本，但条目内数组 / 嵌套字典按引用共享：写台账必须整条替换（`Set-WinstInstalledApp`），不要就地改 `appliedEnv` / `uninstall`。
 
 ## CLI 与验证

@@ -3,7 +3,7 @@
 function Write-WinstUnknownSubcommand {
     <#
     .SYNOPSIS
-        子命令无法识别时的统一提示（manifest / config / bundle 共用）。
+        子命令无法识别时的统一提示（config / bundle 共用）。
     .DESCRIPTION
         统一输出「空行 + 未知的子命令 + 用法」，
         具体用法仍交给各自的 help 函数或 Usage 文本。

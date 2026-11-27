@@ -45,12 +45,16 @@ function Resolve-MagnetSource {
     $index = 0
     foreach ($item in $declared) {
         $index++
-        $locator = Get-SourceFileLocator -Item $item -Kind 'magnet'
-        if ($locator.Error) { $result.Error = $locator.Error; return $result }
-        $uri = $locator.Url
-        if (-not $uri -or $uri -notmatch '^(?i)magnet:') {
-            $result.Error = ('source.files[{0}].url 必须是完整磁力链接' -f ($index - 1))
-            return $result
+        if ($index -eq 1) {
+            $uri = $primaryUrl
+        } else {
+            $locator = Get-SourceFileLocator -Item $item -Kind 'magnet'
+            if ($locator.Error) { $result.Error = $locator.Error; return $result }
+            $uri = $locator.Url
+            if (-not $uri -or $uri -notmatch '^(?i)magnet:') {
+                $result.Error = ('source.files[{0}].url 必须是完整磁力链接' -f ($index - 1))
+                return $result
+            }
         }
         if ($uri -cmatch '\{(?:version(?:Major|Minor)?|tag)\}') {
             $result.Error = ('source.files[{0}].url 的磁力链接不支持版本或 tag 占位符' -f ($index - 1))

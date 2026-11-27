@@ -97,8 +97,7 @@ function Confirm-WinstAppNotRunning {
             Write-Host ('  回车 / 其它任意输入 = 取消{0}' -f $Action) -ForegroundColor DarkGray
 
             try { $answer = [string](Read-Host '  请选择') } catch { $answer = '' }
-            $choice = ''
-            if ($null -ne $answer) { $choice = $answer.Trim().ToLowerInvariant() }
+            $choice = $answer.Trim().ToLowerInvariant()
 
             if ($choice -eq 'i' -and $allowDirectInstall) {
                 Write-Host '  继续安装，由安装程序处理进程占用。' -ForegroundColor Gray

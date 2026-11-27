@@ -9,7 +9,7 @@ function Test-WinstListItemKeyword {
     #>
     param($Item, [string]$Keyword, [string]$NameField = 'DisplayName')
 
-    if (-not $Keyword -or $null -eq $Item) { return $true }
+    if ($null -eq $Item) { return $true }
     foreach ($field in @('Id', $NameField, 'Description')) {
         try { $text = [string]$Item[$field] } catch { $text = '' }
         if ($text -and $text.IndexOf($Keyword, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }

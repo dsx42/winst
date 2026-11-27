@@ -3,9 +3,8 @@
 function Get-HtmlAnchorList {
     <#
     .SYNOPSIS
-        解析页面中的全部 <a> 锚点，返回 @{ Href; Class; Id; Text; Raw } 列表。
+        解析页面中的全部 <a> 锚点，返回 @{ Href; Class; Id; Text } 列表。
     .DESCRIPTION
-        自行解析；Raw 为锚点原始 HTML，
         供 page 源按 link（class / id / text / href）与文件名规则挑选下载链接使用。
     #>
     param([string]$Html)

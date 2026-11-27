@@ -28,8 +28,8 @@ function Resolve-GitHubManifestInput {
     if ($text -notmatch '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
         # 简写：用户名/仓库（允许尾部 .git 与斜杠）
         if ($text -match '^([^/\s]+)/([^/\s]+?)(?:\.git)?/?$') {
-            $repo = '{0}/{1}' -f $Matches[1], $Matches[2]
-            $manifestUrl = 'https://raw.githubusercontent.com/{0}/HEAD/manifest.json' -f $repo
+            $owner, $repository = $Matches[1], $Matches[2]
+            $manifestUrl = 'https://raw.githubusercontent.com/{0}/{1}/HEAD/manifest.json' -f $owner, $repository
         } else {
             $result.Error = '输入格式无法识别：请填写「用户名/仓库」，或 GitHub 仓库 / 清单的完整地址'
             return $result
@@ -58,7 +58,7 @@ function Resolve-GitHubManifestInput {
                 $result.Error = '地址里没有仓库信息：应形如 https://github.com/用户名/仓库'
                 return $result
             }
-            $repo = '{0}/{1}' -f $segments[0], ($segments[1] -replace '\.git$', '')
+            $owner, $repository = $segments[0], ($segments[1] -replace '\.git$', '')
             $ref = 'HEAD'
             $path = 'manifest.json'
             if ($segments.Count -ge 3) {
@@ -75,13 +75,13 @@ function Resolve-GitHubManifestInput {
                     }
                 }
             }
-            $manifestUrl = 'https://raw.githubusercontent.com/{0}/{1}/{2}' -f $repo, $ref, $path
+            $manifestUrl = 'https://raw.githubusercontent.com/{0}/{1}/{2}/{3}' -f $owner, $repository, $ref, $path
         } elseif ($hostName -eq 'raw.githubusercontent.com') {
             if ($segments.Count -lt 4) {
                 $result.Error = '清单地址缺少仓库或分支信息：应形如 https://raw.githubusercontent.com/用户名/仓库/分支/manifest.json'
                 return $result
             }
-            $repo = '{0}/{1}' -f $segments[0], $segments[1]
+            $owner, $repository = $segments[0], $segments[1]
             $secureUri = New-Object System.UriBuilder($uri)
             $secureUri.Scheme = 'https'
             $secureUri.Port = -1
@@ -92,20 +92,16 @@ function Resolve-GitHubManifestInput {
         }
     }
 
-    $parts = @($repo -split '/')
-    if ($parts.Count -ne 2) {
-        $result.Error = '仓库名称无法识别，请形如「用户名/仓库」'
+    if ($owner -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9-]*)$') {
+        $result.Error = ('"{0}" 不是有效的 GitHub 用户名（只能由字母、数字、短横线组成）' -f $owner)
         return $result
     }
-    if ($parts[0] -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9-]*)$') {
-        $result.Error = ('"{0}" 不是有效的 GitHub 用户名（只能由字母、数字、短横线组成）' -f $parts[0])
-        return $result
-    }
-    if ($parts[1] -notmatch '^[A-Za-z0-9._-]+$' -or @('.', '..') -contains $parts[1]) {
-        $result.Error = ('"{0}" 不是有效的仓库名（只能由字母、数字、点、下划线、短横线组成）' -f $parts[1])
+    if ($repository -notmatch '^[A-Za-z0-9._-]+$' -or @('.', '..') -contains $repository) {
+        $result.Error = ('"{0}" 不是有效的仓库名（只能由字母、数字、点、下划线、短横线组成）' -f $repository)
         return $result
     }
 
+    $repo = '{0}/{1}' -f $owner, $repository
     $result.Ok = $true
     $result.Repo = $repo
     $result.Name = $repo
