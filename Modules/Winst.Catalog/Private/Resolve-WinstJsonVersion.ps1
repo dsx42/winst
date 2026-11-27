@@ -12,8 +12,12 @@ function Resolve-WinstJsonVersion {
     $versionKey = (Get-EntryString -Entry $Source -Key 'versionKey').Trim()
     if ($versionKey) {
         $found = Get-JsonNodeValue -Node $Chosen -Key $versionKey
+        if ($found.Ok -and $found.Node -isnot [string] -and $found.Node -isnot [ValueType]) {
+            $Result.Error = ('接口 {0} 的版本字段「{1}」必须指向标量' -f $ApiUrl, $versionKey)
+            return ''
+        }
         if (-not $found.Ok -or -not $found.Text) {
-            $Result.Error = ('JSON 接口 {0} 的条目里没有版本字段「{1}」（可用字段: {2}）；可能是接口变更，需要更新软件源' -f `
+            $Result.Error = ('接口 {0} 的条目里没有版本字段「{1}」（可用字段: {2}）；可能是接口变更，需要更新软件源' -f `
                 $ApiUrl, $versionKey, (Get-JsonFieldNameText -Node $Chosen))
             return ''
         }

@@ -23,9 +23,14 @@ function New-WinstJsonResolvedFiles {
             if ($hashKey) {
                 $found = Get-JsonNodeValue -Node $Chosen -Key $hashKey
                 if (-not $found.Ok -or -not $found.Text) {
-                    return @{ Error = ('JSON 接口 {0} 的条目里没有校验字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashKey); Files = $files }
+                    return @{ Error = ('接口 {0} 的条目里没有校验字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashKey); Files = $files }
                 }
                 $hash = ([string]$found.Text).Trim()
+                if ((Get-EntryString -Entry $item -Key 'hashEncoding') -eq 'base64') {
+                    try { $bytes = [Convert]::FromBase64String($hash) }
+                    catch { throw ('接口字段「{0}」的校验值不是有效的 Base64：{1}' -f $hashKey, $ApiUrl) }
+                    $hash = [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
+                }
             }
 
             $hashFile = ''
@@ -33,7 +38,7 @@ function New-WinstJsonResolvedFiles {
             if ($hashFileKey) {
                 $found = Get-JsonNodeValue -Node $Chosen -Key $hashFileKey
                 if (-not $found.Ok -or -not $found.Text) {
-                    return @{ Error = ('JSON 接口 {0} 的条目里没有校验文件地址字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashFileKey); Files = $files }
+                    return @{ Error = ('接口 {0} 的条目里没有校验文件地址字段「{1}」；可能是接口变更，需要更新软件源' -f $ApiUrl, $hashFileKey); Files = $files }
                 }
                 $hashFile = ([string]$found.Text).Trim()
             }
@@ -42,20 +47,20 @@ function New-WinstJsonResolvedFiles {
                 foreach ($fileItem in @($FileItems)) {
                     $found = Get-JsonNodeValue -Node $fileItem -Key $MainLocator.UrlKey
                     if (-not $found.Ok -or -not $found.Text) { continue }
-                    $candidate = ([string]$found.Text).Trim()
+                    $candidate = $found.Text
                     if (-not (Test-FileRuleMatchesLink -Rule $HashFileRule -Text $candidate)) { continue }
                     if ($hashFile) {
-                        return @{ Error = 'JSON 主包的 hashFileMatch 匹配到多个校验文件'; Files = $files }
+                        return @{ Error = '主包的 hashFileMatch 匹配到多个校验文件'; Files = $files }
                     }
                     $hashUri = $null
                     if (-not [Uri]::TryCreate($candidate, [UriKind]::Absolute, [ref]$hashUri) -or
                             @('http', 'https') -notcontains $hashUri.Scheme) {
-                        return @{ Error = ('JSON 校验文件地址必须是绝对 HTTP(S) 地址：' + $candidate); Files = $files }
+                        return @{ Error = ('校验文件地址必须是绝对 HTTP(S) 地址：' + $candidate); Files = $files }
                     }
                     $hashFile = $candidate
                 }
                 if (-not $hashFile) {
-                    return @{ Error = ('JSON 主包的 hashFileMatch 没有匹配到校验文件：' + $HashFileRule.Source); Files = $files }
+                    return @{ Error = ('主包的 hashFileMatch 没有匹配到校验文件：' + $HashFileRule.Source); Files = $files }
                 }
             }
             $urlProbe = Test-WinstManifestUrlOrNote -Context $Context -Url $DownloadUrl -Skip $skipCheck `
@@ -68,10 +73,10 @@ function New-WinstJsonResolvedFiles {
             continue
         }
 
-        $locator = Get-SourceFileLocator -Item $item -Kind 'json'
+        $locator = Get-SourceFileLocator -Item $item -Kind $Source['kind']
         if ($locator.Error) { return @{ Error = [string]$locator.Error; Files = $files } }
         if (-not $locator.Url) {
-            return @{ Error = 'JSON 接口来源里除主包以外的文件要写完整地址（url）；按接口字段取地址（urlKey）只用于主包'; Files = $files }
+            return @{ Error = '接口来源里除主包以外的文件要写完整地址（url）；按接口字段取地址（urlKey）只用于主包'; Files = $files }
         }
         $fileVersion = Get-WinstCompanionFileVersion -Context $Context -Item $item -Source $Source -MainVersion $Version
         if (-not $fileVersion.Ok) { return @{ Error = [string]$fileVersion.Error; Files = $files } }

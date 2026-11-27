@@ -9,7 +9,7 @@ function Resolve-WinstPageVersion {
     #>
     param($Source, [string]$Html, [string]$DownloadUrl, [string]$VersionFrom, [string]$PageUrl, [hashtable]$Context)
 
-    if (@('header', 'json') -contains $VersionFrom) {
+    if (@('header', 'json', 'yaml') -contains $VersionFrom) {
         return @{ Error = ''; Version = (Resolve-WinstExternalVersion -Context $Context -Source $Source -VersionFrom $VersionFrom) }
     }
 

@@ -12,7 +12,7 @@ function Resolve-PageSource {
         link 还可以搭配 source.thenClick 做两跳取址：link 命中的是「中间页」地址（如 NTriver 的镜像页：
         列表页只有文件名 + SHA-256 + 镜像页链接，真正的下载地址要在镜像页上点 Download 按钮才生成），
         此时用无头浏览器打开命中地址、执行 thenClick 的点击序列取真正的下载地址（与 click 同一套机制）。
-        header / json 读取外部版本，package 等待取包。其余方式优先读页面的 versionKey，
+        header / json / yaml 读取外部版本，package 等待取包。其余方式优先读页面的 versionKey，
         或按 versionKind / versionBetween 从页面或下载地址提取版本，无规则时版本为空。
         files[] 第一条 = 主包：用于在多个候选链接里挑出要下载的文件（file 通配），并可声明校验信息；
         校验值随版本更新的站点可声明 files[0].hashFrom: "page"。取址成功后在同一会话执行已声明的

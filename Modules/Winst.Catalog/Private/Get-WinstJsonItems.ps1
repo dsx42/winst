@@ -3,15 +3,14 @@
 function Get-WinstJsonItems {
     <#
     .SYNOPSIS
-        ① 抓取 JSON 接口并取出条目集合（itemsKey 缺省时整个响应就是一个条目）。
+        ① 抓取 JSON 或 YAML 接口并取出条目集合（itemsKey 缺省时整个响应就是一个条目）。
     .OUTPUTS
         @{ Error; Items; ApiUrl }
     #>
-    param([hashtable]$Context, $Source, [string]$ApiUrl, $Follow, $FollowSelection)
+    param([hashtable]$Context, $Source, [string]$ApiUrl, $Follow, $FollowSelection, [scriptblock]$ReadResponse)
 
-    $read = Read-WinstJsonSourceResponse -Context $Context -ApiUrl $ApiUrl
-    if ($read.Error) { return @{ Error = $read.Error; Items = @() } }
-    $data = $read.Data
+    $headers = Get-WinstBrowserHeaders
+    $data = & $ReadResponse -Context $Context -ApiUrl $ApiUrl -Headers $headers
     if ($null -ne $Follow) {
         $followKey = (Get-EntryString -Entry $Follow -Key 'itemsKey').Trim()
         $container = $data
@@ -49,9 +48,7 @@ function Get-WinstJsonItems {
             return @{ Error = ('source.follow 的接口地址必须是绝对 HTTP(S) 地址：' + $nextUrl); Items = @() }
         }
         $ApiUrl = $nextUri.AbsoluteUri
-        $read = Read-WinstJsonSourceResponse -Context $Context -ApiUrl $ApiUrl
-        if ($read.Error) { return @{ Error = $read.Error; Items = @() } }
-        $data = $read.Data
+        $data = & $ReadResponse -Context $Context -ApiUrl $ApiUrl -Headers $headers
     }
 
     # ② 条目：itemsKey 取到的可能是数组，也可能是单个对象（单元素数组会被 ConvertFrom-Json 解包）
@@ -60,14 +57,14 @@ function Get-WinstJsonItems {
     if ($itemsKey) {
         $found = Get-JsonNodeValue -Node $data -Key $itemsKey
         if (-not $found.Ok) {
-            return @{ Error = ('JSON 接口 {0} 里没有找到「{1}」这个字段（顶层字段: {2}）；可能是接口变更，需要更新软件源' -f `
+            return @{ Error = ('接口 {0} 里没有找到「{1}」这个字段（顶层字段: {2}）；可能是接口变更，需要更新软件源' -f `
                         $ApiUrl, $itemsKey, (Get-JsonFieldNameText -Node $data)); Items = @() }
         }
         $container = $found.Node
     }
     $items = @($container)
     if ($items.Count -eq 0) {
-        return @{ Error = ('JSON 接口 {0} 里没有任何条目；可能是接口变更，需要更新软件源' -f $ApiUrl); Items = @() }
+        return @{ Error = ('接口 {0} 里没有任何条目；可能是接口变更，需要更新软件源' -f $ApiUrl); Items = @() }
     }
     return @{ Error = ''; Items = $items; ApiUrl = $ApiUrl }
 }

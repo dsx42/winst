@@ -10,15 +10,11 @@ function Resolve-DirectSource {
     $result = New-SourceResolveResult -Kind 'direct'
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
 
-    # 版本来源：
-    #   ① 清单 version —— 直接写死（下载地址可用 {version} 展开）；
-    #   ② source.versionFrom: "page" —— 从官网页面**实时取**（如 WebView2 的「Select Version」下拉框：
-    #      配 pageUrl + versionBetween / versionKind），地址仍是固定地址、不参与占位符展开；
-    #   ③ source.versionFrom: "package" —— 版本号等主包下载后从文件信息取（页面也取不到版本时）。
+    # 固定版本由清单给出，动态版本从独立接口、页面或下载包读取。
     $version = Get-NormalizedVersionString -Value (Get-EntryString -Entry $Entry -Key 'version')
     if (-not $version) {
         $versionFrom = (Get-EntryString -Entry $source -Key 'versionFrom').Trim().ToLowerInvariant()
-        if (@('header', 'json') -contains $versionFrom) {
+        if (@('header', 'json', 'yaml') -contains $versionFrom) {
             $version = Resolve-WinstExternalVersion -Context $Context -Source $source -VersionFrom $versionFrom
         } elseif ($versionFrom -eq 'page') {
             $pageUrl = (Get-EntryString -Entry $source -Key 'pageUrl').Trim()
@@ -37,7 +33,7 @@ function Resolve-DirectSource {
         }
     }
     if (-not $version -and -not (Test-EntryVersionFromPackage -Entry $Entry)) {
-        $result.Error = '这个软件用的是固定下载地址，但软件源里没有版本号：可填 version，或声明 source.versionFrom: "page" + source.pageUrl（从官网页面实时取版本，可配 versionBetween / versionKind），也可以声明 source.versionFrom: "package"（版本号等主包下载后从文件信息取）'
+        $result.Error = '这个软件用的是固定下载地址，但软件源里没有版本号：请填写 version，或通过 source.version.from 配置 page、header、json、yaml 或 package 取版'
         return $result
     }
     $result.Version = $version

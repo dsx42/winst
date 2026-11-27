@@ -119,6 +119,14 @@ Get-ChildItem Modules -Recurse -Filter *.ps1 | Select-String -AllMatches -Patter
     ForEach-Object { foreach ($match in $_.Matches) { $match.Groups[1].Value } } | Sort-Object -Unique
 ```
 
+## YAML 来源与解析器
+
+- 在 `Winst.Catalog` 中为 `source.kind: yaml` 保留独立的 `Resolve-YamlSource`，与 `Resolve-JsonSource`、`Resolve-XmlSource` 分别分派。各处理器负责本格式的响应读取与错误上下文。YAML 的首请求、`follow` 详情请求和 `direct` / `page` 的独立 YAML 取版均使用同一 YAML 读取逻辑。树上的字段定位、版本筛选、文件匹配和摘要校验复用既有规则。
+- 在 `Winst.Core` 用 Windows PowerShell 5.1 实现纯函数 `ConvertFrom-WinstYaml -Text`，由脚本完成解析，无需系统模块、外部程序或随包 DLL。输入是一份 YAML 文档的文本，输出为区分大小写的字典、保留项数和顺序的数组及文本标量。产品名、字段名、URL 和更新规则由软件源清单声明。
+- 以 [YAML 1.2.2](https://yaml.org/spec/1.2.2/) 为依据，首版覆盖 Antigravity App 官方更新清单所用的块映射、映射项组成的块序列（含 `- url: …` 后的同项字段）和单行无引号标量。按实际缩进判断归属，按语法识别键值分隔符与注释。保留版本尾零、URL 中的冒号和片段、Base64 末尾的填充。重复键按所在映射判定。
+- 语法错误和超出子集的写法均应停止本次解析，指出行号与原因，并区分两类错误。首版将引号标量、流式集合、多行标量、标签、锚点、别名和多文档流列为超出范围。新的真实软件源用到额外语法时，以最小样本核对规范，在同一改动中扩展解析、回归样例和 `docs/manifest.md`。
+- 用块式样本验证版本、所选文件的 URL 和摘要。安排顶层与文件项的同名摘要取不同值，验证选对层级。覆盖单项与多项序列，以及重复键和超出范围的写法。发布树冒烟样本使用已支持的语法，验证解压后可独立解析。
+
 ## 发布
 
 - `winst.zip` = `winst.ps1` + `winst.cmd` + `LICENSE` + `Modules\Winst\`（不含 `README.md`、`docs\`、`build.*`、`install.ps1`、`manifest.json`）；`build.ps1` 校验必需 / 禁止条目与「不能有单一顶层目录」。

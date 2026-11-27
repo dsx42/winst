@@ -3,7 +3,7 @@
 function Get-WinstJsonSourceSpec {
     <#
     .SYNOPSIS
-        校验 json 源的接口地址 / 版本规则 / files[] 声明，返回取数所需的规格。
+        校验 JSON / YAML 源的接口地址 / 版本规则 / files[] 声明，返回取数所需的规格。
     .OUTPUTS
         @{ Error; Source; ApiUrl; Selection; Follow; FollowSelection; Declared; MainLocator; FileRule; HashFileRule }
     #>
@@ -12,16 +12,16 @@ function Get-WinstJsonSourceSpec {
     $source = Get-EntryValue -Entry $Entry -Key 'source' -Default $null
     $apiUrl = (Get-EntryString -Entry $source -Key 'apiUrl').Trim()
     if (-not $apiUrl) {
-        return @{ Error = '软件源里没有填写 JSON 接口地址（source.apiUrl）' }
+        return @{ Error = '软件源里没有填写接口地址（source.apiUrl）' }
     }
     if ($apiUrl -match '\{(versionMajor|versionMinor|version|tag)\}') {
-        return @{ Error = ('JSON 接口地址要写固定地址（版本号由接口给出，不能用占位符）: {0}' -f $apiUrl) }
+        return @{ Error = ('接口地址要写固定地址（版本号由接口给出，不能用占位符）: {0}' -f $apiUrl) }
     }
 
     # 版本识别规则：与 page / magnet 解析器共用同一套校验
     $versionRule = Get-WinstVersionRule -Source $source
     if (-not $versionRule.Ok) { return @{ Error = [string]$versionRule.Error } }
-    $selection = Get-WinstJsonSelectionSpec -Source $source -Label 'JSON 来源'
+    $selection = Get-WinstJsonSelectionSpec -Source $source -Label '接口来源'
     if ($selection.Error) { return @{ Error = $selection.Error } }
     $follow = $source['follow']
     $followSelection = $null
@@ -55,7 +55,7 @@ function Get-WinstJsonSourceSpec {
         return @{ Error = '软件源里没有填写要下载的文件（source.files）' }
     }
     for ($i = 1; $i -lt $declared.Count; $i++) {
-        if ($declared[$i].Contains('itemsKey')) { return @{ Error = 'files[].itemsKey 只支持 JSON 主包' } }
+        if ($declared[$i].Contains('itemsKey')) { return @{ Error = 'files[].itemsKey 只支持接口来源的主包' } }
     }
     $hashFileRule = $null
     $hashFileMatch = (Get-EntryString -Entry $declared[0] -Key 'hashFileMatch').Trim()
@@ -66,7 +66,7 @@ function Get-WinstJsonSourceSpec {
         $hashFileRule = New-MatchRule -Rule $hashFileMatch -Kind '校验文件名'
         if (-not $hashFileRule.Ok) { return @{ Error = [string]$hashFileRule.Error } }
     }
-    $mainLocator = Get-SourceFileLocator -Item $declared[0] -Kind 'json'
+    $mainLocator = Get-SourceFileLocator -Item $declared[0] -Kind $source['kind']
     if ($mainLocator.Error) { return @{ Error = [string]$mainLocator.Error } }
     if (-not $mainLocator.UrlKey) {
         return @{ Error = '接口来源的主包要写出它在接口里的字段名（files[0].urlKey，如 url / downloads.windowsZip.link）' }

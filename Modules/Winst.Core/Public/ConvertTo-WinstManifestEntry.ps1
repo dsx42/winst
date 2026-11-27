@@ -34,7 +34,7 @@ function ConvertTo-WinstManifestEntry {
     $sourceStrings = @('kind', 'repo', 'releaseTag', 'url', 'pageUrl', 'apiUrl', 'baseUrl', 'itemsKey', 'itemsXPath', 'fetchWith', 'versionFrom', 'versionUrl', 'versionHeader', 'versionXPath', 'versionKind', 'versionFilter', 'sort')
     $source = Copy-WinstManifestFields -Value $copy['source'] -Label 'source' -Fields $sourceFields -Strings $sourceStrings -Booleans @('latestOnly', 'skipExistsCheck')
     $kind = (Get-EntryString -Entry $source -Key 'kind').Trim().ToLowerInvariant()
-    if (@('direct', 'github', 'listing', 'page', 'json', 'xml', 'magnet') -notcontains $kind) { throw ('未知的来源类型：' + $kind) }
+    if (@('direct', 'github', 'listing', 'page', 'json', 'yaml', 'xml', 'magnet') -notcontains $kind) { throw ('未知的来源类型：' + $kind) }
 
     if ($source.Contains('version')) {
         $versionFields = @('value', 'from', 'url', 'header', 'key', 'xpath', 'kind', 'between', 'filter', 'sort', 'rewrite', 'package')
@@ -70,11 +70,11 @@ function ConvertTo-WinstManifestEntry {
         }
     }
     $from = (Get-EntryString -Entry $source -Key 'versionFrom').Trim().ToLowerInvariant()
-    if ($from -and @('listing', 'json', 'xml', 'magnet') -contains $kind) { throw ('source.version.from 不适用于 ' + $kind + ' 来源') }
+    if ($from -and @('listing', 'json', 'yaml', 'xml', 'magnet') -contains $kind) { throw ('source.version.from 不适用于 ' + $kind + ' 来源') }
     $versionKeys = @('versionFrom', 'versionUrl', 'versionHeader', 'versionKey', 'versionXPath', 'versionKind', 'versionBetween', 'versionFilter', 'sort', 'packageVersion')
     switch ($kind) {
         'listing' { $allowedVersion = @('versionKind', 'versionFilter', 'sort') }
-        'json' { $allowedVersion = @('versionKey', 'versionKind', 'versionBetween', 'versionFilter', 'sort') }
+        { $_ -in @('json', 'yaml') } { $allowedVersion = @('versionKey', 'versionKind', 'versionBetween', 'versionFilter', 'sort') }
         'xml' { $allowedVersion = @('versionKey', 'versionXPath') }
         'magnet' { $allowedVersion = @('versionKind', 'versionBetween') }
         default {
@@ -82,16 +82,16 @@ function ConvertTo-WinstManifestEntry {
             if (-not $effectiveFrom -and $kind -eq 'github') { $effectiveFrom = 'tag' }
             if (-not $effectiveFrom -and $kind -eq 'page') { $effectiveFrom = 'url' }
             $allowedFrom = switch ($kind) {
-                'direct' { @('page', 'package', 'header', 'json') }
+                'direct' { @('page', 'package', 'header', 'json', 'yaml') }
                 'github' { @('tag', 'file', 'package', 'releaseTitle', 'releaseBody') }
-                'page' { @('url', 'page', 'package', 'header', 'json') }
+                'page' { @('url', 'page', 'package', 'header', 'json', 'yaml') }
             }
             if ($effectiveFrom -and $allowedFrom -notcontains $effectiveFrom) { throw ('source.version.from 不适用于 ' + $kind + ' 来源：' + $effectiveFrom + '；可用值：' + ($allowedFrom -join ' / ')) }
             $allowedVersion = @('versionFrom')
             switch ($effectiveFrom) {
                 'package' { $allowedVersion += 'packageVersion' }
                 'header' { $allowedVersion += @('versionUrl', 'versionHeader') }
-                'json' { $allowedVersion += @('versionUrl', 'versionKey', 'versionFilter', 'sort') }
+                { $_ -in @('json', 'yaml') } { $allowedVersion += @('versionUrl', 'versionKey', 'versionFilter', 'sort') }
                 { @('page', 'url', 'file', 'releaseTitle', 'releaseBody') -contains $_ } {
                     $allowedVersion += @('versionKind', 'versionBetween')
                     if ($kind -eq 'page') { $allowedVersion += 'versionKey' }
@@ -130,8 +130,8 @@ function ConvertTo-WinstManifestEntry {
     }
     $sourceKinds = @{
         repo = @('github'); releaseTag = @('github'); latestOnly = @('github')
-        indexUrl = @('listing'); apiUrl = @('json', 'xml'); baseUrl = @('xml')
-        itemsKey = @('json', 'xml'); itemsXPath = @('xml'); match = @('xml'); follow = @('json')
+        indexUrl = @('listing'); apiUrl = @('json', 'yaml', 'xml'); baseUrl = @('xml')
+        itemsKey = @('json', 'yaml', 'xml'); itemsXPath = @('xml'); match = @('xml'); follow = @('json', 'yaml')
         pageUrl = @('direct', 'page'); fetchWith = @('direct', 'page')
         link = @('page'); click = @('page'); thenLink = @('page'); thenClick = @('page'); hashClick = @('page')
     }
@@ -188,26 +188,30 @@ function ConvertTo-WinstManifestEntry {
         }
         if ($file.Contains('stripTopDir') -and $file['stripTopDir'] -isnot [bool] -and $file['stripTopDir'] -isnot [string]) { throw ($label + '.stripTopDir 必须是布尔值或路径字符串') }
         if ($file.Contains('match')) {
-            if (@('json', 'xml') -notcontains $kind -or ($kind -eq 'json' -and $index -ne 0)) { throw ($label + '.match 只适用于 JSON 主包或 XML 文件') }
+            if (@('json', 'yaml', 'xml') -notcontains $kind -or ($kind -ne 'xml' -and $index -ne 0)) { throw ($label + '.match 只适用于 JSON / YAML 主包或 XML 文件') }
             if ($file['match'] -isnot [System.Collections.IDictionary] -and $file['match'] -isnot [pscustomobject]) { throw ($label + '.match 必须是对象') }
             foreach ($pair in @(Get-WinstEntryPairs -Entry $file['match'])) {
                 if ($pair[1] -isnot [string]) { throw ($label + '.match.' + $pair[0] + ' 必须是字符串') }
             }
         }
         if ($file.Contains('checksum')) {
-            $checksumFields = @('value', 'header', 'key', 'xpath', 'file', 'fileKey', 'fileMatch', 'format')
+            $checksumFields = @('value', 'header', 'key', 'xpath', 'file', 'fileKey', 'fileMatch', 'format', 'encoding')
             $checksum = Copy-WinstManifestFields -Value $file['checksum'] -Label ($label + '.checksum') -Fields ($checksumFields + @('click')) -Strings $checksumFields
             $map = [ordered]@{ value = 'hash'; header = 'hashHeader'; key = 'hashKey'; xpath = 'hashXPath'
-                file = 'hashFile'; fileKey = 'hashFileKey'; fileMatch = 'hashFileMatch'; format = 'hashFrom' }
+                file = 'hashFile'; fileKey = 'hashFileKey'; fileMatch = 'hashFileMatch'; format = 'hashFrom'; encoding = 'hashEncoding' }
             foreach ($oldKey in $map.Values) {
                 if ($file.Contains($oldKey)) { throw ($label + '.checksum 不能与 ' + $oldKey + ' 同时填写') }
             }
-            $selectors = @($checksum.Keys | Where-Object { @('format', 'click') -notcontains $_ })
+            $selectors = @($checksum.Keys | Where-Object { @('format', 'encoding', 'click') -notcontains $_ })
             if (($selectors.Count -ne 1 -and $checksum['format'] -ne 'page') -or ($checksum['format'] -eq 'page' -and $selectors.Count -ne 0)) {
                 throw ($label + '.checksum 必须且只能声明一种摘要来源；页面摘要单独使用 format: page')
             }
             if ($checksum.Contains('format') -and $checksum['format'] -ne 'page' -and @('file', 'fileKey', 'fileMatch') -notcontains $selectors[0]) {
                 throw ($label + '.checksum.format 只适用于校验文件或 page')
+            }
+            if ($checksum.Contains('encoding')) {
+                if ($kind -notin @('json', 'yaml') -or $index -ne 0 -or -not $checksum.Contains('key')) { throw ($label + '.checksum.encoding 只适用于 JSON / YAML 主包的 checksum.key') }
+                if ($checksum['encoding'] -notin @('hex', 'base64')) { throw ($label + '.checksum.encoding 必须为 hex 或 base64') }
             }
             foreach ($key in $map.Keys) {
                 if ($checksum.Contains($key)) {
@@ -237,7 +241,7 @@ function ConvertTo-WinstManifestEntry {
         foreach ($key in @('hashKey', 'hashXPath', 'hashFileKey', 'hashFileMatch')) {
             if (-not $file.Contains($key)) { continue }
             $validKind = ($kind -eq 'xml' -and @('hashKey', 'hashXPath') -contains $key) -or
-                ($kind -eq 'json' -and $index -eq 0 -and $key -ne 'hashXPath')
+                ($kind -in @('json', 'yaml') -and $index -eq 0 -and $key -ne 'hashXPath')
             if (-not $validKind) { throw ($label + '.' + $key + ' 不适用于当前来源或配套文件') }
         }
         if ($file.Contains('hashHeader') -and $kind -eq 'magnet') { throw 'magnet 来源不支持 checksum.header' }

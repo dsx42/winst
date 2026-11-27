@@ -39,6 +39,7 @@ function Resolve-WinstNormalizedAppSource {
                 }
             }
             'json' { $result = Resolve-JsonSource -Context $Context -Entry $Entry }
+            'yaml' { $result = Resolve-YamlSource -Context $Context -Entry $Entry }
             'xml' { $result = Resolve-XmlSource -Context $Context -Entry $Entry }
             'magnet' { $result = Resolve-MagnetSource -Entry $Entry }
         }

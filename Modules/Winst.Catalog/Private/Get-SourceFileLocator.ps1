@@ -7,10 +7,10 @@ function Get-SourceFileLocator {
     .OUTPUTS
         @{ Url; File; UrlKey; UrlXPath; Error }
     .DESCRIPTION
-        定位方式互斥；json 源的 urlKey 可与 file 组合：
+        定位方式互斥；JSON / YAML 源的 urlKey 可与 file 组合：
           url    —— 完整地址或地址模板（支持 {version} / {versionMajor} / {versionMinor} / {tag}）；github 源上也可以只写文件名；
           file   —— 文件名匹配规则，用于文件名不能由版本推出的项目；
-          urlKey —— json / xml 源专属：接口条目里存放下载地址的字段名（如 url / downloads.windowsZip.link），
+          urlKey —— json / yaml / xml 源专属：接口条目里存放下载地址的字段名（如 url / downloads.windowsZip.link），
                     可与 file 组合——用文件名规则在多个候选条目里挑出要下载的那一个。
           urlXPath —— xml 源专属：相对于选中记录读取下载地址。
     #>
@@ -35,16 +35,16 @@ function Get-SourceFileLocator {
         $result.Error = '同一个文件不能同时填写 url（下载地址）和 file（文件名匹配规则），请二选一'
         return $result
     }
-    if ($urlKey -and @('json', 'xml') -notcontains $kindText) {
-        $result.Error = 'urlKey（接口字段）只能用在 JSON / XML 接口源（source.kind: json / xml）里；其它来源请写 url 或 file'
+    if ($urlKey -and @('json', 'yaml', 'xml') -notcontains $kindText) {
+        $result.Error = 'urlKey（接口字段）只能用在 JSON / YAML / XML 接口源里；其它来源请写 url 或 file'
         return $result
     }
     if ($kindText -eq 'xml' -and $urlKey -and $pattern) {
         $result.Error = 'XML 来源的 urlKey 不能与 file 同时配置，请用 itemsKey / match 选择文件'
         return $result
     }
-    if ($kindText -eq 'json' -and $pattern -and -not $urlKey) {
-        $result.Error = 'JSON 接口源里只写 file（文件名匹配规则）无法定位安装包，请同时写出它在接口里的字段名（urlKey）'
+    if ($kindText -in 'json', 'yaml' -and $pattern -and -not $urlKey) {
+        $result.Error = '接口源里只写 file（文件名匹配规则）无法定位安装包，请同时写出它在接口里的字段名（urlKey）'
         return $result
     }
     return $result

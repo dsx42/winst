@@ -499,6 +499,15 @@ try {
         throw ('构建树报出的版本与产品版本不一致：期望 {0}，实际 {1}' -f $version, $probeText.Trim())
     }
 
+    Import-Module -Name $bundleManifestPath -Force -DisableNameChecking -ErrorAction Stop
+    $yamlProbe = ConvertFrom-WinstYaml -Text @'
+files:
+  - version: 2.10
+'@
+    if ((Get-JsonNodeValue -Node $yamlProbe -Key 'files.0.version').Text -cne '2.10') {
+        throw '构建树无法从 YAML 单元素数组中读取完整版本号'
+    }
+
     Write-Host ('  冒烟启动   : winst.ps1 -v -> {0}' -f $probeText.Trim()) -ForegroundColor Gray
 
     # ------------------------------------------------------------ 6. 打压缩包

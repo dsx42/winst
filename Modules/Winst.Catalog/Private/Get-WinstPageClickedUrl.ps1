@@ -29,7 +29,7 @@ function Get-WinstPageClickedUrl {
     # 若另声明了 source.hashClick，同一会话在取址成功后再按该序列点控件读摘要（见 WantPageHash）。
     $hashClickSteps = @(Get-EntryArray -Entry $Source -Key 'hashClick')
     $wantPageHash = ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page') -and $hashClickSteps.Count -gt 0)
-    $wantPageHtml = ([bool]$clickVersionKey -and @('header', 'json') -notcontains $clickVersionFrom) -or ($clickVersionFrom -eq 'page') -or ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page'))
+    $wantPageHtml = ([bool]$clickVersionKey -and @('header', 'json', 'yaml') -notcontains $clickVersionFrom) -or ($clickVersionFrom -eq 'page') -or ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page'))
 
     $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $PageUrl -ClickSpecs $clickSteps -WantHtml:$wantPageHtml -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps -Sessions $Sessions
     foreach ($note in @($clicked.Notes)) { if ($note) { $Result.Notes += $note } }
