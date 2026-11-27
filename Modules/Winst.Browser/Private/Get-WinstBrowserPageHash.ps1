@@ -18,16 +18,8 @@ function Get-WinstBrowserPageHash {
         [DateTime]$Deadline
     )
 
-    if ($null -eq $Session) { return '' }
-    $steps = @()
-    foreach ($step in @($HashClickSpecs)) {
-        if ($null -ne $step) { $steps += $step }
-    }
-    if ($steps.Count -eq 0) { return '' }
-
-    foreach ($step in $steps) {
+    foreach ($step in $HashClickSpecs) {
         $stepLabel = Format-LinkSpec -Spec $step
-        $stepResult = $null
         for ($attempt = 1; $attempt -le 3; $attempt++) {
             $stepResult = Invoke-WinstBrowserClickStep -Session $Session -Spec $step
             if ($stepResult.Clicked) { break }

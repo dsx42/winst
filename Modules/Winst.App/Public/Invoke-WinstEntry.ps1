@@ -19,7 +19,7 @@ function Invoke-WinstEntry {
     $null = Set-WinstState -Name WinstOptions -Value ($parsed.Options)
 
     # 不带命令 → 交互式菜单；带命令 / 带 -h、--version 等 → 走命令行分发
-    if (-not $parsed.Command -and @($parsed.Arguments).Count -eq 0) {
+    if (-not $parsed.Command) {
         Invoke-MainMenu
         return 0
     }

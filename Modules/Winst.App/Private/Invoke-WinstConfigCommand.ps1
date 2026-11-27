@@ -36,9 +36,7 @@ function Invoke-WinstConfigCommand {
         return 1
     }
 
-    $keys = @()
-    foreach ($k in @($Context.Config.Keys)) { $keys += [string]$k }
-    $keys = @($keys | Sort-Object)
+    $keys = @($Context.Config.Keys | Sort-Object)
 
     if ($sub -ne 'list' -and -not $key) {
         Write-Host ''

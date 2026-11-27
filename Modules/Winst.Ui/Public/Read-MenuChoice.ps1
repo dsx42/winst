@@ -23,8 +23,7 @@ function Read-MenuChoice {
             return 'q'
         }
 
-        $value = ''
-        if ($null -ne $raw) { $value = ([string]$raw).Trim() }
+        $value = ([string]$raw).Trim()
 
         if (-not $value) {
             $redirected = Test-WinstInputRedirected

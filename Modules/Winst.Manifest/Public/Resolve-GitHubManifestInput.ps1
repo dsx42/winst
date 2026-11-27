@@ -14,11 +14,11 @@ function Resolve-GitHubManifestInput {
              → 原样保留其分支与路径
         其它站点或无法识别的写法一律报错（不静默猜测地址）。
     .OUTPUTS
-        @{ Ok; Name; Repo; Url; Error }
+        @{ Ok; Name; Url; Error }
     #>
     param([string]$RepoOrUrl)
 
-    $result = @{ Ok = $false; Name = ''; Repo = ''; Url = ''; Error = '' }
+    $result = @{ Ok = $false; Name = ''; Url = ''; Error = '' }
     $text = ConvertTo-WinstTrimmedInput -Value $RepoOrUrl
     if (-not $text) {
         $result.Error = '请输入 GitHub 仓库（如 owner/repo）或清单地址'
@@ -101,10 +101,8 @@ function Resolve-GitHubManifestInput {
         return $result
     }
 
-    $repo = '{0}/{1}' -f $owner, $repository
     $result.Ok = $true
-    $result.Repo = $repo
-    $result.Name = $repo
+    $result.Name = '{0}/{1}' -f $owner, $repository
     $result.Url = $manifestUrl
     return $result
 }

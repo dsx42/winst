@@ -58,17 +58,14 @@ function Get-WinstSelfPackageSource {
     $resolved = Get-WinstManifestAppPlan -Context $Context -Id $selfId -PreferSource (Get-WinstOfficialManifestName)
 
     $plan = $null
-    $sourceVersion = ''
     $sourceName = ''
 
     if ($resolved.Ok) {
         $plan = $resolved.Plan
-        $sourceVersion = Get-EntryString -Entry $plan -Key 'version'
         $sourceName = [string]$resolved.Source
     }
 
     $result.Plan = $plan
-    $result.SourceVersion = $sourceVersion
     $result.SourceName = $sourceName
 
     # ------------------------------------------------------------ ② 取包

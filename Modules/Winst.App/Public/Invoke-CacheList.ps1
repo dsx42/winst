@@ -64,7 +64,7 @@ function Invoke-CacheList {
             }
             Show-WinstCachedActionMenu -Item $item -PackageTarget $packageTarget -Recovery $recovery
 
-            $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
+            $text = Read-WinstAnswerText -Prompt '  请选择'
             if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return }
 
             $acted = Invoke-WinstCachedListAction -Context $Context -Item $item -Text $text -Recovery $recovery

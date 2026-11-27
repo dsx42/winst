@@ -16,7 +16,6 @@ function New-WinstScriptLauncher {
     #>
     param([Parameter(Mandatory = $true)][string]$ScriptPath)
 
-    $scriptFull = $ScriptPath
     try { $scriptFull = [IO.Path]::GetFullPath($ScriptPath) } catch { $scriptFull = $ScriptPath }
     $scriptName = [IO.Path]::GetFileName($scriptFull)
     $launcherPath = [IO.Path]::ChangeExtension($scriptFull, '.cmd')

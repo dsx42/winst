@@ -53,7 +53,6 @@ function Get-WinstListItems {
 
     $result.Items = @(foreach ($entry in @($read.Entries)) {
         $id = [string]$entry['Id']
-        if (-not $id) { continue }
         (New-WinstListItem -Context $Context -Id $id -PinnedVersion ([string]$entry['Version']) -Lookup $lookup)
     })
     $result.Ok = $true

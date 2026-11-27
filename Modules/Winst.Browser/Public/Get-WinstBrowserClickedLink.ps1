@@ -10,7 +10,7 @@ function Get-WinstBrowserClickedLink {
         监听浏览器上报的下载事件取得地址。取得地址后结束取址点击，下载交给 FluxDown。
         每步可以带一点容错：这一步没找到可点的元素就跳过并在 --verbose / 备注里说明——真正判定成败的是
         「最后有没有拿到下载地址」，拿不到就报明原因，并列出点击期间观察到的「像安装包」的请求地址便于排查。
-        若调用方传入 HashClickSpecs（软件源 source.hashClick）且 WantPageHash，取址成功后再按该序列点控件，
+        若调用方传入 HashClickSpecs（软件源 source.hashClick），取址成功后再按该序列点控件，
         从可见文案读唯一十六进制摘要（见 Get-WinstBrowserPageHash）。
     .OUTPUTS
         @{ Ok; DownloadUrls; Html; PageHash; Error; Notes }
@@ -20,20 +20,14 @@ function Get-WinstBrowserClickedLink {
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)]$ClickSpecs,
         [switch]$WantHtml,
-        [switch]$WantPageHash,
         $HashClickSpecs,
         [Collections.ArrayList]$Sessions
     )
 
     $result = @{ Ok = $false; DownloadUrls = @(); Html = ''; PageHash = ''; Error = ''; Notes = @() }
-    $steps = @($ClickSpecs)
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
     $overallDeadline = [DateTime]::UtcNow.AddSeconds(90)
-
-    $userAgent = ''
-    $headers = Get-WinstBrowserHeaders
-    if ($headers -and $headers['User-Agent']) { $userAgent = [string]$headers['User-Agent'] }
 
     foreach ($proxyUrl in $attempts) {
         if ([DateTime]::UtcNow -ge $overallDeadline) { $lastError = '浏览器操作已达到整体超时限制'; break }
@@ -45,7 +39,7 @@ function Get-WinstBrowserClickedLink {
                 Write-Host ('  [verbose] 用系统浏览器点击下载按钮取地址 {0}{1}' -f $Url, $note) -ForegroundColor DarkGray
             }
 
-            $session = New-WinstDevToolsSession -ProxyUrl $proxyUrl -UserAgent $userAgent -TimeoutSec 90 -Deadline $overallDeadline
+            $session = New-WinstDevToolsSession -ProxyUrl $proxyUrl -TimeoutSec 90 -Deadline $overallDeadline
             if (-not $session.Ok) { $lastError = [string]$session.Error; continue }
 
             Start-WinstDevToolsNavigation -Session $session -Url $Url
@@ -63,7 +57,7 @@ function Get-WinstBrowserClickedLink {
             }
             $firstStep = $true
 
-            foreach ($step in $steps) {
+            foreach ($step in $ClickSpecs) {
                 if ($session.Downloads.Count -gt 0) { break }
                 $stepLabel = Format-LinkSpec -Spec $step
                 $stepResult = $null
@@ -80,7 +74,6 @@ function Get-WinstBrowserClickedLink {
                     if ($stepResult.Clicked) { break }
                     # 目标可能还在渲染（点开条款弹层有动画）：等一下再找一次
                     if ($attempt -lt 3) { Wait-WinstDevToolsMessages -Session $session -Milliseconds 1500 -UntilDownload }
-                    if ($session.Downloads.Count) { break }
                 }
                 if ($session.Downloads.Count) { break }
                 if ($stepResult.Clicked) {
@@ -120,7 +113,7 @@ function Get-WinstBrowserClickedLink {
             }
 
             # hashFrom: "page" 且声明了 source.hashClick：取址成功后再按清单点控件 / 读可见摘要
-            if ($WantPageHash -and -not $result.PageHash) {
+            if ($HashClickSpecs -and -not $result.PageHash) {
                 $pageHash = Get-WinstBrowserPageHash -Session $session -HashClickSpecs $HashClickSpecs -Deadline $overallDeadline
                 if ($pageHash) { $result.PageHash = [string]$pageHash }
             }

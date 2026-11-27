@@ -88,7 +88,6 @@ function Get-WinstSelfSourceVersion {
                 }
                 if (-not $match) { continue }
 
-                $text = ''
                 $stream = $match.Open()
                 try {
                     $reader = New-Object IO.StreamReader($stream)

@@ -9,9 +9,6 @@ function Get-VersionCandidates {
     #>
     param([string]$Text, [string]$Kind)
 
-    $values = @()
     $pattern = Get-VersionKindPattern -Kind $Kind
-    if (-not $pattern) { return $values }
-    if (-not $Text) { return $values }
-    return @(Get-DistinctValues -Values @(Get-RegexCaptureValues -Text $Text -Pattern $pattern -GroupName 'v'))
+    return @(Get-DistinctValues -Values @(Get-RegexCaptureValues -Text $Text -Pattern $pattern))
 }

@@ -85,7 +85,7 @@ function Invoke-InstalledList {
             }
             Write-Host '  s) 刷新这个软件条目的软件源' -ForegroundColor White
             Write-Host '  d) 卸载    r) 重新检测版本    b) 返回    q) 退出' -ForegroundColor DarkGray
-            $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
+            $text = Read-WinstAnswerText -Prompt '  请选择'
 
             if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return }
             if (-not $canUpdate -and ($text -eq 'u' -or $text -eq 'c')) {

@@ -15,8 +15,8 @@ function Get-WinstDependencyLines {
           - 依赖不存在或没有可用计划时说明「安装时会跳过」，有效的版本待定计划仍可安装。
         间接依赖标出经由谁。`download` 类型（只下载软件包、不安装到电脑）不处理依赖，返回空列表。
     .OUTPUTS
-        @( @{ Text; Color; Id; Missing } )：一行一条（Text 不含缩进），Color 为 Write-Host 颜色名，
-        Id 为对应的依赖 id，Missing = $true 表示依赖不存在或没有可用计划
+        @( @{ Text; Color; Id } )：一行一条（Text 不含缩进），Color 为 Write-Host 颜色名，
+        Id 为对应的依赖 id。
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Context,
@@ -40,7 +40,7 @@ function Get-WinstDependencyLines {
     if ($null -eq $read) { $read = Read-WinstState -InstallRoot $Context.InstallRoot }
     if ($read.Error) {
         $label = if ($read.Reset) { '安装台账已备份重置：' } else { '安装台账不可用：' }
-        $lines.Add(@{ Text = ($label + $read.Error); Color = 'DarkYellow'; Id = ''; Missing = $false })
+        $lines.Add(@{ Text = ($label + $read.Error); Color = 'DarkYellow'; Id = '' })
         if (-not $read.Reset) { return @($lines.ToArray()) }
     }
     $state = $read.State
@@ -85,8 +85,7 @@ function Get-WinstDependencyLines {
             $color = 'Gray'
         }
 
-        $missing = (-not $depBest -or -not $depBest['Plan'])
-        if ($missing) {
+        if (-not $depBest -or -not $depBest['Plan']) {
             $status += '（依赖不可用，软件源里没有可用的安装计划，安装时会跳过）'
             $color = 'DarkYellow'
         } elseif (-not $ledger -and -not $targetVersion) {
@@ -97,11 +96,11 @@ function Get-WinstDependencyLines {
         if ([int]$one['Level'] -gt 1) {
             $levelText = ('（间接依赖，经 {0}）' -f (& $nameOf ([string]$one['Via'])))
         }
-        $lines.Add(@{ Text = ('{0} ({1})：{2}{3}' -f (& $nameOf $depId), $depId, $status, $levelText); Color = $color; Id = $depId; Missing = $missing })
+        $lines.Add(@{ Text = ('{0} ({1})：{2}{3}' -f (& $nameOf $depId), $depId, $status, $levelText); Color = $color; Id = $depId })
     }
 
     foreach ($miss in @($resolved.Missing)) {
-        $lines.Add(@{ Text = ('{0}：软件源里没有这个依赖，安装时会跳过' -f [string]$miss['Id']); Color = 'DarkYellow'; Id = [string]$miss['Id']; Missing = $true })
+        $lines.Add(@{ Text = ('{0}：软件源里没有这个依赖，安装时会跳过' -f [string]$miss['Id']); Color = 'DarkYellow'; Id = [string]$miss['Id'] })
     }
 
     return @($lines.ToArray())

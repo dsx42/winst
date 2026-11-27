@@ -27,7 +27,6 @@ function Get-WinstThenLinkUrl {
         $href = ([string]$anchor['Href']).Trim()
         if (-not $href) { continue }
         if ($href -match '^(?i)(javascript:|mailto:|#)') { continue }
-        $absolute = $href
         try { $absolute = ([Uri]::new([Uri]$transitPage.BaseUrl, $href)).AbsoluteUri } catch { $absolute = $href }
         $transitMatches += $absolute
     }

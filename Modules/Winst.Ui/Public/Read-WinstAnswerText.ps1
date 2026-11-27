@@ -7,15 +7,10 @@ function Read-WinstAnswerText {
     .OUTPUTS
         [string] 空串表示交互回车；$null 表示未取得输入。
     #>
-    param(
-        [string]$Prompt,
-        [switch]$Lower
-    )
+    param([string]$Prompt)
 
     if (Test-WinstInputRedirected) { return $null }
     try { $answer = Read-Host $Prompt } catch { return $null }
     if ($null -eq $answer) { return $null }
-    $text = ([string]$answer).Trim()
-    if ($Lower) { return $text.ToLowerInvariant() }
-    return $text
+    return ([string]$answer).Trim()
 }

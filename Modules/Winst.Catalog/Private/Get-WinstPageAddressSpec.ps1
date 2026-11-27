@@ -58,7 +58,6 @@ function Get-WinstPageAddressSpec {
     if ($null -ne $thenLinkSpec -and $null -ne $thenClickSpec) {
         return @{ Error = 'source.thenLink 与 source.thenClick 只能写一个：两者都是「进 link 找到的中间页再取地址」——thenLink 抓中间页 HTML 重新定位链接，thenClick 用无头浏览器点按钮取下载事件' }
     }
-    $thenLinkLocator = $null
     if ($null -ne $thenLinkSpec) {
         $thenLinkLocator = Get-EntryValue -Entry $thenLinkSpec -Key 'link' -Default $null
         if ($null -ne $thenLinkLocator) {
@@ -85,15 +84,14 @@ function Get-WinstPageAddressSpec {
         if ($null -eq $clickSpec -and $null -eq $thenClickSpec) {
             return @{ Error = 'source.hashClick 要和 source.click 或 source.thenClick 搭配：取址会话里按 hashClick 点控件后再读页面文案中的摘要' }
         }
-        $hashFrom = ''
-        if ($null -ne $item) { $hashFrom = (Get-EntryString -Entry $item -Key 'hashFrom').Trim() }
+        $hashFrom = (Get-EntryString -Entry $item -Key 'hashFrom').Trim()
         if ($hashFrom -ine 'page') {
             return @{ Error = 'source.hashClick 只配合 files[0].hashFrom: "page"' }
         }
     }
 
     $hrefRule = $null
-    if ($null -ne $linkSpec -and (Get-EntryString -Entry $linkSpec -Key 'href').Trim()) {
+    if ((Get-EntryString -Entry $linkSpec -Key 'href').Trim()) {
         $hrefRule = New-MatchRule -Rule (Get-EntryString -Entry $linkSpec -Key 'href') -Kind '链接地址'
         if (-not $hrefRule.Ok) { return @{ Error = [string]$hrefRule.Error } }
     }

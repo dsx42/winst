@@ -26,8 +26,7 @@ function Invoke-ManifestManager {
         $sources = @(Show-ManifestMenu -Context $Context)
 
         try { $answer = Read-Host '  请输入' } catch { $answer = $null }
-        $text = ''
-        if ($null -ne $answer) { $text = ([string]$answer).Trim() }
+        $text = ([string]$answer).Trim()
 
         # 回车与 b 同义：返回上一级（新建软件源靠输入地址，回车不等于「新建」）
         if (-not $text) { return }
@@ -58,8 +57,7 @@ function Invoke-ManifestManager {
                 $actions = Show-ManifestSourceDetail -Context $Context -Source $source
 
                 try { $sub = Read-Host '  请输入' } catch { $sub = $null }
-                $subText = ''
-                if ($null -ne $sub) { $subText = ([string]$sub).Trim() }
+                $subText = ([string]$sub).Trim()
 
                 if ((Test-WinstQuitKey -Text $subText)) { Set-WinstQuit; return }
                 if (-not $subText -or $subText -ieq 'b') { break }   # 回车 / b 回列表

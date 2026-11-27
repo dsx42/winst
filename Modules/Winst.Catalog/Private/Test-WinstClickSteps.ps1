@@ -10,8 +10,7 @@ function Test-WinstClickSteps {
     #>
     param($Steps, [string]$SpecName)
 
-    foreach ($step in @($Steps)) {
-        if ($null -eq $step) { continue }
+    foreach ($step in $Steps) {
         $condition = ''
         foreach ($key in @('class', 'id', 'text', 'href')) {
             if ((Get-EntryString -Entry $step -Key $key).Trim()) { $condition = $key; break }

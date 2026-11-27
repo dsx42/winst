@@ -20,8 +20,7 @@ function Get-JsonNodeValue {
 
     $current = $Node
     foreach ($segment in @(Get-JsonKeySegments -Key $Key)) {
-        $name = ''
-        if ($null -ne $segment) { $name = ([string]$segment).Trim() }
+        $name = $segment.Trim()
         if (-not $name) { continue }
         if ($null -eq $current) { return $result }
 

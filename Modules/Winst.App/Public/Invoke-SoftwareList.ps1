@@ -41,7 +41,7 @@ function Invoke-SoftwareList {
         }
         Show-WinstSoftwareActionMenu -Item $item -PackageTarget $packageTarget
 
-        $text = Read-WinstAnswerText -Prompt '  请选择' -Lower
+        $text = Read-WinstAnswerText -Prompt '  请选择'
         if ((Test-WinstQuitKey -Text $text)) { Set-WinstQuit; return }
 
         $acted = Invoke-WinstSoftwareListAction -Context $Context -Item $item -Text $text

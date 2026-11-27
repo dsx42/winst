@@ -61,8 +61,8 @@ function Invoke-WinstListPage {
             if ($filterText) { [int]$visibleResult.Indexes[$index] } else { [int]$index }
         })
         if ($picked.Count -eq 1) {
-            return @{ Action = 'select'; Index = $picked[0]; Filter = $page.Filter }
+            return @{ Action = 'select'; Index = $picked[0]; Filter = $filterText }
         }
-        return @{ Action = 'select-multi'; Index = -1; Indexes = @($picked); Filter = $page.Filter }
+        return @{ Action = 'select-multi'; Index = -1; Indexes = @($picked); Filter = $filterText }
     }
 }

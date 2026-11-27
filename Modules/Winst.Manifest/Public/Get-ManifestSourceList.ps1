@@ -34,31 +34,23 @@ function Get-ManifestSourceList {
     }
 
     $officialName = Get-WinstOfficialManifestName
-    $hasOfficial = $false
+    $sources += [ordered]@{
+        name      = $officialName
+        url       = (Get-WinstOfficialManifestUrl)
+        files     = @()
+        isLocal   = $false
+        isBuiltin = $true
+    }
     foreach ($item in @(Read-ManifestSources -PkgDir $Context.PkgDir)) {
         $name = [string]$item['name']
-        if (-not $name) { continue }
-        if ($name -ieq $officialName) { $hasOfficial = $true }
+        if ($name -ieq $officialName) { continue }
         $sources += [ordered]@{
             name      = $name
             url       = [string]$item['url']
             files     = @()
             isLocal   = $false
-            isBuiltin = ($name -ieq $officialName)
+            isBuiltin = $false
         }
-    }
-
-    if (-not $hasOfficial) {
-        $officialEntry = [ordered]@{
-            name      = $officialName
-            url       = (Get-WinstOfficialManifestUrl)
-            files     = @()
-            isLocal   = $false
-            isBuiltin = $true
-        }
-        $localOnly = @($sources | Where-Object { [bool]$_['isLocal'] })
-        $others = @($sources | Where-Object { -not [bool]$_['isLocal'] })
-        $sources = @($localOnly) + @($officialEntry) + @($others)
     }
 
     return @($sources)

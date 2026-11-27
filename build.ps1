@@ -118,7 +118,6 @@ function Get-SourceScriptFile {
         [string[]]$AdditionalFile
     )
 
-    $files = New-Object 'System.Collections.Generic.List[object]'
     $missingBom = New-Object 'System.Collections.Generic.List[string]'
     $badNewline = New-Object 'System.Collections.Generic.List[string]'
     $badUtf8 = New-Object 'System.Collections.Generic.List[string]'
@@ -128,7 +127,8 @@ function Get-SourceScriptFile {
             Where-Object { @('.ps1', '.psm1', '.psd1') -contains $_.Extension })
     $scriptFiles += @(Get-Item -LiteralPath $AdditionalFile -ErrorAction Stop)
 
-    foreach ($file in @($scriptFiles | Sort-Object -Property FullName)) {
+    $scriptFiles = @($scriptFiles | Sort-Object -Property FullName)
+    foreach ($file in $scriptFiles) {
 
         $bytes = [IO.File]::ReadAllBytes($file.FullName)
         $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
@@ -139,8 +139,6 @@ function Get-SourceScriptFile {
         if ($text -match "(?<!`r)`n") {
             $badNewline.Add($file.FullName)
         }
-
-        $files.Add($file)
     }
 
     if ($missingBom.Count -gt 0 -or $badNewline.Count -gt 0 -or $badUtf8.Count -gt 0) {
@@ -167,7 +165,7 @@ function Get-SourceScriptFile {
         throw ($lines -join [Environment]::NewLine)
     }
 
-    return $files
+    return $scriptFiles
 }
 
 function Get-BundleBody {

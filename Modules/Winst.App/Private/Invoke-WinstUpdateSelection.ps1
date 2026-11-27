@@ -19,7 +19,7 @@ function Invoke-WinstUpdateSelection {
 
     $pick = Read-WinstIndexSelection -Prompt '  请选择' -Count $updatableIds.Count -AllowMultiple -AllKey 'u'
     if ($pick.Action -eq 'quit') { Set-WinstQuit; return $result }
-    if ($pick.Action -eq 'back' -or $pick.Action -eq 'empty') {
+    if ($pick.Action -eq 'back') {
         # 用户已经按过一次回车表示返回：跳过菜单的「按回车键返回菜单」
         Write-Host '  已返回。' -ForegroundColor DarkGray
         $null = Set-WinstState -Name WinstSkipMenuPause -Value ($true)
@@ -55,8 +55,7 @@ function Invoke-WinstUpdateSelection {
     $custom = $false
     while ($true) {
         $answer = Read-Host '  确认更新？(Y/n；输入 c = 单独选更新方式与软件源)'
-        $confirmText = ''
-        if ($null -ne $answer) { $confirmText = ([string]$answer).Trim() }
+        $confirmText = ([string]$answer).Trim()
         if (-not $confirmText) { break }                                              # 回车 = 确认（已明确选过编号）
         if ($confirmText -ieq 'y' -or $confirmText -ieq 'yes') { break }
         if ($confirmText -ieq 'n') { Write-Host '  已取消。' -ForegroundColor DarkGray; return $result }

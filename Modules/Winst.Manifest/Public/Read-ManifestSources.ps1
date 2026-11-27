@@ -42,7 +42,7 @@ function Read-ManifestSources {
                 continue
             }
             $parsed = Resolve-GitHubManifestInput -RepoOrUrl $repo
-            if (-not $parsed.Ok -or $parsed.Repo -cne $repo) { throw ('软件源 repo 必须是有效的 owner/repo：' + $repo) }
+            if (-not $parsed.Ok -or $parsed.Name -cne $repo) { throw ('软件源 repo 必须是有效的 owner/repo：' + $repo) }
             if (-not $seen.Add($repo)) { throw ('软件源名称重复：' + $repo) }
             $result.Add([ordered]@{
                 name = $repo

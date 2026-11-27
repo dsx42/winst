@@ -17,9 +17,7 @@ function Get-WinstRewrittenVersion {
         if ($null -eq $rule) { continue }
         $pattern = Get-EntryString -Entry $rule -Key 'pattern'
         if (-not $pattern) { continue }
-        $replacement = ''
-        $replaceValue = Get-EntryValue -Entry $rule -Key 'replace' -Default ''
-        if ($null -ne $replaceValue) { $replacement = [string]$replaceValue }
+        $replacement = [string](Get-EntryValue -Entry $rule -Key 'replace' -Default '')
         try { $value = [regex]::Replace($value, $pattern, $replacement, [Text.RegularExpressions.RegexOptions]::None, [timespan]::FromSeconds(1)) }
         catch { throw ('版本改写失败或超时（{0}）：{1}' -f $pattern, $_.Exception.Message) }
     }

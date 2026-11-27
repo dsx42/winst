@@ -15,7 +15,6 @@ function Get-WinstGithubTag {
     #>
     param([hashtable]$Context, [string]$Repo, [string]$ReleaseTagPrefix)
 
-    $chosenTag = ''
     $notes = @()
 
     if (-not $ReleaseTagPrefix) {

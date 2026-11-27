@@ -27,17 +27,13 @@ function Get-WinstBrowserPageHtmlByDevTools {
 
     $result = @{ Ok = $false; Html = ''; Error = ''; Engine = '' }
 
-    $ua = ''
-    $headers = Get-WinstBrowserHeaders
-    if ($headers -and $headers['User-Agent']) { $ua = [string]$headers['User-Agent'] }
-
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
     foreach ($proxyUrl in $attempts) {
         if ([datetime]::UtcNow -ge $Deadline) { $lastError = '浏览器操作已达到整体超时限制'; break }
         $session = $null
         try {
-            $session = New-WinstDevToolsSession -ProxyUrl ([string]$proxyUrl) -UserAgent $ua -TimeoutSec 60 -Deadline $Deadline
+            $session = New-WinstDevToolsSession -ProxyUrl ([string]$proxyUrl) -TimeoutSec 60 -Deadline $Deadline
             if (-not $session.Ok) { $lastError = [string]$session.Error; continue }
             $result.Engine = [string]$session.Engine
 

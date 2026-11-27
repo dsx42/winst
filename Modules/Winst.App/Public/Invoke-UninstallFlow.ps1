@@ -23,8 +23,7 @@ function Invoke-UninstallFlow {
         Write-Host ''
         Write-Host '  输入软件名称（可只写片段，多个用空格分隔）直接卸载；卸载完一个可继续输入下一个；直接回车返回主菜单。' -ForegroundColor DarkGray
         $typed = Read-Host '  请输入软件名称'
-        $text = ''
-        if ($null -ne $typed) { $text = ([string]$typed).Trim() }
+        $text = ([string]$typed).Trim()
         if (-not $text) {
             # 直接回车 = 结束；要按列表卸载请到「已装软件」页选 d
             Write-Host '  已结束。' -ForegroundColor DarkGray

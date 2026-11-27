@@ -64,6 +64,8 @@ Get-ChildItem Modules -Recurse -File |
     }
 ```
 
+运行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-WinstYaml.ps1` 可离线验证 YAML 解析、文件选择、跟随请求、独立取版和 JSON / XML 来源。
+
 针对实际改动验证成功、失败、取消和退出码。持久化字段要验证保存后重启读取；缓存要覆盖冷/热及写入失败；路径安全用自建临时目录和链接；环境变量、凭据、安装器用桩或隔离系统，不能改真实设置。
 
 界面列宽以 Windows Terminal 中的常见中日韩全角字形及合成 emoji 为估算目标：代理对作为一个码点，组合符不另占列，常见 ZWJ 序列、肤色、旗帜和带变体选择符的 emoji 按一个两列字形估算。终端版本、字体和未合成序列可能显示不同宽度；传统控制台与其它终端的 emoji 对齐不作保证，实际渲染需在目标终端人工检查。

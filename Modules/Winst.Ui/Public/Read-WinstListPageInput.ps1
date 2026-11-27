@@ -25,15 +25,15 @@ function Read-WinstListPageInput {
         try {
             $raw = Read-Host ('  {0}' -f $Prompt)
         } catch {
-            return @{ Action = 'back'; Indexes = @(); Filter = $Filter }
+            return @{ Action = 'back' }
         }
-        $text = if ($raw) { $raw.Trim() }
-        if (-not $text -or $text -ieq 'b') { return @{ Action = 'back'; Indexes = @(); Filter = $Filter } }
-        if ((Test-WinstQuitKey -Text $text)) { return @{ Action = 'quit'; Indexes = @(); Filter = $Filter } }
+        $text = ([string]$raw).Trim()
+        if (-not $text -or $text -ieq 'b') { return @{ Action = 'back' } }
+        if ((Test-WinstQuitKey -Text $text)) { return @{ Action = 'quit' } }
         if ($ExtraKeys -and $ExtraKeys.ContainsKey($text)) {
-            return @{ Action = [string]$ExtraKeys[$text]; Indexes = @(); Filter = $Filter }
+            return @{ Action = [string]$ExtraKeys[$text] }
         }
-        if ($Filter -and $text -ieq 'f') { return @{ Action = 'filter'; Indexes = @(); Filter = '' } }
+        if ($Filter -and $text -ieq 'f') { return @{ Action = 'filter'; Filter = '' } }
 
         $resolved = Resolve-WinstSelectionText -Text $text -Count $Count
         $selection = @($resolved.Numbers)
@@ -44,13 +44,13 @@ function Read-WinstListPageInput {
             }
             $indexes = @()
             foreach ($n in $selection) { $indexes += ([int]$n - 1) }
-            return @{ Action = 'select'; Indexes = @($indexes); Filter = $Filter }
+            return @{ Action = 'select'; Indexes = $indexes }
         }
         # 越界编号不能作为过滤词；含文本的输入保留过滤语义。
         if ($resolved.OutOfRange) {
             Write-Host (Get-WinstSelectionErrorText -Resolved $resolved -Count $Count) -ForegroundColor Yellow
             continue
         }
-        return @{ Action = 'filter'; Indexes = @(); Filter = $text }
+        return @{ Action = 'filter'; Filter = $text }
     }
 }

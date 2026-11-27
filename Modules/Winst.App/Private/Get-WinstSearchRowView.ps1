@@ -7,17 +7,12 @@ function Get-WinstSearchRowView {
     #>
     param($Row, [hashtable]$State, [hashtable]$Context, $CacheIndex)
 
-    $version = ''
-    $dir = ''
     $ledger = Get-WinstInstalledApp -State $State -Id ([string]$Row['Id'])
-    if ($ledger) {
-        $version = Get-EntryString -Entry $ledger -Key 'version'
-        $dir = Get-EntryString -Entry $ledger -Key 'installDir'
-    }
+    $version = Get-EntryString -Entry $ledger -Key 'version'
     return @{
         CompanionVersionLines = @(Get-WinstCompanionVersionLines -Context $Context -Id ([string]$Row['Id']) -Row $Row -Ledger $ledger -CacheIndex $CacheIndex)
         Id = [string]$Row['Id']; DisplayName = [string]$Row['Name']; InstalledVersion = $version
-        InstalledDir = $dir; UpgradeHint = (Get-WinstUpgradeHint -Row $Row -InstalledVersion $version)
+        InstalledDir = (Get-EntryString -Entry $ledger -Key 'installDir'); UpgradeHint = (Get-WinstUpgradeHint -Row $Row -InstalledVersion $version)
         Type = (Get-WinstRowType -Row $Row); SourceText = (Get-WinstRowSourceText -Row $Row)
         Description = [string]$Row['Description']
     }

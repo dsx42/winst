@@ -26,12 +26,11 @@ function Get-WinstPageClickedUrl {
     $clickVersionKey = (Get-EntryString -Entry $Source -Key 'versionKey').Trim()
     $clickVersionFrom = (Get-EntryString -Entry $Source -Key 'versionFrom').Trim().ToLowerInvariant()
     # 版本要从页面里取、或 files[0].hashFrom: "page" 时，把点击之后的 DOM 一并带回来（就近刮取）。
-    # 若另声明了 source.hashClick，同一会话在取址成功后再按该序列点控件读摘要（见 WantPageHash）。
+    # 若另声明了 source.hashClick，同一会话在取址成功后再按该序列点控件读摘要。
     $hashClickSteps = @(Get-EntryArray -Entry $Source -Key 'hashClick')
-    $wantPageHash = ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page') -and $hashClickSteps.Count -gt 0)
-    $wantPageHtml = ([bool]$clickVersionKey -and @('header', 'json', 'yaml') -notcontains $clickVersionFrom) -or ($clickVersionFrom -eq 'page') -or ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page'))
+    $wantPageHtml = ([bool]$clickVersionKey -and @('header', 'json', 'yaml') -notcontains $clickVersionFrom) -or ($clickVersionFrom -eq 'page') -or ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page')
 
-    $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $PageUrl -ClickSpecs $clickSteps -WantHtml:$wantPageHtml -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps -Sessions $Sessions
+    $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $PageUrl -ClickSpecs $clickSteps -WantHtml:$wantPageHtml -HashClickSpecs $hashClickSteps -Sessions $Sessions
     foreach ($note in @($clicked.Notes)) { if ($note) { $Result.Notes += $note } }
     if (-not $clicked.Ok) {
         return @{ Ok = $false; Error = [string]$clicked.Error; Url = ''; Html = ''; PageHash = '' }

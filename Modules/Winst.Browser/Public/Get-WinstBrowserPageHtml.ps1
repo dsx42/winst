@@ -69,9 +69,7 @@ function Get-WinstBrowserPageHtml {
     }
     $result.Engine = Split-Path -Leaf $exe
 
-    $ua = ''
-    $headers = Get-WinstBrowserHeaders
-    if ($headers -and $headers['User-Agent']) { $ua = [string]$headers['User-Agent'] }
+    $ua = (Get-WinstBrowserHeaders)['User-Agent']
 
     $attempts = @(Get-WinstProxyAttempts -Context $Context)
     $lastError = ''
@@ -139,17 +137,13 @@ function Get-WinstBrowserPageHtml {
 
                 $result.Html = $html
                 $result.Ok = $true
-                $lastError = ''
-                break
+                return $result
             } catch {
                 $lastError = $_.Exception.Message
                 Reset-WinstBrowserProfile -Deadline $deadline
             }
         }
-        if ($result.Ok) { break }
     }
-
-    if ($result.Ok) { return $result }
 
     if (@($attempts).Count -gt 1) { $lastError = ('{0}（直连与代理均失败）' -f $lastError) }
 

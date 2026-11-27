@@ -7,7 +7,7 @@ function Get-WinstPageLinkUrl {
     .OUTPUTS
         @{ Ok; Error; Url; Html; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Item, $Result, $HrefRule, [Collections.ArrayList]$Sessions)
+    param($Context, $Source, [string]$PageUrl, $LinkSpec, $ThenClickSpec, $ThenLinkSpec, $FileRule, $Result, $HrefRule, [Collections.ArrayList]$Sessions)
 
     # 抓页面：缺省走 IWR + 浏览器式请求头（部分站点按 UA 拒绝自动化请求）；声明 fetchWith: browser 时
     # 改用系统自带的 Microsoft Edge 抓取——IWR / curl 在客户端特征层面被整体拒绝的站点只能用这条路，
@@ -41,7 +41,6 @@ function Get-WinstPageLinkUrl {
         $href = ([string]$anchor['Href']).Trim()
         if (-not $href) { continue }
         if ($href -match '^(?i)(javascript:|mailto:|#)') { continue }
-        $absolute = $href
         try { $absolute = ([Uri]::new([Uri]$page.BaseUrl, $href)).AbsoluteUri } catch { $absolute = $href }
         if (-not $sessionByUrl.Contains($absolute)) {
             $sessionByUrl[$absolute] = Get-EntryValue $anchor 'Session' -Default $page.Session
@@ -73,7 +72,7 @@ function Get-WinstPageLinkUrl {
 
     if ($null -ne $ThenClickSpec) {
         $thenClick = Get-WinstThenClickUrl -Context $Context -Source $Source -PageUrl $PageUrl -IntermediateUrl $downloadUrl `
-            -FileRule $FileRule -Item $Item -Result $Result -Sessions $Sessions
+            -FileRule $FileRule -Result $Result -Sessions $Sessions
         if (-not $thenClick.Ok) { return @{ Ok = $false; Error = [string]$thenClick.Error; Url = ''; Html = $html; PageHash = '' } }
         $downloadUrl = [string]$thenClick.Url
         $session = $thenClick.Session

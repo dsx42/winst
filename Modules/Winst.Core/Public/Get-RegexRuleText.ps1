@@ -7,8 +7,5 @@ function Get-RegexRuleText {
     #>
     param([string]$Rule)
 
-    $text = [string]$Rule
-    $idx = $text.IndexOf(':')
-    if ($idx -lt 0) { return $text }
-    return $text.Substring($idx + 1).TrimStart()
+    return $Rule.Substring($Rule.IndexOf(':') + 1).TrimStart()
 }

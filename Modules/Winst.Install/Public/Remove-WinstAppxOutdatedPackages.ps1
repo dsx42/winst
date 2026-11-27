@@ -12,11 +12,11 @@ function Remove-WinstAppxOutdatedPackages {
         低于的逐一移除；清单名称规则应明确限定系列、通道及是否包含共享组件，不能依靠内部版本号
         判断所属系列。只对卸载方式为 appx 的条目生效。
     .OUTPUTS
-        @{ Ok; Error; Removed; Failed }
+        @{ Ok; Error; Removed }
     #>
     param([hashtable]$Context, $Plan, [switch]$Quiet)
 
-    $result = @{ Ok = $true; Error = ''; Removed = @(); Failed = @() }
+    $result = @{ Ok = $true; Error = ''; Removed = @() }
     $uninstall = Get-EntryValue -Entry $Plan -Key 'uninstall' -Default $null
     if ($null -eq $uninstall) { return $result }
     if ((Get-EntryString -Entry $uninstall -Key 'method').Trim().ToLowerInvariant() -ne 'appx') { return $result }
@@ -33,6 +33,7 @@ function Remove-WinstAppxOutdatedPackages {
     if ($packages.Count -eq 0) { return $result }
     if (-not (Get-Command Remove-AppxPackage -ErrorAction SilentlyContinue)) { return $result }
 
+    $errors = @()
     foreach ($package in $packages) {
         try { $pkgVersion = [string]$package.Version } catch { $pkgVersion = '' }
         try { $cmp = Compare-WinstVersion -A $pkgVersion -B $detectedVersion } catch { $cmp = 0 }
@@ -43,7 +44,7 @@ function Remove-WinstAppxOutdatedPackages {
             Remove-AppxPackage -Package $fullName -ErrorAction Stop
             $result.Removed += $fullName
         } catch {
-            $result.Failed += [ordered]@{ PackageFullName = $fullName; Error = [string]$_.Exception.Message }
+            $errors += ('{0}（{1}）' -f $fullName, $_.Exception.Message)
         }
     }
 
@@ -51,11 +52,9 @@ function Remove-WinstAppxOutdatedPackages {
     # 会读到仍含已删包的 30 秒快照，把「已清理的旧版本」当成仍在。
     if (@($result.Removed).Count -gt 0) { Reset-WinstSystemCache }
 
-    if (@($result.Failed).Count -gt 0) {
+    if ($errors.Count -gt 0) {
         $result.Ok = $false
-        $parts = @()
-        foreach ($one in @($result.Failed)) { $parts += ('{0}（{1}）' -f $one['PackageFullName'], $one['Error']) }
-        $result.Error = ('有 {0} 个旧版本应用包没有清理成功: {1}' -f @($result.Failed).Count, ($parts -join '；'))
+        $result.Error = ('有 {0} 个旧版本应用包没有清理成功: {1}' -f $errors.Count, ($errors -join '；'))
     }
     return $result
 }

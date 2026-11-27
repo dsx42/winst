@@ -6,13 +6,12 @@ function Read-WinstIndexSelection {
         统一编号选择（单选 / 多选）：越界与非法输入都说清原因并重新提示，不静默当成取消。
     .DESCRIPTION
         编号按列表显示的顺序从 1 开始，支持 `1 3 5` / `1,3` / `1、3` 这类写法：
-        - 回车：返回 Action = 'empty'，由调用方决定后续操作。
-        - `b` / `q`：返回 Action = 'back' / 'quit'，由调用方决定返回还是退出；
+        - 回车或 `b` 返回上一层，`q` 退出。
         - -AllKey（如「u = 全部更新」的 u）：输入它时返回 Action = 'all'，语义由调用方定义；
         - 越界：`没有这个编号（可选 1 - N），请重新输入。`；非数字：`「x」不是编号，…`；
         - 单选场景给出多个编号：`这里只能选一个编号，请重新输入。`。
     .OUTPUTS
-        @{ Action = 'select' | 'empty' | 'all' | 'back' | 'quit'; Indexes = @() }   Indexes 为 0 基下标
+        @{ Action = 'select' | 'all' | 'back' | 'quit'; Indexes = @() }   Indexes 为 0 基下标
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Prompt,
@@ -25,9 +24,7 @@ function Read-WinstIndexSelection {
 
     while ($true) {
         $text = Read-WinstAnswerText -Prompt $Prompt
-        if ($null -eq $text) { return @{ Action = 'back'; Indexes = @() } }
-        if (-not $text) { return @{ Action = 'empty'; Indexes = @() } }
-        if ($text -ieq 'b') { return @{ Action = 'back'; Indexes = @() } }
+        if (-not $text -or $text -ieq 'b') { return @{ Action = 'back'; Indexes = @() } }
         if ((Test-WinstQuitKey -Text $text)) { return @{ Action = 'quit'; Indexes = @() } }
         if ($AllKey -and $text -ieq $AllKey) { return @{ Action = 'all'; Indexes = @() } }
 

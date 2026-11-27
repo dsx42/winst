@@ -13,18 +13,13 @@ function Set-WinstInstallLedger {
         [string]$Version, [string]$SourceName, $SystemItems, $AppliedFiles, $OldVersions, $AppliedFileRules,
         $AppliedFileVersions)
 
-    $existingEnv = @()
-    $existingPath = @()
-    $existingShortcuts = @()
     $shortcutHashes = @{}
     $ledger = Get-WinstInstalledApp -State (Read-WinstState -InstallRoot $Context.InstallRoot).State -Id $Id
-    if ($ledger) {
-        foreach ($item in @(Get-EntryArray -Entry $ledger -Key 'appliedEnv')) { $existingEnv += $item }
-        foreach ($item in @(Get-EntryArray -Entry $ledger -Key 'appliedPath')) { $existingPath += $item }
-        foreach ($item in @(Get-EntryArray -Entry $ledger -Key 'appliedShortcuts')) { $existingShortcuts += [string]$item }
-        foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $ledger -Key 'appliedShortcutHashes'))) {
-            $shortcutHashes[[string]$pair.Key] = [string]$pair.Value
-        }
+    $existingEnv = @(Get-EntryArray -Entry $ledger -Key 'appliedEnv')
+    $existingPath = @(Get-EntryArray -Entry $ledger -Key 'appliedPath')
+    $existingShortcuts = @(Get-EntryArray -Entry $ledger -Key 'appliedShortcuts')
+    foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $ledger -Key 'appliedShortcutHashes'))) {
+        $shortcutHashes[[string]$pair.Key] = [string]$pair.Value
     }
     foreach ($pair in @(Get-EntryKeyValuePairs -Entry (Get-EntryValue -Entry $SystemItems -Key 'ShortcutHashes'))) {
         $shortcutHashes[[string]$pair.Key] = [string]$pair.Value
@@ -43,10 +38,10 @@ function Set-WinstInstallLedger {
         }
         return $merged
     }
-    $allEnv = @(& $mergeKey (@($existingEnv) + @($SystemItems.AppliedEnv)) 'name')
-    $allPath = @(& $mergeKey (@($existingPath) + @($SystemItems.AppliedPath)) 'path')
+    $allEnv = @(& $mergeKey ($existingEnv + @($SystemItems.AppliedEnv)) 'name')
+    $allPath = @(& $mergeKey ($existingPath + @($SystemItems.AppliedPath)) 'path')
     $allShortcuts = @()
-    foreach ($item in @(@($existingShortcuts) + @($SystemItems.AppliedShortcuts))) {
+    foreach ($item in @($existingShortcuts + @($SystemItems.AppliedShortcuts))) {
         $text = [string]$item
         if ($text -and ($allShortcuts -notcontains $text)) { $allShortcuts += $text }
     }

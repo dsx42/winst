@@ -7,7 +7,7 @@ function Get-WinstThenClickUrl {
     .OUTPUTS
         @{ Ok; Error; Url; PageHash }
     #>
-    param($Context, $Source, [string]$PageUrl, [string]$IntermediateUrl, $FileRule, $Item, $Result, [Collections.ArrayList]$Sessions)
+    param($Context, $Source, [string]$PageUrl, [string]$IntermediateUrl, $FileRule, $Result, [Collections.ArrayList]$Sessions)
 
     # 两跳取址：link 命中的是「中间页」地址（如 NTriver 的镜像页：列表页上只有
     # 文件名 + SHA-256 + 镜像页链接，真正的下载地址要在镜像页上点 Download 按钮才生成）——
@@ -15,9 +15,8 @@ function Get-WinstThenClickUrl {
     #（与 click 同一套机制，见 Get-WinstBrowserClickedLink）。
     # 若 files[0].hashFrom: "page" 且声明了 source.hashClick，取址成功后再按 hashClick 读摘要。
     $hashClickSteps = @(Get-EntryArray -Entry $Source -Key 'hashClick')
-    $wantPageHash = ($null -ne $Item -and ((Get-EntryString -Entry $Item -Key 'hashFrom').Trim() -ieq 'page') -and $hashClickSteps.Count -gt 0)
     $clicked = Get-WinstBrowserClickedLink -Context $Context -Url $IntermediateUrl -ClickSpecs @(Get-EntryArray -Entry $Source -Key 'thenClick') `
-        -WantPageHash:$wantPageHash -HashClickSpecs $hashClickSteps -Sessions $Sessions
+        -HashClickSpecs $hashClickSteps -Sessions $Sessions
     foreach ($note in @($clicked.Notes)) { if ($note) { $Result.Notes += $note } }
     if (-not $clicked.Ok) {
         return @{ Ok = $false; Error = ('已在 {1} 上找到中间页地址 {0}，但打开它点按钮取下载地址失败：{2}' -f $IntermediateUrl, $PageUrl, $clicked.Error); Url = ''; PageHash = '' }

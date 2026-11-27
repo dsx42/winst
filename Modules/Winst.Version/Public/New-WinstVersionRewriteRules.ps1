@@ -39,11 +39,6 @@ function New-WinstVersionRewriteRules {
         $stripPrefixValue = Get-EntryValue -Entry $item -Key 'stripPrefix' -Default $null
         $stripSuffixValue = Get-EntryValue -Entry $item -Key 'stripSuffix' -Default $null
 
-        $stripPrefix = ''
-        if ($null -ne $stripPrefixValue) { $stripPrefix = [string]$stripPrefixValue }
-        $stripSuffix = ''
-        if ($null -ne $stripSuffixValue) { $stripSuffix = [string]$stripSuffixValue }
-
         $formCount = 0
         if ($pattern -or $null -ne $replaceValue) { $formCount++ }
         if ($templateFrom -or $null -ne $templateToValue) { $formCount++ }
@@ -56,6 +51,8 @@ function New-WinstVersionRewriteRules {
 
         # ② 只去前缀 / 后缀（按字面量去掉，不涉及正则）
         if ($null -ne $stripPrefixValue -or $null -ne $stripSuffixValue) {
+            $stripPrefix = [string]$stripPrefixValue
+            $stripSuffix = [string]$stripSuffixValue
             if (-not $stripPrefix -and -not $stripSuffix) {
                 $result.Ok = $false
                 $result.Error = 'stripPrefix / stripSuffix 不能为空（要写出去掉的固定文字，如 "jdk-"）'

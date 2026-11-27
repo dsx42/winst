@@ -54,7 +54,7 @@ function Resolve-PageSource {
         $session = $click.Session
     } else {
         $link = Get-WinstPageLinkUrl -Context $Context -Source $source -PageUrl $pageUrl -LinkSpec $spec.LinkSpec -HrefRule $spec.HrefRule `
-            -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Item $item -Result $result -Sessions $Sessions
+            -ThenClickSpec $spec.ThenClickSpec -ThenLinkSpec $spec.ThenLinkSpec -FileRule $fileRule -Result $result -Sessions $Sessions
         if (-not $link.Ok) { $result.Error = $link.Error; return $result }
         $html = [string]$link.Html
         $downloadUrl = [string]$link.Url

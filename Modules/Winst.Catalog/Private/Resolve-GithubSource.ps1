@@ -68,7 +68,6 @@ function Resolve-GithubSource {
         foreach ($fallbackTag in $fallbackTags) {
             # 每次回退都用干净的结果对象：上一条尝试的 Notes / Files 不能混进这一条
             $probe = New-SourceResolveResult -Kind 'github'
-            $probe.Repo = $repo
             $retry = Resolve-WinstGithubSourceForTag -Context $Context -Source $source -FileSpecs $fileSpecs -Repo $repo `
                 -Tag $fallbackTag -Releases $releases -Result $probe -ReleaseTagPrefix $releaseTagPrefix
             if (-not $retry.Ok) { continue }
@@ -82,9 +81,6 @@ function Resolve-GithubSource {
             $result.Files = @($retry.Files)
             return $result
         }
-        # 一条都没成：报第一次（最新发布）的错误——那才是用户预期的版本，最值得说清
-        $result.Error = $firstError
-        return $result
     }
     if (-not $attempt.Ok) {
         $result.Error = [string]$attempt.Error

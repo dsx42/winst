@@ -23,7 +23,6 @@ function New-WinstDevToolsSession {
     #>
     param(
         [string]$ProxyUrl,
-        [string]$UserAgent,
         [int]$TimeoutSec,
         [Parameter(Mandatory = $true)][datetime]$Deadline
     )
@@ -61,7 +60,8 @@ function New-WinstDevToolsSession {
 
     # 用户代理与代理地址最终拼进浏览器命令行：含双引号就能提前闭合引号、追加任意开关
     # （代理地址来自 config.json / --proxy），拼接前显式拒绝
-    foreach ($one in @($UserAgent, $ProxyUrl)) {
+    $userAgent = (Get-WinstBrowserHeaders)['User-Agent']
+    foreach ($one in @($userAgent, $ProxyUrl)) {
         if ($one -and -not (Test-WinstArgumentSafe -Value ([string]$one))) {
             $result.Error = '浏览器参数含有无法安全传给命令行的字符（双引号 / 控制字符）：请检查代理地址设置'
             return $result
@@ -81,7 +81,7 @@ function New-WinstDevToolsSession {
         '--disable-features=UserAgentClientHint'
         '--disable-blink-features=AutomationControlled'
         '--window-size=1440,900'
-        ('--user-agent=' + (Format-WinstCommandArgument -Value $UserAgent))
+        ('--user-agent=' + (Format-WinstCommandArgument -Value $userAgent))
         ('--user-data-dir=' + (Format-WinstCommandArgument -Value $profileDir))
         '--remote-debugging-port=0'
         'about:blank'

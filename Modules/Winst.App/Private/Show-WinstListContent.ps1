@@ -32,7 +32,6 @@ function Show-WinstListContent {
         }
     }
 
-    if ($null -eq $StateRead -and -not $Quiet -and $list.Count -gt 0) { $stateRead = Read-WinstState -InstallRoot $Context.InstallRoot }
     $index = 0
     foreach ($item in $list) {
         $index++

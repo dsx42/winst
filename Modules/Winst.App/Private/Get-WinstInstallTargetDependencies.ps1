@@ -36,8 +36,7 @@ function Get-WinstInstallTargetDependencies {
                     $depRow = Copy-WinstObjectShallow -InputObject $depRow
                     $depRow['Sources'] = @($depEntry)
                     $depLedger = Get-WinstInstalledApp -State $State -Id $depId
-                    $depInstalledVersion = ''
-                    if ($depLedger) { $depInstalledVersion = Get-EntryString -Entry $depLedger -Key 'version' }
+                    $depInstalledVersion = Get-EntryString -Entry $depLedger -Key 'version'
                     $depTargetVersion = [string]$depEntry['Version']
                     if ((Get-EntryBool -Entry $depEntry['Plan'] -Key 'versionFromPackage') -or
                         (Get-EntryBool -Entry $depEntry['Plan'] -Key 'versionFromCache')) { $depTargetVersion = '' }

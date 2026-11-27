@@ -27,8 +27,7 @@ function Invoke-WinstListManager {
         $files = @(Show-WinstListManagerMenu -Context $Context)
 
         try { $answer = Read-Host '  请输入' } catch { $answer = $null }
-        $text = ''
-        if ($null -ne $answer) { $text = ([string]$answer).Trim() }
+        $text = ([string]$answer).Trim()
 
         # 回车与 b 同义：返回上一级（新建清单靠输入文件名，回车不等于「新建默认清单」）
         if (-not $text) { return }
@@ -59,8 +58,7 @@ function Invoke-WinstListManager {
             Write-Host ''
             Write-Host ('  e = 编辑这份清单，d = 删除，回车 / b = 返回列表（当前: {0}）' -f $targetName) -ForegroundColor DarkGray
             $sub = Read-Host '  请输入'
-            $subText = ''
-            if ($null -ne $sub) { $subText = ([string]$sub).Trim() }
+            $subText = ([string]$sub).Trim()
 
             if ((Test-WinstQuitKey -Text $subText)) { Set-WinstQuit; return }
             if ($subText -ieq 'e') {

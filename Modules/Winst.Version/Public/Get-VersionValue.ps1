@@ -8,7 +8,6 @@ function Get-VersionValue {
     param([string]$Text, [string]$Kind)
 
     $pattern = Get-VersionKindPattern -Kind $Kind
-    if (-not $pattern) { return '' }
     $capture = Get-RegexCaptureValue -Text $Text -Pattern $pattern -GroupName 'v'
     if ($capture.Hit) { return ([string]$capture.Value).Trim() }
     return ''
